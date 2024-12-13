@@ -6,6 +6,8 @@ flatten_actions: false
 compact_obs: false
 sampling: 0.0
 
+enable_last_action: false
+
 hidden_features:
   grid_obs: [
     "agent:energy",
