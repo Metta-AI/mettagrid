@@ -35,7 +35,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self._env = self._grid_env
 
         print("here")
-        print("self._env_cfg.enable_last_action:", self._env_cfg.enable_last_action)
+        #print("self._env_cfg.enable_last_action:", self._env_cfg.enable_last_action)
         # if self._env_cfg.enable_last_action:
         #     self._env = LastActionTracker(self._env)
 
