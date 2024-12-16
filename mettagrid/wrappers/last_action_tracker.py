@@ -5,7 +5,7 @@ class LastActionTracker(gym.Wrapper):
     """
     Wrap an environment and add last_action and last_action_argument as new
     features for each agent. This might help the agents to keep track of what
-    they are doing and might help them not get stuck back and forth loops.
+    they are doing and might help them not get stuck in back and forth loops.
     """
     def __init__(self, env):
         super(LastActionTracker, self).__init__(env)
