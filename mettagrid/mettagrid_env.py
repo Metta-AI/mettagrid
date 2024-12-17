@@ -34,7 +34,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self._num_agents = self._c_env.num_agents()
         self._env = self._grid_env
 
-        if self._env_cfg.enable_last_action:
+        if self._env_cfg.last_action:
             self._env = LastActionTracker(self._env)
 
         #self._env = Kinship(**sample_config(self._cfg.kinship), env=self._env)

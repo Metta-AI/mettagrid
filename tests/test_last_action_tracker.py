@@ -6,8 +6,8 @@ import mettagrid.mettagrid_env
 @hydra.main(version_base=None, config_path="../configs", config_name="test_basic")
 def main(cfg):
     print("Basic level:")
-    print("cfg.enable_last_action", cfg)
-    cfg.enable_last_action = True
+    print("cfg.last_action", cfg)
+    cfg.last_action = True
     metta_grid_env = mettagrid.mettagrid_env.MettaGridEnv(render_mode=None, **cfg)
     print(metta_grid_env._c_env.render())
 
