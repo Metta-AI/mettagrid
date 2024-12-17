@@ -7,6 +7,7 @@ from omegaconf import OmegaConf
 from mettagrid.config.game_builder import MettaGridGameBuilder
 from mettagrid.config.sample_config import sample_config
 from mettagrid.mettagrid_c import MettaGrid # pylint: disable=E0611
+from mettagrid.wrappers.last_action_tracker import LastActionTracker
 import gymnasium as gym
 
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
@@ -31,15 +32,15 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self._c_env = MettaGrid(self._env_cfg, level)
         self._grid_env = self._c_env
         self._num_agents = self._c_env.num_agents()
+        self._env = self._grid_env
 
-        # self._grid_env = PufferGridEnv(self._c_env)
-        env = self._grid_env
+        if self._env_cfg.last_action:
+            self._env = LastActionTracker(self._env)
 
-        self._env = env
-        #self._env = LastActionTracker(self._grid_env)
         #self._env = Kinship(**sample_config(self._cfg.kinship), env=self._env)
         #self._env = RewardTracker(self._env)
         #self._env = FeatureMasker(self._env, self._cfg.hidden_features)
+
         self.done = False
 
     def reset(self, seed=None, options=None):
@@ -55,14 +56,14 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # obs, infos = self._env.reset(**kwargs)
         # self._compute_max_energy()
         # return obs, infos
-        obs, infos = self._c_env.reset()
+        obs, infos = self._env.reset()
         return obs, infos
 
     def step(self, actions):
         assert not self.done, "Episode is done"
 
         actions = np.array(actions).astype(np.int32)
-        obs, rewards, terminated, truncated, infos = self._c_env.step(actions)
+        obs, rewards, terminated, truncated, infos = self._env.step(actions)
 
         if self._cfg.normalize_rewards:
             rewards -= rewards.mean()
@@ -120,6 +121,10 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     def player_count(self):
         return self._num_agents
 
+    @property
+    def num_agents(self):
+        return self._num_agents
+
     def render(self):
         if self._renderer is None:
             return None
@@ -140,3 +145,12 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     @property
     def render_mode(self):
         return self._render_mode
+
+    def map_width(self):
+        return self._c_env.map_width()
+
+    def map_height(self):
+        return self._c_env.map_height()
+
+    def grid_objects(self):
+        return self._c_env.grid_objects()
