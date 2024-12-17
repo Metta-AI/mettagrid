@@ -108,7 +108,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
     @property
     def observation_space(self):
-        # Box(0, 255, (24, 11, 11), uint8)
         return self._env.observation_space
 
     @property
