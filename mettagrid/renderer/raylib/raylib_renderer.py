@@ -30,7 +30,7 @@ class MettaGridRaylibRenderer:
 
         self.window_width = 1280
         self.window_height = 720
-        self.num_agents = env.num_agents()
+        self.num_agents = env.num_agents
 
         self.sidebar_width = 250
         self.tile_size = 24
@@ -67,7 +67,7 @@ class MettaGridRaylibRenderer:
 
         self.game_objects = {}
         self.actions = torch.zeros((self.num_agents, 2), dtype=torch.int64)
-        self.observations = {}
+        self.observations = None # Torch tensor
         self.current_timestep = 0
         self.agents = [None for _ in range(self.num_agents)]
         self.action_history = [deque(maxlen=10) for _ in range(self.num_agents)]
@@ -224,7 +224,7 @@ class MettaGridRaylibRenderer:
         draw_object_info("Hover", self.hover_object_id, colors.GREEN)
 
         if self.selected_agent_idx is not None and self.obs_idx > -1:
-            self.obs_idx = min(self.obs_idx, len(self.observations[self.selected_agent_idx]) - 1)
+            self.obs_idx = min(self.obs_idx, len(self.env.grid_features) - 1)
             obs = self.observations[self.selected_agent_idx][self.obs_idx]
             # obs is a 11x11 grid of ints
             # draw a 11x11 grid of text on the sidebar
@@ -245,8 +245,8 @@ class MettaGridRaylibRenderer:
         feature_name = "disabled"
 
         # Clamp the observation index to be between -1 and the number of features minus 1
-        self.obs_idx = max(-1, min(self.obs_idx, len(self.env.grid_features()) - 1))
-        feature_name = self.env.grid_features()[self.obs_idx]
+        self.obs_idx = max(-1, min(self.obs_idx, len(self.env.grid_features) - 1))
+        feature_name = self.env.grid_features[self.obs_idx]
 
         obs_txt = f"Press ? for help. Obs: {feature_name} (-/=)"
         rl.DrawTextEx(self.font, obs_txt.encode(),
@@ -357,22 +357,18 @@ class MettaGridRaylibRenderer:
             if rl.IsKeyPressed(rl.KEY_W):
                 # Move Up.
                 if orientation == 0: doAction("move", 0)
-                elif orientation == 1: doAction("move", 1)
                 else: doAction("rotate", 0)
             elif rl.IsKeyPressed(rl.KEY_S):
                 # Move Down.
                 if orientation == 1: doAction("move", 0)
-                elif orientation == 0: doAction("move", 1)
                 else: doAction("rotate", 1)
             elif rl.IsKeyPressed(rl.KEY_A):
                 # Move left.
                 if orientation == 2: doAction("move", 0)
-                elif orientation == 3: doAction("move", 1)
                 else: doAction("rotate", 2)
             elif rl.IsKeyPressed(rl.KEY_D):
                 # Move right.
                 if orientation == 3: doAction("move", 0)
-                elif orientation == 2: doAction("move", 1)
                 else: doAction("rotate", 3)
 
             if rl.IsKeyPressed(rl.KEY_GRAVE):
@@ -437,7 +433,7 @@ class MettaGridRaylibRenderer:
         self.action_names = self.env.action_names()
 
         self.key_actions = {
-            # # move
+            # move
             rl.KEY_E: (self.action_ids["move"], 0),
             rl.KEY_Q: (self.action_ids["move"], 1),
             # use

@@ -34,10 +34,8 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self._num_agents = self._c_env.num_agents()
         self._env = self._grid_env
 
-        print("here")
-        #print("self._env_cfg.enable_last_action:", self._env_cfg.enable_last_action)
-        # if self._env_cfg.enable_last_action:
-        #     self._env = LastActionTracker(self._env)
+        if self._env_cfg.enable_last_action:
+            self._env = LastActionTracker(self._env)
 
         #self._env = Kinship(**sample_config(self._cfg.kinship), env=self._env)
         #self._env = RewardTracker(self._env)
@@ -58,7 +56,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # obs, infos = self._env.reset(**kwargs)
         # self._compute_max_energy()
         # return obs, infos
-        obs, infos = self._c_env.reset()
+        obs, infos = self._env.reset()
         return obs, infos
 
     def step(self, actions):
@@ -110,6 +108,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
     @property
     def observation_space(self):
+        # Box(0, 255, (24, 11, 11), uint8)
         return self._env.observation_space
 
     @property
@@ -121,6 +120,10 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
     @property
     def player_count(self):
+        return self._num_agents
+
+    @property
+    def num_agents(self):
         return self._num_agents
 
     def render(self):
@@ -143,3 +146,12 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     @property
     def render_mode(self):
         return self._render_mode
+
+    def map_width(self):
+        return self._c_env.map_width()
+
+    def map_height(self):
+        return self._c_env.map_height()
+
+    def grid_objects(self):
+        return self._c_env.grid_objects()
