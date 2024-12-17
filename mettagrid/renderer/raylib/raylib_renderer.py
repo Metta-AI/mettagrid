@@ -30,7 +30,6 @@ class MettaGridRaylibRenderer:
 
         self.window_width = 1280
         self.window_height = 720
-        self.num_agents = env.num_agents
 
         self.sidebar_width = 250
         self.tile_size = 24
@@ -66,11 +65,11 @@ class MettaGridRaylibRenderer:
         self.ffi = FFI()
 
         self.game_objects = {}
-        self.actions = torch.zeros((self.num_agents, 2), dtype=torch.int64)
+        self.actions = torch.zeros((self.env.num_agents, 2), dtype=torch.int64)
         self.observations = None # Torch tensor
         self.current_timestep = 0
-        self.agents = [None for _ in range(self.num_agents)]
-        self.action_history = [deque(maxlen=10) for _ in range(self.num_agents)]
+        self.agents = [None for _ in range(self.env.num_agents)]
+        self.action_history = [deque(maxlen=10) for _ in range(self.env.num_agents)]
         self.action_history_timestep = 0
         self.mind_control = False
         self.user_action = False
