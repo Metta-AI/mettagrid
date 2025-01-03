@@ -29,5 +29,3 @@ cdef class Shield(MettaActionHandler):
             actor.shield = True
 
         return True
-
-

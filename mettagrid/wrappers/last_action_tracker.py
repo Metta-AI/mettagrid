@@ -23,6 +23,7 @@ class LastActionTracker(gym.Wrapper):
         # Keep track of the last actions:
         self._last_actions = actions
         return self._augment_observations(obs), rewards, terms, truncs, infos
+        #return obs, rewards, terms, truncs, infos
 
     def _augment_observations(self, obs):
         """
@@ -33,13 +34,16 @@ class LastActionTracker(gym.Wrapper):
             (shape[0], 2, shape[2], shape[3]),
             dtype=obs.dtype
         )
-        # Set the middle of the last action features to the last action and
-        # last action argument:
+        #Set the middle of the last action features to the last action and
+        #last action argument:
         for agentId in range(shape[0]):
             last_action_feature[
                 agentId, :, shape[2]//2, shape[3]//2
             ] = self._last_actions[agentId]
+
+        #
         obs = np.concatenate((obs, last_action_feature), axis=1)
+
         return obs
 
     def grid_features(self):

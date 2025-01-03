@@ -4,6 +4,7 @@ import hydra
 import numpy as np
 from tqdm import tqdm
 import pandas as pd
+from omegaconf import OmegaConf
 
 global actions
 global env
@@ -21,15 +22,22 @@ def test_performance(env, actions, duration):
                 pbar.update(time.time() - start - pbar.n)
 
     print_stats(env._c_env.get_episode_stats())
+    print("atns.shape[0]:", atns.shape[0])
+    print("tick:", tick)
+    print("time.time() - start:", time.time() - start)
     print(f'SPS: {atns.shape[0] * tick / (time.time() - start):.2f}')
 
 actions = {}
 env = {}
-@hydra.main(version_base=None, config_path="configs", config_name="a20_40x40")
+@hydra.main(version_base=None, config_path="../configs", config_name="a20_40x40")
 def main(cfg):
     # Run with c profile
     from cProfile import run
     global env
+
+    print(OmegaConf.to_yaml(cfg))
+
+    cfg.env.last_action = True
 
     cfg.env.game.max_steps = 999999999
     env = hydra.utils.instantiate(cfg.env, render_mode="human")
