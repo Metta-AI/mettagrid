@@ -1,3 +1,6 @@
+
+TEST PLEASE IGNORE
+
 # MettaGrid Environment
 
 MettaGrid is a multi-agent gridworld environment for studying the emergence of cooperation and social behaviors in reinforcement learning agents. The environment features a variety of objects and actions that agents can interact with to manage resources, engage in combat, share with others, and optimize their rewards.
@@ -72,4 +75,3 @@ The `use` action allows agents to interact with objects such as altars, converte
 ## Configuration
 
 The MettaGrid environment is highly configurable through the use of YAML configuration files. These files specify the layout of the gridworld, the placement of objects, and various properties of the objects and agents.
-
