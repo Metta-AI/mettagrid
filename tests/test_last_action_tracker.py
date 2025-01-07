@@ -2,7 +2,7 @@ import hydra
 import numpy as np
 import mettagrid
 import mettagrid.mettagrid_env
-from test_sim import render_obs_to_string, render_to_string, header
+from test_env import render_obs_to_string, render_to_string, header
 
 @hydra.main(version_base=None, config_path="../configs", config_name="test_basic")
 def main(cfg):
