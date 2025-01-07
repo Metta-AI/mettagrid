@@ -143,3 +143,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     @property
     def render_mode(self):
         return self._render_mode
+
+    def close(self):
+        pass
