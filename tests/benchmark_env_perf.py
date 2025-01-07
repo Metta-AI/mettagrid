@@ -22,9 +22,6 @@ def test_performance(env, actions, duration):
                 pbar.update(time.time() - start - pbar.n)
 
     print_stats(env._c_env.get_episode_stats())
-    print("atns.shape[0]:", atns.shape[0])
-    print("tick:", tick)
-    print("time.time() - start:", time.time() - start)
     sps = atns.shape[0] * tick / (time.time() - start)
     microseconds = 1/sps * 1000000
     print(f'SPS: {sps:.2f} {microseconds:.4f} μs')
