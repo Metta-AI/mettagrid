@@ -10,9 +10,7 @@ from puffergrid.observation_encoder cimport ObservationEncoder, ObsType
 import numpy as np
 import gymnasium as gym
 
-
 cdef class MettaObservationEncoder(ObservationEncoder):
-
     cpdef obs_np_type(self):
         return np.uint8
 
@@ -30,7 +28,6 @@ cdef class MettaObservationEncoder(ObservationEncoder):
         for type_id in range(ObjectType.Count):
             self._offsets[type_id] = len(features)
             features.extend(self._type_feature_names[type_id])
-
         self._feature_names = features
 
     cdef encode(self, GridObject *obj, ObsType[:] obs):
@@ -52,7 +49,6 @@ cdef class MettaObservationEncoder(ObservationEncoder):
 
     cdef vector[string] feature_names(self):
         return self._feature_names
-
 
 cdef class MettaCompactObservationEncoder(MettaObservationEncoder):
     def __init__(self) -> None:
