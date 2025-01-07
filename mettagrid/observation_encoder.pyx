@@ -10,12 +10,13 @@ from puffergrid.observation_encoder cimport ObservationEncoder, ObsType
 import numpy as np
 import gymnasium as gym
 
+
 cdef class MettaObservationEncoder(ObservationEncoder):
 
     cpdef obs_np_type(self):
         return np.uint8
 
-    def __init__(self, cfg) -> None:
+    def __init__(self) -> None:
         self._offsets.resize(ObjectType.Count)
         self._type_feature_names.resize(ObjectType.Count)
         features = []
@@ -26,15 +27,9 @@ cdef class MettaObservationEncoder(ObservationEncoder):
         self._type_feature_names[ObjectType.ConverterT] = Converter.feature_names()
         self._type_feature_names[ObjectType.AltarT] = Altar.feature_names()
 
-        self.track_last_action = cfg.track_last_action
-
         for type_id in range(ObjectType.Count):
             self._offsets[type_id] = len(features)
             features.extend(self._type_feature_names[type_id])
-
-        if self.track_last_action:
-            features.append("last_action")
-            features.append("last_action_argument")
 
         self._feature_names = features
 

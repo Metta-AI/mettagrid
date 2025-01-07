@@ -31,7 +31,7 @@ cdef class MettaGrid(GridEnv):
         self._cfg = OmegaConf.create(env_cfg.game)
         cfg = self._cfg
 
-        obs_encoder = MettaObservationEncoder(env_cfg)
+        obs_encoder = MettaObservationEncoder()
         if env_cfg.compact_obs:
             obs_encoder = MettaCompactObservationEncoder()
 
@@ -64,7 +64,8 @@ cdef class MettaGrid(GridEnv):
             obs_encoder,
             actions,
             [ ResetHandler() ],
-            use_flat_actions=env_cfg.flatten_actions
+            use_flat_actions=env_cfg.flatten_actions,
+            track_last_action=env_cfg.track_last_action
         )
 
         cdef Agent *agent
@@ -96,7 +97,7 @@ cdef class MettaGrid(GridEnv):
 
     cpdef grid_objects(self):
         cdef GridObject *obj
-        cdef ObsType[:] obj_data = np.zeros(len(self._obs_encoder.feature_names()), dtype=self._obs_encoder.obs_np_type())
+        cdef ObsType[:] obj_data = np.zeros(len(self.grid_features()), dtype=self._obs_encoder.obs_np_type())
         cdef unsigned int obj_id, i
         cdef MettaObservationEncoder obs_encoder = <MettaObservationEncoder>self._obs_encoder
         objects = {}
