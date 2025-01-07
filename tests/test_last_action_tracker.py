@@ -11,8 +11,8 @@ def main(cfg):
     output += header("Last Action Tracker:")
     np.random.seed(123)
     cfg.last_action_tracker = True
-    metta_grid_env = mettagrid.mettagrid_env.MettaGridEnv(render_mode=None, **cfg)
-    metta_grid_env.reset()
+    env = mettagrid.mettagrid_env.MettaGridEnv(render_mode=None, **cfg)
+    env.reset()
 
     actions = [
         [0,5],
@@ -21,16 +21,16 @@ def main(cfg):
         [3,8],
         [4,9],
     ]
-    output += render_to_string(metta_grid_env)
+    output += render_to_string(env)
 
-    (obs, rewards, terminated, truncated, infos) = metta_grid_env.step(actions)
+    (obs, rewards, terminated, truncated, infos) = env.step(actions)
     output += header("Observations:")
-    output += render_obs_to_string(metta_grid_env, obs, match="last_action")
+    output += render_obs_to_string(env, obs, match="last_action")
 
-    output += f"grid_features: {metta_grid_env.grid_features}\n"
+    output += f"grid_features: {env.grid_features}\n"
 
-    assert "last_action" in metta_grid_env.grid_features
-    assert "last_action_argument" in metta_grid_env.grid_features
+    assert "last_action" in env.grid_features
+    assert "last_action_argument" in env.grid_features
 
     output += f"rewards: {rewards}\n"
     output += f"terminated: {terminated}\n"
@@ -41,13 +41,13 @@ def main(cfg):
     output += header("# No Last Action Tracker:")
 
     cfg.last_action_tracker = False
-    metta_grid_env = mettagrid.mettagrid_env.MettaGridEnv(render_mode=None, **cfg)
-    output += f"grid_features: {metta_grid_env.grid_features}\n"
+    env = mettagrid.mettagrid_env.MettaGridEnv(render_mode=None, **cfg)
+    output += f"grid_features: {env.grid_features}\n"
 
-    assert "last_action" not in metta_grid_env.grid_features
-    assert "last_action_argument" not in metta_grid_env.grid_features
+    assert "last_action" not in env.grid_features
+    assert "last_action_argument" not in env.grid_features
 
-    (obs, rewards, terminated, truncated, infos) = metta_grid_env.step([[1,2]]*5)
+    (obs, rewards, terminated, truncated, infos) = env.step([[1,2]]*5)
     output += f"rewards: {rewards}\n"
     output += f"terminated: {terminated}\n"
     output += f"truncated: {truncated}\n"

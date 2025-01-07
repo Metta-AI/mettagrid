@@ -3,37 +3,40 @@ import numpy as np
 import mettagrid
 import mettagrid.mettagrid_env
 
+
 def dump_agents(env):
   output = ""
   for thing in env.grid_objects.values():
       if thing["type"] == 0: # agent
         output += (
-          "Agent id=" + str(thing["id"]) +
-          " agent_id=" + str(thing["agent_id"]) +
-          " x=" + str(thing["c"]) +
-          " y=" + str(thing["r"]) +
-          " energy=" + str(thing["agent:energy"]) +
-          " shield=" + str(thing["agent:shield"]) +
-          " inventory=" + str(thing["agent:inv:r1"]) +
+          f"Agent id={thing['id']} " +
+          f"agent_id={thing['agent_id']} " +
+          f"x={thing['c']} " +
+          f"y={thing['r']} " +
+          f"energy={thing['agent:energy']} " +
+          f"shield={thing['agent:shield']} " +
+          f"inventory={thing['agent:inv:r1']}" +
           "\n"
         )
 
   return output
 
+
 def dump_map(env):
   output = ""
   for thing in env.grid_objects.values():
       if thing["type"] == 0: # agent
-        output += "Agent " + str(thing["id"]) + " " + str(thing["agent_id"]) + " " + str(thing["c"]) + " " + str(thing["r"]) + "\n"
+        output += f"Agent {thing['id']} {thing['agent_id']} {thing['c']} {thing['r']}\n"
       elif thing["type"] == 1: # wall
-        output += "Wall " + str(thing["id"]) + " " + str(thing["c"]) + " " + str(thing["r"]) + "\n"
+        output += f"Wall {thing['id']} {thing['c']} {thing['r']}\n"
       elif thing["type"] == 2: # generator
-        output += "Generator " + str(thing["id"]) + " " + str(thing["c"]) + " " + str(thing["r"]) + "\n"
+        output += f"Generator {thing['id']} {thing['c']} {thing['r']}\n"
       elif thing["type"] == 3: # converter
-        output += "Converter " + str(thing["id"]) + " " + str(thing["c"]) + " " + str(thing["r"]) + "\n"
+        output += f"Converter {thing['id']} {thing['c']} {thing['r']}\n"
       elif thing["type"] == 4: # altar
-        output += "Altar " + str(thing["id"]) + " " + str(thing["c"]) + " " + str(thing["r"]) + "\n"
+        output += f"Altar {thing['id']} {thing['c']} {thing['r']}\n"
   return output
+
 
 def render_to_string(env):
     """ Render the environment to a string """
