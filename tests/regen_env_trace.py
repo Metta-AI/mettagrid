@@ -116,7 +116,7 @@ def main(cfg):
       output += header("Observations:")
       output += render_obs_to_string(env, obs)
 
-      with open("tests/gold/test_env.txt", "w") as f:
+      with open("tests/gold/env_trace.txt", "w") as f:
         f.write(output)
 
 if __name__ == "__main__":

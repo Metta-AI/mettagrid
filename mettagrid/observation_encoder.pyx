@@ -26,13 +26,13 @@ cdef class MettaObservationEncoder(ObservationEncoder):
         self._type_feature_names[ObjectType.ConverterT] = Converter.feature_names()
         self._type_feature_names[ObjectType.AltarT] = Altar.feature_names()
 
-        self.last_action_tracker = cfg.last_action_tracker
+        self.track_last_action = cfg.track_last_action
 
         for type_id in range(ObjectType.Count):
             self._offsets[type_id] = len(features)
             features.extend(self._type_feature_names[type_id])
 
-        if self.last_action_tracker:
+        if self.track_last_action:
             features.append("last_action")
             features.append("last_action_argument")
 

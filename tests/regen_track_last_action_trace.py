@@ -2,7 +2,7 @@ import hydra
 import numpy as np
 import mettagrid
 import mettagrid.mettagrid_env
-from test_env import render_obs_to_string, render_to_string, header
+from regen_env_trace import render_obs_to_string, render_to_string, header
 
 @hydra.main(version_base=None, config_path="../configs", config_name="test_basic")
 def main(cfg):
@@ -10,7 +10,7 @@ def main(cfg):
 
     output += header("Last Action Tracker:")
     np.random.seed(123)
-    cfg.last_action_tracker = True
+    cfg.track_last_action = True
     env = mettagrid.mettagrid_env.MettaGridEnv(render_mode=None, **cfg)
     env.reset()
 
@@ -40,7 +40,7 @@ def main(cfg):
 
     output += header("# No Last Action Tracker:")
 
-    cfg.last_action_tracker = False
+    cfg.track_last_action = False
     env = mettagrid.mettagrid_env.MettaGridEnv(render_mode=None, **cfg)
     output += f"grid_features: {env.grid_features}\n"
 
@@ -54,7 +54,7 @@ def main(cfg):
     output += f"infos: {infos}\n"
     output += f"obs.shape: {obs.shape}\n"
 
-    with open("tests/gold/test_last_action_tracker.txt", "w") as f:
+    with open("tests/gold/track_last_action_trace.txt", "w") as f:
         f.write(output)
 
 if __name__ == "__main__":
