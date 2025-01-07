@@ -31,7 +31,7 @@ cdef class MettaGrid(GridEnv):
         self._cfg = OmegaConf.create(env_cfg.game)
         cfg = self._cfg
 
-        obs_encoder = MettaObservationEncoder()
+        obs_encoder = MettaObservationEncoder(env_cfg)
         if env_cfg.compact_obs:
             obs_encoder = MettaCompactObservationEncoder()
 
