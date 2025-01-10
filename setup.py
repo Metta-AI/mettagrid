@@ -26,6 +26,7 @@ ext_modules = [
     build_ext(["mettagrid/actions/move.pyx"]),
     build_ext(["mettagrid/actions/noop.pyx"]),
     build_ext(["mettagrid/actions/rotate.pyx"]),
+    build_ext(["mettagrid/actions/run.pyx"]),
     build_ext(["mettagrid/actions/shield.pyx"]),
     build_ext(["mettagrid/actions/swap.pyx"]),
     build_ext(["mettagrid/actions/use.pyx"]),

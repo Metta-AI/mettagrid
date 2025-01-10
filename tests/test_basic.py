@@ -12,6 +12,7 @@ import mettagrid.actions.actions
 import mettagrid.actions.attack
 import mettagrid.actions.gift
 import mettagrid.actions.move
+import mettagrid.actions.run
 import mettagrid.actions.noop
 import mettagrid.actions.rotate
 import mettagrid.actions.shield

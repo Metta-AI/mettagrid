@@ -15,6 +15,7 @@ from puffergrid.observation_encoder cimport ObsType
 from mettagrid.objects cimport ObjectLayers, Agent, ResetHandler, Wall, Generator, Converter, Altar
 from mettagrid.observation_encoder cimport MettaObservationEncoder, MettaCompactObservationEncoder
 from mettagrid.actions.move import Move
+from mettagrid.actions.run import Run
 from mettagrid.actions.rotate import Rotate
 from mettagrid.actions.use import Use
 from mettagrid.actions.attack import Attack
@@ -40,6 +41,8 @@ cdef class MettaGrid(GridEnv):
             actions.append(Noop(cfg.actions.noop))
         if cfg.actions.move.enabled:
             actions.append(Move(cfg.actions.move))
+        if cfg.actions.run.enabled:
+            actions.append(Run(cfg.actions.run))
         if cfg.actions.rotate.enabled:
             actions.append(Rotate(cfg.actions.rotate))
         if cfg.actions.use.enabled:

@@ -45,6 +45,8 @@ game:
   actions:
     move:
       cost: [0, 2]
+    run:
+      cost: [0, 4]
     rotate:
       cost: [0, 1]
     jump:
