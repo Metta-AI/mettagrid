@@ -64,7 +64,7 @@ class MettaGridGameBuilder():
             ascii_map = f.read()
         # Convert ASCII map string to numpy array
         lines = ascii_map.strip().splitlines()
-        level = np.array([list(line) for line in lines])
+        level = np.array([list(line) for line in lines], dtype=object)
 
         return level
 
