@@ -18,9 +18,8 @@ class MettaGridGameBuilder():
             no_energy_steps: int,
             objects,
             actions,
-            map,
-            kinship):
-
+            map):
+        
         self.obs_width = obs_width
         self.obs_height = obs_height
         self.tile_size = tile_size
@@ -47,8 +46,8 @@ class MettaGridGameBuilder():
     def level(self):
         layout = self.map_config.layout
 
-        if self.map_config.file:
-            return self.build_map_from_ascii(self.map_config.file)
+        if self.map_config.uri:
+            return self.build_map_from_ascii(self.map_config.uri)
 
         elif "rooms" in layout:
             return self.build_map(layout.rooms)
@@ -56,61 +55,15 @@ class MettaGridGameBuilder():
             return self.build_map(
                 [["room"] * layout.rooms_x] * layout.rooms_y)
         
-    def build_map_from_ascii(self, ascii_map_file):
+    def build_map_from_ascii(self, ascii_map_uri):
         """Currently this is only for a single room"""
 
-        #TODO: make this work for multiple rooms - need to detect the number of rooms
 
-
-        with open(ascii_map_file, "r") as f:
+        with open(ascii_map_uri, "r") as f:
             ascii_map = f.read()
         # Convert ASCII map string to numpy array
         lines = ascii_map.strip().splitlines()
-        height = len(lines)
-        width = len(lines[0])
-        level = np.full((height, width), ".", dtype="U6")
-
-        # Track number of agents found
-        agent_count = 0
-        wall_count = 0
-        altar_count = 0
-        converter_count = 0
-        generator_count = 0
-
-        # Parse each character in the ASCII map
-        for i, line in enumerate(lines):
-            for j, char in enumerate(line):
-                if char == "#":
-                    level[i,j] = self._symbols["wall"]
-                    wall_count += 1
-                elif char == "A":
-                    agent_count += 1
-                    level[i,j] = f"A{agent_count}"
-                elif char == "a":
-                    level[i,j] = self._symbols["altar"]
-                    altar_count += 1
-                elif char == "c":
-                    level[i,j] = self._symbols["converter"] 
-                    converter_count += 1
-                elif char == "g":
-                    level[i,j] = self._symbols["generator"]
-                    generator_count += 1
-                elif char == " ":
-                    level[i,j] = self._symbols["empty"]
-
-        self.num_agents = agent_count
-        self.obs_width = width
-        self.obs_height = height
-#
-        # self.map_config["room"]["width"] = width
-        # self.map_config["room"]["height"] = height
-        # self.map_config["room"]["objects"]["agent"] = agent_count
-        # self.map_config["room"]["objects"]["wall"] = wall_count
-        # self.map_config["room"]["objects"]["altar"] = altar_count
-        # self.map_config["room"]["objects"]["converter"] = converter_count
-        # self.map_config["room"]["objects"]["generator"] = generator_count
-
-
+        level = np.array([list(line) for line in lines])
 
         return level
 
