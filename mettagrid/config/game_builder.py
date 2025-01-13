@@ -18,10 +18,8 @@ class MettaGridGameBuilder():
             no_energy_steps: int,
             objects,
             actions,
-            map):
-        
-        #map.file -> ascii map
-        #map is the omega config, add a file field to it which is the path of the ascii map
+            map,
+            kinship):
 
         self.obs_width = obs_width
         self.obs_height = obs_height
