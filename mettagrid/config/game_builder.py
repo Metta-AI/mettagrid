@@ -47,11 +47,30 @@ class MettaGridGameBuilder():
     def level(self):
         layout = self.map_config.layout
 
-        if "rooms" in layout:
+        if self.map_config.uri:
+            return self.build_map_from_ascii(self.map_config.uri)
+
+        elif "rooms" in layout:
             return self.build_map(layout.rooms)
         else:
             return self.build_map(
                 [["room"] * layout.rooms_x] * layout.rooms_y)
+        
+    def build_map_from_ascii(self, ascii_map_uri):
+        """Currently this is only for a single room"""
+
+
+        with open(ascii_map_uri, "r") as f:
+            ascii_map = f.read()
+        # Convert ASCII map string to numpy array
+        lines = ascii_map.strip().splitlines()
+        # Check if all lines have the same length
+        line_lengths = [len(line) for line in lines]
+        if len(set(line_lengths)) > 1:
+            raise ValueError(f"All lines in ASCII map must have same length. Found lengths: {line_lengths}")
+        level = np.array([list(line) for line in lines], dtype="<U6")
+
+        return level
 
     def build_map(self, rooms):
         num_agents = 0
