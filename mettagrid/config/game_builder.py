@@ -64,7 +64,11 @@ class MettaGridGameBuilder():
             ascii_map = f.read()
         # Convert ASCII map string to numpy array
         lines = ascii_map.strip().splitlines()
-        level = np.array([list(line) for line in lines], dtype=object)
+        # Check if all lines have the same length
+        line_lengths = [len(line) for line in lines]
+        if len(set(line_lengths)) > 1:
+            raise ValueError(f"All lines in ASCII map must have same length. Found lengths: {line_lengths}")
+        level = np.array([list(line) for line in lines], dtype="<U6")
 
         return level
 
