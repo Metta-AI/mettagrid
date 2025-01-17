@@ -193,11 +193,14 @@ cdef cppclass Converter(Usable):
     inline obs(ObsType[:] obs):
         obs[0] = 1
         obs[1] = hp
-        obs[5] = ready
+        obs[2] = ready
+        obs[3] = 0
+        obs[4] = 0
+        obs[5] = 0
 
     @staticmethod
     inline vector[string] feature_names():
-        return ["converter", "converter:hp", "converter:ready"]
+        return ["converter", "converter:hp", "converter:ready", "converter:na1", "converter:na2", "converter:na3"]
 
 cdef cppclass Altar(Usable):
     inline Altar(GridCoord r, GridCoord c, ObjectConfig cfg):
