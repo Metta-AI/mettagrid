@@ -222,6 +222,7 @@ cdef class GridEnv:
         self._rewards = rewards
         self._episode_rewards_np = np.zeros_like(rewards)
         self._episode_rewards = self._episode_rewards_np
+        self._action_success = np.zeros(len(rewards), dtype=np.int8)
 
     cpdef grid(self):
         return []
@@ -323,3 +324,6 @@ cdef class GridEnv:
         for action in actions:
             new_actions.append(flat_actions_dict[(action[0], action[1])])
         return np.array(new_actions, dtype=np.uint32)
+
+    def action_success(self):
+        return self._action_success
