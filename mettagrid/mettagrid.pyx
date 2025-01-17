@@ -1,6 +1,6 @@
 
 from libc.stdio cimport printf
-
+from libcpp.vector cimport vector
 
 import numpy as np
 cimport numpy as cnp
@@ -12,7 +12,7 @@ from mettagrid.grid_env cimport GridEnv
 from mettagrid.grid_object cimport GridObject
 from mettagrid.observation_encoder cimport ObsType
 
-from mettagrid.objects cimport ObjectLayers, Agent, ResetHandler, Wall, Generator, Converter, Altar
+from mettagrid.objects cimport ObjectLayers, Agent, ResetHandler, Wall, Generator, Converter, ConverterRecipe, Altar
 from mettagrid.observation_encoder cimport MettaObservationEncoder, MettaCompactObservationEncoder
 from mettagrid.actions.move import Move
 from mettagrid.actions.rotate import Rotate
@@ -71,9 +71,14 @@ cdef class MettaGrid(GridEnv):
             track_last_action=env_cfg.track_last_action
         )
 
+        # create converter recipies
+        cdef vector[ConverterRecipe] recipies;
+        recipies.push_back(ConverterRecipe())
+
         cdef Agent *agent
         for r in range(map.shape[0]):
             for c in range(map.shape[1]):
+                # oh -- we read off the map here!
                 if map[r,c] == "W":
                     self._grid.add_object(new Wall(r, c, cfg.objects.wall))
                     self._stats.game_incr("objects.wall")
@@ -81,7 +86,7 @@ cdef class MettaGrid(GridEnv):
                     self._grid.add_object(new Generator(r, c, cfg.objects.generator))
                     self._stats.game_incr("objects.generator")
                 elif map[r,c] == "c":
-                    self._grid.add_object(new Converter(r, c, cfg.objects.converter))
+                    self._grid.add_object(new Converter(r, c, cfg.objects.converter, recipies))
                     self._stats.game_incr("objects.converter")
                 elif map[r,c] == "a":
                     self._grid.add_object(new Altar(r, c, cfg.objects.altar))

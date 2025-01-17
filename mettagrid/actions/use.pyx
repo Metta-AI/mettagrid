@@ -6,7 +6,7 @@ from omegaconf import OmegaConf
 from mettagrid.grid_object cimport GridLocation, GridObjectId, Orientation, GridObject
 from mettagrid.action cimport ActionHandler, ActionArg
 from mettagrid.objects cimport MettaObject, ObjectType, Usable, Altar, Agent, Events, GridLayer
-from mettagrid.objects cimport Generator, Converter, InventoryItem, ObjectTypeNames, InventoryItemNames
+from mettagrid.objects cimport Generator, Converter, ConverterRecipe, InventoryItem, ObjectTypeNames, InventoryItemNames
 from mettagrid.actions.actions cimport MettaActionHandler
 
 cdef class Use(MettaActionHandler):
@@ -55,17 +55,19 @@ cdef class Use(MettaActionHandler):
             self.env._stats.game_incr("r1.harvested")
 
         cdef Converter *converter
+        cdef ConverterRecipe recipe
         cdef unsigned int energy_gain = 0
         if target._type_id == ObjectType.ConverterT:
             converter = <Converter*>target
-            actor.update_inventory(converter.input_resource, -1)
-            self.env._stats.agent_incr(actor_id, InventoryItemNames[converter.input_resource] + ".used")
+            recipe = converter.recipies[0]
+            actor.update_energy(recipe.delta_energy, &self.env._rewards[actor_id])
+            for i in range(InventoryItem.InventoryCount):
+                if recipe.delta_resources[i] > 0:
+                    self.env._stats.agent_incr(actor_id, InventoryItemNames[i] + ".gained")
+                elif recipe.delta_resources[i] < 0:
+                    self.env._stats.agent_incr(actor_id, InventoryItemNames[i] + ".used")
+                actor.update_inventory(i, recipe.delta_resources[i])
 
-            actor.update_inventory(converter.output_resource, 1)
-            self.env._stats.agent_incr(actor_id, InventoryItemNames[converter.output_resource] + ".gained")
-
-            energy_gain = actor.update_energy(converter.output_energy, &self.env._rewards[actor_id])
-
-            self.env._stats.agent_add(actor_id, "energy.gained", energy_gain)
+            # self.env._stats.agent_add(actor_id, "energy.gained", energy_gain)
 
         return True
