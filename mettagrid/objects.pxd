@@ -103,6 +103,7 @@ cdef cppclass Agent(MettaObject):
         return amount
 
     inline void obs(ObsType[:] obs):
+        # #ObservationDefinition
         obs[0] = 1
         obs[1] = this.hp
         obs[2] = this.frozen
@@ -129,6 +130,7 @@ cdef cppclass Wall(MettaObject):
         MettaObject.init_mo(cfg)
 
     inline void obs(ObsType[:] obs):
+        # #ObservationDefinition
         obs[0] = 1
         obs[1] = hp
 
@@ -149,6 +151,7 @@ cdef cppclass Generator(Usable):
         return Usable.usable(actor) and this.r1 > 0
 
     inline void obs(ObsType[:] obs):
+        # #ObservationDefinition
         obs[0] = 1
         obs[1] = this.hp
         obs[2] = this.r1
@@ -191,16 +194,14 @@ cdef cppclass Converter(Usable):
         return Usable.usable(actor)
 
     inline obs(ObsType[:] obs):
+        # #ObservationDefinition
         obs[0] = 1
         obs[1] = hp
         obs[2] = ready
-        obs[3] = 0
-        obs[4] = 0
-        obs[5] = 0
 
     @staticmethod
     inline vector[string] feature_names():
-        return ["converter", "converter:hp", "converter:ready", "converter:na1", "converter:na2", "converter:na3"]
+        return ["converter", "converter:hp", "converter:ready"]
 
 cdef cppclass Altar(Usable):
     inline Altar(GridCoord r, GridCoord c, ObjectConfig cfg):
@@ -209,6 +210,7 @@ cdef cppclass Altar(Usable):
         Usable.init_usable(cfg)
 
     inline void obs(ObsType[:] obs):
+        # #ObservationDefinition
         obs[0] = 1
         obs[1] = hp
         obs[2] = ready
