@@ -10,36 +10,36 @@ class MazeRoom(MettaGridRoomBuilder):
     def __init__(self, width, height, start_pos, end_pos, branching, seed=None):
         self.width = width
         self.height = height
-        self.start_pos = start_pos
-        self.end_pos = end_pos
+        # Calculate padded dimensions to ensure odd numbers
+        self.padded_width = width + (1 - width % 2)
+        self.padded_height = height + (1 - height % 2)
+        self.start_pos = self._adjust_position(start_pos)
+        self.end_pos = self._adjust_position(end_pos) if end_pos else None
         self.branching = branching
         self.seed = seed
         
         # Validate inputs
         assert 0 <= self.branching <= 1, "Branching parameter must be between 0 and 1"
-        assert self.width % 2 == 1 and self.width >= 3, "Width must be odd and >= 3"
-        assert self.height % 2 == 1 and self.height >= 3, "Height must be odd and >= 3"
-        assert self.start_pos[0] % 2 == 1 and self.start_pos[1] % 2 == 1, "Start position must have odd coordinates"
+        assert self.width >= 3, "Width must be >= 3"
+        assert self.height >= 3, "Height must be >= 3"
+        assert 0 < self.start_pos[0] < self.padded_width and 0 < self.start_pos[1] < self.padded_height, "Start position must be within maze bounds"
         if self.end_pos:
-            assert self.end_pos[0] % 2 == 1 and self.end_pos[1] % 2 == 1, "End position must have odd coordinates"
-            assert 0 < self.end_pos[0] < self.width and 0 < self.end_pos[1] < self.height, "End position must be within maze bounds"
-        assert 0 < self.start_pos[0] < self.width and 0 < self.start_pos[1] < self.height, "Start position must be within maze bounds"
+            assert 0 < self.end_pos[0] < self.padded_width and 0 < self.end_pos[1] < self.padded_height, "End position must be within maze bounds"
 
         if self.seed is not None:
             random.seed(self.seed)
 
+    def _adjust_position(self, pos):
+        """Adjust position coordinates to ensure they're odd"""
+        x, y = pos
+        return (x + (1 - x % 2), y + (1 - y % 2))
+
     def build_room(self):
-        # Generate the maze dictionary
         return self.create_maze()
         
     def create_maze(self):
-        """
-        Generate a maze and return it as a numpy array of characters,
-        matching the format from build_map_from_ascii.
-        """
-
-        # Initialize numpy array directly
-        maze = np.full((self.height, self.width), self.WALL, dtype=str)
+        # Initialize numpy array with padded dimensions
+        maze = np.full((self.padded_height, self.padded_width), self.WALL, dtype=str)
 
         def should_branch():
             return random.random() < self.branching
@@ -56,11 +56,11 @@ class MazeRoom(MettaGridRoomBuilder):
                 unvisited_neighbors = []
                 if y > 1 and (x, y - 2) not in has_visited:
                     unvisited_neighbors.append(self.NORTH)
-                if y < self.height - 2 and (x, y + 2) not in has_visited:
+                if y < self.padded_height - 2 and (x, y + 2) not in has_visited:
                     unvisited_neighbors.append(self.SOUTH)
                 if x > 1 and (x - 2, y) not in has_visited:
                     unvisited_neighbors.append(self.WEST)
-                if x < self.width - 2 and (x + 2, y) not in has_visited:
+                if x < self.padded_width - 2 and (x + 2, y) not in has_visited:
                     unvisited_neighbors.append(self.EAST)
 
                 if not unvisited_neighbors:
@@ -113,5 +113,9 @@ class MazeRoom(MettaGridRoomBuilder):
         maze[self.start_pos[1], self.start_pos[0]] = self.START
         if self.end_pos:
             maze[self.end_pos[1], self.end_pos[0]] = self.END
+
+        # Trim maze back to original dimensions if needed
+        if self.width != self.padded_width or self.height != self.padded_height:
+            maze = maze[:self.height, :self.width]
 
         return maze
