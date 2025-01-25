@@ -71,9 +71,9 @@ cdef class MettaGrid(GridEnv):
             track_last_action=env_cfg.track_last_action
         )
 
-        # create converter recipies
-        cdef vector[ConverterRecipe] recipies;
-        recipies.push_back(ConverterRecipe())
+        # create converter recipes
+        cdef vector[ConverterRecipe] recipes;
+        recipes.push_back(ConverterRecipe())
 
         cdef Agent *agent
         for r in range(map.shape[0]):
@@ -86,7 +86,7 @@ cdef class MettaGrid(GridEnv):
                     self._grid.add_object(new Generator(r, c, cfg.objects.generator))
                     self._stats.game_incr("objects.generator")
                 elif map[r,c] == "c":
-                    self._grid.add_object(new Converter(r, c, cfg.objects.converter, recipies))
+                    self._grid.add_object(new Converter(r, c, cfg.objects.converter, recipes))
                     self._stats.game_incr("objects.converter")
                 elif map[r,c] == "a":
                     self._grid.add_object(new Altar(r, c, cfg.objects.altar))

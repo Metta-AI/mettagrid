@@ -59,7 +59,7 @@ cdef class Use(MettaActionHandler):
         cdef unsigned int energy_gain = 0
         if target._type_id == ObjectType.ConverterT:
             converter = <Converter*>target
-            recipe = converter.recipies[0]
+            recipe = converter.recipes[0]
             actor.update_energy(recipe.delta_energy, &self.env._rewards[actor_id])
             for i in range(InventoryItem.InventoryCount):
                 if recipe.delta_resources[i] > 0:

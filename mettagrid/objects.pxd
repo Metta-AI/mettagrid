@@ -175,16 +175,16 @@ cdef cppclass ConverterRecipe:
         this.reward = 0
 
 cdef cppclass Converter(Usable):
-    vector[ConverterRecipe] recipies
+    vector[ConverterRecipe] recipes
 
-    inline Converter(GridCoord r, GridCoord c, ObjectConfig cfg, vector[ConverterRecipe] recipies):
+    inline Converter(GridCoord r, GridCoord c, ObjectConfig cfg, vector[ConverterRecipe] recipes):
         GridObject.init(ObjectType.ConverterT, GridLocation(r, c, GridLayer.Object_Layer))
         MettaObject.init_mo(cfg)
         Usable.init_usable(cfg)
-        this.recipies = recipies
+        this.recipes = recipes
 
     inline bint usable(const Agent *actor):
-        cdef ConverterRecipe recipe = this.recipies[0]
+        cdef ConverterRecipe recipe = this.recipes[0]
         if -recipe.delta_energy > actor.energy:
             return False
         for i in range(InventoryItem.InventoryCount):
