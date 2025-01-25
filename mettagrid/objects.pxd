@@ -181,7 +181,6 @@ cdef cppclass Converter(Usable):
         GridObject.init(ObjectType.ConverterT, GridLocation(r, c, GridLayer.Object_Layer))
         MettaObject.init_mo(cfg)
         Usable.init_usable(cfg)
-        # This is copying -- maybe we should just pass in a pointer?
         this.recipies = recipies
 
     inline bint usable(const Agent *actor):
