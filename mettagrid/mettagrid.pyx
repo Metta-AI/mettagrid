@@ -78,7 +78,6 @@ cdef class MettaGrid(GridEnv):
         cdef Agent *agent
         for r in range(map.shape[0]):
             for c in range(map.shape[1]):
-                # oh -- we read off the map here!
                 if map[r,c] == "W":
                     self._grid.add_object(new Wall(r, c, cfg.objects.wall))
                     self._stats.game_incr("objects.wall")
