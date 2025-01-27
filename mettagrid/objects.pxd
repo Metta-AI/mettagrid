@@ -103,6 +103,7 @@ cdef cppclass Agent(MettaObject):
         return amount
 
     inline void obs(ObsType[:] obs):
+        # #ObservationDefinition
         obs[0] = 1
         obs[1] = this.hp
         obs[2] = this.frozen
@@ -129,6 +130,7 @@ cdef cppclass Wall(MettaObject):
         MettaObject.init_mo(cfg)
 
     inline void obs(ObsType[:] obs):
+        # #ObservationDefinition
         obs[0] = 1
         obs[1] = hp
 
@@ -149,43 +151,56 @@ cdef cppclass Generator(Usable):
         return Usable.usable(actor) and this.r1 > 0
 
     inline void obs(ObsType[:] obs):
+        # #ObservationDefinition
         obs[0] = 1
         obs[1] = this.hp
         obs[2] = this.r1
         obs[3] = this.ready and this.r1 > 0
 
-
     @staticmethod
     inline vector[string] feature_names():
         return ["generator", "generator:hp", "generator:r1", "generator:ready"]
 
-cdef cppclass Converter(Usable):
-    InventoryItem input_resource
-    InventoryItem output_resource
-    short output_energy
+cdef cppclass ConverterRecipe:
+    # positive for gain, negative for loss
+    vector[char] delta_resources
+    short delta_energy
+    short reward
 
-    inline Converter(GridCoord r, GridCoord c, ObjectConfig cfg):
+    inline ConverterRecipe():
+        this.delta_resources.resize(InventoryItem.InventoryCount)
+        this.delta_resources[InventoryItem.r1] = -1
+        this.delta_resources[InventoryItem.r2] = 1
+        this.delta_energy = 100
+        this.reward = 0
+
+cdef cppclass Converter(Usable):
+    vector[ConverterRecipe] recipes
+
+    inline Converter(GridCoord r, GridCoord c, ObjectConfig cfg, vector[ConverterRecipe] recipes):
         GridObject.init(ObjectType.ConverterT, GridLocation(r, c, GridLayer.Object_Layer))
         MettaObject.init_mo(cfg)
         Usable.init_usable(cfg)
-        this.input_resource = InventoryItem.r1
-        this.output_resource = InventoryItem.r2
-        this.output_energy = cfg[b"energy_output.r1"]
+        this.recipes = recipes
 
     inline bint usable(const Agent *actor):
-        return Usable.usable(actor) and actor.inventory[this.input_resource] > 0
+        cdef ConverterRecipe recipe = this.recipes[0]
+        if -recipe.delta_energy > actor.energy:
+            return False
+        for i in range(InventoryItem.InventoryCount):
+            if -recipe.delta_resources[i] > actor.inventory[i]:
+                return False
+        return Usable.usable(actor)
 
     inline obs(ObsType[:] obs):
+        # #ObservationDefinition
         obs[0] = 1
         obs[1] = hp
-        obs[2] = input_resource
-        obs[3] = output_resource
-        obs[4] = output_energy
-        obs[5] = ready
+        obs[2] = ready
 
     @staticmethod
     inline vector[string] feature_names():
-        return ["converter", "converter:hp", "converter:input_resource", "converter:output_resource", "converter:output_energy", "converter:ready"]
+        return ["converter", "converter:hp", "converter:ready"]
 
 cdef cppclass Altar(Usable):
     inline Altar(GridCoord r, GridCoord c, ObjectConfig cfg):
@@ -194,6 +209,7 @@ cdef cppclass Altar(Usable):
         Usable.init_usable(cfg)
 
     inline void obs(ObsType[:] obs):
+        # #ObservationDefinition
         obs[0] = 1
         obs[1] = hp
         obs[2] = ready
