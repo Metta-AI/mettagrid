@@ -32,8 +32,6 @@ class Grid {
         inline ~Grid() {
             for (unsigned long id = 1; id < objects.size(); ++id) {
                 if (objects[id] != nullptr) {
-                    // printf("Deleting object %lu (%p)\n", id, objects[id]);
-                    // objects[id] = nullptr;
                     delete objects[id];
                 }
             }

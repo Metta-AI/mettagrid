@@ -36,7 +36,7 @@ class GridObject {
         GridLocation location;
         TypeId _type_id;
 
-        virtual ~GridObject() {}
+        virtual ~GridObject() = default;
 
         inline void init(TypeId type_id, const GridLocation &loc) {
             this->_type_id = type_id;
