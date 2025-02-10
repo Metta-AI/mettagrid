@@ -124,5 +124,9 @@ def main(cfg):
     print("mettaGridEnv._c_env.num_agents(): ", mettaGridEnv._c_env.num_agents())
     assert mettaGridEnv._c_env.num_agents() == 5
 
+    print("mettaGridEnv.action_success: ", mettaGridEnv.action_success)
+    assert mettaGridEnv.action_success.shape == (5,)
+    assert np.array_equal(mettaGridEnv.action_success, [1, 1, 1, 1, 1])
+
 if __name__ == "__main__":
     main()

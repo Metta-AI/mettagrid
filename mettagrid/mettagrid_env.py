@@ -159,7 +159,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
     @property
     def action_success(self):
-        return self._c_env.action_success()
+        return np.asarray(self._c_env.action_success())
 
     def close(self):
         pass
