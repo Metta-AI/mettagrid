@@ -70,7 +70,6 @@ cdef class MettaActionHandler(ActionHandler):
         if result:
             self.env._stats.agent_incr(actor_id, self._stats.action.c_str())
 
-        self.env._action_success[actor_id] = result
         return result
 
     cdef bint _handle_action(
