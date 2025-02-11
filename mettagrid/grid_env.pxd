@@ -58,7 +58,7 @@ cdef class GridEnv:
         bint _track_last_action
         unsigned char _last_action_obs_idx
         unsigned char _last_action_arg_obs_idx
-        char[:] _action_success
+        vector[bint] _action_success
 
     cdef void add_agent(self, GridObject* agent)
 

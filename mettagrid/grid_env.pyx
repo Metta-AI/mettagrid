@@ -81,7 +81,9 @@ cdef class GridEnv:
             np.zeros(max_agents, dtype=np.int8),
             np.zeros(max_agents, dtype=np.float32)
         )
-    
+
+        self._action_success = vector[bint](max_agents)
+
     def __dealloc__(self):
         del self._grid
 
@@ -222,7 +224,6 @@ cdef class GridEnv:
         self._rewards = rewards
         self._episode_rewards_np = np.zeros_like(rewards)
         self._episode_rewards = self._episode_rewards_np
-        self._action_success = np.zeros(len(rewards), dtype=np.int8)
 
     cpdef grid(self):
         return []
