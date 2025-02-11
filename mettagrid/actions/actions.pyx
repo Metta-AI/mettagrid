@@ -51,11 +51,9 @@ cdef class MettaActionHandler(ActionHandler):
             strcat(stat_name, ".status.frozen.ticks")
             self.env._stats.agent_incr(actor_id, stat_name)
             actor.frozen -= 1
-            self.env._action_success[actor_id] = False
             return False
 
         if actor.energy < self.action_cost:
-            self.env._action_success[actor_id] = False
             return False
 
         actor.update_energy(-self.action_cost, &self.env._rewards[actor_id])
