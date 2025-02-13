@@ -48,6 +48,7 @@ ext_modules = [
     build_ext(["mettagrid/objects/generator.pyx"]),
     build_ext(["mettagrid/objects/converter.pyx"]),
     build_ext(["mettagrid/objects/altar.pyx"]),
+    build_ext(["mettagrid/objects/__init__.pyx"]),
     build_ext(["mettagrid/mettagrid.pyx"], "mettagrid.mettagrid_c"),
 ]
 
