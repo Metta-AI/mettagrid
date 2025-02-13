@@ -1,4 +1,4 @@
-from mettagrid.action cimport ActionHandler, ActionArg
+from mettagrid.action cimport ActionArg
 from mettagrid.objects cimport Agent
 from mettagrid.actions.actions cimport MettaActionHandler
 

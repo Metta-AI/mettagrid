@@ -1,13 +1,11 @@
 
-from libc.stdio cimport printf
 from libc.string cimport strcat, strcpy
 
 from omegaconf import OmegaConf
 
-from mettagrid.grid_object cimport GridLocation, GridObjectId, Orientation, GridObject
-from mettagrid.action cimport ActionHandler, ActionArg
-from mettagrid.objects cimport MettaObject, ObjectType, Usable, Altar, Agent, Events, GridLayer
-from mettagrid.objects cimport Generator, Converter, InventoryItem, ObjectTypeNames, InventoryItemNames
+from mettagrid.grid_object cimport GridLocation, Orientation
+from mettagrid.action cimport ActionArg
+from mettagrid.objects cimport Agent, MettaObject, ObjectType, Usable, Events, GridLayer, Generator, ObjectTypeNames, InventoryItem, Converter
 from mettagrid.actions.actions cimport MettaActionHandler
 
 cdef class Use(MettaActionHandler):
@@ -35,13 +33,14 @@ cdef class Use(MettaActionHandler):
         )
         target_loc.layer = GridLayer.Object_Layer
         cdef MettaObject *target = <MettaObject*>self.env._grid.object_at(target_loc)
-        if target == NULL:
-            return False
-
-        if not target.usable(actor):
+        if target == NULL or not target.is_usable_type():
             return False
 
         cdef Usable *usable = <Usable*> target
+
+        if not usable.usable(actor):
+            return False
+
         actor.update_energy(-usable.use_cost, &self.env._rewards[actor_id])
 
         usable.ready = 0

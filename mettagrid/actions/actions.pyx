@@ -1,11 +1,10 @@
 
-from libc.stdio cimport printf
 from libcpp.string cimport string
 from libc.string cimport strcat, strcpy
 from omegaconf import OmegaConf
 from mettagrid.grid_object cimport GridObjectId
 from mettagrid.action cimport ActionHandler, ActionArg
-from mettagrid.objects cimport Agent, ObjectTypeNames
+from mettagrid.objects cimport ObjectTypeNames, Agent
 
 cdef extern from "<string>" namespace "std":
     string to_string(int val)
