@@ -1,7 +1,3 @@
-# distutils: language=c++
-# cython: warn.undeclared=False
-# cython: c_api_binop_methods=True
-
 from libcpp.vector cimport vector
 from libcpp.string cimport string
 from libc.stdio cimport printf
