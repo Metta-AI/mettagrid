@@ -2,6 +2,7 @@ from libcpp.vector cimport vector
 from libcpp.string cimport string
 from mettagrid.observation_encoder cimport ObsType
 from mettagrid.grid_object cimport GridCoord, GridLocation, GridObject
+from mettagrid.stats_tracker cimport StatsTracker
 from .constants cimport ObjectType, GridLayer, InventoryItem, InventoryItemNames
 from .metta_object cimport MettaObject, ObjectConfig
 
@@ -22,6 +23,8 @@ cdef cppclass Agent(MettaObject):
     float freeze_reward
     string group_name
     unsigned char color
+    unsigned char agent_id
+    StatsTracker stats
 
     inline Agent(
         GridCoord r, GridCoord c,
@@ -57,6 +60,14 @@ cdef cppclass Agent(MettaObject):
         if this.inventory[<InventoryItem>item] > this.max_items:
             this.inventory[<InventoryItem>item] = this.max_items
 
+        if amount > 0:
+            this.stats.add(InventoryItemNames[item], b"gained", amount)
+            this.stats.add(InventoryItemNames[item], b"gained", this.group_name, amount)
+        else:
+            this.stats.add(InventoryItemNames[item], b"lost", -amount)
+            this.stats.add(InventoryItemNames[item], b"lost", this.group_name, -amount)
+
+
     inline short update_energy(short amount, float *reward):
         if amount < 0:
             amount = max(-this.energy, amount)
@@ -66,6 +77,9 @@ cdef cppclass Agent(MettaObject):
         this.energy += amount
         if reward is not NULL and amount > 0:
             reward[0] += amount * this.energy_reward
+
+        this.stats.add(b"energy.gained", amount)
+        this.stats.add(b"energy.gained", this.group_name, amount)
 
         return amount
 

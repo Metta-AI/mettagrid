@@ -3,6 +3,9 @@ from libcpp.vector cimport vector
 from libcpp.string cimport string
 from mettagrid.grid_object cimport TypeId
 
+cdef enum Events:
+    Reset = 0
+
 cdef enum GridLayer:
     Agent_Layer = 0
     Object_Layer = 1
