@@ -5,6 +5,11 @@ from mettagrid.grid_object cimport GridCoord, GridLocation, GridObject
 from .constants cimport ObjectType, GridLayer, InventoryItem
 from .metta_object cimport MettaObject, ObjectConfig
 
+# xcxc
+# cppclass doesn't seem to work as desired with imports, unless you include source files.
+# if you include source files, you end up with doubly-declared symbols
+
+# A likely issue is that we're double-importing implementations because they're in the .pxd files, vs the .pyx files.
 cdef cppclass Agent(MettaObject):
     unsigned char group
     unsigned char frozen

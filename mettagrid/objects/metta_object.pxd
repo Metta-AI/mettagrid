@@ -1,5 +1,3 @@
-# distutils: language=c++
-
 from mettagrid.grid_object cimport GridObject
 from libcpp.string cimport string
 from libcpp.map cimport map
@@ -9,6 +7,8 @@ ctypedef map[string, int] ObjectConfig
 cdef cppclass MettaObject(GridObject):
     unsigned int hp
 
-    void init_mo(ObjectConfig cfg)
+    inline void init_mo(ObjectConfig cfg):
+        this.hp = cfg[b"hp"]
 
-    bint is_usable_type()
+    inline bint is_usable_type():
+        return False

@@ -19,5 +19,3 @@ cdef cppclass Wall(MettaObject):
     @staticmethod
     inline vector[string] feature_names():
         return ["wall", "wall:hp"]
-    
-    bint is_true()
