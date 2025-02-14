@@ -5,7 +5,12 @@ from omegaconf import OmegaConf
 
 from mettagrid.grid_object cimport GridLocation, Orientation
 from mettagrid.action cimport ActionArg
-from mettagrid.objects cimport Agent, MettaObject, ObjectType, Usable, Events, GridLayer, Generator, ObjectTypeNames, InventoryItem, Converter
+from mettagrid.objects.agent cimport Agent
+from mettagrid.objects.metta_object cimport MettaObject
+from mettagrid.objects.constants cimport ObjectType, Events, GridLayer, ObjectTypeNames, InventoryItem
+from mettagrid.objects.usable cimport Usable
+from mettagrid.objects.generator cimport Generator
+from mettagrid.objects.converter cimport Converter
 from mettagrid.actions.actions cimport MettaActionHandler
 
 cdef class Use(MettaActionHandler):

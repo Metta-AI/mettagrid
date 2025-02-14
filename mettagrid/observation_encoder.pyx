@@ -5,7 +5,12 @@ from libc.stdio cimport printf
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 from mettagrid.grid_object cimport GridObject
-from mettagrid.objects cimport ObjectType, Wall, Generator, Altar, Agent, Converter
+from mettagrid.objects.constants cimport ObjectType
+from mettagrid.objects.wall cimport Wall
+from mettagrid.objects.generator cimport Generator
+from mettagrid.objects.altar cimport Altar
+from mettagrid.objects.agent cimport Agent
+from mettagrid.objects.converter cimport Converter
 from mettagrid.observation_encoder cimport ObservationEncoder, ObsType
 import numpy as np
 import gymnasium as gym

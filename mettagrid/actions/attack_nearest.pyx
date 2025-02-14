@@ -5,8 +5,8 @@ from omegaconf import OmegaConf
 
 from mettagrid.grid_object cimport GridLocation, Orientation
 from mettagrid.action cimport ActionArg
-from mettagrid.objects cimport GridLayer, Agent
-from mettagrid.actions.actions cimport MettaActionHandler
+from mettagrid.objects.constants cimport GridLayer
+from mettagrid.objects.agent cimport Agent
 from mettagrid.actions.attack cimport Attack
 
 cdef class AttackNearest(Attack):

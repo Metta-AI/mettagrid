@@ -5,7 +5,9 @@ from omegaconf import OmegaConf
 
 from mettagrid.grid_object cimport GridLocation, Orientation
 from mettagrid.action cimport ActionArg
-from mettagrid.objects cimport MettaObject, Agent, GridLayer, Agent, ObjectTypeNames, InventoryItem, InventoryItemNames
+from mettagrid.objects.metta_object cimport MettaObject
+from mettagrid.objects.agent cimport Agent
+from mettagrid.objects.constants cimport GridLayer, ObjectTypeNames, InventoryItem, InventoryItemNames
 from mettagrid.actions.actions cimport MettaActionHandler
 
 cdef class Attack(MettaActionHandler):
