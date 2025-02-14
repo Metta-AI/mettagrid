@@ -1,3 +1,6 @@
+
+from libc.stdio cimport printf
+
 from omegaconf import OmegaConf
 
 from mettagrid.grid_object cimport GridLocation, GridObjectId, Orientation, GridObject

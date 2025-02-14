@@ -1,3 +1,6 @@
+
+from libc.stdio cimport printf
+
 from omegaconf import OmegaConf
 
 from mettagrid.grid_object cimport GridLocation, Orientation
@@ -23,7 +26,7 @@ cdef class AttackNearest(Attack):
         cdef int offset = 0
         cdef GridLocation target_loc;
         cdef Agent * agent_target;
-        
+
         # Scan the space to find the nearest agent. Prefer the middle (offset 0) before the edges (offset -1, 1).
         for distance in range(1, 4):
             for offset in range(3):

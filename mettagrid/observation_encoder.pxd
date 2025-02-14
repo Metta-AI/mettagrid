@@ -4,6 +4,7 @@
 
 from libcpp.vector cimport vector
 from libcpp.string cimport string
+from libc.stdio cimport printf
 from mettagrid.base_encoder cimport ObservationEncoder, ObsType
 from mettagrid.grid_object cimport GridObject
 

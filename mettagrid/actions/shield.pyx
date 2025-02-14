@@ -1,3 +1,6 @@
+
+from libc.stdio cimport printf
+
 from omegaconf import OmegaConf
 
 from mettagrid.action cimport ActionArg
