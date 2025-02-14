@@ -10,7 +10,7 @@ cdef cppclass Altar(Usable):
     inline Altar(GridCoord r, GridCoord c, ObjectConfig cfg):
         GridObject.init(ObjectType.AltarT, GridLocation(r, c, GridLayer.Object_Layer))
         MettaObject.init_mo(cfg)
-        # Usable.init_usable()
+        Usable.init_usable(cfg)
 
     inline void obs(ObsType[:] obs):
         obs[0] = 1

@@ -39,7 +39,7 @@ ext_modules = [
     build_ext(["mettagrid/actions/shield.pyx"]),
     build_ext(["mettagrid/actions/swap.pyx"]),
     build_ext(["mettagrid/actions/use.pyx"]),
-    build_ext(["mettagrid/objects/__init__.pyx"]),#, "mettagrid/objects/usable.pyx"], "mettagrid.objects"),
+    build_ext(["mettagrid/objects/__init__.pyx"]),
     build_ext(["mettagrid/mettagrid.pyx"], "mettagrid.mettagrid_c"),
 ]
 

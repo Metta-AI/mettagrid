@@ -12,7 +12,7 @@ cdef cppclass Generator(Usable):
     inline Generator(GridCoord r, GridCoord c, ObjectConfig cfg):
         GridObject.init(ObjectType.GeneratorT, GridLocation(r, c, GridLayer.Object_Layer))
         MettaObject.init_mo(cfg)
-        # Usable.init_usable()
+        Usable.init_usable(cfg)
         this.r1 = cfg[b"initial_resources"]
 
     inline void obs(ObsType[:] obs):
