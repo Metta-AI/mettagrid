@@ -2,7 +2,7 @@ from libcpp.vector cimport vector
 from libcpp.string cimport string
 from mettagrid.observation_encoder cimport ObsType
 from mettagrid.grid_object cimport GridCoord, GridLocation, GridObject
-from .constants cimport ObjectType, GridLayer, InventoryItem
+from .constants cimport ObjectType, GridLayer, InventoryItem, InventoryItemNames
 from .metta_object cimport MettaObject, ObjectConfig
 
 # xcxc
@@ -54,11 +54,51 @@ cdef cppclass Agent(MettaObject):
         this.shield = False
         this.color = 0
 
-    void update_inventory(InventoryItem item, short amount, float *reward)
+    inline void update_inventory(InventoryItem item, short amount, float *reward):
+        this.inventory[<InventoryItem>item] += amount
+        if reward is not NULL and amount > 0:
+            reward[0] += amount * this.resource_reward
 
-    short update_energy(short amount, float *reward)
+        if this.inventory[<InventoryItem>item] > this.max_items:
+            this.inventory[<InventoryItem>item] = this.max_items
 
-    void obs(ObsType[:] obs)
+    inline short update_energy(short amount, float *reward):
+        if amount < 0:
+            amount = max(-this.energy, amount)
+        else:
+            amount = min(this.max_energy - this.energy, amount)
+
+        this.energy += amount
+        if reward is not NULL and amount > 0:
+            reward[0] += amount * this.energy_reward
+
+        return amount
+
+    inline void obs(ObsType[:] obs):
+        obs[0] = 1
+        obs[1] = this.group
+        obs[2] = this.hp
+        obs[3] = this.frozen
+        obs[4] = this.energy
+        obs[5] = this.orientation
+        obs[6] = this.shield
+        obs[7] = this.color
+        cdef unsigned short idx = 8
+
+        cdef unsigned short i
+        for i in range(InventoryItem.InventoryCount):
+            obs[idx + i] = this.inventory[i]
 
     @staticmethod
-    vector[string] feature_names()
+    inline vector[string] feature_names():
+        return [
+            "agent",
+            "agent:group",
+            "agent:hp",
+            "agent:frozen",
+            "agent:energy",
+            "agent:orientation",
+            "agent:shield",
+            "agent:color"
+        ] + [
+            "agent:inv:" + n for n in InventoryItemNames]
