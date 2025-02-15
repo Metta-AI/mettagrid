@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CONSTANTS_HPP
+#define CONSTANTS_HPP
 
 #include <map>
 #include <vector>
@@ -54,3 +55,5 @@ std::map<TypeId, GridLayer> ObjectLayers = {
     {ObjectType::ConverterT, GridLayer::Object_Layer}, 
     {ObjectType::AltarT, GridLayer::Object_Layer}
 };
+
+#endif

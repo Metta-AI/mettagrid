@@ -37,7 +37,8 @@ cdef class MettaObservationEncoder(ObservationEncoder):
 
     cdef _encode(self, GridObject *obj, ObsType[:] obs, unsigned int offset):
         if obj._type_id == ObjectType.AgentT:
-            (<Agent*>obj).obs(obs[offset:])
+            # We pass a reference to the data in obs, so it can be treated as a c-array
+            (<Agent*>obj).obs(&obs[offset])
         elif obj._type_id == ObjectType.WallT:
             (<Wall*>obj).obs(obs[offset:])
         elif obj._type_id == ObjectType.GeneratorT:
