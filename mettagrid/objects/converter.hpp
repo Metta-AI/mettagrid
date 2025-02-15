@@ -2,20 +2,18 @@
 
 #include <vector>
 #include <string>
-#include "mettagrid/observation_encoder.hpp"
-#include "mettagrid/grid_object.hpp"
-#include "mettagrid/objects/constants.hpp"
-#include "mettagrid/objects/metta_object.hpp"
-#include "mettagrid/objects/usable.hpp"
-#include "mettagrid/objects/agent.hpp"
+#include "../grid_object.hpp"
+#include "constants.hpp"
+#include "metta_object.hpp"
+#include "usable.hpp"
+#include "agent.hpp"
 
 class Converter : public Usable {
-private:
+public:
     short prey_r1_output_energy;
     short predator_r1_output_energy; 
     short predator_r2_output_energy;
 
-public:
     Converter(GridCoord r, GridCoord c, ObjectConfig cfg) {
         GridObject::init(ObjectType::ConverterT, GridLocation(r, c, GridLayer::Object_Layer));
         MettaObject::init_mo(cfg);
@@ -62,12 +60,6 @@ public:
         energy_gain = actor->update_energy(potential_energy_gain, rewards);
         actor->stats.add("energy.gained", energy_gain);
         actor->stats.add("energy.gained", actor->group_name, energy_gain);
-    }
-
-    void obs(std::vector<ObsType>& obs) {
-        obs[0] = 1;
-        obs[1] = this->hp;
-        obs[2] = this->ready;
     }
 
     static std::vector<std::string> feature_names() {

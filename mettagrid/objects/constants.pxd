@@ -24,6 +24,9 @@ cdef extern from "constants.hpp":
         r1 = 0
         r2 = 1
         r3 = 2
+        # ##InlineInventoryCount
+        # We sometimes hard code this elsewhere, since cython seems to not trust this
+        # enum, and ends up generating a lot of code to access it.
         InventoryCount = 3
 
     cdef vector[string] InventoryItemNames

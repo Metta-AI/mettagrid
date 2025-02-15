@@ -18,8 +18,12 @@ public:
         this->cooldown = cfg["cooldown"];
     }
 
-    bool usable(const Agent *actor) {
+    virtual bool usable(const Agent *actor) {
         return this->ready && this->use_cost <= actor->energy;
+    }
+
+    virtual bool is_usable_type() {
+        return true;
     }
 };
 

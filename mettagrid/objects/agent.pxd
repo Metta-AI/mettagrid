@@ -1,6 +1,5 @@
 from libcpp.vector cimport vector
 from libcpp.string cimport string
-from mettagrid.observation_encoder cimport ObsType
 from mettagrid.grid_object cimport GridCoord, GridLocation, GridObject
 from mettagrid.stats_tracker cimport StatsTracker
 from .constants cimport InventoryItem
@@ -29,7 +28,6 @@ cdef extern from "agent.hpp":
 
         Agent(GridCoord r, GridCoord c, string group_name, unsigned char group_id, ObjectConfig cfg)
         void update_inventory(InventoryItem item, short amount, float *reward)
-        void obs(ObsType obs[])
         short update_energy(short amount, float *reward)
         @staticmethod
         vector[string] feature_names()

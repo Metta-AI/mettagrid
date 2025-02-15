@@ -8,8 +8,6 @@
 #include "constants.hpp"
 #include "metta_object.hpp"
 
-typedef unsigned char ObsType;
-
 class Agent : public MettaObject {
 public:
     unsigned char group;
@@ -97,22 +95,6 @@ public:
         this->stats.add("energy.gained", this->group_name, amount);
 
         return amount;
-    }
-
-    void obs(ObsType obs[]) {
-        obs[0] = 1;
-        obs[1] = this->group;
-        obs[2] = this->hp;
-        obs[3] = this->frozen;
-        obs[4] = this->energy;
-        obs[5] = this->orientation;
-        obs[6] = this->shield;
-        obs[7] = this->color;
-        unsigned short idx = 8;
-
-        for (unsigned short i = 0; i < InventoryItem::InventoryCount; i++) {
-            obs[idx + i] = this->inventory[i];
-        }
     }
 
     static std::vector<std::string> feature_names() {
