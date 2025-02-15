@@ -131,9 +131,6 @@ game:
     attack:
       enabled: true
       cost: ${uniform:1, 100, 10}
-    gift:
-      enabled: false
-      cost: 0
     swap:
       enabled: true
       cost: 0
