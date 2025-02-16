@@ -62,6 +62,6 @@ public:
     }
 
     static std::vector<std::string> feature_names() {
-        return {"converter", "converter:type", "converter:r1", "converter:r2", "converter:r3", "converter:converting"};
+        return {"converter", "converter:type", "converter:converting", "converter:r1", "converter:r2", "converter:r3"};
     }
 };

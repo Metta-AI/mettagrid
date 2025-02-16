@@ -101,8 +101,11 @@ cdef class MettaGrid(GridEnv):
                     self._grid.add_object(new Wall(r, c, cfg.objects.wall))
                     self._stats.incr(b"objects.wall")
                 elif map[r,c] == "generator":
+                    # xcxc pull this into a config
                     generator = new Converter(r, c, cfg.objects.converter)
                     generator.recipe_output[0] = 1
+                    generator.output_inventory[0] = 1
+                    # xcxc start them generating
                     generator.recipe_duration = 5
                     generator.type = 0
                     self._grid.add_object(generator)
@@ -119,6 +122,7 @@ cdef class MettaGrid(GridEnv):
                     altar = new Converter(r, c, cfg.objects.converter)
                     altar.recipe_input[1] = 1
                     altar.recipe_output[2] = 1
+                    altar.recipe_duration = 5
                     altar.type = 2
                     self._grid.add_object(altar)
                     self._stats.incr(b"objects.altar")

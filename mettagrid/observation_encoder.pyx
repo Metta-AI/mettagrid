@@ -50,10 +50,11 @@ cdef class MettaObservationEncoder(ObservationEncoder):
         elif obj._type_id == ObjectType.ConverterT:
             obs[offset] = 1
             obs[offset + 1] = (<Converter*>obj).type
-            obs[offset + 2] = (<Converter*>obj).output_inventory[0]
-            obs[offset + 3] = (<Converter*>obj).output_inventory[1]
-            obs[offset + 4] = (<Converter*>obj).output_inventory[2]
-            obs[offset + 5] = (<Converter*>obj).converting
+            obs[offset + 2] = <unsigned char>(<Converter*>obj).converting
+            obs[offset + 3] = (<Converter*>obj).output_inventory[0]
+            obs[offset + 4] = (<Converter*>obj).output_inventory[1]
+            obs[offset + 5] = (<Converter*>obj).output_inventory[2]
+            
         else:
             printf("Encoding object of unknown type: %d\n", obj._type_id)
 

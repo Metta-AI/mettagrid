@@ -160,10 +160,15 @@ class ConverterRenderer(ObjectRenderer):
         super().__init__("items.png", 16)
 
     def _sprite_sheet_idx(self, obj):
-        if obj["converter:ready"]:
-            return (12, 0)
-        else:
-            return (13, 0)
+        return {
+            (0, True): (14, 2),
+            (0, False): (13, 2),
+            (1, True): (12, 0),
+            (1, False): (13, 0),
+            (2, True): (11, 2),
+            (2, False): (12, 2)
+        }[(obj["converter:type"], obj["converter:converting"])]
+
 class AltarRenderer(ObjectRenderer):
     def __init__(self):
         super().__init__("items.png", 16)
