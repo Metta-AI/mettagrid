@@ -15,6 +15,9 @@ public:
 
     vector<unsigned char> recipe_input;
     vector<unsigned char> recipe_output;
+    // the converter won't convert if its output already has this many things.
+    // Mostly important for generators, probably?
+    unsigned short max_output;
     // For now, we hard code a converter's recipe, and use this indicator to let agents
     // know what the converter does.
     unsigned char type;
@@ -44,7 +47,14 @@ public:
                     return false;
                 }
             }
-            // produce
+            unsigned short total_output_inventory = 0;
+            for (unsigned int i = 0; i < this->output_inventory.size(); i++) {
+                total_output_inventory += this->output_inventory[i];
+            }
+            if (total_output_inventory >= this->max_output) {
+                return false;
+            }
+            // produce.
             for (unsigned int i = 0; i < this->recipe_input.size(); i++) {
                 this->input_inventory[i] -= this->recipe_input[i];
             }

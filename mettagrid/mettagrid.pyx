@@ -14,7 +14,7 @@ from mettagrid.grid_object cimport GridObject
 from mettagrid.observation_encoder cimport ObsType
 
 from mettagrid.objects.agent cimport Agent
-from mettagrid.objects.constants cimport ObjectLayers, InventoryItem
+from mettagrid.objects.constants cimport ObjectLayers, InventoryItem, Events
 from mettagrid.objects.reset_handler cimport ResetHandler
 from mettagrid.objects.production_handler cimport ProductionHandler
 from mettagrid.objects.converter cimport Converter
@@ -105,16 +105,21 @@ cdef class MettaGrid(GridEnv):
                     generator = new Converter(r, c, cfg.objects.converter)
                     generator.recipe_output[0] = 1
                     generator.output_inventory[0] = 1
-                    # xcxc start them generating
-                    generator.recipe_duration = 5
+                    generator.recipe_duration = 10
+                    generator.max_output = 5
                     generator.type = 0
                     self._grid.add_object(generator)
+                    # these start off generating, since they take no input. We could run this for all
+                    # converters if we cared.
+                    if generator.maybe_start_converting():
+                        self._event_manager.schedule_event(Events.FinishConverting, generator.recipe_duration, generator.id, 0)
                     self._stats.incr(b"objects.generator")
                 elif map[r,c] == "converter":
                     converter = new Converter(r, c, cfg.objects.converter)
                     converter.recipe_input[0] = 1
                     converter.recipe_output[1] = 1
                     converter.recipe_duration = 5
+                    converter.max_output = 5
                     converter.type = 1
                     self._grid.add_object(converter)
                     self._stats.incr(b"objects.converter")
@@ -123,6 +128,7 @@ cdef class MettaGrid(GridEnv):
                     altar.recipe_input[1] = 1
                     altar.recipe_output[2] = 1
                     altar.recipe_duration = 5
+                    altar.max_output = 5
                     altar.type = 2
                     self._grid.add_object(altar)
                     self._stats.incr(b"objects.altar")
