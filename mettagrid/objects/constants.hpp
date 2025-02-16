@@ -8,7 +8,8 @@
 #include "../grid_object.hpp"
 
 enum Events {
-    Reset = 0
+    Reset = 0,
+    FinishConverting = 1
 };
 
 enum GridLayer {
@@ -23,7 +24,6 @@ enum ObjectType {
     ConverterT = 3,
     AltarT = 4,
     Count = 5,
-    Resource_Count = 2
 };
 
 enum InventoryItem {

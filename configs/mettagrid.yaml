@@ -125,6 +125,12 @@ game:
     transfer:
       enabled: false
       cost: 0
+    put_action:
+      enabled: true
+      cost: 0
+    get_action:
+      enabled: true
+      cost: 0
     use:
       enabled: true
       cost: 0

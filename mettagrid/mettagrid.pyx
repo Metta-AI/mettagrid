@@ -16,14 +16,14 @@ from mettagrid.observation_encoder cimport ObsType
 from mettagrid.objects.agent cimport Agent
 from mettagrid.objects.constants cimport ObjectLayers
 from mettagrid.objects.reset_handler cimport ResetHandler
+from mettagrid.objects.production_handler cimport ProductionHandler
 from mettagrid.objects.converter cimport Converter
 from mettagrid.objects.wall cimport Wall
-from mettagrid.objects.generator cimport Generator
-from mettagrid.objects.altar cimport Altar
 from mettagrid.observation_encoder cimport MettaObservationEncoder, MettaCompactObservationEncoder
 from mettagrid.actions.move import Move
 from mettagrid.actions.rotate import Rotate
-from mettagrid.actions.use import Use
+from mettagrid.actions.get_all import GetAll
+from mettagrid.actions.put_recipe import PutRecipe
 from mettagrid.actions.attack import Attack
 from mettagrid.actions.attack_nearest import AttackNearest
 from mettagrid.actions.shield import Shield
@@ -48,14 +48,16 @@ cdef class MettaGrid(GridEnv):
             obs_encoder = MettaCompactObservationEncoder()
 
         actions = []
+        if cfg.actions.put_action.enabled:
+            actions.append(PutRecipe(cfg.actions.put_action))
+        if cfg.actions.get_action.enabled:
+            actions.append(GetAll(cfg.actions.get_action))
         if cfg.actions.noop.enabled:
             actions.append(Noop(cfg.actions.noop))
         if cfg.actions.move.enabled:
             actions.append(Move(cfg.actions.move))
         if cfg.actions.rotate.enabled:
             actions.append(Rotate(cfg.actions.rotate))
-        if cfg.actions.use.enabled:
-            actions.append(Use(cfg.actions.use))
         if cfg.actions.attack.enabled:
             actions.append(Attack(cfg.actions.attack))
             actions.append(AttackNearest(cfg.actions.attack))
@@ -76,7 +78,7 @@ cdef class MettaGrid(GridEnv):
             cfg.obs_width, cfg.obs_height,
             obs_encoder,
             actions,
-            [ ResetHandler() ],
+            [ ResetHandler(), ProductionHandler() ],
             use_flat_actions=env_cfg.flatten_actions,
             track_last_action=env_cfg.track_last_action
         )
@@ -99,13 +101,26 @@ cdef class MettaGrid(GridEnv):
                     self._grid.add_object(new Wall(r, c, cfg.objects.wall))
                     self._stats.incr(b"objects.wall")
                 elif map[r,c] == "generator":
-                    self._grid.add_object(new Generator(r, c, cfg.objects.generator))
+                    generator = new Converter(r, c, cfg.objects.converter)
+                    generator.recipe_output[0] = 1
+                    generator.recipe_duration = 5
+                    converter.type = 0
+                    self._grid.add_object(generator)
                     self._stats.incr(b"objects.generator")
                 elif map[r,c] == "converter":
-                    self._grid.add_object(new Converter(r, c, cfg.objects.converter))
+                    converter = new Converter(r, c, cfg.objects.converter)
+                    converter.recipe_input[0] = 1
+                    converter.recipe_output[1] = 1
+                    converter.recipe_duration = 5
+                    converter.type = 1
+                    self._grid.add_object(converter)
                     self._stats.incr(b"objects.converter")
                 elif map[r,c] == "altar":
-                    self._grid.add_object(new Altar(r, c, cfg.objects.altar))
+                    altar = new Converter(r, c, cfg.objects.converter)
+                    altar.recipe_input[1] = 1
+                    altar.recipe_output[2] = 1
+                    converter.type = 2
+                    self._grid.add_object(altar)
                     self._stats.incr(b"objects.altar")
                 elif map[r,c].startswith("agent."):
                     group_name = map[r,c].split(".")[1]

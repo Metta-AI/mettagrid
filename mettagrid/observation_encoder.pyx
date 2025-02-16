@@ -4,8 +4,6 @@ from libcpp.vector cimport vector
 from mettagrid.grid_object cimport GridObject
 from mettagrid.objects.constants cimport ObjectType, InventoryItem
 from mettagrid.objects.wall cimport Wall
-from mettagrid.objects.generator cimport Generator
-from mettagrid.objects.altar cimport Altar
 from mettagrid.objects.agent cimport Agent
 from mettagrid.objects.converter cimport Converter
 from mettagrid.observation_encoder cimport ObservationEncoder, ObsType
@@ -23,9 +21,7 @@ cdef class MettaObservationEncoder(ObservationEncoder):
 
         self._type_feature_names[ObjectType.AgentT] = Agent.feature_names()
         self._type_feature_names[ObjectType.WallT] = Wall.feature_names()
-        self._type_feature_names[ObjectType.GeneratorT] = Generator.feature_names()
         self._type_feature_names[ObjectType.ConverterT] = Converter.feature_names()
-        self._type_feature_names[ObjectType.AltarT] = Altar.feature_names()
 
         for type_id in range(ObjectType.Count):
             self._offsets[type_id] = len(features)
@@ -51,15 +47,13 @@ cdef class MettaObservationEncoder(ObservationEncoder):
                 obs[<int>(offset + 8 + i)] = (<Agent*>obj).inventory[i]
         elif obj._type_id == ObjectType.WallT:
             (<Wall*>obj).obs(obs[offset:])
-        elif obj._type_id == ObjectType.GeneratorT:
-            (<Generator*>obj).obs(obs[offset:])
         elif obj._type_id == ObjectType.ConverterT:
             obs[offset] = 1
-            obs[offset + 1] = (<Converter*>obj).prey_r1_output_energy
-            obs[offset + 2] = (<Converter*>obj).predator_r1_output_energy
-            obs[offset + 3] = (<Converter*>obj).predator_r2_output_energy
-        elif obj._type_id == ObjectType.AltarT:
-            (<Altar*>obj).obs(obs[offset:])
+            obs[offset + 1] = (<Converter*>obj).type
+            obs[offset + 2] = (<Converter*>obj).output_inventory[0]
+            obs[offset + 3] = (<Converter*>obj).output_inventory[1]
+            obs[offset + 4] = (<Converter*>obj).output_inventory[2]
+            obs[offset + 5] = (<Converter*>obj).converting
         else:
             printf("Encoding object of unknown type: %d\n", obj._type_id)
 

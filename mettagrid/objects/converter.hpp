@@ -10,59 +10,54 @@
 
 class Converter : public Usable {
 public:
-    short prey_r1_output_energy;
-    short predator_r1_output_energy; 
-    short predator_r2_output_energy;
+    vector<unsigned char> input_inventory;
+    vector<unsigned char> output_inventory;
+
+    vector<unsigned char> recipe_input;
+    vector<unsigned char> recipe_output;
+    // For now, we hard code a converter's recipe, and use this indicator to let agents
+    // know what the converter does.
+    unsigned char type;
+    unsigned char recipe_duration;
+    bool converting;
 
     Converter(GridCoord r, GridCoord c, ObjectConfig cfg) {
         GridObject::init(ObjectType::ConverterT, GridLocation(r, c, GridLayer::Object_Layer));
         MettaObject::init_mo(cfg);
         Usable::init_usable(cfg);
-        this->prey_r1_output_energy = cfg["energy_output.r1.prey"];
-        this->predator_r1_output_energy = cfg["energy_output.r1.predator"];
-        this->predator_r2_output_energy = cfg["energy_output.r2.predator"];
+        this->converting = false;
     }
 
-    bool usable(const Agent* actor) {
-        return Usable::usable(actor) && (
-            actor->inventory[InventoryItem::r1] > 0 ||
-            (actor->inventory[InventoryItem::r2] > 0 &&
-             actor->group_name == "predator")
-        );
-    }
-
-    void use(Agent* actor, unsigned int actor_id, float* rewards) {
-        unsigned int energy_gain = 0;
-        InventoryItem consumed_resource = InventoryItem::r1;
-        InventoryItem produced_resource = InventoryItem::r2;
-        unsigned int potential_energy_gain = this->prey_r1_output_energy;
-        
-        if (actor->group_name == "predator") {
-            if (actor->inventory[InventoryItem::r2] > 0) {
-                // eat meat if you can
-                consumed_resource = InventoryItem::r2;
-                produced_resource = InventoryItem::r3;
-                potential_energy_gain = this->predator_r2_output_energy;
-            } else {
-                potential_energy_gain = this->predator_r1_output_energy;
-                produced_resource = InventoryItem::r3;
+    // returns true if we started converting. We do this so we can schedule our converting
+    // to finish. It's more natural for us to scheule the finishing ourselves, but
+    // it's harder to pass the env down to this code.
+    // This should be called any time the converter could start converting. E.g.,
+    // when things are added to its input, and when it finishes converting.
+    bool maybe_start_converting() {
+        if (!this->converting) {
+            for (unsigned int i = 0; i < this->recipe_input.size(); i++) {
+                if (this->input_inventory[i] < this->recipe_input[i]) {
+                    return false;
+                }
             }
+            // produce
+            for (unsigned int i = 0; i < this->recipe_input.size(); i++) {
+                this->input_inventory[i] -= this->recipe_input[i];
+            }
+            this->converting = true;
+            return true;
         }
+        return false;
+    }
 
-        actor->update_inventory(consumed_resource, -1, nullptr);
-        actor->stats.incr(InventoryItemNames[consumed_resource], "used");
-        actor->stats.incr(InventoryItemNames[consumed_resource], actor->group_name, "used");
-
-        actor->update_inventory(produced_resource, 1, nullptr);
-        actor->stats.incr(InventoryItemNames[produced_resource], "gained");
-        actor->stats.incr(InventoryItemNames[produced_resource], actor->group_name, "gained");
-
-        energy_gain = actor->update_energy(potential_energy_gain, rewards);
-        actor->stats.add("energy.gained", energy_gain);
-        actor->stats.add("energy.gained", actor->group_name, energy_gain);
+    void finish_converting() {
+        for (unsigned int i = 0; i < this->recipe_output.size(); i++) {
+            this->output_inventory[i] += this->recipe_output[i];
+        }
+        this->converting = false;
     }
 
     static std::vector<std::string> feature_names() {
-        return {"converter", "converter:hp", "converter:ready"};
+        return {"converter", "converter:type", "converter:r1", "converter:r2", "converter:r3", "converter:converting"};
     }
 };
