@@ -160,14 +160,22 @@ class ConverterRenderer(ObjectRenderer):
         super().__init__("items.png", 16)
 
     def _sprite_sheet_idx(self, obj):
+        visual_state = "empty"
+        if obj["converter:r1"] + obj["converter:r2"] + obj["converter:r3"] > 0:
+            visual_state = "has_inventory"
+        elif obj["converter:converting"]:
+            visual_state = "converting"
         return {
-            (0, True): (14, 2),
-            (0, False): (13, 2),
-            (1, True): (12, 0),
-            (1, False): (13, 0),
-            (2, True): (11, 2),
-            (2, False): (12, 2)
-        }[(obj["converter:type"], obj["converter:converting"])]
+            (0, "empty"): (13, 2),
+            (0, "has_inventory"): (14, 2),
+            (0, "converting"): (15, 2),
+            (1, "empty"): (12, 0),
+            (1, "has_inventory"): (13, 0),
+            (1, "converting"): (14, 0),
+            (2, "empty"): (11, 2),
+            (2, "has_inventory"): (12, 2),
+            (2, "converting"): (10, 2),
+        }[(obj["converter:type"], visual_state)]
 
 class AltarRenderer(ObjectRenderer):
     def __init__(self):
