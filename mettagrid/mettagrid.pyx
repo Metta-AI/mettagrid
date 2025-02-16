@@ -104,7 +104,7 @@ cdef class MettaGrid(GridEnv):
                     generator = new Converter(r, c, cfg.objects.converter)
                     generator.recipe_output[0] = 1
                     generator.recipe_duration = 5
-                    converter.type = 0
+                    generator.type = 0
                     self._grid.add_object(generator)
                     self._stats.incr(b"objects.generator")
                 elif map[r,c] == "converter":
@@ -119,7 +119,7 @@ cdef class MettaGrid(GridEnv):
                     altar = new Converter(r, c, cfg.objects.converter)
                     altar.recipe_input[1] = 1
                     altar.recipe_output[2] = 1
-                    converter.type = 2
+                    altar.type = 2
                     self._grid.add_object(altar)
                     self._stats.incr(b"objects.altar")
                 elif map[r,c].startswith("agent."):
