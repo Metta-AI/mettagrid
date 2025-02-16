@@ -14,7 +14,7 @@ from mettagrid.grid_object cimport GridObject
 from mettagrid.observation_encoder cimport ObsType
 
 from mettagrid.objects.agent cimport Agent
-from mettagrid.objects.constants cimport ObjectLayers
+from mettagrid.objects.constants cimport ObjectLayers, InventoryItem
 from mettagrid.objects.reset_handler cimport ResetHandler
 from mettagrid.objects.production_handler cimport ProductionHandler
 from mettagrid.objects.converter cimport Converter

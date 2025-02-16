@@ -25,6 +25,10 @@ public:
         GridObject::init(ObjectType::ConverterT, GridLocation(r, c, GridLayer::Object_Layer));
         MettaObject::init_mo(cfg);
         Usable::init_usable(cfg);
+        this->input_inventory.resize(InventoryItem::InventoryCount);
+        this->output_inventory.resize(InventoryItem::InventoryCount);
+        this->recipe_input.resize(InventoryItem::InventoryCount);
+        this->recipe_output.resize(InventoryItem::InventoryCount);
         this->converting = false;
     }
 
