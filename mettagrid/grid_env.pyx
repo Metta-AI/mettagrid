@@ -301,7 +301,7 @@ cdef class GridEnv:
         return gym.spaces.Box(
             0,
             255,
-            shape=(self._obs_height, self._obs_width, self._grid_features.size()),
+            shape=(self._grid_features.size(), self._obs_height, self._obs_width),
             dtype=obs_np_type
         )
 
