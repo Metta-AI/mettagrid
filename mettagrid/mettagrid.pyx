@@ -1,32 +1,48 @@
-from libc.stdio cimport printf
-from libcpp.string cimport string
-from libcpp.vector cimport vector
-from libcpp.map cimport map
+from types import SimpleNamespace
 
 import numpy as np
 cimport numpy as cnp
 import gymnasium as gym
 from omegaconf import OmegaConf
-from types import SimpleNamespace
 
+# C/C++ imports
+from libc.stdio cimport printf
+from libcpp.string cimport string
+from libcpp.vector cimport vector
+from libcpp.map cimport map
+
+# Core mettagrid imports
 from mettagrid.grid_env cimport GridEnv
 from mettagrid.grid_object cimport GridObject
-from mettagrid.observation_encoder cimport ObsType
+from mettagrid.observation_encoder cimport (
+    ObsType,
+    MettaObservationEncoder,
+    MettaCompactObservationEncoder
+)
 
+# Object imports
+from mettagrid.objects.mine cimport Mine
 from mettagrid.objects.agent cimport Agent
-from mettagrid.objects.constants cimport ObjectLayers, InventoryItem, Events
 from mettagrid.objects.reset_handler cimport ResetHandler
 from mettagrid.objects.production_handler cimport ProductionHandler
-from mettagrid.objects.converter cimport Converter
 from mettagrid.objects.wall cimport Wall
-from mettagrid.observation_encoder cimport MettaObservationEncoder, MettaCompactObservationEncoder
+from mettagrid.objects.generator cimport Generator
+from mettagrid.objects.altar cimport Altar
+from mettagrid.objects.lab cimport Lab
+from mettagrid.objects.factory cimport Factory
+from mettagrid.objects.temple cimport Temple
+from mettagrid.objects.armory cimport Armory
+from mettagrid.objects.lasery cimport Lasery
+from mettagrid.objects.usable cimport Usable
+from mettagrid.objects.constants cimport ObjectLayers, InventoryItemNames
+
+# Action imports
 from mettagrid.actions.move import Move
 from mettagrid.actions.rotate import Rotate
 from mettagrid.actions.get_all import GetAll
 from mettagrid.actions.put_recipe import PutRecipe
 from mettagrid.actions.attack import Attack
 from mettagrid.actions.attack_nearest import AttackNearest
-from mettagrid.actions.shield import Shield
 from mettagrid.actions.noop import Noop
 from mettagrid.actions.swap import Swap
 from mettagrid.actions.change_color import ChangeColorAction
@@ -61,8 +77,6 @@ cdef class MettaGrid(GridEnv):
         if cfg.actions.attack.enabled:
             actions.append(Attack(cfg.actions.attack))
             actions.append(AttackNearest(cfg.actions.attack))
-        if cfg.actions.shield.enabled:
-            actions.append(Shield(cfg.actions.shield))
         if cfg.actions.swap.enabled:
             actions.append(Swap(cfg.actions.swap))
         if cfg.actions.change_color.enabled:
@@ -79,7 +93,6 @@ cdef class MettaGrid(GridEnv):
             obs_encoder,
             actions,
             [ ResetHandler(), ProductionHandler() ],
-            use_flat_actions=env_cfg.flatten_actions,
             track_last_action=env_cfg.track_last_action
         )
 
@@ -97,48 +110,77 @@ cdef class MettaGrid(GridEnv):
         cdef unsigned char group_id
         for r in range(map.shape[0]):
             for c in range(map.shape[1]):
+
                 if map[r,c] == "wall":
                     self._grid.add_object(new Wall(r, c, cfg.objects.wall))
                     self._stats.incr(b"objects.wall")
-                elif map[r,c] == "generator":
-                    # xcxc pull this into a config
-                    generator = new Converter(r, c, cfg.objects.converter)
-                    generator.recipe_output[0] = 1
-                    generator.output_inventory[0] = 1
-                    generator.recipe_duration = 10
-                    generator.max_output = 5
-                    generator.type = 0
-                    self._grid.add_object(generator)
-                    # these start off generating, since they take no input. We could run this for all
-                    # converters if we cared.
-                    if generator.maybe_start_converting():
-                        self._event_manager.schedule_event(Events.FinishConverting, generator.recipe_duration, generator.id, 0)
-                    self._stats.incr(b"objects.generator")
-                elif map[r,c] == "converter":
-                    converter = new Converter(r, c, cfg.objects.converter)
-                    converter.recipe_input[0] = 1
-                    converter.recipe_output[1] = 1
-                    converter.recipe_duration = 5
-                    converter.max_output = 5
-                    converter.type = 1
-                    self._grid.add_object(converter)
-                    self._stats.incr(b"objects.converter")
-                elif map[r,c] == "altar":
-                    altar = new Converter(r, c, cfg.objects.converter)
-                    altar.recipe_input[1] = 1
-                    altar.recipe_output[2] = 1
-                    altar.recipe_duration = 5
-                    altar.max_output = 5
-                    altar.type = 2
-                    self._grid.add_object(altar)
-                    self._stats.incr(b"objects.altar")
+
+                elif map[r,c] == "mine":
+                    self._grid.add_object(new Mine(r, c, cfg.objects.mine))
+                    self._stats.incr(b"objects.mine")
+                # elif map[r,c] == "generator":
+                #     # xcxc pull this into a config
+                #     generator = new Converter(r, c, cfg.objects.converter)
+                #     generator.recipe_output[0] = 1
+                #     generator.output_inventory[0] = 1
+                #     generator.recipe_duration = 10
+                #     generator.max_output = 5
+                #     generator.type = 0
+                #     self._grid.add_object(generator)
+                #     # these start off generating, since they take no input. We could run this for all
+                #     # converters if we cared.
+                #     if generator.maybe_start_converting():
+                #         self._event_manager.schedule_event(Events.FinishConverting, generator.recipe_duration, generator.id, 0)
+                #     self._stats.incr(b"objects.generator")
+                # elif map[r,c] == "converter":
+                #     converter = new Converter(r, c, cfg.objects.converter)
+                #     converter.recipe_input[0] = 1
+                #     converter.recipe_output[1] = 1
+                #     converter.recipe_duration = 5
+                #     converter.max_output = 5
+                #     converter.type = 1
+                #     self._grid.add_object(converter)
+                #     self._stats.incr(b"objects.converter")
+                # elif map[r,c] == "altar":
+                #     altar = new Converter(r, c, cfg.objects.converter)
+                #     altar.recipe_input[1] = 1
+                #     altar.recipe_output[2] = 1
+                #     altar.recipe_duration = 5
+                #     altar.max_output = 5
+                #     altar.type = 2
+                #     self._grid.add_object(altar)
+                #     self._stats.incr(b"objects.altar")
+                elif map[r,c] == "armory":
+                    self._grid.add_object(new Armory(r, c, cfg.objects.armory))
+                    self._stats.incr(b"objects.armory")
+                elif map[r,c] == "lasery":
+                    self._grid.add_object(new Lasery(r, c, cfg.objects.lasery))
+                    self._stats.incr(b"objects.lasery")
+
+                elif map[r,c] == "lab":
+                    self._grid.add_object(new Lab(r, c, cfg.objects.lab))
+                    self._stats.incr(b"objects.lab")
+
+                elif map[r,c] == "factory":
+                    self._grid.add_object(new Factory(r, c, cfg.objects.factory))
+                    self._stats.incr(b"objects.factory")
+
+                elif map[r,c] == "temple":
+                    self._grid.add_object(new Temple(r, c, cfg.objects.temple))
+                    self._stats.incr(b"objects.temple")
+
                 elif map[r,c].startswith("agent."):
                     group_name = map[r,c].split(".")[1]
                     agent_cfg = OmegaConf.to_container(OmegaConf.merge(
                         cfg.agent, cfg.groups[group_name].props))
+                    rewards = agent_cfg.get("rewards", {})
+                    del agent_cfg["rewards"]
+                    for inv_item in InventoryItemNames:
+                        rewards[inv_item] = rewards.get(inv_item, 0)
+                        rewards[inv_item + ".max"] = rewards.get(inv_item + ".max", 1000)
                     group_id = cfg.groups[group_name].id
                     agent = new Agent(
-                        r, c, group_name, group_id, agent_cfg)
+                        r, c, group_name, group_id, agent_cfg, rewards)
                     self._grid.add_object(agent)
                     agent.agent_id = self._agents.size()
                     self.add_agent(agent)

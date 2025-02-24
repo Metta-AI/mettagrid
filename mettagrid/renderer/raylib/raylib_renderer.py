@@ -15,11 +15,17 @@ from mettagrid.mettagrid_env import MettaGridEnv
 from mettagrid.renderer.raylib.object_render import (
     AgentRenderer,
     AltarRenderer,
-    ConverterRenderer,
+    ArmoryRenderer,
+    FactoryRenderer,
     GeneratorRenderer,
+    LaseryRenderer,
+    LabRenderer,
+    MineRenderer,
+    TempleRenderer,
     WallRenderer,
 )
 from mettagrid.renderer.raylib.font_renderer import FontRenderer
+from mettagrid.renderer.raylib.camera_controller import CameraController
 
 class MettaGridRaylibRenderer:
     def __init__(self, env: MettaGridEnv, cfg: OmegaConf):
@@ -53,22 +59,28 @@ class MettaGridRaylibRenderer:
         self.sprite_renderers = [
             AgentRenderer(cfg),
             WallRenderer(),
+            MineRenderer(),
             GeneratorRenderer(),
-            ConverterRenderer(),
             AltarRenderer(),
+            ArmoryRenderer(),
+            LaseryRenderer(),
+            LabRenderer(),
+            FactoryRenderer(),
+            TempleRenderer(),
         ]
-        rl.SetTargetFPS(10)
+        rl.SetTargetFPS(60)
         self.colors = colors
 
         camera = ray.Camera2D()
-        camera.target = ray.Vector2(0.0, 0.0)
+        camera.target = ray.Vector2(self.grid_width * self.tile_size / 2, self.grid_height * self.tile_size / 2)
         camera.rotation = 0.0
         camera.zoom = 1.0
         self.camera = camera
+        self.camera_controller = CameraController(self.camera)
 
         self.game_objects = {}
-        self.actions = torch.zeros((self.num_agents, 2), dtype=torch.int64)
-        self.observations = {}
+        self.actions = torch.zeros((self.num_agents, 2), dtype=torch.int32)
+        self.observations = None
         self.current_timestep = 0
         self.agents = [None for _ in range(self.num_agents)]
         self.action_history = [deque(maxlen=10) for _ in range(self.num_agents)]
@@ -82,9 +94,12 @@ class MettaGridRaylibRenderer:
         self.paused = False
         self.obs_idx = -1
 
+        self.time_accumulator = 0.0
+        self.step_time = 1.0 / 10.0
+
     def update(self, actions, observations, rewards, total_rewards, current_timestep):
         self.actions = actions
-        self.observations = observations
+        self.observations = observations.permute(0, 3, 1, 2)
         self.current_timestep = current_timestep
         self.game_objects = self.env.grid_objects()
         for obj_id, obj in self.game_objects.items():
@@ -92,8 +107,8 @@ class MettaGridRaylibRenderer:
             if "agent_id" in obj:
                 agent_id = obj["agent_id"]
                 self.agents[agent_id] = obj
-                obj["last_reward"] = rewards[agent_id]
-                obj["total_reward"] = total_rewards[agent_id]
+                obj["last_reward"] = rewards[agent_id].item()
+                obj["total_reward"] = total_rewards[agent_id].item()
         if self.selected_agent_idx is not None and self.mind_control:
             self.actions[self.selected_agent_idx][0] = self.action_ids["noop"]
             self.actions[self.selected_agent_idx][1] = 0
@@ -105,9 +120,16 @@ class MettaGridRaylibRenderer:
 
     def render_and_wait(self):
         while True:
-            self.handle_keyboard_input()
-            self.handle_mouse_input()
-            self._render()
+            while self.time_accumulator < self.step_time:
+                delta_time = rl.GetFrameTime()
+                self.time_accumulator += delta_time
+
+                self.camera_controller.update(delta_time, float(rl.GetScreenWidth() - self.sidebar_width), float(rl.GetScreenHeight()))
+
+                self.handle_keyboard_input()
+                self.handle_mouse_input()
+                self._render()
+            self.time_accumulator -= self.step_time
 
             if self.user_action:
                 self.user_action = False
@@ -159,9 +181,10 @@ class MettaGridRaylibRenderer:
         rl.EndDrawing()
 
     def handle_mouse_input(self):
-        pos = ray.get_mouse_position()
-        grid_x = int(pos.x // self.tile_size)
-        grid_y = int(pos.y // self.tile_size)
+        mouse_x, mouse_y = self.camera_controller.get_world_mouse_position()
+
+        grid_x = mouse_x // self.tile_size
+        grid_y = mouse_y // self.tile_size
 
         self.hover_object_id = None
         for obj_id, obj in self.game_objects.items():
@@ -190,13 +213,15 @@ class MettaGridRaylibRenderer:
                 # rl.DrawTextEx(self.font, f"{title}:".encode(),
                 #               (sidebar_x + 10, y), font_size, 1, color)
                 self.font_renderer.render_text(f"{title}:", sidebar_x + 10, y, font_size, color)
-
                 y += line_height * 2
 
                 for key, value in obj.items():
                     if ":" in key:
                         key = ":".join(key.split(":")[1:])
-                    text = f"{key}: {value}"
+                    if isinstance(value, float):
+                        text = f"{key}: {value:.2e}"
+                    else:
+                        text = f"{key}: {value}"
                     if len(text) > 25:
                         text = text[:22] + "..."
                     self.font_renderer.render_text(text, sidebar_x + 10, y, font_size)
@@ -263,9 +288,7 @@ class MettaGridRaylibRenderer:
 
             if agent["agent:frozen"]:
                 continue
-            if agent["agent:energy"] < self.cfg.actions.attack.cost:
-                continue
-            if action[0] == self.action_ids["attack_nearest"]:
+            if self.action_names[action[0]] == "attack_nearest":
                 # draw a cone from the agent in the direction it's facing.
                 # make it 3 grid squares long and 3 grid squares wide.
                 # make it red but transparent.
@@ -299,7 +322,7 @@ class MettaGridRaylibRenderer:
                         ray.Vector2(base_x + self.tile_size * 3, base_y + self.tile_size * 1.5)
                     ]
                 ray.draw_triangle(points[0], points[1], points[2], attack_color)
-            if action[0] == self.action_ids["attack"]:
+            if self.action_names[action[0]] == "attack":
                 distance = 1 + (action[1] - 1) // 3
                 offset = -((action[1] - 1) % 3 - 1)
                 target_loc = self._relative_location(
@@ -420,12 +443,12 @@ class MettaGridRaylibRenderer:
 
     def draw_mouse(self):
         ts = self.tile_size
-        pos = ray.get_mouse_position()
-        mouse_x = int(pos.x // ts)
-        mouse_y = int(pos.y // ts)
+        mouse_x, mouse_y = self.camera_controller.get_world_mouse_position()
+        mouse_x = int((mouse_x // ts) * ts)
+        mouse_y = int((mouse_y // ts) * ts)
 
         # Draw border around the tile
-        ray.draw_rectangle_lines(mouse_x * ts, mouse_y * ts, ts, ts, ray.GRAY)
+        ray.draw_rectangle_lines(mouse_x, mouse_y, ts, ts, ray.GRAY)
 
     def __del__(self):
         # Unload the font when the object is destroyed

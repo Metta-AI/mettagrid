@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from omegaconf import OmegaConf
 from rich import traceback
+import warnings
 
 
 def seed_everything(seed, torch_deterministic):
@@ -20,6 +21,8 @@ def uniform(min_val, max_val, center, *, _root_):
     if sampling == 0:
         return center
     else:
+
+        center = (max_val + min_val) // 2
         # Calculate the available range on both sides of the center
         left_range = center - min_val
         right_range = max_val - center
@@ -37,6 +40,8 @@ def uniform(min_val, max_val, center, *, _root_):
         # Return integer if the original values were integers
         return int(round(val)) if isinstance(center, int) else val
 
+def choose(*args):
+    return random.choice(args)
 
 def div(a, b):
     return a // b
@@ -52,8 +57,20 @@ def setup_omega_conf():
     OmegaConf.register_new_resolver("uniform", uniform, replace=True)
     OmegaConf.register_new_resolver("sub", sub, replace=True)
     OmegaConf.register_new_resolver("make_odd", make_odd, replace=True)
+    OmegaConf.register_new_resolver("choose", choose, replace=True)
 
 def setup_metta_environment(cfg):
+    # Set environment variables to run without display
+    os.environ['GLFW_PLATFORM'] = 'osmesa'  # Use OSMesa as the GLFW backend
+    os.environ['SDL_VIDEODRIVER'] = 'dummy'
+    os.environ['MPLBACKEND'] = 'Agg'
+    os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+
+    # Suppress deprecation warnings
+    warnings.filterwarnings('ignore', category=DeprecationWarning)
+    warnings.filterwarnings('ignore', category=DeprecationWarning, module='pkg_resources')
+    warnings.filterwarnings('ignore', category=DeprecationWarning, module='pygame.pkgdata')
+
     setup_omega_conf()
     print(OmegaConf.to_yaml(cfg))
     traceback.install(show_locals=False)
