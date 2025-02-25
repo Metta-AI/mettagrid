@@ -8,8 +8,6 @@
 #include "constants.hpp"
 #include "converter.hpp"
 
-typedef unsigned char ObsType;
-
 class Temple : public Converter {
 public:
     Temple(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::TempleT) {

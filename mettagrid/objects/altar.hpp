@@ -8,8 +8,6 @@
 #include "constants.hpp"
 #include "converter.hpp"
 
-typedef unsigned char ObsType;
-
 class Altar : public Converter {
 public:
     Altar(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::AltarT) {

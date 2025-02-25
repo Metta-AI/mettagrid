@@ -8,8 +8,6 @@
 #include "constants.hpp"
 #include "converter.hpp"
 
-typedef unsigned char ObsType;
-
 class Generator : public Converter {
 public:
     Generator(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::GeneratorT) {

@@ -8,8 +8,6 @@
 #include "constants.hpp"
 #include "converter.hpp"
 
-typedef unsigned char ObsType;
-
 class Lasery : public Converter {
 public:
     Lasery(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::LaseryT) {
