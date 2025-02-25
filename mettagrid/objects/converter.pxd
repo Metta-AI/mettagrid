@@ -3,7 +3,7 @@ from libcpp.string cimport string
 from mettagrid.grid_object cimport GridCoord
 from .metta_object cimport ObjectConfig
 from .metta_object cimport MettaObject
-from .agent cimport Agent
+from .constants cimport ObsType
 
 cdef extern from "converter.hpp":
     cdef cppclass Converter(MettaObject):
@@ -17,6 +17,7 @@ cdef extern from "converter.hpp":
         bint converting
 
         Converter(GridCoord r, GridCoord c, ObjectConfig cfg)
+        void obs(ObsType *obs)
         bint maybe_start_converting()
         void finish_converting()
         @staticmethod
