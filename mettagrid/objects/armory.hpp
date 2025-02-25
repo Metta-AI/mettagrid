@@ -4,23 +4,17 @@
 #include <vector>
 #include <string>
 #include "../grid_object.hpp"
-#include "usable.hpp"
 #include "agent.hpp"
 #include "constants.hpp"
+#include "converter.hpp"
 
 typedef unsigned char ObsType;
 
-class Armory : public Usable {
+class Armory : public Converter {
 public:
-    Armory(GridCoord r, GridCoord c, ObjectConfig cfg) {
-        GridObject::init(ObjectType::ArmoryT, GridLocation(r, c, GridLayer::Object_Layer));
-        MettaObject::init_mo(cfg);
-        Usable::init_usable(cfg);
-    }
-
-    inline bool usable(const Agent *actor) override {
-        return Usable::usable(actor) &&
-               actor->inventory[InventoryItem::ore] > 2;
+    Armory(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::ArmoryT) {
+        this->recipe_input[InventoryItem::ore] = 3;
+        this->recipe_output[InventoryItem::armor] = 1;
     }
 
     inline void use(Agent *actor, float *rewards) override {
@@ -34,20 +28,6 @@ public:
             InventoryItemNames[InventoryItem::ore],
             "converted",
             InventoryItemNames[InventoryItem::armor], 3);
-    }
-
-    inline void obs(ObsType* obs) const {
-        obs[0] = 1;
-        obs[1] = hp;
-        obs[2] = ready;
-    }
-
-    static inline std::vector<std::string> feature_names() {
-        std::vector<std::string> features;
-        features.push_back("armory");
-        features.push_back("armory:hp");
-        features.push_back("armory:ready");
-        return features;
     }
 };
 

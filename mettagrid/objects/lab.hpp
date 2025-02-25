@@ -4,24 +4,18 @@
 #include <vector>
 #include <string>
 #include "../grid_object.hpp"
-#include "usable.hpp"
 #include "agent.hpp"
 #include "constants.hpp"
+#include "converter.hpp"
 
 typedef unsigned char ObsType;
 
-class Lab : public Usable {
+class Lab : public Converter {
 public:
-    Lab(GridCoord r, GridCoord c, ObjectConfig cfg) {
-        GridObject::init(ObjectType::LabT, GridLocation(r, c, GridLayer::Object_Layer));
-        MettaObject::init_mo(cfg);
-        Usable::init_usable(cfg);
-    }
-
-    inline bool usable(const Agent *actor) override {
-        return Usable::usable(actor) &&
-               actor->inventory[InventoryItem::battery] > 2 &&
-               actor->inventory[InventoryItem::ore] > 2;
+    Lab(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::LabT) {
+        this->recipe_input[InventoryItem::battery] = 3;
+        this->recipe_input[InventoryItem::ore] = 3;
+        this->recipe_output[InventoryItem::blueprint] = 1;
     }
 
     inline void use(Agent *actor, float *rewards) override {
@@ -41,20 +35,6 @@ public:
             InventoryItemNames[InventoryItem::ore],
             "converted",
             InventoryItemNames[InventoryItem::blueprint], 3);
-    }
-
-    inline void obs(ObsType* obs) const {
-        obs[0] = 1;
-        obs[1] = hp;
-        obs[2] = ready;
-    }
-
-    static inline std::vector<std::string> feature_names() {
-        std::vector<std::string> features;
-        features.push_back("lab");
-        features.push_back("lab:hp");
-        features.push_back("lab:ready");
-        return features;
     }
 };
 

@@ -28,7 +28,8 @@ enum ObjectType {
     LabT = 7,
     FactoryT = 8,
     TempleT = 9,
-    Count = 10
+    GenericConverterT = 10,
+    Count = 11
 };
 
 enum InventoryItem {

@@ -4,24 +4,18 @@
 #include <vector>
 #include <string>
 #include "../grid_object.hpp"
-#include "usable.hpp"
 #include "agent.hpp"
 #include "constants.hpp"
+#include "converter.hpp"
 
 typedef unsigned char ObsType;
 
-class Temple : public Usable {
+class Temple : public Converter {
 public:
-    Temple(GridCoord r, GridCoord c, ObjectConfig cfg) {
-        GridObject::init(ObjectType::TempleT, GridLocation(r, c, GridLayer::Object_Layer));
-        MettaObject::init_mo(cfg);
-        Usable::init_usable(cfg);
-    }
-
-    inline bool usable(const Agent *actor) override {
-        return Usable::usable(actor) &&
-               actor->inventory[InventoryItem::heart] > 0 &&
-               actor->inventory[InventoryItem::blueprint] > 0;
+    Temple(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::TempleT) {
+        this->recipe_input[InventoryItem::heart] = 1;
+        this->recipe_input[InventoryItem::blueprint] = 1;
+        this->recipe_output[InventoryItem::heart] = 5;
     }
 
     inline void use(Agent *actor, float *rewards) override {
@@ -32,20 +26,6 @@ public:
         actor->stats.add(InventoryItemNames[InventoryItem::heart], "used", 1);
         actor->stats.add(InventoryItemNames[InventoryItem::blueprint], "used", 1);
         actor->stats.add(InventoryItemNames[InventoryItem::heart], "created", 5);
-    }
-
-    inline void obs(ObsType* obs) const {
-        obs[0] = 1;
-        obs[1] = hp;
-        obs[2] = ready;
-    }
-
-    static inline std::vector<std::string> feature_names() {
-        std::vector<std::string> features;
-        features.push_back("temple");
-        features.push_back("temple:hp");
-        features.push_back("temple:ready");
-        return features;
     }
 };
 

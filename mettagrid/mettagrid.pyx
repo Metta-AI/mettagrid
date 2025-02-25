@@ -33,7 +33,6 @@ from mettagrid.objects.factory cimport Factory
 from mettagrid.objects.temple cimport Temple
 from mettagrid.objects.armory cimport Armory
 from mettagrid.objects.lasery cimport Lasery
-from mettagrid.objects.usable cimport Usable
 from mettagrid.objects.constants cimport ObjectLayers, InventoryItemNames
 
 # Action imports

@@ -18,14 +18,11 @@ public:
     // the converter won't convert if its output already has this many things.
     // Mostly important for generators, probably?
     unsigned short max_output;
-    // For now, we hard code a converter's recipe, and use this indicator to let agents
-    // know what the converter does.
-    unsigned char type;
     unsigned char recipe_duration;
     bool converting;
 
-    Converter(GridCoord r, GridCoord c, ObjectConfig cfg) {
-        GridObject::init(ObjectType::ConverterT, GridLocation(r, c, GridLayer::Object_Layer));
+    Converter(GridCoord r, GridCoord c, ObjectConfig cfg, TypeId type_id) {
+        GridObject::init(type_id, GridLocation(r, c, GridLayer::Object_Layer));
         MettaObject::init_mo(cfg);
         Usable::init_usable(cfg);
         this->input_inventory.resize(InventoryItem::InventoryCount);
@@ -34,6 +31,8 @@ public:
         this->recipe_output.resize(InventoryItem::InventoryCount);
         this->converting = false;
     }
+
+    Converter(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::GenericConverterT) {}
 
     // returns true if we started converting. We do this so we can schedule our converting
     // to finish. It's more natural for us to scheule the finishing ourselves, but
@@ -71,7 +70,28 @@ public:
         this->converting = false;
     }
 
+    void obs(ObsType *obs) {
+        obs[0] = 1;
+        obs[1] = this->_type_id;
+        obs[2] = this->hp;
+        obs[3] = this->converting;
+        for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
+            obs[4 + i] = this->output_inventory[i];
+        }
+    }
+
     static std::vector<std::string> feature_names() {
-        return {"converter", "converter:type", "converter:converting", "converter:r1", "converter:r2", "converter:r3"};
+        std::vector<std::string> names;
+        // We use the same feature names for all converters, since this compresses
+        // the observation space. At the moment we don't expose the recipe, since
+        // we expect converters to be hard coded.
+        names.push_back("converter");
+        names.push_back("converter:type");
+        names.push_back("converter:hp");
+        names.push_back("converter:converting");
+        for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
+            names.push_back("converter:" + InventoryItemNames[i]);
+        }
+        return names;
     }
 };

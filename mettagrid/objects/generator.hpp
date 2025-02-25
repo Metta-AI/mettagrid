@@ -4,22 +4,17 @@
 #include <vector>
 #include <string>
 #include "../grid_object.hpp"
-#include "usable.hpp"
 #include "agent.hpp"
 #include "constants.hpp"
+#include "converter.hpp"
 
 typedef unsigned char ObsType;
 
-class Generator : public Usable {
+class Generator : public Converter {
 public:
-    Generator(GridCoord r, GridCoord c, ObjectConfig cfg) {
-        GridObject::init(ObjectType::GeneratorT, GridLocation(r, c, GridLayer::Object_Layer));
-        MettaObject::init_mo(cfg);
-        Usable::init_usable(cfg);
-    }
-
-    inline bool usable(const Agent *actor) override {
-        return Usable::usable(actor) && actor->inventory[InventoryItem::ore] > 0;
+    Generator(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::GeneratorT) {
+        this->recipe_input[InventoryItem::ore] = 1;
+        this->recipe_output[InventoryItem::battery] = 1;
     }
 
     inline void use(Agent *actor, float *rewards) override {
@@ -33,20 +28,6 @@ public:
             InventoryItemNames[InventoryItem::battery]);
 
         actor->stats.incr(InventoryItemNames[InventoryItem::battery], "created");
-    }
-
-    inline void obs(ObsType *obs) {
-        obs[0] = 1;
-        obs[1] = this->hp;
-        obs[2] = this->ready;
-    }
-
-    static std::vector<std::string> feature_names() {
-        std::vector<std::string> names;
-        names.push_back("generator");
-        names.push_back("generator:hp");
-        names.push_back("generator:ready");
-        return names;
     }
 };
 
