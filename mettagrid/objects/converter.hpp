@@ -29,6 +29,8 @@ public:
         this->output_inventory.resize(InventoryItem::InventoryCount);
         this->recipe_input.resize(InventoryItem::InventoryCount);
         this->recipe_output.resize(InventoryItem::InventoryCount);
+        this->max_output = 5;
+        this->recipe_duration = 5;
         this->converting = false;
     }
 
@@ -70,7 +72,7 @@ public:
         this->converting = false;
     }
 
-    void obs(ObsType *obs) {
+    void obs(ObsType *obs) const override {
         obs[0] = 1;
         obs[1] = this->_type_id;
         obs[2] = this->hp;

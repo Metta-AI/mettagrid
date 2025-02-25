@@ -33,7 +33,7 @@ from mettagrid.objects.factory cimport Factory
 from mettagrid.objects.temple cimport Temple
 from mettagrid.objects.armory cimport Armory
 from mettagrid.objects.lasery cimport Lasery
-from mettagrid.objects.constants cimport ObjectLayers, InventoryItemNames
+from mettagrid.objects.constants cimport ObjectLayers, InventoryItemNames, Events
 
 # Action imports
 from mettagrid.actions.move import Move
@@ -115,40 +115,12 @@ cdef class MettaGrid(GridEnv):
                     self._stats.incr(b"objects.wall")
 
                 elif map[r,c] == "mine":
-                    self._grid.add_object(new Mine(r, c, cfg.objects.mine))
+                    mine = new Mine(r, c, cfg.objects.mine)
+                    self._grid.add_object(mine)
                     self._stats.incr(b"objects.mine")
-                # elif map[r,c] == "generator":
-                #     # xcxc pull this into a config
-                #     generator = new Converter(r, c, cfg.objects.converter)
-                #     generator.recipe_output[0] = 1
-                #     generator.output_inventory[0] = 1
-                #     generator.recipe_duration = 10
-                #     generator.max_output = 5
-                #     generator.type = 0
-                #     self._grid.add_object(generator)
-                #     # these start off generating, since they take no input. We could run this for all
-                #     # converters if we cared.
-                #     if generator.maybe_start_converting():
-                #         self._event_manager.schedule_event(Events.FinishConverting, generator.recipe_duration, generator.id, 0)
-                #     self._stats.incr(b"objects.generator")
-                # elif map[r,c] == "converter":
-                #     converter = new Converter(r, c, cfg.objects.converter)
-                #     converter.recipe_input[0] = 1
-                #     converter.recipe_output[1] = 1
-                #     converter.recipe_duration = 5
-                #     converter.max_output = 5
-                #     converter.type = 1
-                #     self._grid.add_object(converter)
-                #     self._stats.incr(b"objects.converter")
-                # elif map[r,c] == "altar":
-                #     altar = new Converter(r, c, cfg.objects.converter)
-                #     altar.recipe_input[1] = 1
-                #     altar.recipe_output[2] = 1
-                #     altar.recipe_duration = 5
-                #     altar.max_output = 5
-                #     altar.type = 2
-                #     self._grid.add_object(altar)
-                #     self._stats.incr(b"objects.altar")
+                    if mine.maybe_start_converting():
+                        self._event_manager.schedule_event(Events.FinishConverting, mine.recipe_duration, mine.id, 0)
+
                 elif map[r,c] == "armory":
                     self._grid.add_object(new Armory(r, c, cfg.objects.armory))
                     self._stats.incr(b"objects.armory")

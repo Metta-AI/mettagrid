@@ -14,7 +14,6 @@ public:
         this->recipe_output[InventoryItem::ore] = 1;
     }
 
-
     inline void use(Agent *actor, float *rewards) override {
         actor->update_inventory(InventoryItem::ore, 1, rewards);
         actor->stats.incr(InventoryItemNames[InventoryItem::ore], "created");

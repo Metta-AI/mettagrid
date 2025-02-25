@@ -29,7 +29,7 @@ cdef class GetAll(MettaActionHandler):
         )
         target_loc.layer = GridLayer.Object_Layer
         cdef MettaObject *target = <MettaObject*>self.env._grid.object_at(target_loc)
-        if target == NULL or not target._type_id == ObjectType.GenericConverterT:
+        if target == NULL or not (target._type_id == ObjectType.GenericConverterT or target._type_id == ObjectType.MineT or target._type_id == ObjectType.GeneratorT or target._type_id == ObjectType.AltarT or target._type_id == ObjectType.ArmoryT or target._type_id == ObjectType.LaseryT or target._type_id == ObjectType.LabT or target._type_id == ObjectType.FactoryT or target._type_id == ObjectType.TempleT):
             return False
 
         cdef Converter *converter = <Converter*> target

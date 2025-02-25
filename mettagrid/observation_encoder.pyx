@@ -5,21 +5,13 @@ from libc.stdio cimport printf
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 
-from mettagrid.grid_object cimport GridObject, GridObjectId
+from mettagrid.grid_object cimport GridObject
 from mettagrid.observation_encoder cimport ObservationEncoder, ObsType
 
 from mettagrid.objects.constants cimport ObjectType
 
 from mettagrid.objects.agent cimport Agent
-from mettagrid.objects.altar cimport Altar
-from mettagrid.objects.armory cimport Armory
 from mettagrid.objects.converter cimport Converter
-from mettagrid.objects.factory cimport Factory
-from mettagrid.objects.generator cimport Generator
-from mettagrid.objects.lab cimport Lab
-from mettagrid.objects.lasery cimport Lasery
-from mettagrid.objects.mine cimport Mine
-from mettagrid.objects.temple cimport Temple
 from mettagrid.objects.wall cimport Wall
 
 cdef class MettaObservationEncoder(ObservationEncoder):
@@ -33,18 +25,17 @@ cdef class MettaObservationEncoder(ObservationEncoder):
 
         self._type_feature_names[ObjectType.AgentT] = Agent.feature_names()
         self._type_feature_names[ObjectType.WallT] = Wall.feature_names()
-        self._type_feature_names[ObjectType.MineT] = Mine.feature_names()
-        self._type_feature_names[ObjectType.GeneratorT] = Generator.feature_names()
-        self._type_feature_names[ObjectType.AltarT] = Altar.feature_names()
-        self._type_feature_names[ObjectType.ArmoryT] = Armory.feature_names()
-        self._type_feature_names[ObjectType.LaseryT] = Lasery.feature_names()
-        self._type_feature_names[ObjectType.LabT] = Lab.feature_names()
-        self._type_feature_names[ObjectType.FactoryT] = Factory.feature_names()
-        self._type_feature_names[ObjectType.TempleT] = Temple.feature_names()
+        self._type_feature_names[ObjectType.GenericConverterT] = Converter.feature_names()
 
-        for type_id in range(ObjectType.Count):
+        for type_id in [ObjectType.AgentT, ObjectType.WallT, ObjectType.GenericConverterT]:
             self._offsets[type_id] = len(features)
             features.extend(self._type_feature_names[type_id])
+
+        # These are all converters, so they share the same feature space
+        for type_id in [ObjectType.AltarT, ObjectType.ArmoryT, ObjectType.FactoryT, ObjectType.GeneratorT, ObjectType.LabT, ObjectType.LaseryT, ObjectType.MineT, ObjectType.TempleT]:
+            self._type_feature_names[type_id] = self._type_feature_names[ObjectType.GenericConverterT]
+            self._offsets[type_id] = self._offsets[ObjectType.GenericConverterT]
+
         self._feature_names = features
 
     cdef encode(self, GridObject *obj, ObsType[:] obs):
