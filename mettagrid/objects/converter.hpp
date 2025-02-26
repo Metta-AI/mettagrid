@@ -10,8 +10,7 @@
 
 class Converter : public Usable {
 public:
-    vector<unsigned char> input_inventory;
-    vector<unsigned char> output_inventory;
+    vector<unsigned char> inventory;
 
     vector<unsigned char> recipe_input;
     vector<unsigned char> recipe_output;
@@ -25,8 +24,7 @@ public:
         GridObject::init(type_id, GridLocation(r, c, GridLayer::Object_Layer));
         MettaObject::init_mo(cfg);
         Usable::init_usable(cfg);
-        this->input_inventory.resize(InventoryItem::InventoryCount);
-        this->output_inventory.resize(InventoryItem::InventoryCount);
+        this->inventory.resize(InventoryItem::InventoryCount);
         this->recipe_input.resize(InventoryItem::InventoryCount);
         this->recipe_output.resize(InventoryItem::InventoryCount);
         this->max_output = 5;
@@ -43,21 +41,21 @@ public:
     // when things are added to its input, and when it finishes converting.
     bool maybe_start_converting() {
         if (!this->converting) {
+            unsigned short total_output = 0;
             for (unsigned int i = 0; i < this->recipe_input.size(); i++) {
-                if (this->input_inventory[i] < this->recipe_input[i]) {
+                if (this->inventory[i] < this->recipe_input[i]) {
                     return false;
                 }
+                if (this->recipe_output[i] > 0) {
+                    total_output += this->inventory[i] / this->recipe_input[i];
+                }
             }
-            unsigned short total_output_inventory = 0;
-            for (unsigned int i = 0; i < this->output_inventory.size(); i++) {
-                total_output_inventory += this->output_inventory[i];
-            }
-            if (total_output_inventory >= this->max_output) {
+            if (total_output >= this->max_output) {
                 return false;
             }
             // produce.
             for (unsigned int i = 0; i < this->recipe_input.size(); i++) {
-                this->input_inventory[i] -= this->recipe_input[i];
+                this->inventory[i] -= this->recipe_input[i];
             }
             this->converting = true;
             return true;
@@ -67,7 +65,7 @@ public:
 
     void finish_converting() {
         for (unsigned int i = 0; i < this->recipe_output.size(); i++) {
-            this->output_inventory[i] += this->recipe_output[i];
+            this->inventory[i] += this->recipe_output[i];
         }
         this->converting = false;
     }
@@ -78,7 +76,7 @@ public:
         obs[2] = this->hp;
         obs[3] = this->converting;
         for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
-            obs[4 + i] = this->output_inventory[i];
+            obs[4 + i] = this->inventory[i];
         }
     }
 
@@ -87,12 +85,13 @@ public:
         // We use the same feature names for all converters, since this compresses
         // the observation space. At the moment we don't expose the recipe, since
         // we expect converters to be hard coded.
+        // xcxc consider retaining the 1-hot encoding of the recipe.
         names.push_back("converter");
         names.push_back("converter:type");
-        names.push_back("converter:hp");
-        names.push_back("converter:converting");
+        names.push_back("hp");
+        names.push_back("converting");
         for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
-            names.push_back("converter:" + InventoryItemNames[i]);
+            names.push_back(InventoryItemNames[i]);
         }
         return names;
     }

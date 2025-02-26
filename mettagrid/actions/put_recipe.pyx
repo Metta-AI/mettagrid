@@ -41,7 +41,7 @@ cdef class PutRecipe(MettaActionHandler):
 
         # xcxc add stats
         for i in range(converter.recipe_input.size()):
-            converter.input_inventory[i] += converter.recipe_input[i]
+            converter.inventory[i] += converter.recipe_input[i]
             actor.update_inventory(<InventoryItem>i, -converter.recipe_input[i], &self.env._rewards[actor_id])
 
         if converter.maybe_start_converting():

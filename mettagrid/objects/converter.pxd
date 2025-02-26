@@ -5,8 +5,7 @@ from .metta_object cimport ObjectConfig, MettaObject
 
 cdef extern from "converter.hpp":
     cdef cppclass Converter(MettaObject):
-        vector[unsigned char] input_inventory
-        vector[unsigned char] output_inventory
+        vector[unsigned char] inventory
         vector[unsigned char] recipe_input
         vector[unsigned char] recipe_output
         unsigned short max_output
