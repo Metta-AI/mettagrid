@@ -73,7 +73,7 @@ class AgentRenderer(ObjectRenderer):
         width = render_tile_size
         height = 3  # 3 pixels tall
 
-        hp = min(max(obj["agent:hp"], 0), 10)  # Clamp between 0 and 10
+        hp = min(max(obj["hp"], 0), 10)  # Clamp between 0 and 10
         green_width = int(width * hp / 10)
 
         # Draw red background
