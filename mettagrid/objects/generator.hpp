@@ -42,8 +42,8 @@ public:
     static std::vector<std::string> feature_names() {
         std::vector<std::string> names;
         names.push_back("generator");
-        names.push_back("hp");
-        names.push_back("ready");
+        names.push_back("generator:hp");
+        names.push_back("generator:ready");
         return names;
     }
 };

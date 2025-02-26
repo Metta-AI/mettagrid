@@ -23,7 +23,7 @@ public:
     static std::vector<std::string> feature_names() {
         std::vector<std::string> names;
         names.push_back("wall");
-        names.push_back("hp");
+        names.push_back("wall:hp");
         return names;
     }
 };

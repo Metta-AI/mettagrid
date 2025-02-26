@@ -110,7 +110,7 @@ public:
         std::vector<std::string> names;
         names.push_back("agent");
         names.push_back("agent:group");
-        names.push_back("hp");
+        names.push_back("agent:hp");
         names.push_back("agent:frozen");
         names.push_back("agent:orientation");
         names.push_back("agent:color");
