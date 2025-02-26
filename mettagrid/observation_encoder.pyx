@@ -44,15 +44,16 @@ cdef class ObservationEncoder:
         self._type_feature_names[ObjectType.WallT] = Wall.feature_names()
 
         for type_id in range(ObjectType.Count):
-            self._offsets[type_id] = len(features)
-            features.extend(self._type_feature_names[type_id])
+            for i in range(len(self._type_feature_names[type_id])):
+                self._offsets[type_id].push_back(len(features))
+                features.append(self._type_feature_names[type_id][i])
         self._feature_names = features
 
     cdef encode(self, GridObject *obj, ObsType[:] obs):
         self._encode(obj, obs, self._offsets[obj._type_id])
 
-    cdef _encode(self, GridObject *obj, ObsType[:] obs, unsigned int offset):
-        obj.obs(&obs[offset])
+    cdef _encode(self, GridObject *obj, ObsType[:] obs, vector[unsigned int] offsets):
+        obj.obs(&obs[0], offsets)
 
     cdef vector[string] feature_names(self):
         return self._feature_names
@@ -75,10 +76,18 @@ cdef class CompactObservationEncoder(ObservationEncoder):
         for type_id in range(ObjectType.Count):
             self._num_features = max(self._num_features, len(self._type_feature_names[type_id]))
 
-    cdef encode(self, GridObject *obj, ObsType[:] obs):
-        self._encode(obj, obs, 0)
-        obs[0] = obj._type_id + 1
+        self._offsets.resize(ObjectType.Count)
+        for type_id in range(ObjectType.Count):
+            # Offsets are all just 0..self._num_features
+            self._offsets[type_id].resize(self._num_features)
+            for i in range (self._num_features):
+                self._offsets[type_id][i] = i
 
+    cdef encode(self, GridObject *obj, ObsType[:] obs):
+        # I'd prefer to call super().encode, but that's not working.
+        self._encode(obj, obs, self._offsets[obj._type_id])
+        # All objects recode a 1-hot in their first offset. Replace that with a type id.
+        obs[0] = obj._type_id + 1
 
     cpdef observation_space(self):
         type_info = np.iinfo(self.obs_np_type())
