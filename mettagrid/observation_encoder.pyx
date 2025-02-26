@@ -5,7 +5,6 @@ from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.map cimport map
 from cython.operator import dereference, postincrement
-from libc.stdio cimport printf
 
 from mettagrid.grid_object cimport GridObject, ObsType
 
@@ -51,7 +50,7 @@ cdef class ObservationEncoder:
                 self._offsets[type_id].push_back(len(features))
                 features.append(self._type_feature_names[type_id][i])
         self._feature_names = features
-        printf("ObservationEncoder num features: %d\n", self._feature_names.size())
+
     cdef encode(self, GridObject *obj, ObsType[:] obs):
         self._encode(obj, obs, self._offsets[obj._type_id])
 
@@ -95,8 +94,6 @@ cdef class SemiCompactObservationEncoder(ObservationEncoder):
             self._feature_names[i] = dereference(it).first
             postincrement(it)
 
-        printf("SemiCompactObservationEncoder num features: %d\n", self._feature_names.size())
-
 cdef class CompactObservationEncoder(ObservationEncoder):
     def __init__(self) -> None:
         super().__init__()
@@ -109,7 +106,6 @@ cdef class CompactObservationEncoder(ObservationEncoder):
             self._offsets[type_id].resize(self._num_features)
             for i in range (self._num_features):
                 self._offsets[type_id][i] = i
-        printf("CompactObservationEncoder num features: %d\n", self._num_features)
 
     cdef encode(self, GridObject *obj, ObsType[:] obs):
         # I'd prefer to call super().encode, but that's not working.
