@@ -15,9 +15,9 @@ public:
         MettaObject::init_mo(cfg);
     }
 
-    void obs(ObsType *obs) const override {
-        obs[0] = 1;
-        obs[1] = this->hp;
+    void obs(ObsType *obs, unsigned int offset) const override {
+        obs[offset] = 1;
+        obs[offset + 1] = this->hp;
     }
 
     static std::vector<std::string> feature_names() {

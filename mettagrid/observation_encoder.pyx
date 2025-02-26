@@ -52,7 +52,7 @@ cdef class ObservationEncoder:
         self._encode(obj, obs, self._offsets[obj._type_id])
 
     cdef _encode(self, GridObject *obj, ObsType[:] obs, unsigned int offset):
-        obj.obs(&obs[offset])
+        obj.obs(&obs[0], offset)
 
     cdef vector[string] feature_names(self):
         return self._feature_names

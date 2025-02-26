@@ -93,16 +93,16 @@ public:
         this->current_resource_reward = new_reward;
     }
 
-    virtual void obs(ObsType* obs) const override {
-        obs[0] = 1;
-        obs[1] = group;
-        obs[2] = hp;
-        obs[3] = frozen;
-        obs[4] = orientation;
-        obs[5] = color;
+    virtual void obs(ObsType* obs, unsigned int offset) const override {
+        obs[offset] = 1;
+        obs[offset + 1] = group;
+        obs[offset + 2] = hp;
+        obs[offset + 3] = frozen;
+        obs[offset + 4] = orientation;
+        obs[offset + 5] = color;
 
         for (int i = 0; i < InventoryItem::InventoryCount; i++) {
-            obs[6 + i] = inventory[i];
+            obs[offset + 6 + i] = inventory[i];
         }
     }
 

@@ -25,10 +25,10 @@ public:
         actor->stats.incr(InventoryItemNames[InventoryItem::ore], "created");
     }
 
-    virtual void obs(ObsType* obs) const override {
-        obs[0] = 1;
-        obs[1] = hp;
-        obs[2] = ready;
+    virtual void obs(ObsType* obs, unsigned int offset) const override {
+        obs[offset] = 1;
+        obs[offset + 1] = hp;
+        obs[offset + 2] = ready;
     }
 
     static inline std::vector<std::string> feature_names() {
