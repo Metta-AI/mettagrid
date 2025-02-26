@@ -29,10 +29,10 @@ cdef class PutRecipe(MettaActionHandler):
         )
         target_loc.layer = GridLayer.Object_Layer
         cdef MettaObject *target = <MettaObject*>self.env._grid.object_at(target_loc)
-        # xcxc needs to be any converter
-        if target == NULL or not target._type_id == ObjectType.GenericConverterT:
+        if target == NULL or not target.has_inventory():
             return False
 
+        # #Converter_and_HasInventory_are_the_same_thing
         cdef Converter *converter = <Converter*> target
 
         for i in range(converter.recipe_input.size()):

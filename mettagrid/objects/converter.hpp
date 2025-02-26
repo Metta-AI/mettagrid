@@ -5,13 +5,11 @@
 #include "../grid_object.hpp"
 #include "constants.hpp"
 #include "metta_object.hpp"
-#include "usable.hpp"
+#include "has_inventory.hpp"
 #include "agent.hpp"
 
-class Converter : public Usable {
+class Converter : public HasInventory {
 public:
-    vector<unsigned char> inventory;
-
     vector<unsigned char> recipe_input;
     vector<unsigned char> recipe_output;
     // the converter won't convert if its output already has this many things.
@@ -23,8 +21,7 @@ public:
     Converter(GridCoord r, GridCoord c, ObjectConfig cfg, TypeId type_id) {
         GridObject::init(type_id, GridLocation(r, c, GridLayer::Object_Layer));
         MettaObject::init_mo(cfg);
-        Usable::init_usable(cfg);
-        this->inventory.resize(InventoryItem::InventoryCount);
+        HasInventory::init_has_inventory(cfg);
         this->recipe_input.resize(InventoryItem::InventoryCount);
         this->recipe_output.resize(InventoryItem::InventoryCount);
         this->max_output = 5;
