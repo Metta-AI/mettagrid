@@ -3,6 +3,9 @@ import gymnasium as gym
 
 from libcpp.string cimport string
 from libcpp.vector cimport vector
+from libcpp.map cimport map
+from cython.operator import dereference, postincrement
+from libc.stdio cimport printf
 
 from mettagrid.grid_object cimport GridObject, ObsType
 
@@ -48,7 +51,7 @@ cdef class ObservationEncoder:
                 self._offsets[type_id].push_back(len(features))
                 features.append(self._type_feature_names[type_id][i])
         self._feature_names = features
-
+        printf("ObservationEncoder num features: %d\n", self._feature_names.size())
     cdef encode(self, GridObject *obj, ObsType[:] obs):
         self._encode(obj, obs, self._offsets[obj._type_id])
 
@@ -69,6 +72,31 @@ cdef class ObservationEncoder:
             dtype=self.obs_np_type()
         )
 
+cdef class SemiCompactObservationEncoder(ObservationEncoder):
+    def __init__(self) -> None:
+        super().__init__()
+        self._offsets.resize(ObjectType.Count)
+        self._type_feature_names.resize(ObjectType.Count)
+        # Generate an offset for each unique feature name.
+        cdef map[string, int] features
+        for type_id in range(ObjectType.Count):
+            for i in range(len(self._type_feature_names[type_id])):
+                if features.count(self._type_feature_names[type_id][i]) == 0:
+                    features[self._type_feature_names[type_id][i]] = features.size()
+        
+        # Set the offset for each feature, using the global offsets.
+        for type_id in range(ObjectType.Count):
+            for i in range(len(self._type_feature_names[type_id])):
+                self._offsets[type_id][i] = features[self._type_feature_names[type_id][i]]
+
+        self._feature_names.resize(features.size())
+        cdef map[string, int].iterator it = features.begin()
+        for i in range(features.size()):
+            self._feature_names[i] = dereference(it).first
+            postincrement(it)
+
+        printf("SemiCompactObservationEncoder num features: %d\n", self._feature_names.size())
+
 cdef class CompactObservationEncoder(ObservationEncoder):
     def __init__(self) -> None:
         super().__init__()
@@ -76,12 +104,12 @@ cdef class CompactObservationEncoder(ObservationEncoder):
         for type_id in range(ObjectType.Count):
             self._num_features = max(self._num_features, len(self._type_feature_names[type_id]))
 
-        self._offsets.resize(ObjectType.Count)
         for type_id in range(ObjectType.Count):
             # Offsets are all just 0..self._num_features
             self._offsets[type_id].resize(self._num_features)
             for i in range (self._num_features):
                 self._offsets[type_id][i] = i
+        printf("CompactObservationEncoder num features: %d\n", self._num_features)
 
     cdef encode(self, GridObject *obj, ObsType[:] obs):
         # I'd prefer to call super().encode, but that's not working.

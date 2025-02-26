@@ -17,6 +17,7 @@ from mettagrid.grid_object cimport GridObject
 from mettagrid.observation_encoder cimport (
     ObsType,
     ObservationEncoder,
+    SemiCompactObservationEncoder,
     CompactObservationEncoder
 )
 
@@ -60,7 +61,8 @@ cdef class MettaGrid(GridEnv):
         obs_encoder = ObservationEncoder()
         if env_cfg.compact_obs:
             obs_encoder = CompactObservationEncoder()
-
+        elif env_cfg.semi_compact_obs:
+            obs_encoder = SemiCompactObservationEncoder()
         actions = []
         if cfg.actions.noop.enabled:
             actions.append(Noop(cfg.actions.noop))

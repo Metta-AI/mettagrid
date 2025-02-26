@@ -17,5 +17,8 @@ cdef class ObservationEncoder:
     cpdef observation_space(self)
     cpdef obs_np_type(self)
 
+cdef class SemiCompactObservationEncoder(ObservationEncoder):
+    pass
+
 cdef class CompactObservationEncoder(ObservationEncoder):
     cdef unsigned int _num_features
