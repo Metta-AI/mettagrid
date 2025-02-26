@@ -34,8 +34,8 @@ public:
     static inline std::vector<std::string> feature_names() {
         std::vector<std::string> features;
         features.push_back("mine");
-        features.push_back("mine:hp");
-        features.push_back("mine:ready");
+        features.push_back("hp");
+        features.push_back("ready");
         return features;
     }
 };
