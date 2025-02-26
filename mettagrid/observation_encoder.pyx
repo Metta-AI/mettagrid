@@ -4,7 +4,6 @@ import gymnasium as gym
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.map cimport map
-from cython.operator import dereference, postincrement
 
 from mettagrid.grid_object cimport GridObject, ObsType
 
@@ -78,18 +77,15 @@ cdef class SemiCompactObservationEncoder(ObservationEncoder):
         self._type_feature_names.resize(ObjectType.Count)
         # Generate an offset for each unique feature name.
         cdef map[string, int] features
+        cdef vector[string] feature_names
         for type_id in range(ObjectType.Count):
             for i in range(len(self._type_feature_names[type_id])):
                 if features.count(self._type_feature_names[type_id][i]) == 0:
                     features[self._type_feature_names[type_id][i]] = features.size()
-        
+                    feature_names.push_back(self._type_feature_names[type_id][i])
         # Set the offset for each feature, using the global offsets.
         for type_id in range(ObjectType.Count):
             for i in range(len(self._type_feature_names[type_id])):
                 self._offsets[type_id][i] = features[self._type_feature_names[type_id][i]]
 
-        self._feature_names.resize(features.size())
-        cdef map[string, int].iterator it = features.begin()
-        for i in range(features.size()):
-            self._feature_names[i] = dereference(it).first
-            postincrement(it)
+        self._feature_names = feature_names
