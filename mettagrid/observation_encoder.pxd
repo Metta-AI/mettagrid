@@ -20,5 +20,3 @@ cdef class ObservationEncoder:
 cdef class SemiCompactObservationEncoder(ObservationEncoder):
     pass
 
-cdef class CompactObservationEncoder(ObservationEncoder):
-    cdef unsigned int _num_features

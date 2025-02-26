@@ -93,7 +93,7 @@ public:
         this->current_resource_reward = new_reward;
     }
 
-    virtual void obs(ObsType* obs, std::vector<unsigned int> offsets) const override {
+    virtual void obs(ObsType* obs, const std::vector<unsigned int> &offsets) const override {
         obs[offsets[0]] = 1;
         obs[offsets[1]] = group;
         obs[offsets[2]] = hp;

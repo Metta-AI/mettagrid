@@ -32,5 +32,5 @@ cdef extern from "grid_object.hpp":
         GridObject()
         void __dealloc__()
         void init(TypeId type_id, const GridLocation &loc)
-        void obs(ObsType *obs, vector[unsigned int] offsets)
+        void obs(ObsType *obs, const vector[unsigned int] &offsets)
 

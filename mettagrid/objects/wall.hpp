@@ -15,7 +15,7 @@ public:
         MettaObject::init_mo(cfg);
     }
 
-    virtual void obs(ObsType *obs, std::vector<unsigned int> offsets) const override {
+    virtual void obs(ObsType *obs, const std::vector<unsigned int> &offsets) const override {
         obs[offsets[0]] = 1;
         obs[offsets[1]] = this->hp;
     }

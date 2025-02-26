@@ -93,33 +93,3 @@ cdef class SemiCompactObservationEncoder(ObservationEncoder):
         for i in range(features.size()):
             self._feature_names[i] = dereference(it).first
             postincrement(it)
-
-cdef class CompactObservationEncoder(ObservationEncoder):
-    def __init__(self) -> None:
-        super().__init__()
-        self._num_features = 0
-        for type_id in range(ObjectType.Count):
-            self._num_features = max(self._num_features, len(self._type_feature_names[type_id]))
-
-        for type_id in range(ObjectType.Count):
-            # Offsets are all just 0..self._num_features
-            self._offsets[type_id].resize(self._num_features)
-            for i in range (self._num_features):
-                self._offsets[type_id][i] = i
-
-    cdef encode(self, GridObject *obj, ObsType[:] obs):
-        # I'd prefer to call super().encode, but that's not working.
-        self._encode(obj, obs, self._offsets[obj._type_id])
-        # All objects recode a 1-hot in their first offset. Replace that with a type id.
-        obs[0] = obj._type_id + 1
-
-    cpdef observation_space(self):
-        type_info = np.iinfo(self.obs_np_type())
-
-        return gym.spaces.Box(
-                    low=type_info.min, high=type_info.max,
-                    shape=(
-                        self._num_features,
-                        self._obs_height, self._obs_width),
-            dtype=self.obs_np_type()
-        )

@@ -35,7 +35,7 @@ public:
         actor->stats.add(InventoryItemNames[InventoryItem::laser], "created", 5);
     }
 
-    virtual void obs(ObsType* obs, std::vector<unsigned int> offsets) const override {
+    virtual void obs(ObsType* obs, const std::vector<unsigned int> &offsets) const override {
         obs[offsets[0]] = 1;
         obs[offsets[1]] = hp;
         obs[offsets[2]] = ready;

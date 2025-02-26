@@ -3,7 +3,6 @@ _target_: mettagrid.mettagrid_env.MettaGridEnv
 
 normalize_rewards: False
 semi_compact_obs: false
-compact_obs: false
 sampling: 0.0
 
 hidden_features:
