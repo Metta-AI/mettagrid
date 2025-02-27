@@ -35,7 +35,7 @@ ext_modules = [
     build_ext(["mettagrid/actions/noop.pyx"]),
     build_ext(["mettagrid/actions/rotate.pyx"]),
     build_ext(["mettagrid/actions/swap.pyx"]),
-    build_ext(["mettagrid/actions/put_recipe.pyx"]),
+    build_ext(["mettagrid/actions/put_recipe_items.pyx"]),
     build_ext(["mettagrid/actions/get_output.pyx"]),
 
     build_ext(["mettagrid/objects/altar.pyx"]),
