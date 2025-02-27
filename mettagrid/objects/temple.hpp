@@ -16,14 +16,10 @@ public:
         this->recipe_output[InventoryItem::heart] = 5;
     }
 
-    inline void use(Agent *actor, float *rewards) override {
-        actor->update_inventory(InventoryItem::heart, -1, rewards);
-        actor->update_inventory(InventoryItem::blueprint, -1, rewards);
-        actor->update_inventory(InventoryItem::heart, 5, rewards);
-
-        actor->stats.add(InventoryItemNames[InventoryItem::heart], "used", 1);
-        actor->stats.add(InventoryItemNames[InventoryItem::blueprint], "used", 1);
-        actor->stats.add(InventoryItemNames[InventoryItem::heart], "created", 5);
+    static std::vector<std::string> feature_names() {
+        auto names = Converter::feature_names();
+        names[0] = "temple";
+        return names;
     }
 };
 

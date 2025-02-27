@@ -8,8 +8,7 @@
 #include "../grid_object.hpp"
 
 enum Events {
-    Reset = 0,
-    FinishConverting = 1
+    FinishConverting = 0
 };
 
 enum GridLayer {
@@ -62,7 +61,8 @@ std::vector<std::string> ObjectTypeNames = {
     "lasery",
     "lab",
     "factory",
-    "temple"
+    "temple",
+    "converter"
 };
 
 std::map<TypeId, GridLayer> ObjectLayers = {

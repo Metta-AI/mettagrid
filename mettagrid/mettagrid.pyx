@@ -23,7 +23,6 @@ from mettagrid.observation_encoder cimport (
 # Object imports
 from mettagrid.objects.mine cimport Mine
 from mettagrid.objects.agent cimport Agent
-from mettagrid.objects.reset_handler cimport ResetHandler
 from mettagrid.objects.production_handler cimport ProductionHandler
 from mettagrid.objects.wall cimport Wall
 from mettagrid.objects.generator cimport Generator
@@ -90,7 +89,7 @@ cdef class MettaGrid(GridEnv):
             cfg.obs_width, cfg.obs_height,
             obs_encoder,
             actions,
-            [ ResetHandler(), ProductionHandler() ],
+            [ ProductionHandler() ],
             track_last_action=env_cfg.track_last_action
         )
 

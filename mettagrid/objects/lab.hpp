@@ -16,23 +16,10 @@ public:
         this->recipe_output[InventoryItem::blueprint] = 1;
     }
 
-    inline void use(Agent *actor, float *rewards) override {
-        actor->update_inventory(InventoryItem::battery, -3, rewards);
-        actor->update_inventory(InventoryItem::ore, -3, rewards);
-        actor->update_inventory(InventoryItem::blueprint, 1, rewards);
-
-        actor->stats.add(InventoryItemNames[InventoryItem::battery], "used", 3);
-        actor->stats.add(InventoryItemNames[InventoryItem::ore], "used", 3);
-        actor->stats.incr(InventoryItemNames[InventoryItem::blueprint], "created");
-
-        actor->stats.add(
-            InventoryItemNames[InventoryItem::battery],
-            "converted",
-            InventoryItemNames[InventoryItem::blueprint], 3);
-        actor->stats.add(
-            InventoryItemNames[InventoryItem::ore],
-            "converted",
-            InventoryItemNames[InventoryItem::blueprint], 3);
+    static std::vector<std::string> feature_names() {
+        auto names = Converter::feature_names();
+        names[0] = "lab";
+        return names;
     }
 };
 

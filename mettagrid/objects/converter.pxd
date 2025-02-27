@@ -1,11 +1,11 @@
 from libcpp.vector cimport vector
 from libcpp.string cimport string
 from mettagrid.grid_object cimport GridCoord
-from .metta_object cimport ObjectConfig, MettaObject
+from .metta_object cimport ObjectConfig
+from .has_inventory cimport HasInventory
 
 cdef extern from "converter.hpp":
-    cdef cppclass Converter(MettaObject):
-        vector[unsigned char] inventory
+    cdef cppclass Converter(HasInventory):
         vector[unsigned char] recipe_input
         vector[unsigned char] recipe_output
         unsigned short max_output
@@ -16,5 +16,5 @@ cdef extern from "converter.hpp":
         Converter(GridCoord r, GridCoord c, ObjectConfig cfg)
         bint maybe_start_converting()
         void finish_converting()
-        @staticmethod
-        vector[string] feature_names()
+        # @staticmethod
+        # vector[string] feature_names()

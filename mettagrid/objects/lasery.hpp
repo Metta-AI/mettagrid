@@ -16,22 +16,10 @@ public:
         this->recipe_output[InventoryItem::laser] = 1;
     }
 
-    inline void use(Agent *actor, float *rewards) override {
-        actor->update_inventory(InventoryItem::ore, -1, rewards);
-        actor->update_inventory(InventoryItem::battery, -2, rewards);
-        actor->update_inventory(InventoryItem::laser, 1, rewards);
-
-        actor->stats.add(InventoryItemNames[InventoryItem::ore], "used", 1);
-        actor->stats.add(InventoryItemNames[InventoryItem::battery], "used", 2);
-        actor->stats.incr(InventoryItemNames[InventoryItem::laser], "created");
-        actor->stats.add(
-            InventoryItemNames[InventoryItem::ore],
-            "converted",
-            InventoryItemNames[InventoryItem::laser], 1);
-        actor->stats.add(
-            InventoryItemNames[InventoryItem::battery],
-            "converted",
-            InventoryItemNames[InventoryItem::laser], 2);
+    static std::vector<std::string> feature_names() {
+        auto names = Converter::feature_names();
+        names[0] = "lasery";
+        return names;
     }
 };
 

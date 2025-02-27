@@ -37,7 +37,6 @@ ext_modules = [
     build_ext(["mettagrid/actions/swap.pyx"]),
     build_ext(["mettagrid/actions/put_recipe.pyx"]),
     build_ext(["mettagrid/actions/get_all.pyx"]),
-    build_ext(["mettagrid/actions/use.pyx"]),
 
     build_ext(["mettagrid/objects/altar.pyx"]),
     build_ext(["mettagrid/objects/agent.pyx"]),
@@ -50,7 +49,6 @@ ext_modules = [
     build_ext(["mettagrid/objects/lasery.pyx"]),
     build_ext(["mettagrid/objects/metta_object.pyx"]),
     build_ext(["mettagrid/objects/mine.pyx"]),
-    build_ext(["mettagrid/objects/reset_handler.pyx"]),
     build_ext(["mettagrid/objects/production_handler.pyx"]),
     build_ext(["mettagrid/objects/wall.pyx"]),
     build_ext(["mettagrid/mettagrid.pyx"], "mettagrid.mettagrid_c"),

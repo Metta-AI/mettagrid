@@ -37,7 +37,6 @@ cdef class ObservationEncoder:
         self._type_feature_names[ObjectType.AgentT] = Agent.feature_names()
         self._type_feature_names[ObjectType.AltarT] = Altar.feature_names()
         self._type_feature_names[ObjectType.ArmoryT] = Armory.feature_names()
-        self._type_feature_names[ObjectType.GenericConverterT] = Converter.feature_names()
         self._type_feature_names[ObjectType.FactoryT] = Factory.feature_names()
         self._type_feature_names[ObjectType.GeneratorT] = Generator.feature_names()
         self._type_feature_names[ObjectType.LabT] = Lab.feature_names()

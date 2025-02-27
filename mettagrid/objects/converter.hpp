@@ -67,13 +67,12 @@ public:
         this->converting = false;
     }
 
-    void obs(ObsType *obs) const override {
-        obs[0] = 1;
-        obs[1] = this->_type_id;
-        obs[2] = this->hp;
-        obs[3] = this->converting;
+    void obs(ObsType *obs, const std::vector<unsigned int> &offsets) const override {
+        obs[offsets[0]] = 1;
+        obs[offsets[1]] = this->hp;
+        obs[offsets[2]] = this->converting;
         for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
-            obs[4 + i] = this->inventory[i];
+            obs[offsets[3] + i] = this->inventory[i];
         }
     }
 
@@ -84,7 +83,6 @@ public:
         // we expect converters to be hard coded.
         // xcxc consider retaining the 1-hot encoding of the recipe.
         names.push_back("converter");
-        names.push_back("converter:type");
         names.push_back("hp");
         names.push_back("converting");
         for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
