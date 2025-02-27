@@ -86,7 +86,7 @@ public:
         names.push_back("hp");
         names.push_back("converting");
         for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
-            names.push_back(InventoryItemNames[i]);
+            names.push_back("inv:" + InventoryItemNames[i]);
         }
         return names;
     }
