@@ -76,7 +76,10 @@ game:
     transfer:
       cost: 0
       enabled: false
-    use:
+    put_action:
+      cost: 0
+      enabled: true
+    get_action:
       cost: 0
       enabled: true
     attack:

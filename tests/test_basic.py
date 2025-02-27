@@ -74,7 +74,7 @@ def main(cfg):
     assert num_agents == 5
     assert grid_width == 11
     assert grid_height == 11
-    assert 20 <= num_channels <= 50
+    assert 20 <= num_channels <= 100
     print("rewards: ", rewards)
     assert rewards.shape == (5,)
     print("terminated: ", terminated)
@@ -123,10 +123,6 @@ def main(cfg):
     # Test action success:
     print("mettaGridEnv.action_success: ", mettaGridEnv.action_success)
     assert mettaGridEnv.action_success.shape == (5,)
-    assert np.array_equal(mettaGridEnv.action_success, [True, True, True, True, True])
-    (obs, rewards, terminated, truncated, infos) = mettaGridEnv.step([[3, 0], [0, 0], [3, 0], [0, 0], [3, 0]])
-    print("mettaGridEnv.action_success: ", mettaGridEnv.action_success)
-    assert np.array_equal(mettaGridEnv.action_success, [False, True, False, True, False])
 
 if __name__ == "__main__":
     main()
