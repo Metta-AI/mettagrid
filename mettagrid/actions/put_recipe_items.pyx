@@ -10,9 +10,9 @@ from mettagrid.objects.converter cimport Converter
 from mettagrid.actions.actions cimport MettaActionHandler
 
 # Puts one recipe worth of resources into a Converter. Noop if not enough resources.
-cdef class PutRecipe(MettaActionHandler):
+cdef class PutRecipeItems(MettaActionHandler):
     def __init__(self, cfg: OmegaConf):
-        MettaActionHandler.__init__(self, cfg, "put_recipe")
+        MettaActionHandler.__init__(self, cfg, "put_recipe_items")
 
     cdef unsigned char max_arg(self):
         return 0

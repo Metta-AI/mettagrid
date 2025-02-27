@@ -497,7 +497,7 @@ class MettaGridRaylibRenderer:
             rl.KEY_Q: (self.action_ids["move"], 1),
             # use
             rl.KEY_U: (self.action_ids["use"], 0),
-            rl.KEY_P: (self.action_ids["put_recipe"], 0),
+            rl.KEY_P: (self.action_ids["put_recipe_items"], 0),
             rl.KEY_G: (self.action_ids["get_output"], 0),
             # color manipulation
             rl.KEY_RIGHT_BRACKET: (self.action_ids["change_color"], 0), # Increment color
