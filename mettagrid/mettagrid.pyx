@@ -119,6 +119,14 @@ cdef class MettaGrid(GridEnv):
                     if mine.maybe_start_converting():
                         self._event_manager.schedule_event(Events.FinishConverting, mine.recipe_duration, mine.id, 0)
 
+                elif map[r,c] == "generator":
+                    self._grid.add_object(new Generator(r, c, cfg.objects.generator))
+                    self._stats.incr(b"objects.generator")
+
+                elif map[r,c] == "altar":
+                    self._grid.add_object(new Altar(r, c, cfg.objects.altar))
+                    self._stats.incr(b"objects.altar")
+
                 elif map[r,c] == "armory":
                     self._grid.add_object(new Armory(r, c, cfg.objects.armory))
                     self._stats.incr(b"objects.armory")

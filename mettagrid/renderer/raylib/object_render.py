@@ -123,9 +123,9 @@ class ConverterRenderer(ObjectRenderer):
         super().__init__("items.png", 16)
     
     def _state(self, obj):
-        if obj["converter:converting"]:
+        if obj["converting"]:
             return "converting"
-        elif obj["converter:ore"] + obj["converter:battery"] + obj["converter:heart"] + obj["converter:laser"] + obj["converter:armor"] + obj["converter:blueprint"] > 0:
+        elif obj["inv:ore"] + obj["inv:battery"] + obj["inv:heart"] + obj["inv:laser"] + obj["inv:armor"] + obj["inv:blueprint"] > 0:
             return "has_inventory"
         else:
             return "empty"

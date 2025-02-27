@@ -39,7 +39,7 @@ public:
     bool maybe_start_converting() {
         if (!this->converting) {
             unsigned short total_output = 0;
-            for (unsigned int i = 0; i < this->recipe_input.size(); i++) {
+            for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
                 if (this->inventory[i] < this->recipe_input[i]) {
                     return false;
                 }
@@ -51,7 +51,7 @@ public:
                 return false;
             }
             // produce.
-            for (unsigned int i = 0; i < this->recipe_input.size(); i++) {
+            for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
                 this->inventory[i] -= this->recipe_input[i];
             }
             this->converting = true;
@@ -61,7 +61,7 @@ public:
     }
 
     void finish_converting() {
-        for (unsigned int i = 0; i < this->recipe_output.size(); i++) {
+        for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
             this->inventory[i] += this->recipe_output[i];
         }
         this->converting = false;
