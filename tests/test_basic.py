@@ -74,7 +74,7 @@ def main(cfg):
     assert num_agents == 5
     assert grid_width == 11
     assert grid_height == 11
-    assert 20 <= num_channels <= 100
+    assert 20 <= num_channels <= 50
     print("rewards: ", rewards)
     assert rewards.shape == (5,)
     print("terminated: ", terminated)
