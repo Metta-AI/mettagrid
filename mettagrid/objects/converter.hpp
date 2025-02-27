@@ -44,7 +44,7 @@ public:
                     return false;
                 }
                 if (this->recipe_output[i] > 0) {
-                    total_output += this->inventory[i] / this->recipe_input[i];
+                    total_output += this->inventory[i];
                 }
             }
             if (total_output >= this->max_output) {
