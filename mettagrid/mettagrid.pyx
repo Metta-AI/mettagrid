@@ -37,7 +37,7 @@ from mettagrid.objects.constants cimport ObjectLayers, InventoryItemNames, Event
 # Action imports
 from mettagrid.actions.move import Move
 from mettagrid.actions.rotate import Rotate
-from mettagrid.actions.get_all import GetAll
+from mettagrid.actions.get_output import GetOutput
 from mettagrid.actions.put_recipe import PutRecipe
 from mettagrid.actions.attack import Attack
 from mettagrid.actions.attack_nearest import AttackNearest
@@ -64,7 +64,7 @@ cdef class MettaGrid(GridEnv):
         if cfg.actions.put_action.enabled:
             actions.append(PutRecipe(cfg.actions.put_action))
         if cfg.actions.get_action.enabled:
-            actions.append(GetAll(cfg.actions.get_action))
+            actions.append(GetOutput(cfg.actions.get_action))
         if cfg.actions.noop.enabled:
             actions.append(Noop(cfg.actions.noop))
         if cfg.actions.move.enabled:

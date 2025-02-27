@@ -14,6 +14,7 @@ public:
         this->recipe_input[InventoryItem::heart] = 1;
         this->recipe_input[InventoryItem::blueprint] = 1;
         this->recipe_output[InventoryItem::heart] = 5;
+        this->recipe_duration = cfg["cooldown"];
     }
 
     static std::vector<std::string> feature_names() {

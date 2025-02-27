@@ -13,6 +13,7 @@ public:
     Altar(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::AltarT) {
         this->recipe_input[InventoryItem::battery] = 3;
         this->recipe_output[InventoryItem::heart] = 1;
+        this->recipe_duration = cfg["cooldown"];
     }
 
     static std::vector<std::string> feature_names() {

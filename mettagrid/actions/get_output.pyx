@@ -9,9 +9,9 @@ from mettagrid.objects.constants cimport Events, GridLayer, InventoryItem, Inven
 from mettagrid.objects.converter cimport Converter
 from mettagrid.actions.actions cimport MettaActionHandler
 
-cdef class GetAll(MettaActionHandler):
+cdef class GetOutput(MettaActionHandler):
     def __init__(self, cfg: OmegaConf):
-        MettaActionHandler.__init__(self, cfg, "get_all")
+        MettaActionHandler.__init__(self, cfg, "get_output")
 
     cdef unsigned char max_arg(self):
         return 0
@@ -41,7 +41,11 @@ cdef class GetAll(MettaActionHandler):
         if not converter.inventory_is_accessible():
             return False
 
-        for i in range(converter.inventory.size()):
+        for i in range(InventoryItem.InventoryCount):
+            if converter.recipe_output[i] == 0:
+                # We only want to take things the converter can produce. Otherwise it's a pain to
+                # collect resources from a converter that's in the middle of processing a queue.
+                continue
             # The actor will destroy anything it can't hold. That's not intentional, so feel free
             # to fix it.
             actor.stats.add(InventoryItemNames[i], b"get", converter.inventory[i])

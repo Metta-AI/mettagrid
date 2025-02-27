@@ -14,6 +14,7 @@ public:
         this->recipe_input[InventoryItem::ore] = 1;
         this->recipe_input[InventoryItem::battery] = 2;
         this->recipe_output[InventoryItem::laser] = 1;
+        this->recipe_duration = cfg["cooldown"];
     }
 
     static std::vector<std::string> feature_names() {
