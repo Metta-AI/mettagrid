@@ -14,7 +14,6 @@ import mettagrid.actions.move
 import mettagrid.actions.noop
 import mettagrid.actions.rotate
 import mettagrid.actions.swap
-import mettagrid.actions.use
 
 import mettagrid.action
 import mettagrid.event
