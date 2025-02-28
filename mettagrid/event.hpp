@@ -34,7 +34,7 @@ public:
 
     virtual ~EventHandler() {}
 
-    virtual void handle_event(GridObjectId object_id, int arg) = 0;
+    virtual void handle_event(GridObjectId object_id, EventArg arg) = 0;
 };
 
 class EventManager {

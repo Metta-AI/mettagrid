@@ -37,4 +37,4 @@ cdef extern from "event.hpp":
 
         EventHandler(EventManager *event_manager)
 
-        void handle_event(GridObjectId object_id, int arg)
+        void handle_event(GridObjectId object_id, EventArg arg)
