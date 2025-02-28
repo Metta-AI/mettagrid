@@ -1,16 +1,15 @@
 from libc.stdio cimport printf
 
 from mettagrid.event cimport Event, EventArg, EventHandler, EventId
-from mettagrid.grid_env cimport GridEnv
 from mettagrid.grid_object cimport GridObjectId
+from mettagrid.stats_tracker cimport StatsTracker
+from mettagrid.grid cimport Grid
 
 cdef class EventManager:
-    def __init__(self, GridEnv env, list[EventHandler] event_handlers):
-        self.env = env
-
+    def __init__(self, list[EventHandler] event_handlers):
         self._event_handlers = event_handlers
         for idx in range(len(event_handlers)):
-            (<EventHandler>event_handlers[idx]).init(env, idx)
+            (<EventHandler>event_handlers[idx]).init(self, idx)
         self._current_timestep = 0
 
     cdef void schedule_event(
@@ -25,6 +24,10 @@ cdef class EventManager:
         )
         # printf("Scheduling event %d for timestep %d\n", event_id, event.timestamp)
         self._event_queue.push(event)
+    
+    cdef void init(self, Grid *grid, StatsTracker *stats):
+        self._grid = grid
+        self._stats = stats
 
     cdef void process_events(self, unsigned int current_timestep):
         self._current_timestep = current_timestep
@@ -37,8 +40,8 @@ cdef class EventManager:
             (<EventHandler>self._event_handlers[event.event_id]).handle_event(event.object_id, event.arg)
 
 cdef class EventHandler:
-    cdef void init(self, GridEnv env, EventId event_id):
-        self.env = env
+    cdef void init(self, EventManager event_manager, EventId event_id):
+        self.event_manager = event_manager
         self.event_id = event_id
 
     cdef void schedule(self, unsigned int delay, GridObjectId object_id, EventArg arg):

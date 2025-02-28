@@ -63,7 +63,9 @@ cdef class GridEnv:
             self._max_action_arg = max(self._max_action_arg, max_arg)
             self._max_action_priority = max(self._max_action_priority, (<ActionHandler>handler)._priority)
 
-        self._event_manager = EventManager(self, event_handlers)
+        self._event_manager = EventManager(event_handlers)
+        self._event_manager._grid = self._grid
+        self._event_manager._stats = self._stats
 
         self._track_last_action = track_last_action
 
