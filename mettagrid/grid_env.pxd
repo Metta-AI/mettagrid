@@ -7,7 +7,6 @@ from mettagrid.action cimport ActionHandler, Action
 from mettagrid.event cimport EventManager
 from mettagrid.grid_object cimport GridObjectId, GridObject
 from mettagrid.grid cimport Grid
-from mettagrid.event cimport EventManager
 from mettagrid.observation_encoder cimport ObservationEncoder, ObsType
 from mettagrid.stats_tracker cimport StatsTracker
 
@@ -27,7 +26,7 @@ cdef class GridEnv:
         unsigned char _max_action_priority
 
         ObservationEncoder _obs_encoder
-        StatsTracker *_stats
+        StatsTracker _stats
 
         unsigned short _obs_width
         unsigned short _obs_height

@@ -21,21 +21,47 @@ struct Event {
     }
 };
 
+class EventManager;
+
+class EventHandler {
+protected:
+    EventManager* event_manager;
+
+public:
+    EventHandler(EventManager* em) {
+        this->event_manager = em;
+    }
+
+    virtual ~EventHandler() {}
+
+    virtual void handle_event(GridObjectId object_id, int arg) = 0;
+};
+
 class EventManager {
 private:
-    vector<EventHandler*> _event_handlers;
     priority_queue<Event> _event_queue;
-    Grid* _grid;
-    StatsTracker* _stats;
     unsigned int _current_timestep;
 
 public:
-    EventManager(vector<EventHandler*> event_handlers) {
-        this->_event_handlers = event_handlers;
-        for (size_t idx = 0; idx < event_handlers.size(); idx++) {
-            this->_event_handlers[idx]->init(this, idx);
-        }
+    Grid* grid;
+    StatsTracker* stats;
+    vector<EventHandler*> event_handlers;
+
+    EventManager() {
+        this->grid = nullptr;
+        this->stats = nullptr;
+    }
+
+    void init(Grid* grid, StatsTracker* stats) {
+        this->grid = grid;
+        this->stats = stats;
         this->_current_timestep = 0;
+    }
+
+    ~EventManager() {
+        for (auto handler : this->event_handlers) {
+            delete handler;
+        }
     }
 
     void schedule_event(EventId event_id, unsigned int delay, GridObjectId object_id, EventArg arg) {
@@ -47,11 +73,6 @@ public:
         this->_event_queue.push(event);
     }
 
-    void init(Grid* grid, StatsTracker* stats) {
-        this->_grid = grid;
-        this->_stats = stats;
-    }
-
     void process_events(unsigned int current_timestep) {
         this->_current_timestep = current_timestep;
         Event event;
@@ -61,30 +82,9 @@ public:
                 break;
             }
             this->_event_queue.pop();
-            this->_event_handlers[event.event_id]->handle_event(event.object_id, event.arg);
+            this->event_handlers[event.event_id]->handle_event(event.object_id, event.arg);
         }
     }
-};
-
-class EventHandler {
-protected:
-    EventManager* event_manager;
-    EventId event_id;
-
-public:
-    // xcxc understand virtual destructor
-    virtual ~EventHandler() {}
-
-    void init(EventManager* em, EventId eid) {
-        event_manager = em;
-        event_id = eid;
-    }
-
-    void schedule(unsigned int delay, GridObjectId object_id, EventArg arg) {
-        event_manager->schedule_event(event_id, delay, object_id, arg);
-    }
-
-    virtual void handle_event(GridObjectId object_id, int arg) {}
 };
 
 

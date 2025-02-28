@@ -13,29 +13,28 @@ cdef extern from "event.hpp":
         GridObjectId object_id
         EventArg arg
 
-    cdef class EventManager:
-        cdef:
-            Grid *_grid
-            StatsTracker *_stats
-            priority_queue[Event] _event_queue
-            unsigned int _current_timestep
-            list[EventHandler] _event_handlers
+    cdef cppclass EventManager:
+        Grid *grid
+        StatsTracker *stats
+        priority_queue[Event] event_queue
+        unsigned int current_timestep
+        vector[EventHandler*] event_handlers
 
-        cdef void init(self, Grid *grid, StatsTracker *stats)
+        EventManager()
 
-        cdef void schedule_event(
-            self,
+        void init(Grid *grid, StatsTracker *stats)
+
+        void schedule_event(
             EventId event_id,
             unsigned int delay,
             GridObjectId object_id,
             EventArg arg)
 
-        cdef void process_events(self, unsigned int current_timestep)
+        void process_events(unsigned int current_timestep)
 
-    cdef class EventHandler:
-        cdef EventManager event_manager
-        cdef EventId event_id
+    cdef cppclass EventHandler:
+        EventManager *event_manager
 
-        cdef void init(self, EventManager event_manager, EventId event_id)
-        cdef void schedule(self, unsigned int delay, GridObjectId object_id, EventArg arg)
-        cdef void handle_event(self, GridObjectId object_id, int arg)
+        EventHandler(EventManager *event_manager)
+
+        void handle_event(GridObjectId object_id, int arg)
