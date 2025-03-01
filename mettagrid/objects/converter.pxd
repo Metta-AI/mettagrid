@@ -1,5 +1,6 @@
 from libcpp.vector cimport vector
 from libcpp.string cimport string
+from mettagrid.event cimport EventManager
 from mettagrid.grid_object cimport GridCoord
 from .metta_object cimport ObjectConfig
 from .has_inventory cimport HasInventory
@@ -13,8 +14,8 @@ cdef extern from "converter.hpp":
         unsigned char recipe_duration
         bint converting
 
-        Converter(GridCoord r, GridCoord c, ObjectConfig cfg)
-        bint maybe_start_converting()
+        Converter(GridCoord r, GridCoord c, ObjectConfig cfg, EventManager *event_manager)
+        void maybe_start_converting()
         void finish_converting()
         # @staticmethod
         # vector[string] feature_names()

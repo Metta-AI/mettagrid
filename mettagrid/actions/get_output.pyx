@@ -52,7 +52,6 @@ cdef class GetOutput(MettaActionHandler):
             actor.update_inventory(<InventoryItem>i, converter.inventory[i], &self.env._rewards[actor_id])
             converter.inventory[i] = 0
             
-        if converter.maybe_start_converting():
-            self.env._event_manager.schedule_event(Events.FinishConverting, converter.recipe_duration, converter.id, 0)
+        converter.maybe_start_converting()
 
         return True

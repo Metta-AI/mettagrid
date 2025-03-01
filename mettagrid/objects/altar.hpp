@@ -10,7 +10,7 @@
 
 class Altar : public Converter {
 public:
-    Altar(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::AltarT) {}
+    Altar(GridCoord r, GridCoord c, ObjectConfig cfg, EventManager *event_manager) : Converter(r, c, cfg, ObjectType::AltarT, event_manager) {}
 
     static std::vector<std::string> feature_names() {
         auto names = Converter::feature_names();

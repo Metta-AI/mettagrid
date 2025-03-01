@@ -10,7 +10,7 @@
 
 class Mine : public Converter {
 public:
-    Mine(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::MineT) {}
+    Mine(GridCoord r, GridCoord c, ObjectConfig cfg, EventManager *event_manager) : Converter(r, c, cfg, ObjectType::MineT, event_manager) {}
 
     static std::vector<std::string> feature_names() {
         auto names = Converter::feature_names();

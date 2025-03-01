@@ -10,7 +10,7 @@
 
 class Armory : public Converter {
 public:
-    Armory(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::ArmoryT) {}
+    Armory(GridCoord r, GridCoord c, ObjectConfig cfg, EventManager *event_manager) : Converter(r, c, cfg, ObjectType::ArmoryT, event_manager) {}
 
     static std::vector<std::string> feature_names() {
         auto names = Converter::feature_names();

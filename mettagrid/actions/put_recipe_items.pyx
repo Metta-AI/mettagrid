@@ -44,7 +44,6 @@ cdef class PutRecipeItems(MettaActionHandler):
             actor.update_inventory(<InventoryItem>i, -converter.recipe_input[i], &self.env._rewards[actor_id])
             actor.stats.add(InventoryItemNames[i], b"put", converter.recipe_input[i]);
 
-        if converter.maybe_start_converting():
-            self.env._event_manager.schedule_event(Events.FinishConverting, converter.recipe_duration, converter.id, 0)
+        converter.maybe_start_converting()
 
         return True
