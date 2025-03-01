@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include "../grid_object.hpp"
+#include "../event.hpp"
 #include "constants.hpp"
 #include "metta_object.hpp"
 #include "has_inventory.hpp"
@@ -19,8 +20,9 @@ public:
     unsigned short max_output;
     unsigned char recipe_duration;
     bool converting;
+    EventManager *event_manager;
 
-    Converter(GridCoord r, GridCoord c, ObjectConfig cfg, TypeId type_id) {
+    Converter(GridCoord r, GridCoord c, ObjectConfig cfg, TypeId type_id, EventManager *event_manager) {
         GridObject::init(type_id, GridLocation(r, c, GridLayer::Object_Layer));
         MettaObject::init_mo(cfg);
         HasInventory::init_has_inventory(cfg);
@@ -33,18 +35,19 @@ public:
         this->max_output = cfg["max_output"];
         this->recipe_duration = cfg["cooldown"];
         this->converting = false;
+        this->event_manager = event_manager;
     }
 
-    Converter(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::GenericConverterT) {}
+    Converter(GridCoord r, GridCoord c, ObjectConfig cfg, EventManager *event_manager) : Converter(r, c, cfg, ObjectType::GenericConverterT, event_manager) {}
 
     // Returns true if we started converting. We do this so we can schedule our
     // converting to finish. It's more natural for us to schedule the finishing
     // ourselves, but it's harder to pass the env down to this code.
     // This should be called any time the converter could start converting. E.g.,
     // when things are added to its input, and when it finishes converting.
-    bool maybe_start_converting() {
+    void maybe_start_converting() {
         if (this->converting) {
-            return false;
+            return;
         }
         // Check if the converter is already at max output.
         unsigned short total_output = 0;
@@ -54,20 +57,22 @@ public:
             }
         }
         if (total_output >= this->max_output) {
-            return false;
+            return;
         }
         // Check if the converter has enough input.
         for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
             if (this->inventory[i] < this->recipe_input[i]) {
-                return false;
+                return;
             }
         }
         // produce.
         for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
             this->inventory[i] -= this->recipe_input[i];
         }
+        // All the previous returns were "we don't start converting".
+        // This one is us starting to convert.
         this->converting = true;
-        return true;
+        this->event_manager->schedule_event(Events::FinishConverting, this->recipe_duration, this->id, 0);
     }
 
     void finish_converting() {
@@ -75,6 +80,8 @@ public:
             this->inventory[i] += this->recipe_output[i];
         }
         this->converting = false;
+        // Maybe we can convert again?
+        this->maybe_start_converting();
     }
 
     void obs(ObsType *obs, const std::vector<unsigned int> &offsets) const override {
