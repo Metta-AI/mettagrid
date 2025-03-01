@@ -4,7 +4,7 @@ from mettagrid.event cimport EventManager
 from mettagrid.grid_object cimport GridCoord
 from .metta_object cimport ObjectConfig
 from .has_inventory cimport HasInventory
-
+from mettagrid.objects.constants cimport InventoryItem
 cdef extern from "converter.hpp":
     cdef cppclass Converter(HasInventory):
         vector[unsigned char] recipe_input
