@@ -7,10 +7,10 @@
 #include "agent.hpp"
 #include "constants.hpp"
 #include "converter.hpp"
-#include "event.hpp"
+
 class Temple : public Converter {
 public:
-    Temple(GridCoord r, GridCoord c, ObjectConfig cfg, EventManager *event_manager) : Converter(r, c, cfg, ObjectType::TempleT, event_manager) {}
+    Temple(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::TempleT) {}
 
     static std::vector<std::string> feature_names() {
         auto names = Converter::feature_names();

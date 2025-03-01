@@ -7,7 +7,7 @@ from mettagrid.objects.converter cimport Converter
 
 cdef extern from "mine.hpp":
     cdef cppclass Mine(Converter):
-        Mine(GridCoord r, GridCoord c, ObjectConfig cfg, EventManager *event_manager) except +
+        Mine(GridCoord r, GridCoord c, ObjectConfig cfg) except +
 
         @staticmethod
         vector[string] feature_names()

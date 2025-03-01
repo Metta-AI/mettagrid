@@ -14,8 +14,8 @@ cdef extern from "converter.hpp":
         unsigned char recipe_duration
         bint converting
 
-        Converter(GridCoord r, GridCoord c, ObjectConfig cfg, EventManager *event_manager)
-        void maybe_start_converting()
+        Converter(GridCoord r, GridCoord c, ObjectConfig cfg)
         void finish_converting()
+        void set_event_manager(EventManager *event_manager)
         # @staticmethod
         # vector[string] feature_names()

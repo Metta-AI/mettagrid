@@ -51,7 +51,5 @@ cdef class GetOutput(MettaActionHandler):
             actor.stats.add(InventoryItemNames[i], b"get", converter.inventory[i])
             actor.update_inventory(<InventoryItem>i, converter.inventory[i], &self.env._rewards[actor_id])
             converter.update_inventory(<InventoryItem>i, -converter.inventory[i], NULL)
-            
-        converter.maybe_start_converting()
 
         return True

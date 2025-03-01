@@ -10,7 +10,7 @@
 
 class Lasery : public Converter {
 public:
-    Lasery(GridCoord r, GridCoord c, ObjectConfig cfg, EventManager *event_manager) : Converter(r, c, cfg, ObjectType::LaseryT, event_manager) {}
+    Lasery(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::LaseryT) {}
 
     static std::vector<std::string> feature_names() {
         auto names = Converter::feature_names();

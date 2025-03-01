@@ -67,7 +67,8 @@ public:
 
     void schedule_event(EventId event_id, unsigned int delay, GridObjectId object_id, EventArg arg) {
         Event event;
-        assert(object_id != 0, "Object id is 0. The object has probably not been added to the grid yet.");
+        // Object id is 0. The object has probably not been added to the grid yet.
+        assert(object_id != 0);
         event.timestamp = this->_current_timestep + delay;
         event.event_id = event_id;
         event.object_id = object_id;
