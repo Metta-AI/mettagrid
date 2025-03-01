@@ -115,6 +115,9 @@ cdef class MettaGrid(GridEnv):
                     mine = new Mine(r, c, cfg.objects.mine, &self._event_manager)
                     self._grid.add_object(mine)
                     self._stats.incr(b"objects.mine")
+                    # Note that the mine needs to have an object_id before we can call this,
+                    # so it needs to happen after the add_object call. We could also trigger
+                    # this by updating its inventory of something.
                     mine.maybe_start_converting()
 
                 elif map[r,c] == "generator":

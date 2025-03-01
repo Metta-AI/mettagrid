@@ -40,10 +40,8 @@ cdef class PutRecipeItems(MettaActionHandler):
                 return False
 
         for i in range(converter.recipe_input.size()):
-            converter.inventory[i] += converter.recipe_input[i]
             actor.update_inventory(<InventoryItem>i, -converter.recipe_input[i], &self.env._rewards[actor_id])
+            converter.update_inventory(<InventoryItem>i, converter.recipe_input[i], NULL)
             actor.stats.add(InventoryItemNames[i], b"put", converter.recipe_input[i]);
-
-        converter.maybe_start_converting()
 
         return True

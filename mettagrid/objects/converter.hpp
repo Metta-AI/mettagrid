@@ -76,11 +76,14 @@ public:
     }
 
     void finish_converting() {
-        for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
-            this->inventory[i] += this->recipe_output[i];
-        }
         this->converting = false;
-        // Maybe we can convert again?
+        for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
+            this->update_inventory(static_cast<InventoryItem>(i), this->recipe_output[i], nullptr);
+        }
+    }
+
+    void update_inventory(InventoryItem item, short amount, float *reward) override {
+        HasInventory::update_inventory(item, amount, reward);
         this->maybe_start_converting();
     }
 
