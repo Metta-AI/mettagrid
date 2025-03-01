@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <cassert>
 #include "../grid_object.hpp"
 #include "../event.hpp"
 #include "constants.hpp"
@@ -72,6 +73,7 @@ public:
         // All the previous returns were "we don't start converting".
         // This one is us starting to convert.
         this->converting = true;
+        assert(this->id != 0);
         this->event_manager->schedule_event(Events::FinishConverting, this->recipe_duration, this->id, 0);
     }
 
