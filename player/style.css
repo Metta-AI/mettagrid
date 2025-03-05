@@ -82,3 +82,21 @@ body {
   font-size: 12px;
   white-space: pre-wrap;
 }
+
+#trace-canvas {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width: 100px;
+  height: 100px;
+}
+
+#trace-handle {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width: 10px;
+  height: 10px;
+  background-color: red;
+  cursor: col-resize;
+}
