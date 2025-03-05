@@ -28,6 +28,7 @@
     62
   ],
   "num_agents": 20,
+  "max_steps": 1000,
   "grid_objects": [
     {
       "id": 1,
