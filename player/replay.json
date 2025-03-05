@@ -23,7 +23,7 @@
     62
   ],
   "num_agents": 24,
-  "max_steps": 1500,
+  "max_steps": 1000,
   "grid_objects": [
     {
       "id": 1,
