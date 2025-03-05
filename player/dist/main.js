@@ -18,9 +18,10 @@ const mapCanvas = document.createElement('canvas');
 const mapCtx = mapCanvas.getContext('2d');
 const traceCanvas = document.createElement('canvas');
 const traceCtx = traceCanvas.getContext('2d');
-if (mapCtx !== null && globalCtx !== null) {
-    //mapCtx.imageSmoothingEnabled = true;
+if (mapCtx !== null && globalCtx !== null && traceCtx !== null) {
+    mapCtx.imageSmoothingEnabled = true;
     globalCtx.imageSmoothingEnabled = true;
+    traceCtx.imageSmoothingEnabled = true;
 }
 const imageCache = new Map();
 const imageLoaded = new Map();
@@ -308,11 +309,15 @@ function drawTrace() {
     // Draw trace canvas to global canvas with proper scaling
     traceCtx.fillStyle = "rgba(20, 20, 20, 1)";
     traceCtx.fillRect(0, 0, traceCanvas.width, traceCanvas.height);
+    // Draw current step line that goes through all of the traces:
+    traceCtx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    traceCtx.fillRect(32 + step * 4, 0, 2, traceCanvas.height);
+    traceCtx.fillStyle = "white";
     for (let i = 0; i < replay.num_agents; i++) {
         // Draw the agents id:
         traceCtx.fillStyle = "white";
         traceCtx.font = "16px Arial";
-        traceCtx.fillText(i.toString(), 10, 20 + i * 64);
+        traceCtx.fillText(i.toString(), 10, 25 + i * 64);
         // Draw the agent's actions:
         for (let j = 0; j < replay.agent_actions[i].length; j++) {
             const action_success = replay.agent_action_success[i][j];
