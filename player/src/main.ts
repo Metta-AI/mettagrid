@@ -9,6 +9,9 @@ const mapCanvas = document.getElementById('map-canvas') as HTMLCanvasElement;
 const mapCtx = mapCanvas.getContext('2d');
 const innerMapCanvas = document.createElement('canvas');
 const ctx = innerMapCanvas.getContext('2d');
+const traceCanvas = document.getElementById('trace-canvas') as HTMLCanvasElement;
+const traceCtx = traceCanvas.getContext('2d');
+const traceHandle = document.getElementById('trace-handle') as HTMLDivElement;
 
 if (ctx !== null && mapCtx !== null) {
     //ctx.imageSmoothingEnabled = true;
@@ -26,7 +29,8 @@ var lastMousePos = new DOMPoint(0, 0);
 var scrollDelta = 0;
 var mapZoom = 1;
 var mapPos = new DOMPoint(0, 0);
-
+var traceSplit = 100;
+var traceDragging = false;
 // Replay data and player state.
 var replay: any = null;
 var step = 0;
@@ -37,19 +41,44 @@ function onResize() {
     // Adjust for high DPI displays.
     const dpr = window.devicePixelRatio || 1;
 
+    const mapWidth = window.innerWidth - traceSplit;
+    const mapHeight = window.innerHeight;
     // Set the canvas size in pixels.
-    mapCanvas.width = window.innerWidth * dpr;
-    mapCanvas.height = window.innerHeight * dpr;
+    mapCanvas.width = mapWidth * dpr;
+    mapCanvas.height = mapHeight * dpr;
 
     // Set the display size in CSS pixels.
-    mapCanvas.style.width = window.innerWidth + 'px';
-    mapCanvas.style.height = window.innerHeight + 'px';
+    mapCanvas.style.width = mapWidth + 'px';
+    mapCanvas.style.height = mapHeight + 'px';
+
+    scrubber.style.width = (mapWidth - 64) + 'px';
 
     // Scale the context to handle high DPI displays.
     mapCtx?.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+    // Set the trace canvas size in pixels.
+    traceCanvas.width = (traceSplit - 10) * dpr;
+    traceCanvas.height = mapHeight * dpr;
+
+    // Set the display size in CSS pixels.
+    traceCanvas.style.right = '0px';
+    traceCanvas.style.top = '0px';
+    traceCanvas.style.width = (traceSplit - 10) + 'px';
+    traceCanvas.style.height = mapHeight + 'px';
+
+    traceHandle.style.right = (traceSplit - 10) + 'px';
+    traceHandle.style.top = '0px';
+    traceHandle.style.width = '10px';
+    traceHandle.style.height = mapHeight + 'px';
+
     // Redraw the square after resizing.
     onFrame();
+}
+
+// Handle trace handle mouse down events.
+function onTraceHandleMouseDown() {
+    console.log("onTraceHandleMouseDown");
+    traceDragging = true;
 }
 
 // Handle mouse down events.
@@ -62,13 +91,19 @@ function onMouseDown() {
 // Handle mouse up events.
 function onMouseUp() {
     mouseDown = false;
+    traceDragging = false;
     onFrame();
 }
 
 // Handle mouse move events.
 function onMouseMove(event: MouseEvent) {
     mousePos = new DOMPoint(event.clientX, event.clientY);
-    if (mouseDown) {
+    if (traceDragging) {
+        console.log("traceDragging");
+        traceSplit = window.innerWidth - mousePos.x;
+        onResize();
+        //onFrame();
+    } else if (mouseDown) {
         onFrame();
     }
 }
@@ -175,7 +210,7 @@ function drawImage(
 
 // Draw a frame.
 function onFrame() {
-    if (ctx === null || mapCtx === null || replay === null) {
+    if (ctx === null || mapCtx === null || replay === null || traceCtx === null) {
         return;
     }
 
@@ -232,6 +267,11 @@ function onFrame() {
     // Clear both canvases.
     ctx.clearRect(0, 0, innerMapCanvas.width, innerMapCanvas.height);
     mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+
+    traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+    // Fill trace canvas with green.
+    traceCtx.fillStyle = "green";
+    traceCtx.fillRect(0, 0, traceCanvas.width, traceCanvas.height);
 
     const mapMousePos = transformPoint(ctx, mousePos);
 
@@ -353,12 +393,14 @@ onResize();
 // Add event listener to resize the canvas when the window is resized.
 window.addEventListener('resize', onResize);
 window.addEventListener('keydown', onKeyDown);
-mapCanvas.addEventListener('mousedown', onMouseDown);
-mapCanvas.addEventListener('mouseup', onMouseUp);
-mapCanvas.addEventListener('mousemove', onMouseMove);
-mapCanvas.addEventListener('wheel', onScroll);
+window.addEventListener('mousedown', onMouseDown);
+window.addEventListener('mouseup', onMouseUp);
+window.addEventListener('mousemove', onMouseMove);
+window.addEventListener('wheel', onScroll);
 
 scrubber.addEventListener('input', onScrubberChange);
+
+traceHandle.addEventListener('mousedown', onTraceHandleMouseDown);
 
 window.addEventListener('load', async () => {
     await loadReplay("replay.json");
