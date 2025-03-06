@@ -179,6 +179,23 @@ function drawImage(ctx, imagePath, x, y) {
         ctx.drawImage(image, x, y);
     }
 }
+const AGENT_STYLES = {
+    "body": 4,
+    "eyes": 4,
+    "horns": 4,
+    "hair": 4,
+    "mouth": 4,
+};
+function getAgentStyle(agentId) {
+    const n = 4; // number of variations per trait
+    return {
+        bodyId: Math.floor(agentId * Math.PI) % AGENT_STYLES.body,
+        eyesId: Math.floor(agentId * Math.E) % AGENT_STYLES.eyes,
+        hornsId: Math.floor(agentId * Math.SQRT2) % AGENT_STYLES.horns,
+        hairId: Math.floor(agentId * 2.236) % AGENT_STYLES.hair, // sqrt(5)
+        mouthId: Math.floor(agentId * 2.645) % AGENT_STYLES.mouth // sqrt(7)
+    };
+}
 function drawMap() {
     if (mapCtx === null || replay === null) {
         return;
@@ -243,12 +260,32 @@ function drawMap() {
         }
         const x = getAttr(gridObject, "c");
         const y = getAttr(gridObject, "r");
-        const orientation = getAttr(gridObject, "agent:orientation");
-        mapCtx.save();
-        mapCtx.translate(x * 64 + 32, y * 64 + 32);
-        mapCtx.rotate(-orientation * Math.PI / 2);
-        drawImage(mapCtx, "data/" + typeName + ".png", -32, -32);
-        mapCtx.restore();
+        if (gridObject["agent_id"] !== undefined) {
+            const orientation = getAttr(gridObject, "agent:orientation");
+            var suffix = "";
+            if (orientation == 0) {
+                suffix = ".n";
+            }
+            else if (orientation == 1) {
+                suffix = ".s";
+            }
+            else if (orientation == 2) {
+                suffix = ".w";
+            }
+            else if (orientation == 3) {
+                suffix = ".e";
+            }
+            const agent_id = gridObject["agent_id"];
+            const style = getAgentStyle(agent_id);
+            drawImage(mapCtx, "data/" + typeName + suffix + ".body." + style.bodyId + ".png", x * 64, y * 64);
+            drawImage(mapCtx, "data/" + typeName + suffix + ".hair." + style.hairId + ".png", x * 64, y * 64);
+            drawImage(mapCtx, "data/" + typeName + suffix + ".mouth." + style.mouthId + ".png", x * 64, y * 64);
+            drawImage(mapCtx, "data/" + typeName + suffix + ".horns." + style.hornsId + ".png", x * 64, y * 64);
+            drawImage(mapCtx, "data/" + typeName + suffix + ".eyes." + style.eyesId + ".png", x * 64, y * 64);
+        }
+        else {
+            drawImage(mapCtx, "data/" + typeName + ".png", x * 64, y * 64);
+        }
     }
     // Draw rectangle around the selected grid object.
     if (selectedGridObject !== null) {
@@ -300,8 +337,23 @@ const ACTION_IMPORTANCE = {
     "change_color": 3
 };
 function drawTrace() {
-    if (traceCtx === null || replay === null) {
+    if (traceCtx === null || replay === null || mapCtx === null) {
         return;
+    }
+    const mapMousePos = transformPoint(mapCtx, mousePos);
+    if (mouseDown) {
+        const mapX = mapMousePos.x - mapCanvas.width - 100 - 32;
+        if (mapX > 0 && mapX < replay.max_steps * 4 &&
+            mapMousePos.y > 0 && mapMousePos.y < replay.num_agents * 64) {
+            const agentId = Math.floor(mapMousePos.y / 64);
+            for (const gridObject of replay.grid_objects) {
+                if (gridObject["agent_id"] == agentId) {
+                    selectedGridObject = gridObject;
+                }
+            }
+            step = Math.floor(mapX / 4);
+            scrubber.value = step.toString();
+        }
     }
     traceCanvas.width = replay.max_steps * 4 + 64;
     traceCanvas.height = replay.num_agents * 64 + 100;
@@ -335,13 +387,18 @@ function drawTrace() {
             }
         }
     }
+    // Draw rectangle around the selected agent.
+    if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
+        const agentId = selectedGridObject.agent_id;
+        traceCtx.strokeStyle = "white";
+        traceCtx.strokeRect(0, 20 + agentId * 64 - 32, traceCanvas.width - 1, 64);
+    }
 }
 // Draw a frame.
 function onFrame() {
     if (mapCtx === null || globalCtx === null || replay === null || traceCtx === null) {
         return;
     }
-    console.log("onFrame");
     if (mouseDown) {
         mapPos = add(mapPos, sub(mousePos, lastMousePos));
         lastMousePos = mousePos;
@@ -379,6 +436,15 @@ function onFrame() {
         readout += "Map size: " + replay.map_size[0] + "x" + replay.map_size[1] + "\n";
         readout += "Num agents: " + replay.num_agents + "\n";
         readout += "Max steps: " + replay.max_steps + "\n";
+        var objectTypeCounts = new Map();
+        for (const gridObject of replay.grid_objects) {
+            const type = gridObject.type;
+            const typeName = replay.object_types[type];
+            objectTypeCounts.set(typeName, (objectTypeCounts.get(typeName) || 0) + 1);
+        }
+        for (const [key, value] of objectTypeCounts.entries()) {
+            readout += key + " count: " + value + "\n";
+        }
     }
     selectedGridObjectInfo.innerHTML = readout;
     // Clear both canvases.

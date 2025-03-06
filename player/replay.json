@@ -11,13 +11,7 @@
     "swap",
     "change_color"
   ],
-  "object_types": [
-    "agent",
-    "wall",
-    "generator",
-    "converter",
-    "altar"
-  ],
+  "object_types": ["agent", "wall", "mine", "generator", "altar", "armory", "lasery", "lab", "factory", "temple"],
   "map_size": [
     62,
     62
