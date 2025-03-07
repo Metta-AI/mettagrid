@@ -27,22 +27,6 @@ export class PanelInfo {
         return point.x >= this.x && point.x < this.x + this.width &&
             point.y >= this.y && point.y < this.y + this.height;
     }
-    // Update the pan and zoom level based on the mouse position and scroll delta.
-    updatePanAndZoom() {
-        if (mouseDown) {
-            this.panPos = add(this.panPos, sub(mousePos, lastMousePos));
-            lastMousePos = mousePos;
-        }
-        if (scrollDelta !== 0) {
-            const oldMousePoint = transformPoint(this, mousePos);
-            this.zoomLevel = this.zoomLevel + scrollDelta / 1000;
-            this.zoomLevel = Math.max(Math.min(this.zoomLevel, 2), 0.1);
-            const newMousePoint = transformPoint(this, mousePos);
-            if (oldMousePoint != null && newMousePoint != null) {
-                this.panPos = add(this.panPos, mul(sub(newMousePoint, oldMousePoint), this.zoomLevel));
-            }
-        }
-    }
     // Draw the panel to the global canvas.
     drawPanel(globalCtx) {
         globalCtx.save();
@@ -54,6 +38,39 @@ export class PanelInfo {
         // Draw map canvas to global canvas
         globalCtx.drawImage(this.canvas, this.x, this.y);
         globalCtx.restore();
+    }
+    // Transform a point from the canvas to the map coordinate system.
+    transformPoint(point) {
+        if (this.ctx === null) {
+            return null;
+        }
+        if (!this.inside(point)) {
+            return null;
+        }
+        this.ctx.save();
+        this.ctx.translate(this.panPos.x, this.panPos.y);
+        this.ctx.scale(this.zoomLevel, this.zoomLevel);
+        this.ctx.translate(this.x, this.y);
+        const matrix = this.ctx.getTransform().inverse();
+        this.ctx.restore();
+        return matrix.transformPoint(point);
+    }
+    // Update the pan and zoom level based on the mouse position and scroll delta.
+    updatePanAndZoom() {
+        if (mouseDown) {
+            this.panPos = add(this.panPos, sub(mousePos, lastMousePos));
+            lastMousePos = mousePos;
+        }
+        if (scrollDelta !== 0) {
+            const oldMousePoint = this.transformPoint(mousePos);
+            this.zoomLevel = this.zoomLevel + scrollDelta / 1000;
+            this.zoomLevel = Math.max(Math.min(this.zoomLevel, 2), 0.1);
+            const newMousePoint = this.transformPoint(mousePos);
+            if (oldMousePoint != null && newMousePoint != null) {
+                this.panPos = add(this.panPos, mul(sub(newMousePoint, oldMousePoint), this.zoomLevel));
+            }
+            console.log("panPos: ", this.panPos, "zoomLevel: ", this.zoomLevel);
+        }
     }
 }
 // Get the html elements we will use.
@@ -147,35 +164,6 @@ function onScroll(event) {
     onFrame();
     scrollDelta = 0;
 }
-// Transform a point from the canvas to the map coordinate system.
-function transformPoint(panel, point) {
-    if (panel.ctx === null) {
-        return null;
-    }
-    if (!panel.inside(point)) {
-        return null;
-    }
-    panel.ctx.save();
-    panel.ctx.translate(panel.panPos.x, panel.panPos.y);
-    panel.ctx.scale(panel.zoomLevel, panel.zoomLevel);
-    panel.ctx.translate(panel.x, panel.y);
-    const matrix = panel.ctx.getTransform().inverse();
-    panel.ctx.restore();
-    return matrix.transformPoint(point);
-}
-// function transformPoint2(panel: PanelInfo, point: DOMPoint): DOMPoint | null {
-//     if (panel.ctx === null) {
-//         return null;
-//     }
-//     const p = new DOMPoint(point.x, point.y);
-//     panel.ctx.save();
-//     panel.ctx.translate(panel.panPos.x, panel.panPos.y);
-//     panel.ctx.scale(panel.zoomLevel, panel.zoomLevel);
-//     panel.ctx.translate(panel.x, panel.y);
-//     const matrix = panel.ctx.getTransform().inverse();
-//     panel.ctx.restore();
-//     return matrix.transformPoint(p);
-// }
 // Load the replay.
 function loadReplay(replayUrl) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -274,12 +262,26 @@ function getAgentStyle(agentId) {
         mouthId: Math.floor(agentId * 2.645) % AGENT_STYLES.mouth // sqrt(7)
     };
 }
+// Make the panel focus on the full map, used at the start of the replay.
+function focusFullMap(panel) {
+    const mapWidth = replay.map_size[0] * 64;
+    const mapHeight = replay.map_size[1] * 64;
+    const panelWidth = panel.width;
+    const panelHeight = panel.height;
+    const zoomLevel = Math.min(panelWidth / mapWidth, panelHeight / mapHeight);
+    panel.panPos = new DOMPoint((panelWidth - mapWidth * zoomLevel) / 2, (panelHeight - mapHeight * zoomLevel) / 2);
+    panel.zoomLevel = zoomLevel;
+}
+function focusMapOn(panel, x, y) {
+    panel.panPos = new DOMPoint(-x * 64 + panel.width / 2, -y * 64 + panel.height / 2);
+    panel.zoomLevel = 1;
+}
 function drawMap(panel) {
     if (panel.ctx === null || replay === null) {
         return;
     }
     if (mouseDown) {
-        const localMousePos = transformPoint(panel, mousePos);
+        const localMousePos = panel.transformPoint(mousePos);
         if (localMousePos != null) {
             const gridMousePos = new DOMPoint(Math.floor(localMousePos.x / 64), Math.floor(localMousePos.y / 64));
             const gridObject = replay.grid_objects.find((obj) => {
@@ -433,7 +435,7 @@ function drawTrace(panel) {
     if (panel.ctx === null || replay === null || mapPanel.ctx === null) {
         return;
     }
-    const localMousePos = transformPoint(panel, mousePos);
+    const localMousePos = panel.transformPoint(mousePos);
     if (localMousePos != null) {
         if (mouseDown) {
             const mapX = localMousePos.x - 32;
@@ -443,6 +445,8 @@ function drawTrace(panel) {
                 for (const gridObject of replay.grid_objects) {
                     if (gridObject["agent_id"] == agentId) {
                         selectedGridObject = gridObject;
+                        console.log("selectedGridObject: ", selectedGridObject);
+                        focusMapOn(mapPanel, getAttr(selectedGridObject, "c"), getAttr(selectedGridObject, "r"));
                     }
                 }
                 step = Math.floor(mapX / 4);
@@ -549,6 +553,7 @@ globalCanvas.addEventListener('wheel', onScroll);
 scrubber.addEventListener('input', onScrubberChange);
 window.addEventListener('load', () => __awaiter(void 0, void 0, void 0, function* () {
     yield loadReplay("replay.json");
+    focusFullMap(mapPanel);
     onFrame();
 }));
 //# sourceMappingURL=main.js.map
