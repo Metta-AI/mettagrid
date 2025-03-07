@@ -1,5 +1,65 @@
 import { add, sub, mul, div, almostEqual } from './vector_math.js';
 
+
+export class PanelInfo {
+    public x: number = 0;
+    public y: number = 0;
+    public width: number = 0;
+    public height: number = 0;
+    public name: string = "";
+    public panPos: DOMPoint = new DOMPoint(0, 0);
+    public zoomLevel: number = 1;
+    public canvas: HTMLCanvasElement;
+    public ctx: CanvasRenderingContext2D | null;
+
+    constructor(name: string) {
+        this.name = name;
+        this.canvas = document.createElement('canvas');
+        this.canvas.setAttribute('id', name + '-canvas');
+        this.ctx = this.canvas.getContext('2d');
+    }
+
+    // Check if a point is inside the panel.
+    inside(point: DOMPoint): boolean {
+        return point.x >= this.x && point.x < this.x + this.width &&
+               point.y >= this.y && point.y < this.y + this.height;
+    }
+
+    // Update the pan and zoom level based on the mouse position and scroll delta.
+    updatePanAndZoom() {
+        if (mouseDown) {
+            this.panPos = add(this.panPos, sub(mousePos, lastMousePos));
+            lastMousePos = mousePos;
+        }
+
+        if (scrollDelta !== 0) {
+            const oldMousePoint = transformPoint(this, mousePos);
+            this.zoomLevel = this.zoomLevel + scrollDelta / 1000;
+            this.zoomLevel = Math.max(Math.min(this.zoomLevel, 2), 0.1);
+            const newMousePoint = transformPoint(this, mousePos);
+            if (oldMousePoint != null && newMousePoint != null) {
+                this.panPos = add(this.panPos, mul(sub(newMousePoint, oldMousePoint), this.zoomLevel));
+            }
+        }
+    }
+
+    // Draw the panel to the global canvas.
+    drawPanel(globalCtx: CanvasRenderingContext2D) {
+        globalCtx.save();
+        globalCtx.beginPath();
+        globalCtx.rect(this.x, this.y, this.width, this.height);
+        globalCtx.clip();
+
+        globalCtx.translate(this.panPos.x, this.panPos.y);
+        globalCtx.scale(this.zoomLevel, this.zoomLevel);
+
+        // Draw map canvas to global canvas
+        globalCtx.drawImage(this.canvas, this.x, this.y);
+
+        globalCtx.restore();
+    }
+}
+
 // Get the html elements we will use.
 const scrubber = document.getElementById('main-scrubber') as HTMLInputElement;
 const selectedGridObjectInfo = document.getElementById('object-info') as HTMLDivElement;
@@ -7,15 +67,14 @@ const selectedGridObjectInfo = document.getElementById('object-info') as HTMLDiv
 // Get the canvas element.
 const globalCanvas = document.getElementById('global-canvas') as HTMLCanvasElement;
 const globalCtx = globalCanvas.getContext('2d');
-const mapCanvas = document.createElement('canvas');
-const mapCtx = mapCanvas.getContext('2d');
-const traceCanvas = document.createElement('canvas');
-const traceCtx = traceCanvas.getContext('2d');
 
-if (mapCtx !== null && globalCtx !== null && traceCtx !== null) {
-    mapCtx.imageSmoothingEnabled = true;
+const mapPanel = new PanelInfo("map");
+const tracePanel = new PanelInfo("trace");
+
+if (mapPanel.ctx !== null && globalCtx !== null && tracePanel.ctx !== null) {
+    mapPanel.ctx.imageSmoothingEnabled = true;
     globalCtx.imageSmoothingEnabled = true;
-    traceCtx.imageSmoothingEnabled = true;
+    tracePanel.ctx.imageSmoothingEnabled = true;
 }
 
 const imageCache: Map<string, HTMLImageElement> = new Map();
@@ -27,8 +86,8 @@ var mouseDown = false;
 var mousePos = new DOMPoint(0, 0);
 var lastMousePos = new DOMPoint(0, 0);
 var scrollDelta = 0;
-var mapZoom = 1;
-var mapPos = new DOMPoint(0, 0);
+// var mapZoom = 1;
+// var mapPos = new DOMPoint(0, 0);
 var traceSplit = 100;
 var traceDragging = false;
 // Replay data and player state.
@@ -55,6 +114,16 @@ function onResize() {
 
     // Scale the context to handle high DPI displays.
     globalCtx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    mapPanel.x = 0;
+    mapPanel.y = 0;
+    mapPanel.width = mapWidth/2;
+    mapPanel.height = mapHeight;
+
+    tracePanel.x = mapWidth/2;
+    tracePanel.y = 0;
+    tracePanel.width = mapWidth/2;
+    tracePanel.height = mapHeight;
 
     // Redraw the square after resizing.
     onFrame();
@@ -101,15 +170,37 @@ function onScroll(event: WheelEvent) {
 }
 
 // Transform a point from the canvas to the map coordinate system.
-function transformPoint(ctx: CanvasRenderingContext2D, point: DOMPoint): DOMPoint {
-    ctx.save();
-    ctx.translate(mapPos.x, mapPos.y);
-    ctx.scale(mapZoom, mapZoom);
-    const matrix = ctx.getTransform().inverse();
-    ctx.restore();
-    const transformedPoint = matrix.transformPoint(point);
-    return transformedPoint;
+function transformPoint(panel: PanelInfo, point: DOMPoint): DOMPoint | null {
+    if (panel.ctx === null) {
+        return null;
+    }
+    if (!panel.inside(point)) {
+        return null;
+    }
+    panel.ctx.save();
+    panel.ctx.translate(panel.panPos.x, panel.panPos.y);
+    panel.ctx.scale(panel.zoomLevel, panel.zoomLevel);
+    panel.ctx.translate(panel.x, panel.y);
+    const matrix = panel.ctx.getTransform().inverse();
+    panel.ctx.restore();
+    return matrix.transformPoint(point);
 }
+
+
+// function transformPoint2(panel: PanelInfo, point: DOMPoint): DOMPoint | null {
+//     if (panel.ctx === null) {
+//         return null;
+//     }
+//     const p = new DOMPoint(point.x, point.y);
+//     panel.ctx.save();
+//     panel.ctx.translate(panel.panPos.x, panel.panPos.y);
+//     panel.ctx.scale(panel.zoomLevel, panel.zoomLevel);
+//     panel.ctx.translate(panel.x, panel.y);
+//     const matrix = panel.ctx.getTransform().inverse();
+//     panel.ctx.restore();
+//     return matrix.transformPoint(p);
+// }
+
 
 // Load the replay.
 async function loadReplay(replayUrl: string) {
@@ -147,21 +238,27 @@ function onKeyDown(event: KeyboardEvent) {
     }
 }
 
+// Find the value in a series of [step, value] pairs.
+function findInSeries(valueSeries: [number, number][], step: number): number {
+    var value: number = 0;
+    var i = 0
+    while (i < valueSeries.length && valueSeries[i][0] <= step) {
+        value = valueSeries[i][1];
+        i ++;
+    }
+    return value;
+}
+
 // Gets an attribute from a grid object respecting the current step.
 function getAttr(obj: any, attr: string, atStep = -1): number {
     if (atStep == -1) {
+        // When step is not defined, use global step.
         atStep = step;
     }
     if (obj[attr] === undefined) {
         return 0;
     } else if (obj[attr] instanceof Array) {
-        var value: number = 0;
-        var i = 0
-        while (i < obj[attr].length && obj[attr][i][0] <= atStep) {
-            value = obj[attr][i][1];
-            i ++;
-        }
-        return value;
+        return findInSeries(obj[attr], atStep);
     } else {
         // Must be a constant that does not change over time.
         return obj[attr];
@@ -212,24 +309,43 @@ function getAgentStyle(agentId: number) {
     };
 }
 
-function drawMap() {
-    if (mapCtx === null || replay === null) {
+function drawMap(panel: PanelInfo) {
+    if (panel.ctx === null || replay === null) {
         return;
     }
 
-    // Set map canvas size to match the map dimensions.
-    mapCanvas.width = replay.map_size[0] * 64;
-    mapCanvas.height = replay.map_size[1] * 64;
+    if (mouseDown) {
+        const localMousePos = transformPoint(panel, mousePos);
+        if (localMousePos != null) {
+            const gridMousePos = new DOMPoint(
+                Math.floor(localMousePos.x / 64),
+                Math.floor(localMousePos.y / 64)
+            );
+            const gridObject = replay.grid_objects.find((obj: any) => {
+                const x = getAttr(obj, "c");
+                const y = getAttr(obj, "r");
+                return x === gridMousePos.x && y === gridMousePos.y;
+            });
+            if (gridObject !== undefined) {
+                selectedGridObject = gridObject;
+                console.log("selectedGridObject: ", selectedGridObject);
+            }
+        }
+    }
 
-    mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+    // Set map canvas size to match the map dimensions.
+    panel.canvas.width = replay.map_size[0] * 64;
+    panel.canvas.height = replay.map_size[1] * 64;
+
+    panel.ctx.clearRect(0, 0, panel.canvas.width, panel.canvas.height);
 
     // Draw to map canvas
-    mapCtx.save();
+    panel.ctx.save();
 
     // Draw the floor.
     for (let x = 0; x < replay.map_size[0]; x++) {
         for (let y = 0; y < replay.map_size[1]; y++) {
-            drawImage(mapCtx, "data/floor.png", x * 64, y * 64);
+            drawImage(panel.ctx, "data/floor.png", x * 64, y * 64);
         }
     }
 
@@ -270,7 +386,7 @@ function drawMap() {
         if (n || w || e || s) {
             suffix = (n ? "n" : "") + (w ? "w" : "") + (s ? "s" : "") + (e ? "e" : "");
         }
-        drawImage(mapCtx, "data/wall." + suffix + ".png", x * 64, y * 64);
+        drawImage(panel.ctx, "data/wall." + suffix + ".png", x * 64, y * 64);
     }
 
     for (const gridObject of replay.grid_objects) {
@@ -299,14 +415,14 @@ function drawMap() {
             const agent_id = gridObject["agent_id"];
 
             const style = getAgentStyle(agent_id);
-            drawImage(mapCtx, "data/" + typeName + suffix + ".body." + style.bodyId + ".png", x * 64, y * 64);
-            drawImage(mapCtx, "data/" + typeName + suffix + ".hair." + style.hairId + ".png", x * 64, y * 64);
-            drawImage(mapCtx, "data/" + typeName + suffix + ".mouth." + style.mouthId + ".png", x * 64, y * 64);
-            drawImage(mapCtx, "data/" + typeName + suffix + ".horns." + style.hornsId + ".png", x * 64, y * 64);
-            drawImage(mapCtx, "data/" + typeName + suffix + ".eyes." + style.eyesId + ".png", x * 64, y * 64);
+            drawImage(panel.ctx, "data/" + typeName + suffix + ".body." + style.bodyId + ".png", x * 64, y * 64);
+            drawImage(panel.ctx, "data/" + typeName + suffix + ".hair." + style.hairId + ".png", x * 64, y * 64);
+            drawImage(panel.ctx, "data/" + typeName + suffix + ".mouth." + style.mouthId + ".png", x * 64, y * 64);
+            drawImage(panel.ctx, "data/" + typeName + suffix + ".horns." + style.hornsId + ".png", x * 64, y * 64);
+            drawImage(panel.ctx, "data/" + typeName + suffix + ".eyes." + style.eyesId + ".png", x * 64, y * 64);
 
         } else {
-            drawImage(mapCtx, "data/" + typeName + ".png", x * 64, y * 64);
+            drawImage(panel.ctx, "data/" + typeName + ".png", x * 64, y * 64);
         }
     }
 
@@ -314,29 +430,29 @@ function drawMap() {
     if (selectedGridObject !== null) {
         const x = getAttr(selectedGridObject, "c")
         const y = getAttr(selectedGridObject, "r")
-        mapCtx.strokeStyle = "white";
-        mapCtx.strokeRect(x * 64, y * 64, 64, 64);
+        panel.ctx.strokeStyle = "white";
+        panel.ctx.strokeRect(x * 64, y * 64, 64, 64);
 
         // If object has a trajectory, draw it.
         if (selectedGridObject.c.length > 0 || selectedGridObject.r.length > 0) {
-            mapCtx.beginPath();
-            mapCtx.strokeStyle = "white";
-            mapCtx.lineWidth = 2;
+            panel.ctx.beginPath();
+            panel.ctx.strokeStyle = "white";
+            panel.ctx.lineWidth = 2;
             for (let i = 0; i < step; i++) {
                 const cx = getAttr(selectedGridObject, "c", i);
                 const cy = getAttr(selectedGridObject, "r", i);
-                //mapCtx.fillRect(cx * 64 + 32, cy * 64 + 32, 10, 10);
+                //panel.ctx.fillRect(cx * 64 + 32, cy * 64 + 32, 10, 10);
                 if (i == 0) {
-                    mapCtx.moveTo(cx * 64 + 32, cy * 64 + 32);
+                    panel.ctx.moveTo(cx * 64 + 32, cy * 64 + 32);
                 } else {
-                    mapCtx.lineTo(cx * 64 + 32, cy * 64 + 32);
+                    panel.ctx.lineTo(cx * 64 + 32, cy * 64 + 32);
                 }
             }
-            mapCtx.stroke();
+            panel.ctx.stroke();
         }
     }
 
-    mapCtx.restore();
+    panel.ctx.restore();
 }
 
 const ACTION_COLORS = {
@@ -363,48 +479,50 @@ const ACTION_IMPORTANCE = {
     "change_color": 3
 }
 
-function drawTrace() {
-    if (traceCtx === null || replay === null || mapCtx === null) {
+function drawTrace(panel: PanelInfo) {
+    if (panel.ctx === null || replay === null || mapPanel.ctx === null) {
         return;
     }
 
-    const mapMousePos = transformPoint(mapCtx, mousePos);
+    const localMousePos = transformPoint(panel, mousePos);
 
-    if (mouseDown) {
-        const mapX = mapMousePos.x - mapCanvas.width - 100 - 32;
-        if (mapX > 0 && mapX < replay.max_steps * 4 &&
-            mapMousePos.y > 0 && mapMousePos.y < replay.num_agents * 64)
-        {
-            const agentId = Math.floor(mapMousePos.y / 64);
-            for (const gridObject of replay.grid_objects) {
-                if (gridObject["agent_id"] == agentId) {
-                    selectedGridObject = gridObject;
+    if (localMousePos != null) {
+        if (mouseDown) {
+            const mapX = localMousePos.x - 32;
+            if (mapX > 0 && mapX < replay.max_steps * 4 &&
+                localMousePos.y > 0 && localMousePos.y < replay.num_agents * 64)
+            {
+                const agentId = Math.floor(localMousePos.y / 64);
+                for (const gridObject of replay.grid_objects) {
+                    if (gridObject["agent_id"] == agentId) {
+                        selectedGridObject = gridObject;
+                    }
                 }
+                step = Math.floor(mapX / 4);
+                scrubber.value = step.toString();
             }
-            step = Math.floor(mapX / 4);
-            scrubber.value = step.toString();
         }
     }
 
-    traceCanvas.width = replay.max_steps * 4 + 64;
-    traceCanvas.height = replay.num_agents * 64 + 100;
+    panel.canvas.width = replay.max_steps * 4 + 64;
+    panel.canvas.height = replay.num_agents * 64 + 100;
 
-    traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+    panel.ctx.clearRect(0, 0, panel.canvas.width, panel.canvas.height);
 
     // Draw trace canvas to global canvas with proper scaling
-    traceCtx.fillStyle = "rgba(20, 20, 20, 1)";
-    traceCtx.fillRect(0, 0, traceCanvas.width, traceCanvas.height);
+    panel.ctx.fillStyle = "rgba(20, 20, 20, 1)";
+    panel.ctx.fillRect(0, 0, panel.canvas.width, panel.canvas.height);
 
     // Draw current step line that goes through all of the traces:
-    traceCtx.fillStyle = "rgba(255, 255, 255, 0.5)";
-    traceCtx.fillRect(32 + step * 4, 0, 2, traceCanvas.height)
+    panel.ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    panel.ctx.fillRect(32 + step * 4, 0, 2, panel.canvas.height)
 
-    traceCtx.fillStyle = "white";
+    panel.ctx.fillStyle = "white";
     for (let i = 0; i < replay.num_agents; i++) {
         // Draw the agents id:
-        traceCtx.fillStyle = "white";
-        traceCtx.font = "16px Arial";
-        traceCtx.fillText(i.toString(), 10, 25 + i * 64);
+        panel.ctx.fillStyle = "white";
+        panel.ctx.font = "16px Arial";
+        panel.ctx.fillText(i.toString(), 10, 25 + i * 64);
 
         // Draw the agent's actions:
         for (let j = 0; j < replay.agent_actions[i].length; j++) {
@@ -414,11 +532,11 @@ function drawTrace() {
                 const actionName = replay.action_names[action[1]] as string;
                 const color = ACTION_COLORS[actionName as keyof typeof ACTION_COLORS];
                 const importance = ACTION_IMPORTANCE[actionName as keyof typeof ACTION_IMPORTANCE];
-                traceCtx.fillStyle = color;
-                traceCtx.fillRect(32 + j * 4, 20 + i * 64 - 2 * importance, 2, 4 * importance);
+                panel.ctx.fillStyle = color;
+                panel.ctx.fillRect(32 + j * 4, 20 + i * 64 - 2 * importance, 2, 4 * importance);
             } else {
-                traceCtx.fillStyle = "rgba(30, 30, 30, 1)";
-                traceCtx.fillRect(32 + j * 4, 20 + i * 64 - 2, 2, 4);
+                panel.ctx.fillStyle = "rgba(30, 30, 30, 1)";
+                panel.ctx.fillRect(32 + j * 4, 20 + i * 64 - 2, 2, 4);
             }
 
         }
@@ -427,44 +545,14 @@ function drawTrace() {
     // Draw rectangle around the selected agent.
     if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
         const agentId = selectedGridObject.agent_id;
-        traceCtx.strokeStyle = "white";
-        traceCtx.strokeRect(0, 20 + agentId * 64 - 32, traceCanvas.width - 1, 64);
+        panel.ctx.strokeStyle = "white";
+        panel.ctx.strokeRect(0, 20 + agentId * 64 - 32, tracePanel.canvas.width - 1, 64);
     }
 }
 
-// Draw a frame.
-function onFrame() {
-    if (mapCtx === null || globalCtx === null || replay === null || traceCtx === null) {
-        return;
-    }
 
-    if (mouseDown) {
-        mapPos = add(mapPos, sub(mousePos, lastMousePos));
-        lastMousePos = mousePos;
-
-        const mapMousePos = transformPoint(mapCtx, mousePos);
-        const gridMousePos = new DOMPoint(
-            Math.floor(mapMousePos.x / 64),
-            Math.floor(mapMousePos.y / 64)
-        );
-        const gridObject = replay.grid_objects.find((obj: any) => {
-            const x = getAttr(obj, "c");
-            const y = getAttr(obj, "r");
-            return x === gridMousePos.x && y === gridMousePos.y;
-        });
-        if (gridObject !== undefined) {
-            selectedGridObject = gridObject;
-            console.log("selectedGridObject: ", selectedGridObject);
-        }
-    }
-    if (scrollDelta !== 0) {
-        const oldMousePoint = transformPoint(mapCtx, mousePos);
-        mapZoom = mapZoom + scrollDelta / 1000;
-        mapZoom = Math.max(Math.min(mapZoom, 2), 0.1);
-        const newMousePoint = transformPoint(mapCtx, mousePos);
-        mapPos = add(mapPos, mul(sub(newMousePoint, oldMousePoint), mapZoom));
-    }
-
+// Updates the readout of the selected object or replay info.
+function updateReadout() {
     var readout = ""
     if (selectedGridObject !== null) {
         for (const key in selectedGridObject) {
@@ -491,36 +579,33 @@ function onFrame() {
         }
     }
     selectedGridObjectInfo.innerHTML = readout;
+}
+
+// Draw a frame.
+function onFrame() {
+    if (globalCtx === null || replay === null || mapPanel.ctx === null|| tracePanel.ctx === null) {
+        return;
+    }
+
+    if (mapPanel.inside(mousePos)) {
+        mapPanel.updatePanAndZoom()
+    }
+
+    if (tracePanel.inside(mousePos)) {
+        tracePanel.updatePanAndZoom()
+    }
+
+    updateReadout();
 
     // Clear both canvases.
     globalCtx.clearRect(0, 0, globalCanvas.width, globalCanvas.height);
 
-    drawMap();
-    drawTrace();
+    drawMap(mapPanel);
+    mapPanel.drawPanel(globalCtx);
 
-    globalCtx.save();
-    globalCtx.translate(mapPos.x, mapPos.y);
-    globalCtx.scale(mapZoom, mapZoom);
+    drawTrace(tracePanel);
+    tracePanel.drawPanel(globalCtx);
 
-    // Create clipping path for map region (left side)
-    globalCtx.save();
-    globalCtx.beginPath();
-    globalCtx.rect(0, 0, mapCanvas.width + 100, globalCanvas.height);
-    globalCtx.clip();
-    // Draw map canvas to global canvas
-    globalCtx.drawImage(mapCanvas, 0, 0);
-    globalCtx.restore();
-
-    // Create clipping path for trace region (right side)
-    globalCtx.save();
-    globalCtx.beginPath();
-    globalCtx.rect(mapCanvas.width + 100, 0, traceCanvas.width, globalCanvas.height);
-    globalCtx.clip();
-    // Draw trace canvas
-    globalCtx.drawImage(traceCanvas, mapCanvas.width + 100, 0);
-    globalCtx.restore();
-
-    globalCtx.restore();
 }
 
 // Initial resize.
