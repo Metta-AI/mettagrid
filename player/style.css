@@ -1,0 +1,102 @@
+body, html {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100%;
+  background-color: black;
+  /* Prevent touch zooming */
+  touch-action: none;
+  -ms-touch-action: none;
+  /* Prevent content selection */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+canvas {
+  display: block;
+  /* Prevent default touch behaviors */
+  touch-action: none;
+  -ms-touch-action: none;
+  /* Prevent content selection */
+  user-select: none;
+  -webkit-user-select: none;
+  /* Ensure proper rendering */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  /* Prevent default scaling */
+  transform-origin: top left;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+}
+
+.scrubber-container {
+  position: absolute;
+  bottom: 32px;
+  left: 32px;
+  right: 32px;
+  height: 20px; /* Adjust height as needed */
+}
+
+.scrubber {
+  width: 100%;
+  height: 100%;
+  -webkit-appearance: none; /* Remove default styling in WebKit browsers */
+  appearance: none;
+  background: #ddd;
+  outline: none;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px; /* Adjust thumb size */
+  height: 20px;
+  background: #333;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.scrubber::-moz-range-thumb {
+  width: 20px; /* Adjust thumb size */
+  height: 20px;
+  background: #333;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+#object-info {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: 300px;
+  padding: 32px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  font-family: monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+#trace-canvas {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width: 100px;
+  height: 100px;
+}
+
+#trace-handle {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width: 10px;
+  height: 10px;
+  background-color: red;
+  cursor: col-resize;
+}
