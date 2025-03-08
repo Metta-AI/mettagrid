@@ -69,7 +69,6 @@ export class PanelInfo {
             if (oldMousePoint != null && newMousePoint != null) {
                 this.panPos = add(this.panPos, mul(sub(newMousePoint, oldMousePoint), this.zoomLevel));
             }
-            console.log("panPos: ", this.panPos, "zoomLevel: ", this.zoomLevel);
         }
     }
 }
@@ -152,7 +151,6 @@ function onMouseMove(event) {
         console.log("traceDragging");
         traceSplit = window.innerWidth - mousePos.x;
         onResize();
-        //onFrame();
     }
     else if (mouseDown) {
         onFrame();
@@ -164,6 +162,22 @@ function onScroll(event) {
     onFrame();
     scrollDelta = 0;
 }
+// Expand a sequence of values
+// [[0, value1], [2, value2], ...] -> [value1, value1, value2, ...]
+function expandSequence(sequence, numSteps) {
+    var expanded = [];
+    var i = 0;
+    var j = 0;
+    var v = null;
+    for (i = 0; i < numSteps; i++) {
+        if (j < sequence.length && sequence[j][0] == i) {
+            v = sequence[j][1];
+            j++;
+        }
+        expanded.push(v);
+    }
+    return expanded;
+}
 // Load the replay.
 function loadReplay(replayUrl) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -171,6 +185,14 @@ function loadReplay(replayUrl) {
         const response = yield fetch(replayUrl);
         replay = yield response.json();
         console.log("replay: ", replay);
+        // Go through each grid object and expand its key sequence.
+        for (const gridObject of replay.grid_objects) {
+            for (const key in gridObject) {
+                if (gridObject[key] instanceof Array) {
+                    gridObject[key] = expandSequence(gridObject[key], replay.max_steps);
+                }
+            }
+        }
         // Set the scrubber max value to the max steps.
         scrubber.max = replay.max_steps.toString();
     });
@@ -200,15 +222,15 @@ function onKeyDown(event) {
     }
 }
 // Find the value in a series of [step, value] pairs.
-function findInSeries(valueSeries, step) {
-    var value = 0;
-    var i = 0;
-    while (i < valueSeries.length && valueSeries[i][0] <= step) {
-        value = valueSeries[i][1];
-        i++;
-    }
-    return value;
-}
+// function findInSeries(valueSeries: [number, any][], step: number): any {
+//     var value: any;
+//     var i = 0
+//     while (i < valueSeries.length && valueSeries[i][0] <= step) {
+//         value = valueSeries[i][1];
+//         i++;
+//     }
+//     return value;
+// }
 // Gets an attribute from a grid object respecting the current step.
 function getAttr(obj, attr, atStep = -1) {
     if (atStep == -1) {
@@ -219,7 +241,8 @@ function getAttr(obj, attr, atStep = -1) {
         return 0;
     }
     else if (obj[attr] instanceof Array) {
-        return findInSeries(obj[attr], atStep);
+        //return findInSeries(obj[attr], atStep);
+        return obj[attr][atStep];
     }
     else {
         // Must be a constant that does not change over time.
@@ -470,19 +493,31 @@ function drawTrace(panel) {
         panel.ctx.font = "16px Arial";
         panel.ctx.fillText(i.toString(), 10, 25 + i * 64);
         // Draw the agent's actions:
-        for (let j = 0; j < replay.agent_actions[i].length; j++) {
-            const action_success = replay.agent_action_success[i][j];
-            if (action_success) {
-                const action = replay.agent_actions[i][j];
-                const actionName = replay.action_names[action[1]];
-                const color = ACTION_COLORS[actionName];
-                const importance = ACTION_IMPORTANCE[actionName];
-                panel.ctx.fillStyle = color;
-                panel.ctx.fillRect(32 + j * 4, 20 + i * 64 - 2 * importance, 2, 4 * importance);
-            }
-            else {
-                panel.ctx.fillStyle = "rgba(30, 30, 30, 1)";
-                panel.ctx.fillRect(32 + j * 4, 20 + i * 64 - 2, 2, 4);
+        for (const gridObject of replay.grid_objects) {
+            if (gridObject["agent_id"] == i) {
+                for (let j = 0; j < replay.max_steps; j++) {
+                    const action = getAttr(gridObject, "action", j);
+                    const action_success = getAttr(gridObject, "action_success", j);
+                    if (action_success) {
+                        const actionName = replay.action_names[action[0]];
+                        const color = ACTION_COLORS[actionName];
+                        const importance = ACTION_IMPORTANCE[actionName];
+                        panel.ctx.fillStyle = color;
+                        panel.ctx.fillRect(32 + j * 4, 20 + i * 64 - 2 * importance, 2, 4 * importance);
+                    }
+                    else {
+                        panel.ctx.fillStyle = "rgba(30, 30, 30, 1)";
+                        panel.ctx.fillRect(32 + j * 4, 20 + i * 64 - 2, 2, 4);
+                    }
+                    const reward = getAttr(gridObject, "reward", j);
+                    const total_reward = getAttr(gridObject, "total_reward", j);
+                    // If there is reward draw a sharp bar.
+                    if (reward > 0) {
+                        const importance = 10;
+                        panel.ctx.fillStyle = "hsl(46, 100.00%, 76.70%)";
+                        panel.ctx.fillRect(32 + j * 4, 20 + i * 64 - 2 * importance, 2, 4 * importance);
+                    }
+                }
             }
         }
     }
@@ -491,6 +526,12 @@ function drawTrace(panel) {
         const agentId = selectedGridObject.agent_id;
         panel.ctx.strokeStyle = "white";
         panel.ctx.strokeRect(0, 20 + agentId * 64 - 32, tracePanel.canvas.width - 1, 64);
+        // Draw the action name above the selected action trace bar.
+        const action = getAttr(selectedGridObject, "action", step);
+        const actionName = replay.action_names[action[0]];
+        panel.ctx.fillStyle = "white";
+        panel.ctx.font = "16px Arial";
+        panel.ctx.fillText(actionName + " " + action[1], 32 + step * 4, 0 + agentId * 64);
     }
 }
 // Updates the readout of the selected object or replay info.
