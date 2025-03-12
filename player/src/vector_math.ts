@@ -23,4 +23,8 @@ function almostEqual(a: number, b: number): boolean {
     return Math.abs(a - b) < 1e-3;
 }
 
-export { add, sub, mul, div, almostEqual };
+function length(a: DOMPoint): number {
+    return Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w);
+}
+
+export { add, sub, mul, div, almostEqual, length };
