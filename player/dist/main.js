@@ -7,7 +7,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { add, sub, mul } from './vector_math.js';
+import { add, sub, mul, length } from './vector_math.js';
+import { Grid } from './grid.js';
 export class PanelInfo {
     constructor(name) {
         this.x = 0;
@@ -21,6 +22,7 @@ export class PanelInfo {
         this.canvas = document.createElement('canvas');
         this.canvas.setAttribute('id', name + '-canvas');
         this.ctx = this.canvas.getContext('2d');
+        this.div = null;
     }
     // Check if a point is inside the panel.
     inside(point) {
@@ -57,9 +59,10 @@ export class PanelInfo {
     }
     // Update the pan and zoom level based on the mouse position and scroll delta.
     updatePanAndZoom() {
-        if (mouseDown) {
+        if (mouseDown && length(sub(mousePos, lastMousePos)) > 1) {
             this.panPos = add(this.panPos, sub(mousePos, lastMousePos));
             lastMousePos = mousePos;
+            return true;
         }
         if (scrollDelta !== 0) {
             const oldMousePoint = this.transformPoint(mousePos);
@@ -69,17 +72,19 @@ export class PanelInfo {
             if (oldMousePoint != null && newMousePoint != null) {
                 this.panPos = add(this.panPos, mul(sub(newMousePoint, oldMousePoint), this.zoomLevel));
             }
+            return true;
         }
+        return false;
     }
 }
 // Get the html elements we will use.
 const scrubber = document.getElementById('main-scrubber');
-const selectedGridObjectInfo = document.getElementById('object-info');
 // Get the canvas element.
 const globalCanvas = document.getElementById('global-canvas');
 const globalCtx = globalCanvas.getContext('2d');
 const mapPanel = new PanelInfo("map");
 const tracePanel = new PanelInfo("trace");
+const infoPanel = new PanelInfo("info");
 if (mapPanel.ctx !== null && globalCtx !== null && tracePanel.ctx !== null) {
     mapPanel.ctx.imageSmoothingEnabled = true;
     globalCtx.imageSmoothingEnabled = true;
@@ -87,7 +92,6 @@ if (mapPanel.ctx !== null && globalCtx !== null && tracePanel.ctx !== null) {
 }
 const imageCache = new Map();
 const imageLoaded = new Map();
-const wallMap = new Map();
 // Interaction state.
 var mouseDown = false;
 var mousePos = new DOMPoint(0, 0);
@@ -121,9 +125,26 @@ function onResize() {
     mapPanel.width = mapWidth / 2;
     mapPanel.height = mapHeight;
     tracePanel.x = mapWidth / 2;
-    tracePanel.y = 0;
+    tracePanel.y = 300;
     tracePanel.width = mapWidth / 2;
-    tracePanel.height = mapHeight;
+    tracePanel.height = mapHeight - 300;
+    infoPanel.x = mapWidth / 2;
+    infoPanel.y = 0;
+    infoPanel.width = mapWidth / 2;
+    infoPanel.height = 300;
+    if (infoPanel.div === null) {
+        infoPanel.div = document.createElement("div");
+        infoPanel.div.id = infoPanel.name + "-div";
+        document.body.appendChild(infoPanel.div);
+    }
+    if (infoPanel.div !== null) {
+        const div = infoPanel.div;
+        div.style.position = 'absolute';
+        div.style.top = infoPanel.y + 'px';
+        div.style.left = infoPanel.x + 'px';
+        div.style.width = infoPanel.width + 'px';
+        div.style.height = infoPanel.height + 'px';
+    }
     // Redraw the square after resizing.
     onFrame();
 }
@@ -221,16 +242,6 @@ function onKeyDown(event) {
         onFrame();
     }
 }
-// Find the value in a series of [step, value] pairs.
-// function findInSeries(valueSeries: [number, any][], step: number): any {
-//     var value: any;
-//     var i = 0
-//     while (i < valueSeries.length && valueSeries[i][0] <= step) {
-//         value = valueSeries[i][1];
-//         i++;
-//     }
-//     return value;
-// }
 // Gets an attribute from a grid object respecting the current step.
 function getAttr(obj, attr, atStep = -1) {
     if (atStep == -1) {
@@ -331,6 +342,7 @@ function drawMap(panel) {
         }
     }
     // Construct wall adjacency map.
+    var wallMap = new Grid(replay.map_size[0], replay.map_size[1]);
     for (const gridObject of replay.grid_objects) {
         const type = gridObject.type;
         const typeName = replay.object_types[type];
@@ -339,7 +351,7 @@ function drawMap(panel) {
         }
         const x = getAttr(gridObject, "c");
         const y = getAttr(gridObject, "r");
-        wallMap.set(x + "," + y, true);
+        wallMap.set(x, y, true);
     }
     // Draw the walls following the adjacency map.
     for (const gridObject of replay.grid_objects) {
@@ -352,22 +364,46 @@ function drawMap(panel) {
         const y = getAttr(gridObject, "r");
         var suffix = "0";
         var n = false, w = false, e = false, s = false;
-        if (wallMap.get(x + "," + (y - 1))) {
+        if (wallMap.get(x, y - 1)) {
             n = true;
         }
-        if (wallMap.get((x - 1) + "," + y)) {
+        if (wallMap.get(x - 1, y)) {
             w = true;
         }
-        if (wallMap.get(x + "," + (y + 1))) {
+        if (wallMap.get(x, y + 1)) {
             s = true;
         }
-        if (wallMap.get((x + 1) + "," + y)) {
+        if (wallMap.get(x + 1, y)) {
             e = true;
         }
         if (n || w || e || s) {
             suffix = (n ? "n" : "") + (w ? "w" : "") + (s ? "s" : "") + (e ? "e" : "");
         }
         drawImage(panel.ctx, "data/wall." + suffix + ".png", x * 64, y * 64);
+    }
+    // Draw the wall in-fill following the adjacency map.
+    for (const gridObject of replay.grid_objects) {
+        const type = gridObject.type;
+        const typeName = replay.object_types[type];
+        if (typeName !== "wall") {
+            continue;
+        }
+        const x = getAttr(gridObject, "c");
+        const y = getAttr(gridObject, "r");
+        // If walls to E, S and SE is filled, draw a wall fill.
+        var s = false, e = false, se = false;
+        if (wallMap.get(x + 1, y)) {
+            e = true;
+        }
+        if (wallMap.get(x, y + 1)) {
+            s = true;
+        }
+        if (wallMap.get(x + 1, y + 1)) {
+            se = true;
+        }
+        if (e && s && se) {
+            drawImage(panel.ctx, "data/wall.fill.png", x * 64 + 32, y * 64 + 32);
+        }
     }
     for (const gridObject of replay.grid_objects) {
         const type = gridObject.type;
@@ -528,10 +564,12 @@ function drawTrace(panel) {
         panel.ctx.strokeRect(0, 20 + agentId * 64 - 32, tracePanel.canvas.width - 1, 64);
         // Draw the action name above the selected action trace bar.
         const action = getAttr(selectedGridObject, "action", step);
-        const actionName = replay.action_names[action[0]];
-        panel.ctx.fillStyle = "white";
-        panel.ctx.font = "16px Arial";
-        panel.ctx.fillText(actionName + " " + action[1], 32 + step * 4, 0 + agentId * 64);
+        if (action != null) {
+            const actionName = replay.action_names[action[0]];
+            panel.ctx.fillStyle = "white";
+            panel.ctx.font = "16px Arial";
+            panel.ctx.fillText(actionName + " " + action[1], 32 + step * 4, 0 + agentId * 64);
+        }
     }
 }
 // Updates the readout of the selected object or replay info.
@@ -561,25 +599,34 @@ function updateReadout() {
             readout += key + " count: " + value + "\n";
         }
     }
-    selectedGridObjectInfo.innerHTML = readout;
+    if (infoPanel.div !== null) {
+        infoPanel.div.innerHTML = readout;
+    }
 }
 // Draw a frame.
 function onFrame() {
     if (globalCtx === null || replay === null || mapPanel.ctx === null || tracePanel.ctx === null) {
         return;
     }
+    var fullUpdate = true;
     if (mapPanel.inside(mousePos)) {
-        mapPanel.updatePanAndZoom();
+        if (mapPanel.updatePanAndZoom()) {
+            //fullUpdate = false;
+        }
     }
     if (tracePanel.inside(mousePos)) {
-        tracePanel.updatePanAndZoom();
+        if (tracePanel.updatePanAndZoom()) {
+            //fullUpdate = false;
+        }
     }
-    updateReadout();
+    if (fullUpdate) {
+        updateReadout();
+        drawMap(mapPanel);
+        drawTrace(tracePanel);
+    }
     // Clear both canvases.
     globalCtx.clearRect(0, 0, globalCanvas.width, globalCanvas.height);
-    drawMap(mapPanel);
     mapPanel.drawPanel(globalCtx);
-    drawTrace(tracePanel);
     tracePanel.drawPanel(globalCtx);
 }
 // Initial resize.
