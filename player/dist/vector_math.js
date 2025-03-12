@@ -22,5 +22,8 @@ function div(a, b) {
 function almostEqual(a, b) {
     return Math.abs(a - b) < 1e-3;
 }
-export { add, sub, mul, div, almostEqual };
+function length(a) {
+    return Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z + a.w * a.w);
+}
+export { add, sub, mul, div, almostEqual, length };
 //# sourceMappingURL=vector_math.js.map
