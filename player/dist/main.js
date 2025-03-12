@@ -611,12 +611,12 @@ function onFrame() {
     var fullUpdate = true;
     if (mapPanel.inside(mousePos)) {
         if (mapPanel.updatePanAndZoom()) {
-            //fullUpdate = false;
+            fullUpdate = false;
         }
     }
     if (tracePanel.inside(mousePos)) {
         if (tracePanel.updatePanAndZoom()) {
-            //fullUpdate = false;
+            fullUpdate = false;
         }
     }
     if (fullUpdate) {
