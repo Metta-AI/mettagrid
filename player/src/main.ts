@@ -594,7 +594,7 @@ function drawTrace(panel: PanelInfo) {
         // Draw the agents id:
         panel.ctx.fillStyle = "white";
         panel.ctx.font = "16px Arial";
-        panel.ctx.fillText(i.toString(), 10, 25 + i * 64);
+        panel.ctx.fillText(i.toString(), 10, 45 + i * 64);
 
         // Draw the agent's actions:
         for (const gridObject of replay.grid_objects) {
@@ -607,10 +607,10 @@ function drawTrace(panel: PanelInfo) {
                         const color = ACTION_COLORS[actionName as keyof typeof ACTION_COLORS];
                         const importance = ACTION_IMPORTANCE[actionName as keyof typeof ACTION_IMPORTANCE];
                         panel.ctx.fillStyle = color;
-                        panel.ctx.fillRect(32 + j * 4, 20 + i * 64 - 2 * importance, 2, 4 * importance);
+                        panel.ctx.fillRect(32 + j * 4, 40 + i * 64 - 2 * importance, 2, 4 * importance);
                     } else {
                         panel.ctx.fillStyle = "rgba(30, 30, 30, 1)";
-                        panel.ctx.fillRect(32 + j * 4, 20 + i * 64 - 2, 2, 4);
+                        panel.ctx.fillRect(32 + j * 4, 40 + i * 64 - 2, 2, 4);
                     }
 
                     const reward = getAttr(gridObject, "reward", j);
@@ -619,7 +619,7 @@ function drawTrace(panel: PanelInfo) {
                     if (reward > 0) {
                         const importance = 10;
                         panel.ctx.fillStyle = "hsl(46, 100.00%, 76.70%)";
-                        panel.ctx.fillRect(32 + j * 4, 20 + i * 64 - 2 * importance, 2, 4 * importance);
+                        panel.ctx.fillRect(32 + j * 4, 40 + i * 64 - 2 * importance, 2, 4 * importance);
                     }
                 }
             }
@@ -631,7 +631,7 @@ function drawTrace(panel: PanelInfo) {
     if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
         const agentId = selectedGridObject.agent_id;
         panel.ctx.strokeStyle = "white";
-        panel.ctx.strokeRect(0, 20 + agentId * 64 - 32, tracePanel.canvas.width - 1, 64);
+        panel.ctx.strokeRect(0, 40 + agentId * 64 - 32, tracePanel.canvas.width - 1, 64);
 
         // Draw the action name above the selected action trace bar.
         const action = getAttr(selectedGridObject, "action", step);
@@ -639,7 +639,7 @@ function drawTrace(panel: PanelInfo) {
             const actionName = replay.action_names[action[0]] as string;
             panel.ctx.fillStyle = "white";
             panel.ctx.font = "16px Arial";
-            panel.ctx.fillText(actionName + " " + action[1], 32 + step * 4, 0 + agentId * 64);
+            panel.ctx.fillText(actionName + " " + action[1], 32 + step * 4, 20 + agentId * 64);
         }
     }
 }

@@ -14,15 +14,16 @@
   "object_types": [
     "agent",
     "wall",
-    "converter",
-    "mine",
+    "???",
     "generator",
     "altar",
     "armory",
     "lasery",
     "lab",
     "factory",
-    "temple"
+    "temple",
+    "converter",
+    "mine"
   ],
   "map_size": [
     62,
