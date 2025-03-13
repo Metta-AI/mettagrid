@@ -24,7 +24,7 @@ game:
 
   agent:
     max_inventory: ${uniform:0, 100, 50}
-    freeze_duration: ${uniform:0, 200, 10}
+    freeze_duration: ${uniform:0, 200, 0}
     hp: 10
     mortal: False
     rewards:
@@ -32,9 +32,9 @@ game:
       action_failure_penalty: 0
       ore: 0.005
       ore_max: 100
-      battery: 0.01
+      battery: 10 #0.01
       battery_max: 100
-      heart: 1
+      heart: 1000 #1
       heart_max: 1000
 
   groups:
@@ -46,25 +46,25 @@ game:
     team_1:
       id: 1
       sprite: 1
-      group_reward_pct: 0.5
+      group_reward_pct: 0.1
       props: {}
 
     team_2:
       id: 2
       sprite: 4
-      group_reward_pct: 0.5
+      group_reward_pct: 0.1
       props: {}
 
     team_3:
       id: 3
       sprite: 8
-      group_reward_pct: 0.5
+      group_reward_pct: 0.1
       props: {}
 
     team_4:
       id: 4
       sprite: 1
-      group_reward_pct: 0.5
+      group_reward_pct: 0.1
       props: {}
 
     prey:
@@ -80,23 +80,23 @@ game:
   objects:
     altar:
       hp: 30
-      input_battery: 3
+      input_battery: 1
       output_heart: 1
       max_output: 5
-      cooldown: ${uniform:1, 20, 10}
+      cooldown: ${uniform:1, 20, 2}
 
     mine:
       hp: 30
       output_ore: 1
       max_output: 5
-      cooldown: ${uniform:0, 100, 50}
+      cooldown: ${uniform:0, 100, 2}
 
     generator:
       hp: 30
       input_ore: 1
       output_battery: 1
       max_output: 5
-      cooldown: ${uniform:0, 50, 25}
+      cooldown: ${uniform:0, 50, 3}
 
     armory:
       hp: 30
@@ -119,7 +119,7 @@ game:
       input_battery: 3
       output_blueprint: 1
       max_output: 5
-      cooldown: ${uniform:0, 10, 5}
+      cooldown: ${uniform:0, 10, 2}
 
     factory:
       hp: 30
@@ -144,7 +144,7 @@ game:
 
   actions:
     noop:
-      enabled: true
+      enabled: false
     move:
       enabled: true
     rotate:
@@ -154,19 +154,19 @@ game:
     get_items:
       enabled: true
     attack:
-      enabled: true
+      enabled: false
     swap:
-      enabled: true
+      enabled: false
     change_color:
-      enabled: true
+      enabled: false
 
   reward_sharing:
     groups:
       team_1:
-        team_1: 0.5
+        team_1: 0.1
       team_2:
-        team_2: 0.5
+        team_2: 0.1
       team_3:
-        team_3: 0.5
+        team_3: 0.1
       team_4:
-        team_4: 0.5
+        team_4: 0.1
