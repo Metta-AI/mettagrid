@@ -83,20 +83,20 @@ game:
       input_battery: 1
       output_heart: 1
       max_output: 5
-      cooldown: ${uniform:1, 20, 2}
+      cooldown: ${uniform:1, 20, 1}
 
     mine:
       hp: 30
       output_ore: 1
       max_output: 5
-      cooldown: ${uniform:0, 100, 2}
+      cooldown: ${uniform:0, 100, 1}
 
     generator:
       hp: 30
       input_ore: 1
       output_battery: 1
       max_output: 5
-      cooldown: ${uniform:0, 50, 3}
+      cooldown: ${uniform:0, 50, 1}
 
     armory:
       hp: 30
