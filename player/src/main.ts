@@ -104,18 +104,20 @@ const imageCache: Map<string, HTMLImageElement> = new Map();
 const imageLoaded: Map<string, boolean> = new Map();
 
 // Interaction state.
-var mouseDown = false;
-var mousePos = new DOMPoint(0, 0);
-var lastMousePos = new DOMPoint(0, 0);
-var scrollDelta = 0;
+let mouseDown = false;
+let mousePos = new DOMPoint(0, 0);
+let lastMousePos = new DOMPoint(0, 0);
+let scrollDelta = 0;
 // var mapZoom = 1;
 // var mapPos = new DOMPoint(0, 0);
-var traceSplit = 100;
-var traceDragging = false;
+let traceSplit = 0.50;
+let traceDragging = false;
+let infoSplit = 0.25
+let infoDragging = false;
 // Replay data and player state.
-var replay: any = null;
-var step = 0;
-var selectedGridObject: any = null;
+let replay: any = null;
+let step = 0;
+let selectedGridObject: any = null;
 
 // Handle resize events.
 function onResize() {
@@ -139,18 +141,18 @@ function onResize() {
 
     mapPanel.x = 0;
     mapPanel.y = 0;
-    mapPanel.width = mapWidth / 2;
-    mapPanel.height = mapHeight;
+    mapPanel.width = mapWidth * traceSplit;
+    mapPanel.height = mapHeight - 60;
 
-    tracePanel.x = mapWidth / 2;
-    tracePanel.y = 300;
-    tracePanel.width = mapWidth / 2;
-    tracePanel.height = mapHeight - 300;
+    tracePanel.x = mapWidth * traceSplit;
+    tracePanel.y = mapHeight * infoSplit - 60;
+    tracePanel.width = mapWidth * (1 - traceSplit);
+    tracePanel.height = mapHeight * (1 - infoSplit);
 
-    infoPanel.x = mapWidth / 2;
+    infoPanel.x = mapWidth * traceSplit;
     infoPanel.y = 0;
-    infoPanel.width = mapWidth / 2;
-    infoPanel.height = 300;
+    infoPanel.width = mapWidth * (1 - traceSplit);
+    infoPanel.height = mapHeight * infoSplit
     if (infoPanel.div === null) {
         infoPanel.div = document.createElement("div");
         infoPanel.div.id = infoPanel.name + "-div";
@@ -169,16 +171,20 @@ function onResize() {
     onFrame();
 }
 
-// Handle trace handle mouse down events.
-function onTraceHandleMouseDown() {
-    console.log("onTraceHandleMouseDown");
-    traceDragging = true;
-}
-
 // Handle mouse down events.
 function onMouseDown() {
     lastMousePos = mousePos;
-    mouseDown = true;
+
+    if (Math.abs(mousePos.x - mapPanel.width) < 10) {
+        traceDragging = true
+        console.log("Started trace dragging")
+    } else if (mousePos.x > mapPanel.width && Math.abs(mousePos.y - infoPanel.height) < 10) {
+        infoDragging = true
+        console.log("Started info dragging")
+    } else {
+        mouseDown = true;
+    }
+
     onFrame();
 }
 
@@ -186,16 +192,33 @@ function onMouseDown() {
 function onMouseUp() {
     mouseDown = false;
     traceDragging = false;
+    infoDragging = false;
     onFrame();
 }
 
 // Handle mouse move events.
 function onMouseMove(event: MouseEvent) {
     mousePos = new DOMPoint(event.clientX, event.clientY);
+
+    // If mouse is close to a panels edge change cursor to edge changer.
+    document.body.style.cursor = "default";
+
+    if (Math.abs(mousePos.x - mapPanel.width) < 10) {
+        document.body.style.cursor = "ew-resize";
+    }
+
+    if (mousePos.x > mapPanel.width && Math.abs(mousePos.y - infoPanel.height) < 10) {
+        document.body.style.cursor = "ns-resize";
+    }
+
     if (traceDragging) {
-        console.log("traceDragging");
-        traceSplit = window.innerWidth - mousePos.x;
+        console.log("traceDragging...");
+        traceSplit = mousePos.x / window.innerWidth
         onResize();
+    } else if (infoDragging) {
+        console.log("infoDragging...")
+        infoSplit = mousePos.y / window.innerHeight
+        onResize()
     } else if (mouseDown) {
         onFrame();
     }
@@ -512,7 +535,6 @@ function drawMap(panel: PanelInfo) {
             for (let i = 0; i < step; i++) {
                 const cx = getAttr(selectedGridObject, "c", i);
                 const cy = getAttr(selectedGridObject, "r", i);
-                //panel.ctx.fillRect(cx * 64 + 32, cy * 64 + 32, 10, 10);
                 if (i == 0) {
                     panel.ctx.moveTo(cx * 64 + 32, cy * 64 + 32);
                 } else {
@@ -520,6 +542,29 @@ function drawMap(panel: PanelInfo) {
                 }
             }
             panel.ctx.stroke();
+
+            // // Draw foot prints.
+            // for (let i = 0; i < step; i++) {
+            //     const x = getAttr(selectedGridObject, "c", i);
+            //     const y = getAttr(selectedGridObject, "r", i);
+            //     const orientation = getAttr(selectedGridObject, "agent:orientation", i);
+            //     panel.ctx.save()
+            //     panel.ctx.translate(x * 64 + 32, y * 64 + 32);
+            //     panel.ctx.scale(0.25, 0.25);
+            //     var angle = 0
+            //     if (orientation == 0) {
+            //         angle = 0;
+            //     } else if (orientation == 1) {
+            //         angle = Math.PI / 2;
+            //     } else if (orientation == 2) {
+            //         angle = -Math.PI;
+            //     } else if (orientation == 3) {
+            //         angle = -3 * Math.PI / 2;
+            //     }
+            //     panel.ctx.rotate(angle);
+            //     drawImage(panel.ctx, "data/footprint.png", -32, -32);
+            //     panel.ctx.restore()
+            // }
         }
     }
 
@@ -685,9 +730,9 @@ function onFrame() {
     var fullUpdate = true;
 
     if (mapPanel.inside(mousePos)) {
-       if (mapPanel.updatePanAndZoom()) {
+        if (mapPanel.updatePanAndZoom()) {
             fullUpdate = false;
-       }
+        }
     }
 
     if (tracePanel.inside(mousePos)) {
@@ -714,10 +759,10 @@ onResize();
 // Add event listener to resize the canvas when the window is resized.
 window.addEventListener('resize', onResize);
 window.addEventListener('keydown', onKeyDown);
-globalCanvas.addEventListener('mousedown', onMouseDown);
-globalCanvas.addEventListener('mouseup', onMouseUp);
-globalCanvas.addEventListener('mousemove', onMouseMove);
-globalCanvas.addEventListener('wheel', onScroll);
+window.addEventListener('mousedown', onMouseDown);
+window.addEventListener('mouseup', onMouseUp);
+window.addEventListener('mousemove', onMouseMove);
+window.addEventListener('wheel', onScroll);
 
 scrubber.addEventListener('input', onScrubberChange);
 
