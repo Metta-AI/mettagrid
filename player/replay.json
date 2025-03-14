@@ -14,7 +14,7 @@
   "object_types": [
     "agent",
     "wall",
-    "???",
+    "mine",
     "generator",
     "altar",
     "armory",
@@ -22,8 +22,7 @@
     "lab",
     "factory",
     "temple",
-    "converter",
-    "mine"
+    "converter"
   ],
   "map_size": [
     62,
