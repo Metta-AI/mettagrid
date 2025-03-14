@@ -92,6 +92,9 @@ if (mapPanel.ctx !== null && globalCtx !== null && tracePanel.ctx !== null) {
 }
 const imageCache = new Map();
 const imageLoaded = new Map();
+let atlas = new Map();
+let atlasImage = new Image();
+atlasImage.src = "atlas.png";
 // Interaction state.
 let mouseDown = false;
 let mousePos = new DOMPoint(0, 0);
@@ -220,6 +223,19 @@ function expandSequence(sequence, numSteps) {
     }
     return expanded;
 }
+// Load the atlas.
+function loadAtlas(atlasUrl) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const response = yield fetch(atlasUrl);
+        const data = yield response.json();
+        for (const key in data) {
+            if (data.hasOwnProperty(key)) {
+                atlas.set(key, data[key]);
+            }
+        }
+        console.log("atlas: ", atlas);
+    });
+}
 // Load the replay.
 function loadReplay(replayUrl) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -283,21 +299,26 @@ function getAttr(obj, attr, atStep = -1) {
 }
 // Loads and draws the image at the given position.
 function drawImage(ctx, imagePath, x, y) {
-    if (!imageCache.has(imagePath)) {
-        const image = new Image();
-        image.src = imagePath;
-        image.onload = () => {
-            imageLoaded.set(imagePath, true);
-            onFrame();
-        };
-        image.onerror = () => {
-            console.error("Failed to load image: " + imagePath);
-        };
-        imageCache.set(imagePath, image);
-    }
-    const image = imageCache.get(imagePath);
-    if (image !== undefined && imageLoaded.get(imagePath)) {
-        ctx.drawImage(image, x, y);
+    // if (!imageCache.has(imagePath)) {
+    //     const image = new Image();
+    //     image.src = imagePath;
+    //     image.onload = () => {
+    //         imageLoaded.set(imagePath, true);
+    //         onFrame();
+    //     }
+    //     image.onerror = () => {
+    //         console.error("Failed to load image: " + imagePath);
+    //     }
+    //     imageCache.set(imagePath, image);
+    // }
+    // const image = imageCache.get(imagePath);
+    // if (image !== undefined && imageLoaded.get(imagePath)) {
+    //     ctx.drawImage(image, x, y);
+    // }
+    const atlasEntry = atlas.get(imagePath);
+    if (atlasEntry !== undefined) {
+        const [uvx, uvy, width, height] = atlasEntry;
+        ctx.drawImage(atlasImage, uvx, uvy, width, height, x, y, width, height);
     }
 }
 const AGENT_STYLES = {
@@ -359,7 +380,7 @@ function drawMap(panel) {
     // Draw the floor.
     for (let x = 0; x < replay.map_size[0]; x++) {
         for (let y = 0; y < replay.map_size[1]; y++) {
-            drawImage(panel.ctx, "data/floor.png", x * 64, y * 64);
+            drawImage(panel.ctx, "floor.png", x * 64, y * 64);
         }
     }
     // Construct wall adjacency map.
@@ -400,7 +421,7 @@ function drawMap(panel) {
         if (n || w || e || s) {
             suffix = (n ? "n" : "") + (w ? "w" : "") + (s ? "s" : "") + (e ? "e" : "");
         }
-        drawImage(panel.ctx, "data/wall." + suffix + ".png", x * 64, y * 64);
+        drawImage(panel.ctx, "wall." + suffix + ".png", x * 64, y * 64);
     }
     // Draw the wall in-fill following the adjacency map.
     for (const gridObject of replay.grid_objects) {
@@ -423,7 +444,7 @@ function drawMap(panel) {
             se = true;
         }
         if (e && s && se) {
-            drawImage(panel.ctx, "data/wall.fill.png", x * 64 + 32, y * 64 + 32);
+            drawImage(panel.ctx, "wall.fill.png", x * 64 + 32, y * 64 + 32);
         }
     }
     for (const gridObject of replay.grid_objects) {
@@ -452,14 +473,14 @@ function drawMap(panel) {
             }
             const agent_id = gridObject["agent_id"];
             const style = getAgentStyle(agent_id);
-            drawImage(panel.ctx, "data/" + typeName + suffix + ".body." + style.bodyId + ".png", x * 64, y * 64);
-            drawImage(panel.ctx, "data/" + typeName + suffix + ".hair." + style.hairId + ".png", x * 64, y * 64);
-            drawImage(panel.ctx, "data/" + typeName + suffix + ".mouth." + style.mouthId + ".png", x * 64, y * 64);
-            drawImage(panel.ctx, "data/" + typeName + suffix + ".horns." + style.hornsId + ".png", x * 64, y * 64);
-            drawImage(panel.ctx, "data/" + typeName + suffix + ".eyes." + style.eyesId + ".png", x * 64, y * 64);
+            drawImage(panel.ctx, typeName + suffix + ".body." + style.bodyId + ".png", x * 64, y * 64);
+            drawImage(panel.ctx, typeName + suffix + ".hair." + style.hairId + ".png", x * 64, y * 64);
+            drawImage(panel.ctx, typeName + suffix + ".mouth." + style.mouthId + ".png", x * 64, y * 64);
+            drawImage(panel.ctx, typeName + suffix + ".horns." + style.hornsId + ".png", x * 64, y * 64);
+            drawImage(panel.ctx, typeName + suffix + ".eyes." + style.eyesId + ".png", x * 64, y * 64);
         }
         else {
-            drawImage(panel.ctx, "data/" + typeName + ".png", x * 64, y * 64);
+            drawImage(panel.ctx, typeName + ".png", x * 64, y * 64);
         }
     }
     // Draw rectangle around the selected grid object.
@@ -503,7 +524,7 @@ function drawMap(panel) {
             //         angle = -3 * Math.PI / 2;
             //     }
             //     panel.ctx.rotate(angle);
-            //     drawImage(panel.ctx, "data/footprint.png", -32, -32);
+            //     drawImage(panel.ctx, "footprint.png", -32, -32);
             //     panel.ctx.restore()
             // }
         }
@@ -682,6 +703,7 @@ window.addEventListener('mousemove', onMouseMove);
 window.addEventListener('wheel', onScroll);
 scrubber.addEventListener('input', onScrubberChange);
 window.addEventListener('load', () => __awaiter(void 0, void 0, void 0, function* () {
+    yield loadAtlas("atlas.json");
     yield loadReplay("replay.json");
     focusFullMap(mapPanel);
     onFrame();
