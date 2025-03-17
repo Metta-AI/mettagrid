@@ -41,6 +41,6 @@ for file in os.listdir("data"):
             heights[min_x + i] = min_height + img.height + margin
 
 # Write the atlas image and the atlas json file.
-with open("atlas.json", "w") as f:
+with open("dist/atlas.json", "w") as f:
     json.dump(images, f)
-atlas_image.write_file("atlas.png")
+atlas_image.write_file("dist/atlas.png")
