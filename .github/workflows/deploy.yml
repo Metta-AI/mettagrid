@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - andre-player
+    paths:
+      - 'player/**'  # Run when any file in player directory changes
+      - '.github/workflows/**'  # Run when workflow files change
   workflow_dispatch:  # Allow manual triggers
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
@@ -14,7 +17,7 @@ permissions:
 
 # Configure concurrency to always run
 concurrency:
-  group: pages-${{ github.ref }}
+  group: pages-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
