@@ -380,41 +380,21 @@ function focusFullMap(panel) {
     panel.panPos = new DOMPoint((panelWidth - mapWidth * zoomLevel) / 2, (panelHeight - mapHeight * zoomLevel) / 2);
     panel.zoomLevel = zoomLevel;
 }
+// Make the panel focus on a specific agent.
 function focusMapOn(panel, x, y) {
     panel.panPos = new DOMPoint(-x * 64 + panel.width / 2, -y * 64 + panel.height / 2);
     panel.zoomLevel = 1;
 }
-function drawMap(panel) {
-    if (panel.ctx === null || replay === null) {
-        return;
-    }
-    if (mouseDown) {
-        const localMousePos = panel.transformPoint(mousePos);
-        if (localMousePos != null) {
-            const gridMousePos = new DOMPoint(Math.floor(localMousePos.x / 64), Math.floor(localMousePos.y / 64));
-            const gridObject = replay.grid_objects.find((obj) => {
-                const x = getAttr(obj, "c");
-                const y = getAttr(obj, "r");
-                return x === gridMousePos.x && y === gridMousePos.y;
-            });
-            if (gridObject !== undefined) {
-                selectedGridObject = gridObject;
-                console.log("selectedGridObject: ", selectedGridObject);
-            }
+// Draw the tiles that make up the floor.
+function drawFloor(ctx, mapSize) {
+    for (let x = 0; x < mapSize[0]; x++) {
+        for (let y = 0; y < mapSize[1]; y++) {
+            drawImage(ctx, "floor.png", x * 64, y * 64);
         }
     }
-    // Set map canvas size to match the map dimensions.
-    panel.canvas.width = replay.map_size[0] * 64;
-    panel.canvas.height = replay.map_size[1] * 64;
-    panel.ctx.clearRect(0, 0, panel.canvas.width, panel.canvas.height);
-    // Draw to map canvas
-    panel.ctx.save();
-    // Draw the floor.
-    for (let x = 0; x < replay.map_size[0]; x++) {
-        for (let y = 0; y < replay.map_size[1]; y++) {
-            drawImage(panel.ctx, "floor.png", x * 64, y * 64);
-        }
-    }
+}
+// Draw the walls, based on the adjacency map, and fill any holes.
+function drawWalls(ctx, replay) {
     // Construct wall adjacency map.
     var wallMap = new Grid(replay.map_size[0], replay.map_size[1]);
     for (const gridObject of replay.grid_objects) {
@@ -453,7 +433,7 @@ function drawMap(panel) {
         if (n || w || e || s) {
             suffix = (n ? "n" : "") + (w ? "w" : "") + (s ? "s" : "") + (e ? "e" : "");
         }
-        drawImage(panel.ctx, "wall." + suffix + ".png", x * 64, y * 64);
+        drawImage(ctx, "wall." + suffix + ".png", x * 64, y * 64);
     }
     // Draw the wall in-fill following the adjacency map.
     for (const gridObject of replay.grid_objects) {
@@ -476,9 +456,12 @@ function drawMap(panel) {
             se = true;
         }
         if (e && s && se) {
-            drawImage(panel.ctx, "wall.fill.png", x * 64 + 32, y * 64 + 32);
+            drawImage(ctx, "wall.fill.png", x * 64 + 32, y * 64 + 32);
         }
     }
+}
+// Draw all objects on the map (that are not walls).
+function drawObjects(ctx, replay) {
     for (const gridObject of replay.grid_objects) {
         const type = gridObject.type;
         const typeName = replay.object_types[type];
@@ -489,6 +472,7 @@ function drawMap(panel) {
         const x = getAttr(gridObject, "c");
         const y = getAttr(gridObject, "r");
         if (gridObject["agent_id"] !== undefined) {
+            // Respect orientation of an object usually an agent.
             const orientation = getAttr(gridObject, "agent:orientation");
             var suffix = "";
             if (orientation == 0) {
@@ -505,62 +489,72 @@ function drawMap(panel) {
             }
             const agent_id = gridObject["agent_id"];
             const style = getAgentStyle(agent_id);
-            drawImage(panel.ctx, typeName + suffix + ".body." + style.bodyId + ".png", x * 64, y * 64);
-            drawImage(panel.ctx, typeName + suffix + ".hair." + style.hairId + ".png", x * 64, y * 64);
-            drawImage(panel.ctx, typeName + suffix + ".mouth." + style.mouthId + ".png", x * 64, y * 64);
-            drawImage(panel.ctx, typeName + suffix + ".horns." + style.hornsId + ".png", x * 64, y * 64);
-            drawImage(panel.ctx, typeName + suffix + ".eyes." + style.eyesId + ".png", x * 64, y * 64);
+            drawImage(ctx, typeName + suffix + ".body." + style.bodyId + ".png", x * 64, y * 64);
+            drawImage(ctx, typeName + suffix + ".hair." + style.hairId + ".png", x * 64, y * 64);
+            drawImage(ctx, typeName + suffix + ".mouth." + style.mouthId + ".png", x * 64, y * 64);
+            drawImage(ctx, typeName + suffix + ".horns." + style.hornsId + ".png", x * 64, y * 64);
+            drawImage(ctx, typeName + suffix + ".eyes." + style.eyesId + ".png", x * 64, y * 64);
         }
         else {
-            drawImage(panel.ctx, typeName + ".png", x * 64, y * 64);
+            drawImage(ctx, typeName + ".png", x * 64, y * 64);
         }
     }
-    // Draw rectangle around the selected grid object.
-    if (selectedGridObject !== null) {
-        const x = getAttr(selectedGridObject, "c");
-        const y = getAttr(selectedGridObject, "r");
-        panel.ctx.strokeStyle = "white";
-        panel.ctx.strokeRect(x * 64, y * 64, 64, 64);
-        // If object has a trajectory, draw it.
-        if (selectedGridObject.c.length > 0 || selectedGridObject.r.length > 0) {
-            panel.ctx.beginPath();
-            panel.ctx.strokeStyle = "white";
-            panel.ctx.lineWidth = 2;
-            for (let i = 0; i < step; i++) {
-                const cx = getAttr(selectedGridObject, "c", i);
-                const cy = getAttr(selectedGridObject, "r", i);
-                if (i == 0) {
-                    panel.ctx.moveTo(cx * 64 + 32, cy * 64 + 32);
-                }
-                else {
-                    panel.ctx.lineTo(cx * 64 + 32, cy * 64 + 32);
-                }
+}
+function drawSelection(ctx, selectedObject, step) {
+    if (selectedObject === null) {
+        return;
+    }
+    const x = getAttr(selectedObject, "c");
+    const y = getAttr(selectedObject, "r");
+    ctx.strokeStyle = "white";
+    ctx.strokeRect(x * 64, y * 64, 64, 64);
+    // If object has a trajectory, draw it.
+    if (selectedObject.c.length > 0 || selectedObject.r.length > 0) {
+        ctx.beginPath();
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < step; i++) {
+            const cx = getAttr(selectedObject, "c", i);
+            const cy = getAttr(selectedObject, "r", i);
+            if (i == 0) {
+                ctx.moveTo(cx * 64 + 32, cy * 64 + 32);
             }
-            panel.ctx.stroke();
-            // // Draw foot prints.
-            // for (let i = 0; i < step; i++) {
-            //     const x = getAttr(selectedGridObject, "c", i);
-            //     const y = getAttr(selectedGridObject, "r", i);
-            //     const orientation = getAttr(selectedGridObject, "agent:orientation", i);
-            //     panel.ctx.save()
-            //     panel.ctx.translate(x * 64 + 32, y * 64 + 32);
-            //     panel.ctx.scale(0.25, 0.25);
-            //     var angle = 0
-            //     if (orientation == 0) {
-            //         angle = 0;
-            //     } else if (orientation == 1) {
-            //         angle = Math.PI / 2;
-            //     } else if (orientation == 2) {
-            //         angle = -Math.PI;
-            //     } else if (orientation == 3) {
-            //         angle = -3 * Math.PI / 2;
-            //     }
-            //     panel.ctx.rotate(angle);
-            //     drawImage(panel.ctx, "footprint.png", -32, -32);
-            //     panel.ctx.restore()
-            // }
+            else {
+                ctx.lineTo(cx * 64 + 32, cy * 64 + 32);
+            }
+        }
+        ctx.stroke();
+    }
+}
+function drawMap(panel) {
+    if (panel.ctx === null || replay === null) {
+        return;
+    }
+    if (mouseDown) {
+        const localMousePos = panel.transformPoint(mousePos);
+        if (localMousePos != null) {
+            const gridMousePos = new DOMPoint(Math.floor(localMousePos.x / 64), Math.floor(localMousePos.y / 64));
+            const gridObject = replay.grid_objects.find((obj) => {
+                const x = getAttr(obj, "c");
+                const y = getAttr(obj, "r");
+                return x === gridMousePos.x && y === gridMousePos.y;
+            });
+            if (gridObject !== undefined) {
+                selectedGridObject = gridObject;
+                console.log("selectedGridObject: ", selectedGridObject);
+            }
         }
     }
+    // Set map canvas size to match the map dimensions.
+    panel.canvas.width = replay.map_size[0] * 64;
+    panel.canvas.height = replay.map_size[1] * 64;
+    panel.ctx.clearRect(0, 0, panel.canvas.width, panel.canvas.height);
+    // Draw to map canvas
+    panel.ctx.save();
+    drawFloor(panel.ctx, replay.map_size);
+    drawWalls(panel.ctx, replay);
+    drawObjects(panel.ctx, replay);
+    drawSelection(panel.ctx, selectedGridObject, step);
     panel.ctx.restore();
 }
 function drawTrace(panel) {
