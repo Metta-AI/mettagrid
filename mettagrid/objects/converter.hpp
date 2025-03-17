@@ -75,6 +75,9 @@ public:
         this->max_output = cfg["max_output"];
         this->recipe_duration = cfg["cooldown"];
         this->converting = false;
+        for (unsigned int i = 0; i < InventoryItem::InventoryCount; i++) {
+            HasInventory::update_inventory(static_cast<InventoryItem>(i), this->recipe_output[i], nullptr);
+        }
     }
 
     Converter(GridCoord r, GridCoord c, ObjectConfig cfg) : Converter(r, c, cfg, ObjectType::GenericConverterT) {}
