@@ -66,8 +66,8 @@ export class PanelInfo {
         }
         if (scrollDelta !== 0) {
             const oldMousePoint = this.transformPoint(mousePos);
-            this.zoomLevel = this.zoomLevel + scrollDelta / 1000;
-            this.zoomLevel = Math.max(Math.min(this.zoomLevel, 2), 0.1);
+            this.zoomLevel = this.zoomLevel + scrollDelta / SCROLL_ZOOM_FACTOR;
+            this.zoomLevel = Math.max(Math.min(this.zoomLevel, MAX_ZOOM_LEVEL), MIN_ZOOM_LEVEL);
             const newMousePoint = this.transformPoint(mousePos);
             if (oldMousePoint != null && newMousePoint != null) {
                 this.panPos = add(this.panPos, mul(sub(newMousePoint, oldMousePoint), this.zoomLevel));
@@ -77,6 +77,15 @@ export class PanelInfo {
         return false;
     }
 }
+// Constants
+const MIN_ZOOM_LEVEL = 0.1;
+const MAX_ZOOM_LEVEL = 2.0;
+const SPLIT_DRAG_THRESHOLD = 10; // pixels to detect split dragging
+const SCROLL_ZOOM_FACTOR = 1000; // divisor for scroll delta to zoom conversion
+const DEFAULT_TRACE_SPLIT = 0.50; // default horizontal split ratio
+const DEFAULT_INFO_SPLIT = 0.25; // default vertical split ratio
+const SCRUBBER_MARGIN = 64; // margin for scrubber width
+const PANEL_BOTTOM_MARGIN = 60; // bottom margin for panels
 // Get the html elements we will use.
 const scrubber = document.getElementById('main-scrubber');
 // Get the canvas element.
@@ -85,6 +94,36 @@ const globalCtx = globalCanvas.getContext('2d');
 const mapPanel = new PanelInfo("map");
 const tracePanel = new PanelInfo("trace");
 const infoPanel = new PanelInfo("info");
+// Constants
+const AGENT_STYLES = {
+    "body": 4,
+    "eyes": 4,
+    "horns": 4,
+    "hair": 4,
+    "mouth": 4,
+};
+const ACTION_COLORS = {
+    "put_recipe_items": "#3498DB", // blueish
+    "get_output": "#2980B9", // blueish
+    "noop": "#95A5A6", // grayish
+    "move": "#2ECC71", // greenish
+    "rotate": "#27AE60", // greenish
+    "attack": "#E74C3C", // reddish
+    "attack_nearest": "#C0392B", // reddish
+    "swap": "#E74C3C", // reddish
+    "change_color": "#F39C12" // orange ish
+};
+const ACTION_IMPORTANCE = {
+    "put_recipe_items": 3,
+    "get_output": 3,
+    "noop": 1,
+    "move": 1,
+    "rotate": 1,
+    "attack": 10,
+    "attack_nearest": 10,
+    "swap": 6,
+    "change_color": 3
+};
 if (mapPanel.ctx !== null && globalCtx !== null && tracePanel.ctx !== null) {
     mapPanel.ctx.imageSmoothingEnabled = true;
     globalCtx.imageSmoothingEnabled = true;
@@ -102,9 +141,9 @@ let lastMousePos = new DOMPoint(0, 0);
 let scrollDelta = 0;
 // var mapZoom = 1;
 // var mapPos = new DOMPoint(0, 0);
-let traceSplit = 0.50;
+let traceSplit = DEFAULT_TRACE_SPLIT;
 let traceDragging = false;
-let infoSplit = 0.25;
+let infoSplit = DEFAULT_INFO_SPLIT;
 let infoDragging = false;
 // Replay data and player state.
 let replay = null;
@@ -122,15 +161,15 @@ function onResize() {
     // Set the display size in CSS pixels.
     globalCanvas.style.width = mapWidth + 'px';
     globalCanvas.style.height = mapHeight + 'px';
-    scrubber.style.width = (mapWidth - 64) + 'px';
+    scrubber.style.width = (mapWidth - SCRUBBER_MARGIN) + 'px';
     // Scale the context to handle high DPI displays.
     globalCtx === null || globalCtx === void 0 ? void 0 : globalCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     mapPanel.x = 0;
     mapPanel.y = 0;
     mapPanel.width = mapWidth * traceSplit;
-    mapPanel.height = mapHeight - 60;
+    mapPanel.height = mapHeight - PANEL_BOTTOM_MARGIN;
     tracePanel.x = mapWidth * traceSplit;
-    tracePanel.y = mapHeight * infoSplit - 60;
+    tracePanel.y = mapHeight * infoSplit - PANEL_BOTTOM_MARGIN;
     tracePanel.width = mapWidth * (1 - traceSplit);
     tracePanel.height = mapHeight * (1 - infoSplit);
     infoPanel.x = mapWidth * traceSplit;
@@ -156,11 +195,11 @@ function onResize() {
 // Handle mouse down events.
 function onMouseDown() {
     lastMousePos = mousePos;
-    if (Math.abs(mousePos.x - mapPanel.width) < 10) {
+    if (Math.abs(mousePos.x - mapPanel.width) < SPLIT_DRAG_THRESHOLD) {
         traceDragging = true;
         console.log("Started trace dragging");
     }
-    else if (mousePos.x > mapPanel.width && Math.abs(mousePos.y - infoPanel.height) < 10) {
+    else if (mousePos.x > mapPanel.width && Math.abs(mousePos.y - infoPanel.height) < SPLIT_DRAG_THRESHOLD) {
         infoDragging = true;
         console.log("Started info dragging");
     }
@@ -181,10 +220,10 @@ function onMouseMove(event) {
     mousePos = new DOMPoint(event.clientX, event.clientY);
     // If mouse is close to a panels edge change cursor to edge changer.
     document.body.style.cursor = "default";
-    if (Math.abs(mousePos.x - mapPanel.width) < 10) {
+    if (Math.abs(mousePos.x - mapPanel.width) < SPLIT_DRAG_THRESHOLD) {
         document.body.style.cursor = "ew-resize";
     }
-    if (mousePos.x > mapPanel.width && Math.abs(mousePos.y - infoPanel.height) < 10) {
+    if (mousePos.x > mapPanel.width && Math.abs(mousePos.y - infoPanel.height) < SPLIT_DRAG_THRESHOLD) {
         document.body.style.cursor = "ns-resize";
     }
     if (traceDragging) {
@@ -321,13 +360,6 @@ function drawImage(ctx, imagePath, x, y) {
         ctx.drawImage(atlasImage, uvx, uvy, width, height, x, y, width, height);
     }
 }
-const AGENT_STYLES = {
-    "body": 4,
-    "eyes": 4,
-    "horns": 4,
-    "hair": 4,
-    "mouth": 4,
-};
 function getAgentStyle(agentId) {
     const n = 4; // number of variations per trait
     return {
@@ -531,28 +563,6 @@ function drawMap(panel) {
     }
     panel.ctx.restore();
 }
-const ACTION_COLORS = {
-    "put_recipe_items": "#3498DB", // blueish
-    "get_output": "#2980B9", // blueish
-    "noop": "#95A5A6", // grayish
-    "move": "#2ECC71", // greenish
-    "rotate": "#27AE60", // greenish
-    "attack": "#E74C3C", // reddish
-    "attack_nearest": "#C0392B", // reddish
-    "swap": "#E74C3C", // reddish
-    "change_color": "#F39C12" // orange ish
-};
-const ACTION_IMPORTANCE = {
-    "put_recipe_items": 3,
-    "get_output": 3,
-    "noop": 1,
-    "move": 1,
-    "rotate": 1,
-    "attack": 10,
-    "attack_nearest": 10,
-    "swap": 6,
-    "change_color": 3
-};
 function drawTrace(panel) {
     if (panel.ctx === null || replay === null || mapPanel.ctx === null) {
         return;
