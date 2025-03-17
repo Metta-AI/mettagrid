@@ -14,6 +14,7 @@ from mettagrid.grid_object cimport (
     Layer,
     GridLocation
 )
+from mettagrid.objects.constants cimport ObjectTypeNames
 from mettagrid.observation_encoder cimport ObservationEncoder, ObsType
 from mettagrid.objects.production_handler cimport ProductionHandler, CoolDownHandler
 from mettagrid.objects.constants cimport ObjectTypeNames
@@ -313,6 +314,6 @@ cdef class GridEnv:
 
     def max_action_args(self):
         return self._max_action_args
-        
+
     def object_type_names(self):
         return ObjectTypeNames
