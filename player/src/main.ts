@@ -147,7 +147,7 @@ const imageLoaded: Map<string, boolean> = new Map();
 
 let atlas: Map<string, [number, number, number, number]> = new Map();
 let atlasImage = new Image();
-atlasImage.src = "atlas.png";
+atlasImage.src = "dist/atlas.png";
 
 // Interaction state.
 let mouseDown = false;
@@ -457,7 +457,7 @@ function drawWalls(ctx: CanvasRenderingContext2D, replay: any) {
         const y = getAttr(gridObject, "r");
         wallMap.set(x, y, true);
     }
-    
+
     // Draw the walls following the adjacency map.
     for (const gridObject of replay.grid_objects) {
         const type = gridObject.type;
@@ -794,7 +794,7 @@ window.addEventListener('wheel', onScroll);
 scrubber.addEventListener('input', onScrubberChange);
 
 window.addEventListener('load', async () => {
-    await loadAtlas("atlas.json");
+    await loadAtlas("dist/atlas.json");
     await loadReplay("replay.json");
     focusFullMap(mapPanel);
     onFrame();
