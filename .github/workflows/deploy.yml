@@ -29,16 +29,29 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11'
+
+      - name: Debug Python
+        run: |
+          which python3
+          python3 --version
+          pip --version
+          echo "Current directory:"
+          pwd
+          echo "Directory contents:"
+          ls -la
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pixie-python
+          pip list
 
       - name: Generate Atlas
         run: |
           cd player
+          echo "Player directory contents:"
+          ls -la
           python3 gen_atlas.py
 
       - name: Setup Node.js
