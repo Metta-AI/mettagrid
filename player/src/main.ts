@@ -344,6 +344,8 @@ function loadReplay(replayData: any) {
 // Handle scrubber change events.
 function onScrubberChange() {
     step = parseInt(scrubber.value);
+    const fillWidth = (step / parseInt(scrubber.max)) * 100;
+    scrubber.style.setProperty('--fill-width', `${fillWidth}%`);
     console.log("step: ", step);
     onFrame();
 }
