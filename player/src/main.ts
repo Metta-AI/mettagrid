@@ -142,9 +142,6 @@ if (mapPanel.ctx !== null && globalCtx !== null && tracePanel.ctx !== null) {
     tracePanel.ctx.imageSmoothingEnabled = true;
 }
 
-const imageCache: Map<string, HTMLImageElement> = new Map();
-const imageLoaded: Map<string, boolean> = new Map();
-
 let atlas: Map<string, [number, number, number, number]> = new Map();
 let atlasImage = new Image();
 atlasImage.src = "dist/atlas.png";
@@ -377,22 +374,6 @@ function drawImage(
     x: number,
     y: number
 ) {
-    // if (!imageCache.has(imagePath)) {
-    //     const image = new Image();
-    //     image.src = imagePath;
-    //     image.onload = () => {
-    //         imageLoaded.set(imagePath, true);
-    //         onFrame();
-    //     }
-    //     image.onerror = () => {
-    //         console.error("Failed to load image: " + imagePath);
-    //     }
-    //     imageCache.set(imagePath, image);
-    // }
-    // const image = imageCache.get(imagePath);
-    // if (image !== undefined && imageLoaded.get(imagePath)) {
-    //     ctx.drawImage(image, x, y);
-    // }
     const atlasEntry = atlas.get(imagePath);
     if (atlasEntry !== undefined) {
         const [uvx, uvy, width, height] = atlasEntry;
