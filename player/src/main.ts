@@ -103,6 +103,9 @@ const mapPanel = new PanelInfo("map");
 const tracePanel = new PanelInfo("trace");
 const infoPanel = new PanelInfo("info");
 
+// Get the modal element
+const modal = document.getElementById('modal');
+
 // Constants
 const AGENT_STYLES = {
     "body": 4,
@@ -305,10 +308,22 @@ async function loadAtlas(atlasUrl: string) {
 }
 
 // Load the replay.
-async function loadReplay(replayUrl: string) {
+async function fetchReplay(replayUrl: string) {
     // HTTP request to get the replay.
-    const response = await fetch(replayUrl);
-    replay = await response.json();
+    try {
+        const response = await fetch(replayUrl);
+        if (!response.ok) {
+            throw new Error("Network response was not ok");
+        }
+        let replayData = await response.json();
+        loadReplay(replayData);
+    } catch (error) {
+        showModal("error", "Error fetching replay", "Message: " + error);
+    }
+}
+
+function loadReplay(replayData: any) {
+    replay = replayData;
     console.log("replay: ", replay);
 
     // Go through each grid object and expand its key sequence.
@@ -322,6 +337,8 @@ async function loadReplay(replayUrl: string) {
 
     // Set the scrubber max value to the max steps.
     scrubber.max = replay.max_steps.toString();
+
+    closeModal();
 }
 
 // Handle scrubber change events.
@@ -394,6 +411,9 @@ function getAgentStyle(agentId: number) {
 
 // Make the panel focus on the full map, used at the start of the replay.
 function focusFullMap(panel: PanelInfo) {
+    if (replay === null) {
+        return;
+    }
     const mapWidth = replay.map_size[0] * 64;
     const mapHeight = replay.map_size[1] * 64;
     const panelWidth = panel.width;
@@ -761,6 +781,70 @@ function onFrame() {
     tracePanel.drawPanel(globalCtx);
 }
 
+function preventDefaults(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+}
+
+function readFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        if (event.target && typeof event.target.result === 'string') {
+            const jsonData = JSON.parse(event.target.result);
+            loadReplay(jsonData);
+            focusFullMap(mapPanel);
+            onFrame();
+        }
+    };
+    reader.readAsText(file);
+}
+
+function handleDrop(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    const dt = event.dataTransfer;
+    if (dt && dt.files.length) {
+        const file = dt.files[0];
+        if (file.type === "application/json") {
+            readFile(file);
+        } else {
+            console.error("Please drop a valid JSON file.");
+        }
+    }
+}
+
+// Function to get URL parameters
+function getUrlParameter(name: string): string | null {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name);
+}
+
+// Show the modal
+function showModal(type: string,title: string, message: string) {
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add(type);
+        const header = modal.querySelector('h2');
+        if (header) {
+            header.textContent = title;
+        }
+        const content = modal.querySelector('p');
+        if (content) {
+            content.textContent = message;
+        }
+    }
+}
+
+// Close the modal
+function closeModal() {
+    if (modal) {
+        // Remove error class from modal.
+        modal.classList.remove('error');
+        modal.classList.remove('info');
+        modal.style.display = 'none';
+    }
+}
+
 // Initial resize.
 onResize();
 
@@ -774,9 +858,27 @@ window.addEventListener('wheel', onScroll);
 
 scrubber.addEventListener('input', onScrubberChange);
 
+window.addEventListener('dragenter', preventDefaults, false);
+window.addEventListener('dragleave', preventDefaults, false);
+window.addEventListener('dragover', preventDefaults, false);
+window.addEventListener('drop', handleDrop, false);
+
 window.addEventListener('load', async () => {
     await loadAtlas("dist/atlas.json");
-    await loadReplay("replay.json");
-    focusFullMap(mapPanel);
+
+    const replayUrl = getUrlParameter('replayUrl');
+    if (replayUrl) {
+        console.log("Loading replay from URL: ", replayUrl);
+        await fetchReplay(replayUrl);
+        focusFullMap(mapPanel);
+    } else {
+        showModal(
+            "info",
+            "Welcome to MettaScope",
+            "Please drop a replay file here to see the replay."
+        );
+        // Load a default replay.
+        // await fetchReplay("replay.json");
+    }
     onFrame();
 });
