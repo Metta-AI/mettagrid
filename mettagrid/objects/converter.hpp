@@ -48,7 +48,7 @@ private:
         // All the previous returns were "we don't start converting".
         // This one is us starting to convert.
         this->converting = true;
-        this->event_manager->schedule_event(Events::FinishConverting, this->recipe_duration, this->id, 0);
+        this->event_manager->schedule_event(Events::FinishConverting, this->conversion_ticks, this->id, 0);
     }
 
 public:
@@ -58,7 +58,7 @@ public:
     // the type it produces. This may be clunky in some cases, but the main usage
     // is to make Mines (etc) have a maximum output.
     unsigned short max_output;
-    unsigned char recipe_duration; // Time to produce output
+    unsigned char conversion_ticks; // Time to produce output
     unsigned char cooldown;        // Time to wait after producing before starting again
     bool converting;               // Currently in production phase
     bool cooling_down;             // Currently in cooldown phase
@@ -75,7 +75,7 @@ public:
             this->recipe_output[i] = cfg["output_" + InventoryItemNames[i]];
         }
         this->max_output = cfg["max_output"];
-        this->recipe_duration = cfg["recipe_duration"];
+        this->conversion_ticks = cfg["conversion_ticks"];
 
         // Make sure cooldown exists to prevent crashes, default to 0 if not provided
         if (cfg.count("cooldown") > 0) {
