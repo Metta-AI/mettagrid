@@ -114,6 +114,10 @@ cdef class MettaGrid(GridEnv):
                     wall = new Wall(r, c, cfg.objects.wall)
                     self._grid.add_object(wall)
                     self._stats.incr(b"objects.wall")
+                elif map[r,c] == "block":
+                    block = new Wall(r, c, cfg.objects.block)
+                    self._grid.add_object(block)
+                    self._stats.incr(b"objects.block")
                 elif map[r,c].startswith("mine."):
                     converter = new Mine(r, c, cfg.objects[map[r,c]])
                 elif map[r,c].startswith("generator."):

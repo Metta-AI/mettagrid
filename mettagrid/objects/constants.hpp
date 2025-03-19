@@ -59,6 +59,7 @@ std::vector<std::string> InventoryItemNames = {
 std::vector<std::string> ObjectTypeNames = {
     "agent",
     "wall",
+    "block",
     "mine.red",
     "mine.blue",
     "mine.green",
