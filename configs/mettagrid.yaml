@@ -131,6 +131,33 @@ game:
       cooldown: ${uniform:0, 50, 25}
       initial_items: 1
 
+    generator.red:
+      hp: 30
+      input_ore.red: 1
+      output_battery: 1
+      max_output: 5
+      conversion_ticks: 1
+      cooldown: ${uniform:0, 50, 25}
+      initial_items: 1
+
+    generator.blue:
+      hp: 30
+      input_ore.blue: 1
+      output_battery: 1
+      max_output: 5
+      conversion_ticks: 1
+      cooldown: ${uniform:0, 50, 25}
+      initial_items: 1
+
+    generator.green:
+      hp: 30
+      input_ore.green: 1
+      output_battery: 1
+      max_output: 5
+      conversion_ticks: 1
+      cooldown: ${uniform:0, 50, 25}
+      initial_items: 1
+
     armory:
       hp: 30
       input_ore: 3
@@ -159,6 +186,7 @@ game:
       conversion_ticks: 1
       cooldown: ${uniform:0, 10, 5}
       initial_items: 1
+
     factory:
       hp: 30
       input_blueprint: 1
