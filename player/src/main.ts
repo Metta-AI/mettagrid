@@ -621,21 +621,34 @@ function drawSelection(ctx: CanvasRenderingContext2D, selectedObject: any | null
     ctx.strokeStyle = "white";
     ctx.strokeRect(x * 64, y * 64, 64, 64);
 
-    // If object has a trajectory, draw it.
+    // If object has a trajectory, draw the path it took through the map.
     if (selectedObject.c.length > 0 || selectedObject.r.length > 0) {
-        ctx.beginPath();
-        ctx.strokeStyle = "white";
+
         ctx.lineWidth = 2;
-        for (let i = 0; i < step; i++) {
-            const cx = getAttr(selectedObject, "c", i);
-            const cy = getAttr(selectedObject, "r", i);
-            if (i == 0) {
-                ctx.moveTo(cx * 64 + 32, cy * 64 + 32);
-            } else {
-                ctx.lineTo(cx * 64 + 32, cy * 64 + 32);
+        // Draw both past and future trajectories.
+        for (let i = 1; i < replay.max_steps; i++) {
+            const cx0 = getAttr(selectedObject, "c", i-1);
+            const cy0 = getAttr(selectedObject, "r", i-1);
+            const cx1 = getAttr(selectedObject, "c", i);
+            const cy1 = getAttr(selectedObject, "r", i);
+            if (cx0 !== cx1 || cy0 !== cy1) {
+                const a = 1 - Math.abs(i - step) / 200;
+                if (a > 0) {
+                    if (step >= i) {
+                        // Past trajectory is black.
+                        ctx.strokeStyle = "black";
+                    } else {
+                        // Future trajectory is white.
+                        ctx.strokeStyle = "white";
+                    }
+                    ctx.globalAlpha = a;
+                    ctx.beginPath();
+                    ctx.moveTo(cx0 * 64 + 32, cy0 * 64 + 32);
+                    ctx.lineTo(cx1 * 64 + 32, cy1 * 64 + 32);
+                    ctx.stroke();
+                }
             }
         }
-        ctx.stroke();
     }
 }
 
