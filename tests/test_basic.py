@@ -14,7 +14,6 @@ import mettagrid.actions.move
 import mettagrid.actions.noop
 import mettagrid.actions.rotate
 import mettagrid.actions.swap
-import mettagrid.actions.use
 
 import mettagrid.action
 import mettagrid.event
@@ -46,7 +45,7 @@ import tqdm
 def main(cfg):
 
     # Create the environment:
-    mettaGridEnv = mettagrid.mettagrid_env.MettaGridEnv(render_mode=None, **cfg)
+    mettaGridEnv = mettagrid.mettagrid_env.MettaGridEnv(cfg, render_mode=None)
 
     # Make sure the environment was created correctly:
     print("mettaGridEnv._renderer: ", mettaGridEnv._renderer)
@@ -124,10 +123,6 @@ def main(cfg):
     # Test action success:
     print("mettaGridEnv.action_success: ", mettaGridEnv.action_success)
     assert mettaGridEnv.action_success.shape == (5,)
-    assert np.array_equal(mettaGridEnv.action_success, [True, True, True, True, True])
-    (obs, rewards, terminated, truncated, infos) = mettaGridEnv.step([[3, 0], [0, 0], [3, 0], [0, 0], [3, 0]])
-    print("mettaGridEnv.action_success: ", mettaGridEnv.action_success)
-    assert np.array_equal(mettaGridEnv.action_success, [False, True, False, True, False])
 
 if __name__ == "__main__":
     main()

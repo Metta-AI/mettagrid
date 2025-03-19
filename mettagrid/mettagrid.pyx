@@ -16,15 +16,16 @@ from mettagrid.grid_env cimport GridEnv
 from mettagrid.grid_object cimport GridObject
 from mettagrid.observation_encoder cimport (
     ObsType,
-    MettaObservationEncoder,
-    MettaCompactObservationEncoder
+    ObservationEncoder,
+    SemiCompactObservationEncoder
 )
 
 # Object imports
 from mettagrid.objects.mine cimport Mine
 from mettagrid.objects.agent cimport Agent
-from mettagrid.objects.reset_handler cimport ResetHandler
+from mettagrid.objects.production_handler cimport ProductionHandler
 from mettagrid.objects.wall cimport Wall
+from mettagrid.objects.converter cimport Converter
 from mettagrid.objects.generator cimport Generator
 from mettagrid.objects.altar cimport Altar
 from mettagrid.objects.lab cimport Lab
@@ -32,13 +33,14 @@ from mettagrid.objects.factory cimport Factory
 from mettagrid.objects.temple cimport Temple
 from mettagrid.objects.armory cimport Armory
 from mettagrid.objects.lasery cimport Lasery
-from mettagrid.objects.usable cimport Usable
 from mettagrid.objects.constants cimport ObjectLayers, InventoryItemNames
+
 
 # Action imports
 from mettagrid.actions.move import Move
 from mettagrid.actions.rotate import Rotate
-from mettagrid.actions.use import Use
+from mettagrid.actions.get_output import GetOutput
+from mettagrid.actions.put_recipe_items import PutRecipeItems
 from mettagrid.actions.attack import Attack
 from mettagrid.actions.attack_nearest import AttackNearest
 from mettagrid.actions.noop import Noop
@@ -57,19 +59,20 @@ cdef class MettaGrid(GridEnv):
         cfg = OmegaConf.create(env_cfg.game)
         self._cfg = cfg
 
-        obs_encoder = MettaObservationEncoder()
-        if env_cfg.compact_obs:
-            obs_encoder = MettaCompactObservationEncoder()
-
+        obs_encoder = ObservationEncoder()
+        if env_cfg.semi_compact_obs:
+            obs_encoder = SemiCompactObservationEncoder()
         actions = []
+        if cfg.actions.put_items.enabled:
+            actions.append(PutRecipeItems(cfg.actions.put_items))
+        if cfg.actions.get_items.enabled:
+            actions.append(GetOutput(cfg.actions.get_items))
         if cfg.actions.noop.enabled:
             actions.append(Noop(cfg.actions.noop))
         if cfg.actions.move.enabled:
             actions.append(Move(cfg.actions.move))
         if cfg.actions.rotate.enabled:
             actions.append(Rotate(cfg.actions.rotate))
-        if cfg.actions.use.enabled:
-            actions.append(Use(cfg.actions.use))
         if cfg.actions.attack.enabled:
             actions.append(Attack(cfg.actions.attack))
             actions.append(AttackNearest(cfg.actions.attack))
@@ -88,7 +91,6 @@ cdef class MettaGrid(GridEnv):
             cfg.obs_width, cfg.obs_height,
             obs_encoder,
             actions,
-            [ ResetHandler() ],
             track_last_action=env_cfg.track_last_action
         )
 
@@ -102,42 +104,33 @@ cdef class MettaGrid(GridEnv):
         }
 
         cdef Agent *agent
+        cdef Converter *converter = NULL
         cdef string group_name
         cdef unsigned char group_id
         for r in range(map.shape[0]):
             for c in range(map.shape[1]):
 
                 if map[r,c] == "wall":
-                    self._grid.add_object(new Wall(r, c, cfg.objects.wall))
+                    wall = new Wall(r, c, cfg.objects.wall)
+                    self._grid.add_object(wall)
                     self._stats.incr(b"objects.wall")
 
                 elif map[r,c] == "mine":
-                    self._grid.add_object(new Mine(r, c, cfg.objects.mine))
-                    self._stats.incr(b"objects.mine")
+                    converter = new Mine(r, c, cfg.objects.mine)
                 elif map[r,c] == "generator":
-                    self._grid.add_object(new Generator(r, c, cfg.objects.generator))
-                    self._stats.incr(b"objects.generator")
+                    converter = new Generator(r, c, cfg.objects.generator)
                 elif map[r,c] == "altar":
-                    self._grid.add_object(new Altar(r, c, cfg.objects.altar))
-                    self._stats.incr(b"objects.altar")
+                    converter = new Altar(r, c, cfg.objects.altar)
                 elif map[r,c] == "armory":
-                    self._grid.add_object(new Armory(r, c, cfg.objects.armory))
-                    self._stats.incr(b"objects.armory")
+                    converter = new Armory(r, c, cfg.objects.armory)
                 elif map[r,c] == "lasery":
-                    self._grid.add_object(new Lasery(r, c, cfg.objects.lasery))
-                    self._stats.incr(b"objects.lasery")
-
+                    converter = new Lasery(r, c, cfg.objects.lasery)
                 elif map[r,c] == "lab":
-                    self._grid.add_object(new Lab(r, c, cfg.objects.lab))
-                    self._stats.incr(b"objects.lab")
-
+                    converter = new Lab(r, c, cfg.objects.lab)
                 elif map[r,c] == "factory":
-                    self._grid.add_object(new Factory(r, c, cfg.objects.factory))
-                    self._stats.incr(b"objects.factory")
-
+                    converter = new Factory(r, c, cfg.objects.factory)
                 elif map[r,c] == "temple":
-                    self._grid.add_object(new Temple(r, c, cfg.objects.temple))
-                    self._stats.incr(b"objects.temple")
+                    converter = new Temple(r, c, cfg.objects.temple)
 
                 elif map[r,c].startswith("agent."):
                     group_name = map[r,c].split(".")[1]
@@ -147,7 +140,7 @@ cdef class MettaGrid(GridEnv):
                     del agent_cfg["rewards"]
                     for inv_item in InventoryItemNames:
                         rewards[inv_item] = rewards.get(inv_item, 0)
-                        rewards[inv_item + ".max"] = rewards.get(inv_item + ".max", 1000)
+                        rewards[inv_item + "_max"] = rewards.get(inv_item + "_max", 1000)
                     group_id = cfg.groups[group_name].id
                     agent = new Agent(
                         r, c, group_name, group_id, agent_cfg, rewards)
@@ -155,6 +148,16 @@ cdef class MettaGrid(GridEnv):
                     agent.agent_id = self._agents.size()
                     self.add_agent(agent)
                     self._group_sizes[group_id] += 1
+
+                if converter != NULL:
+                    stat = "objects." + map[r,c]
+                    self._stats.incr(stat)
+                    self._grid.add_object(converter)
+                    converter.set_event_manager(&self._event_manager)
+                    converter = NULL
+
+
+
     cpdef list[str] grid_features(self):
         return self._grid_features
 
@@ -167,7 +170,8 @@ cdef class MettaGrid(GridEnv):
         cdef GridObject *obj
         cdef ObsType[:] obj_data = np.zeros(len(self.grid_features()), dtype=self._obs_encoder.obs_np_type())
         cdef unsigned int obj_id, i
-        cdef MettaObservationEncoder obs_encoder = <MettaObservationEncoder>self._obs_encoder
+        cdef ObservationEncoder obs_encoder = self._obs_encoder
+        cdef vector[unsigned int] offsets
         objects = {}
         for obj_id in range(1, self._grid.objects.size()):
             obj = self._grid.object(obj_id)
@@ -180,7 +184,10 @@ cdef class MettaGrid(GridEnv):
                 "c": obj.location.c,
                 "layer": obj.location.layer
             }
-            obs_encoder._encode(obj, obj_data, 0)
+            offsets.resize(obs_encoder._type_feature_names[obj._type_id].size())
+            for i in range(offsets.size()):
+                offsets[i] = i
+            obs_encoder._encode(obj, obj_data, offsets)
             for i, name in enumerate(obs_encoder._type_feature_names[obj._type_id]):
                 objects[obj_id][name] = obj_data[i]
 

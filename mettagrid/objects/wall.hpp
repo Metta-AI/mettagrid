@@ -4,12 +4,8 @@
 #include <vector>
 #include <string>
 #include "../grid_object.hpp"
-#include "usable.hpp"
-#include "agent.hpp"
 #include "constants.hpp"
-
-typedef unsigned char ObsType;
-
+#include "metta_object.hpp"
 class Wall : public MettaObject {
 public:
     Wall(GridCoord r, GridCoord c, ObjectConfig cfg) {
@@ -17,15 +13,15 @@ public:
         MettaObject::init_mo(cfg);
     }
 
-    inline void obs(ObsType *obs) {
-        obs[0] = 1;
-        obs[1] = this->hp;
+    virtual void obs(ObsType *obs, const std::vector<unsigned int> &offsets) const override {
+        obs[offsets[0]] = 1;
+        obs[offsets[1]] = this->hp;
     }
 
     static std::vector<std::string> feature_names() {
         std::vector<std::string> names;
         names.push_back("wall");
-        names.push_back("wall:hp");
+        names.push_back("hp");
         return names;
     }
 };

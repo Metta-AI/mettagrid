@@ -7,7 +7,6 @@
 #include "../stats_tracker.hpp"
 #include "constants.hpp"
 #include "metta_object.hpp"
-typedef unsigned char ObsType;
 
 class Agent : public MettaObject {
 public:
@@ -48,7 +47,7 @@ public:
         }
         this->resource_reward_max.resize(InventoryItem::InventoryCount);
         for (int i = 0; i < InventoryItem::InventoryCount; i++) {
-            this->resource_reward_max[i] = rewards[InventoryItemNames[i] + ".max"];
+            this->resource_reward_max[i] = rewards[InventoryItemNames[i] + "_max"];
         }
         this->action_failure_penalty = rewards["action_failure_penalty"];
         this->color = 0;
@@ -94,16 +93,16 @@ public:
         this->current_resource_reward = new_reward;
     }
 
-    inline void obs(ObsType* obs) const {
-        obs[0] = 1;
-        obs[1] = group;
-        obs[2] = hp;
-        obs[3] = frozen;
-        obs[4] = orientation;
-        obs[5] = color;
+    virtual void obs(ObsType* obs, const std::vector<unsigned int> &offsets) const override {
+        obs[offsets[0]] = 1;
+        obs[offsets[1]] = group;
+        obs[offsets[2]] = hp;
+        obs[offsets[3]] = frozen;
+        obs[offsets[4]] = orientation;
+        obs[offsets[5]] = color;
 
         for (int i = 0; i < InventoryItem::InventoryCount; i++) {
-            obs[6 + i] = inventory[i];
+            obs[offsets[6 + i]] = inventory[i];
         }
     }
 
@@ -111,7 +110,7 @@ public:
         std::vector<std::string> names;
         names.push_back("agent");
         names.push_back("agent:group");
-        names.push_back("agent:hp");
+        names.push_back("hp");
         names.push_back("agent:frozen");
         names.push_back("agent:orientation");
         names.push_back("agent:color");
