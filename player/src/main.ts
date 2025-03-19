@@ -278,6 +278,85 @@ function onScroll(event: WheelEvent) {
 }
 
 
+// Load the atlas.
+async function loadAtlas(atlasUrl: string) {
+    const response = await fetch(atlasUrl);
+    const data = await response.json();
+    for (const key in data) {
+        if (data.hasOwnProperty(key)) {
+            atlas.set(key, data[key as keyof typeof data]);
+        }
+    }
+    console.log("atlas: ", atlas);
+}
+
+// Decompress a stream, used for compressed JSON from fetch or drag and drop.
+async function decompressStream(stream: ReadableStream<Uint8Array>): Promise<string> {
+    const decompressionStream = new DecompressionStream('deflate');
+    const decompressedStream = stream.pipeThrough(decompressionStream);
+
+    const reader = decompressedStream.getReader();
+    const chunks: Uint8Array[] = [];
+    let result;
+    while (!(result = await reader.read()).done) {
+        chunks.push(result.value);
+    }
+
+    const totalLength = chunks.reduce((acc, val) => acc + val.length, 0);
+    const flattenedChunks = new Uint8Array(totalLength);
+
+    let offset = 0;
+    for (const chunk of chunks) {
+        flattenedChunks.set(chunk, offset);
+        offset += chunk.length;
+    }
+
+    const decoder = new TextDecoder();
+    return decoder.decode(flattenedChunks);
+}
+
+// Load the replay.
+async function fetchReplay(replayUrl: string) {
+    // HTTP request to get the replay.
+    try {
+        const response = await fetch(replayUrl);
+        if (!response.ok) {
+            throw new Error("Network response was not ok");
+        }
+        if (response.body === null) {
+            throw new Error("Response body is null");
+        }
+        // Check the Content-Type header
+        const contentType = response.headers.get('Content-Type');
+        console.log("Content-Type: ", contentType);
+        if (contentType === "application/json") {
+            let replayData = await response.text();
+            loadReplayText(replayData);
+        } else if (contentType === "application/x-compress" || contentType === "application/octet-stream") {
+            // Compressed JSON.
+            const decompressedData = await decompressStream(response.body);
+            loadReplayText(decompressedData);
+        } else {
+            throw new Error("Unsupported content type: " + contentType);
+        }
+    } catch (error) {
+        showModal("error", "Error fetching replay", "Message: " + error);
+    }
+}
+
+async function readFile(file: File) {
+
+    const contentType = file.type;
+    console.log("Content-Type: ", contentType);
+    if (contentType === "application/json") {
+        loadReplayText(await file.text());
+    } else if (contentType === "application/x-compress" || contentType === "application/octet-stream") {
+        // Compressed JSON.
+        const decompressedData = await decompressStream(file.stream());
+        loadReplayText(decompressedData);
+    }
+}
+
 // Expand a sequence of values
 // [[0, value1], [2, value2], ...] -> [value1, value1, value2, ...]
 function expandSequence(sequence: any[], numSteps: number): any[] {
@@ -295,35 +374,9 @@ function expandSequence(sequence: any[], numSteps: number): any[] {
     return expanded;
 }
 
-// Load the atlas.
-async function loadAtlas(atlasUrl: string) {
-    const response = await fetch(atlasUrl);
-    const data = await response.json();
-    for (const key in data) {
-        if (data.hasOwnProperty(key)) {
-            atlas.set(key, data[key as keyof typeof data]);
-        }
-    }
-    console.log("atlas: ", atlas);
-}
-
-// Load the replay.
-async function fetchReplay(replayUrl: string) {
-    // HTTP request to get the replay.
-    try {
-        const response = await fetch(replayUrl);
-        if (!response.ok) {
-            throw new Error("Network response was not ok");
-        }
-        let replayData = await response.json();
-        loadReplay(replayData);
-    } catch (error) {
-        showModal("error", "Error fetching replay", "Message: " + error);
-    }
-}
-
-function loadReplay(replayData: any) {
-    replay = replayData;
+// Load the replay text.
+async function loadReplayText(replayData: any) {
+    replay = JSON.parse(replayData);
     console.log("replay: ", replay);
 
     // Go through each grid object and expand its key sequence.
@@ -339,6 +392,8 @@ function loadReplay(replayData: any) {
     scrubber.max = replay.max_steps.toString();
 
     closeModal();
+    focusFullMap(mapPanel);
+    onFrame();
 }
 
 // Handle scrubber change events.
@@ -788,30 +843,13 @@ function preventDefaults(event: Event) {
     event.stopPropagation();
 }
 
-function readFile(file: File) {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        if (event.target && typeof event.target.result === 'string') {
-            const jsonData = JSON.parse(event.target.result);
-            loadReplay(jsonData);
-            focusFullMap(mapPanel);
-            onFrame();
-        }
-    };
-    reader.readAsText(file);
-}
-
 function handleDrop(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
     const dt = event.dataTransfer;
     if (dt && dt.files.length) {
         const file = dt.files[0];
-        if (file.type === "application/json") {
-            readFile(file);
-        } else {
-            console.error("Please drop a valid JSON file.");
-        }
+        readFile(file);
     }
 }
 
