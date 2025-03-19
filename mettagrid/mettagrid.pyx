@@ -118,10 +118,16 @@ cdef class MettaGrid(GridEnv):
                     block = new Wall(r, c, cfg.objects.block)
                     self._grid.add_object(block)
                     self._stats.incr(b"objects.block")
-                elif map[r,c].startswith("mine."):
-                    converter = new Mine(r, c, cfg.objects[map[r,c]])
-                elif map[r,c].startswith("generator."):
-                    converter = new Generator(r, c, cfg.objects[map[r,c]])
+                elif map[r,c].startswith("mine"):
+                    m = map[r,c]
+                    if "." not in m:
+                        m = "mine.red"
+                    converter = new Mine(r, c, cfg.objects[m])
+                elif map[r,c].startswith("generator"):
+                    m = map[r,c]
+                    if "." not in m:
+                        m = "generator.red"
+                    converter = new Generator(r, c, cfg.objects[m])
                 elif map[r,c] == "altar":
                     converter = new Altar(r, c, cfg.objects.altar)
                 elif map[r,c] == "armory":
