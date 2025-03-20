@@ -7,7 +7,7 @@ from mettagrid.config.room.room import Room
 
 class Cylinder(Room):
     def __init__(self, width: int, height: int, cylinder_params: DictConfig,
-                 agents: int | DictConfig = 1, border_width: int = 1, border_object: str = "wall"):
+                 agents: int = 1, border_width: int = 1, border_object: str = "wall"):
         super().__init__(border_width=border_width, border_object=border_object)
         self._width = width
         self._height = height
