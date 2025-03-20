@@ -66,11 +66,11 @@ class MultiToDiscreteWrapper(gym.ActionWrapper):
         return self.env.step(mapped_action)
 
 
-def make(name: str, *args, **kwargs):
+def make(name: str, render_mode: str | None = None, overrides: list[str] | None = None):
     setup_omega_conf()
 
     with hydra.initialize(config_path="../configs"):
-        cfg = hydra.compose(config_name=name)
+        cfg = hydra.compose(config_name=name, overrides=overrides)
     
-    env = hydra.utils.instantiate(cfg, _recursive_=False, *args, **kwargs)
+    env = hydra.utils.instantiate(cfg, _recursive_=False, env_cfg=cfg, render_mode=render_mode)
     return env
