@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - andre-player
+      - main
     paths:
       - 'player/**'  # Run when any file in player directory changes
       - '.github/workflows/**'  # Run when workflow files change
