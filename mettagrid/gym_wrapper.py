@@ -4,8 +4,7 @@ import hydra
 import numpy as np
 import gymnasium as gym
 from gymnasium.spaces import Discrete
-
-from mettagrid.config.config import setup_omega_conf
+import mettagrid.mettagrid_env
 
 
 class SingleAgentWrapper(gym.Wrapper):
@@ -96,8 +95,6 @@ class RaylibRendererWrapper(gym.Wrapper):
     
 
 def make(name: str, render_mode: str | None = None, overrides: list[str] | None = None):
-    setup_omega_conf()
-
     with hydra.initialize(config_path="../configs"):
         cfg = hydra.compose(config_name=name, overrides=overrides)
     
