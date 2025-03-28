@@ -99,7 +99,7 @@ class MettaGridRaylibRenderer:
 
     def update(self, actions, observations, rewards, total_rewards, current_timestep):
         self.actions = actions
-        self.observations = observations #.permute(0, 3, 1, 2)
+        self.observations = observations
         self.current_timestep = current_timestep
         self.game_objects = self.env.grid_objects
         for obj_id, obj in self.game_objects.items():
