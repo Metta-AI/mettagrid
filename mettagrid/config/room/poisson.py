@@ -1,7 +1,7 @@
 from typing import Optional
 import numpy as np
 from omegaconf import DictConfig
-
+import logging
 from mettagrid.config.room.room import Room, GameObject
 
 class Poisson(Room):
@@ -17,11 +17,19 @@ class Poisson(Room):
         border_object: str = "wall"
     ):
         super().__init__(border_width=border_width, border_object=border_object)
+        logger = logging.getLogger(__name__)
+
         self._rng = np.random.default_rng(seed)
         self._width = width
         self._height = height
         self._objects = objects
         self._agents = agents
+
+        if mean_distance > width or mean_distance > height:
+            logger.warning(f"Mean distance {mean_distance} is greater than room size {width}x{height}. Setting to {min(width, height) - 1}")
+            mean_distance = min(width, height) - 1
+
+
         self.mean_distance = mean_distance
 
     def _build(self):
