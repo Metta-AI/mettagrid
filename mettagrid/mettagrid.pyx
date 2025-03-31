@@ -173,7 +173,7 @@ cdef class MettaGrid(GridEnv):
     def render(self):
         grid = self.render_ascii(["A", "#", "g", "c", "a"])
         for r in grid:
-            print("".join(r))
+                print("".join(r))
 
     cpdef grid_objects(self):
         cdef GridObject *obj
