@@ -14,7 +14,7 @@ for file in os.listdir("data"):
         img = pixie.read_image("data/" + file)
 
         # Find the lowest value in the heights array.
-        min_height = 9999999
+        min_height = atlas_image.height
         min_x = -1
         for i in range(len(heights)):
             if heights[i] < min_height:
