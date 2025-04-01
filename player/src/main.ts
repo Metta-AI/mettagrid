@@ -92,7 +92,7 @@ const DEFAULT_INFO_SPLIT = 0.25;   // default vertical split ratio
 const SCRUBBER_MARGIN = 64;        // margin for scrubber width
 const PANEL_BOTTOM_MARGIN = 60;    // bottom margin for panels
 
-const COMPRESSED_REPLAY_TYPE = [
+const COMPRESSED_REPLAY_TYPES = [
     "application/x-compress",
     "application/x-compressed",
     "application/octet-stream"
@@ -338,7 +338,7 @@ async function fetchReplay(replayUrl: string) {
         if (contentType === "application/json") {
             let replayData = await response.text();
             loadReplayText(replayData);
-        } else if (contentType && COMPRESSED_REPLAY_TYPE.includes(contentType)) {
+        } else if (contentType && COMPRESSED_REPLAY_TYPES.includes(contentType)) {
             // Compressed JSON.
             const decompressedData = await decompressStream(response.body);
             loadReplayText(decompressedData);
@@ -356,7 +356,7 @@ async function readFile(file: File) {
     console.log("Content-Type: ", contentType);
     if (contentType === "application/json") {
         loadReplayText(await file.text());
-    } else if (contentType && COMPRESSED_REPLAY_TYPE.includes(contentType)) {
+    } else if (contentType && COMPRESSED_REPLAY_TYPES.includes(contentType)) {
         // Compressed JSON.
         const decompressedData = await decompressStream(file.stream());
         loadReplayText(decompressedData);
