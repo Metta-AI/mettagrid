@@ -332,7 +332,7 @@ async function fetchReplay(replayUrl: string) {
         if (contentType === "application/json") {
             let replayData = await response.text();
             loadReplayText(replayData);
-        } else if (contentType === "application/x-compress" || contentType === "application/octet-stream") {
+        } else if (contentType === "application/x-compress" || contentType === "application/x-compressed" || contentType === "application/octet-stream") {
             // Compressed JSON.
             const decompressedData = await decompressStream(response.body);
             loadReplayText(decompressedData);
@@ -350,7 +350,7 @@ async function readFile(file: File) {
     console.log("Content-Type: ", contentType);
     if (contentType === "application/json") {
         loadReplayText(await file.text());
-    } else if (contentType === "application/x-compress" || contentType === "application/octet-stream") {
+    } else if (contentType === "application/x-compress" || contentType === "application/x-compressed" || contentType === "application/octet-stream") {
         // Compressed JSON.
         const decompressedData = await decompressStream(file.stream());
         loadReplayText(decompressedData);
