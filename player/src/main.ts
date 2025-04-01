@@ -92,7 +92,11 @@ const DEFAULT_INFO_SPLIT = 0.25;   // default vertical split ratio
 const SCRUBBER_MARGIN = 64;        // margin for scrubber width
 const PANEL_BOTTOM_MARGIN = 60;    // bottom margin for panels
 
-const COMPRESSED_REPLAY_TYPE = ["application/x-compress", "application/x-compressed", "application/octet-stream"];
+const COMPRESSED_REPLAY_TYPE = [
+    "application/x-compress",
+    "application/x-compressed",
+    "application/octet-stream"
+];
 
 // Get the html elements we will use.
 const scrubber = document.getElementById('main-scrubber') as HTMLInputElement;
