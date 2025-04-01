@@ -1,0 +1,15 @@
+{
+  "name": "webgpu-experiments",
+  "version": "1.0.0",
+  "description": "WebGPU experiments with TypeScript",
+  "main": "dist/exp4.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@webgpu/types": "^0.1.38",
+    "typescript": "^5.2.2"
+  }
+}
