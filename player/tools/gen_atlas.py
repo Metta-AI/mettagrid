@@ -5,7 +5,7 @@ import json
 # Pack all of the images into a single atlas.
 # We are using Skyline bin packing algorithm, its simple to implement, fast,
 # and works well small number of images. No fancy packing required!
-atlas_image = pixie.Image(1024, 1024)
+atlas_image = pixie.Image(2048, 2048)
 images = {}
 heights = [0] * atlas_image.width
 margin = 4
@@ -22,7 +22,7 @@ for file in os.listdir("data"):
                 this_x = i
                 # Are all heights less then this image?
                 for j in range(1, img.width):
-                    if i + j >= len(heights) or heights[i + j] > this_height:
+                    if i + j + margin >= len(heights) or heights[i + j] > this_height:
                         break
                 else:
                     print("found", file, this_x, this_height)
