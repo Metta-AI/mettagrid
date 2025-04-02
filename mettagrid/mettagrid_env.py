@@ -10,6 +10,8 @@ from omegaconf import OmegaConf, DictConfig
 
 from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
 
+
+
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     def __init__(self, env_cfg: DictConfig, render_mode: str, buf=None, **kwargs):
         self._render_mode = render_mode
@@ -20,7 +22,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         super().__init__(buf)
 
-    def make_env(self):
+    def make_env(self, env_cfg: DictConfig = None):
+        if env_cfg is None:
+            env_cfg = self._cfg_template
         self._env_cfg = OmegaConf.create(copy.deepcopy(self._cfg_template))
 
         OmegaConf.resolve(self._env_cfg)
@@ -41,8 +45,8 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         #self._env = RewardTracker(self._env)
         #self._env = FeatureMasker(self._env, self._cfg.hidden_features)
 
-    def reset(self, seed=None, options=None):
-        self.make_env()
+    def reset(self, seed=None, options=None, env_cfg: DictConfig = None):
+        self.make_env(env_cfg)
 
         self._c_env.set_buffers(
             self.observations,
@@ -167,6 +171,21 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
     def close(self):
         pass
+
+class MettaGridEnvSelector(MettaGridEnv):
+    def __init__(self, env_cfgs: list[DictConfig], render_mode: str, buf=None, **kwargs):
+        self._env_cfgs = env_cfgs
+        self._render_mode = render_mode
+        self._buf = buf
+        self._kwargs = kwargs
+        #select env randomly from the list of envs in the cfg
+        env_cfg = random.choice(env_cfgs)
+        super().__init__(env_cfg, render_mode, buf, **kwargs)
+
+    def reset(self, seed=None, options=None):
+        env = random.choice(self._env_cfgs)
+        return super().reset(seed, options, env)
+
 
 def make_env_from_cfg(cfg_path: str, *args, **kwargs):
     cfg = OmegaConf.load(cfg_path)
