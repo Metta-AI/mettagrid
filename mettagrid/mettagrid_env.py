@@ -7,9 +7,11 @@ import hydra
 import numpy as np
 import pufferlib
 from omegaconf import OmegaConf, DictConfig
-
+from util.config import config_from_path
 from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
 
+import logging
+logger = logging.getLogger(__name__)
 
 
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
@@ -22,10 +24,10 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         super().__init__(buf)
 
-    def make_env(self, env_cfg: DictConfig = None):
+    def make_env(self, env_cfg: DictConfig | None = None):
         if env_cfg is None:
             env_cfg = self._cfg_template
-        self._env_cfg = OmegaConf.create(copy.deepcopy(self._cfg_template))
+        self._env_cfg = OmegaConf.create(copy.deepcopy(env_cfg))
 
         OmegaConf.resolve(self._env_cfg)
 
@@ -45,8 +47,8 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         #self._env = RewardTracker(self._env)
         #self._env = FeatureMasker(self._env, self._cfg.hidden_features)
 
-    def reset(self, seed=None, options=None, env_cfg: DictConfig = None):
-        self.make_env(env_cfg)
+    def reset(self, seed=None, options=None):
+        self.make_env()
 
         self._c_env.set_buffers(
             self.observations,
@@ -172,19 +174,30 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     def close(self):
         pass
 
-class MettaGridEnvSelector(MettaGridEnv):
-    def __init__(self, env_cfgs: list[DictConfig], render_mode: str, buf=None, **kwargs):
-        self._env_cfgs = env_cfgs
-        self._render_mode = render_mode
-        self._buf = buf
-        self._kwargs = kwargs
-        #select env randomly from the list of envs in the cfg
-        env_cfg = random.choice(env_cfgs)
-        super().__init__(env_cfg, render_mode, buf, **kwargs)
+class MettaGridEnvSet(MettaGridEnv):
 
-    def reset(self, seed=None, options=None):
-        env = random.choice(self._env_cfgs)
-        return super().reset(seed, options, env)
+    def __init__(self, env_cfg: DictConfig, render_mode: str, buf=None, **kwargs):
+        self._env_cfgs = env_cfg.envs
+        self._num_agents_global = env_cfg.num_agents
+
+        env_cfg = self.select_env()
+
+        super().__init__(env_cfg, render_mode, buf, **kwargs)
+        self._cfg_template = None
+
+    def select_env(self):
+        selected_env = random.choice(self._env_cfgs)
+        logger.info("Using env: {}".format(selected_env))
+        env_cfg = config_from_path(selected_env)
+        if self._num_agents_global != env_cfg.game.num_agents:
+            raise ValueError("For MettaGridEnvSet, the number of agents must be the same for all environments. Global: {}, Env: {}".format(self._num_agents_global, env_cfg.game.num_agents))
+        return env_cfg
+
+
+
+    def make_env(self):
+        env_cfg = self.select_env()
+        super().make_env(env_cfg)
 
 
 def make_env_from_cfg(cfg_path: str, *args, **kwargs):
