@@ -4,7 +4,7 @@ from omegaconf import DictConfig
 import logging
 from mettagrid.config.room.room import Room, GameObject
 
-class Poisson(Room):
+class MeanDistance(Room):
     def __init__(
         self,
         width: int,
