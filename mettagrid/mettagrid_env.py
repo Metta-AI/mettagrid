@@ -187,13 +187,10 @@ class MettaGridEnvSet(MettaGridEnv):
 
     def select_env(self):
         selected_env = random.choice(self._env_cfgs)
-        logger.info("Using env: {}".format(selected_env))
         env_cfg = config_from_path(selected_env)
         if self._num_agents_global != env_cfg.game.num_agents:
             raise ValueError("For MettaGridEnvSet, the number of agents must be the same for all environments. Global: {}, Env: {}".format(self._num_agents_global, env_cfg.game.num_agents))
         return env_cfg
-
-
 
     def make_env(self):
         env_cfg = self.select_env()
