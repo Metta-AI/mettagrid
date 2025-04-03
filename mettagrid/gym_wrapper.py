@@ -1,11 +1,12 @@
-from typing import Any
+from typing import Any, NamedTuple
 
 import hydra
 import numpy as np
 import gymnasium as gym
 from gymnasium.spaces import Discrete
+import torch
 
-from mettagrid.config.config import setup_omega_conf
+import mettagrid.mettagrid_env
 
 
 class SingleAgentWrapper(gym.Wrapper):
@@ -45,7 +46,7 @@ class MultiToDiscreteWrapper(gym.ActionWrapper):
         arg_counts = [a + 1 for a in max_action_args]
 
         self.n_actions = np.sum(arg_counts)
-        self.action_map = np.zeros((self.n_actions, 2), dtype=np.uint32)
+        self.action_map = np.zeros((self.n_actions, 2), dtype=np.int32)
 
         i = 0
         for action, max_arg in enumerate(arg_counts):
@@ -66,11 +67,51 @@ class MultiToDiscreteWrapper(gym.ActionWrapper):
         return self.env.step(mapped_action)
 
 
-def make(name: str, render_mode: str | None = None, overrides: list[str] | None = None):
-    setup_omega_conf()
 
+class RaylibRendererWrapper(gym.Wrapper):
+    def __init__(self, env, cfg):
+        super(RaylibRendererWrapper, self).__init__(env)
+
+        import mettagrid.renderer.raylib.raylib_renderer as rl
+        self.renderer = rl.MettaGridRaylibRenderer(self.env._c_env, cfg.game)
+        self.total_rewards = np.zeros(self.env.num_agents)
+
+    def step(self, actions):
+        with torch.no_grad():
+            obs_tensor = torch.as_tensor(self._obs).cpu()
+
+        self.renderer.update(
+            actions,
+            obs_tensor,
+            self.rewards,
+            self.total_rewards,
+            self.env._c_env.current_timestep()
+        )
+        self.renderer.render_and_wait()
+        actions = self.renderer.get_actions()
+
+        self._obs, self.rewards, terminated, truncated, info = self.env.step(actions)
+        self.total_rewards += self.rewards
+
+        return self._obs, self.rewards, terminated, truncated, info
+    
+    def render(self):
+        return self.renderer.render_and_wait()
+    
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
+        self._obs, infos = self.env.reset(seed=seed, options=options)
+        self.total_rewards = np.zeros(self.env.num_agents)
+        self.rewards = np.zeros(self.env.num_agents)
+
+        return self._obs, infos
+    
+
+def make(name: str, render_mode: str | None = None, overrides: list[str] | None = None):
     with hydra.initialize(config_path="../configs"):
         cfg = hydra.compose(config_name=name, overrides=overrides)
-    
+        
     env = hydra.utils.instantiate(cfg, _recursive_=False, env_cfg=cfg, render_mode=render_mode)
+    if render_mode == "human":
+        env = RaylibRendererWrapper(env, cfg)
+
     return env
