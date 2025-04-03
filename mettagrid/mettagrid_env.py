@@ -1,7 +1,7 @@
 import copy
 import random
 from typing import Any, Dict
-
+import logging
 import gymnasium as gym
 import hydra
 import numpy as np
@@ -9,7 +9,6 @@ import pufferlib
 from omegaconf import OmegaConf, DictConfig
 from util.config import config_from_path
 from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
-import logging
 
 logger = logging.getLogger(__name__)
 
