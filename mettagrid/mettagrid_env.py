@@ -25,8 +25,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         super().__init__(buf)
 
     def make_env(self, env_cfg: DictConfig | None = None):
-        if env_cfg is None:
-            env_cfg = self._cfg_template
+        env_cfg = env_cfg or self._cfg_template
         self._env_cfg = OmegaConf.create(copy.deepcopy(env_cfg))
 
         OmegaConf.resolve(self._env_cfg)
