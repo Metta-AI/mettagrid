@@ -9,10 +9,9 @@ import pufferlib
 from omegaconf import OmegaConf, DictConfig
 from util.config import config_from_path
 from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
-
 import logging
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
 
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     def __init__(self, env_cfg: DictConfig, render_mode: str, buf=None, **kwargs):
