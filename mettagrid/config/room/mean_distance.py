@@ -29,7 +29,6 @@ class MeanDistance(Room):
             logger.warning(f"Mean distance {mean_distance} is greater than room size {width}x{height}. Setting to {min(width, height) - 1}")
             mean_distance = min(width, height) - 1
 
-
         self.mean_distance = mean_distance
 
     def _build(self):
@@ -45,10 +44,7 @@ class MeanDistance(Room):
         # For each object type and the number of instances required:
         for obj_name, count in self._objects.items():
             placed = 0
-            attempts = 0
-            max_attempts = count * 100  # prevent infinite loops if placement fails
-            while placed < count and attempts < max_attempts:
-                attempts += 1
+            while placed < count:
                 # Sample a distance from a Poisson distribution.
                 d = self._rng.poisson(lam=self.mean_distance)
                 # Ensure a nonzero distance (so objects don't collide with the agent)
@@ -67,18 +63,18 @@ class MeanDistance(Room):
                     grid[candidate] == "empty"):
                     grid[candidate] = obj_name
                     placed += 1
-            if placed < count:
-                print(f"Warning: Could only place {placed} out of {count} instances of object {obj_name}")
 
         # If more than one agent is required, place the remaining agents randomly.
         if isinstance(self._agents, int):
             # We already placed one agent at the center.
             for _ in range(1, self._agents):
-                free_positions = list(zip(*np.where(grid == "empty")))
-                if not free_positions:
+                while True:
+                    free_positions = list(zip(*np.where(grid == "empty")))
+                    if not free_positions:
+                        break
+                    pos = free_positions[self._rng.integers(0, len(free_positions))]
+                    grid[pos] = "agent.agent"
                     break
-                pos = free_positions[self._rng.integers(0, len(free_positions))]
-                grid[pos] = "agent.agent"
         elif isinstance(self._agents, DictConfig):
             # If agents are specified via a DictConfig (e.g. different types),
             # first use the center for the first agent and then assign the rest randomly.
