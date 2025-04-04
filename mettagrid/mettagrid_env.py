@@ -6,8 +6,7 @@ import gymnasium as gym
 import hydra
 import numpy as np
 import pufferlib
-from omegaconf import OmegaConf, DictConfig
-from util.config import config_from_path
+from omegaconf import OmegaConf, DictConfig, ConfigKeyError
 from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
 
 logger = logging.getLogger(__name__)
@@ -198,6 +197,21 @@ def make_env_from_cfg(cfg_path: str, *args, **kwargs):
     cfg = OmegaConf.load(cfg_path)
     env = MettaGridEnv(cfg, *args, **kwargs)
     return env
+
+
+def config_from_path(config_path: str, overrides: DictConfig = None) -> DictConfig:
+    env_cfg = hydra.compose(config_name=config_path)
+    if config_path.startswith("/"):
+        config_path = config_path[1:]
+    path = config_path.split("/")
+    for p in path[:-1]:
+        env_cfg = env_cfg[p]
+    if overrides is not None:
+        try:
+            env_cfg = OmegaConf.merge(env_cfg, overrides)
+        except ConfigKeyError:
+            logger.warning(f"Cannot parse overrides when using multienv_mettagrid")
+    return env_cfg
 
 def oc_uniform(min_val, max_val, center, *, _root_):
     sampling = _root_.get("sampling", 0)
