@@ -25,7 +25,10 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         OmegaConf.resolve(self._env_cfg)
 
-        self._map_builder = hydra.utils.instantiate(self._env_cfg.game.map_builder)
+        self._map_builder = hydra.utils.instantiate(
+            self._env_cfg.game.map_builder,
+            _recursive_=self._env_cfg.game.recursive_map_builder)
+
         env_map = self._map_builder.build()
         map_agents = np.count_nonzero(np.char.startswith(env_map, "agent"))
         assert self._env_cfg.game.num_agents == map_agents, \
