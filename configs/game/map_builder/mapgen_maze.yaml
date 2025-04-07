@@ -1,0 +1,16 @@
+_target_: mettagrid.map.mapgen.MapGen
+
+width: ${uniform:20,80,40}
+height: ${uniform:20,80,40}
+
+root:
+  _target_: mettagrid.map.scenes.room_grid.RoomGrid
+  rows: 2
+  columns: 2
+
+  children:
+  - select: all
+    scene:
+      _target_: mettagrid.map.scenes.maze.MazeKruskal
+      start_pos: top-left
+      end_pos: bottom-right

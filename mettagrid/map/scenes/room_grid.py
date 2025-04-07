@@ -1,8 +1,7 @@
-import numpy as np
 from typing import Any, List
 
-from .scene import Scene
-from .node import Node
+from ..scene import Scene
+from ..node import Node
 
 class RoomGrid(Scene):
     """

@@ -1,0 +1,67 @@
+# This config shows the features of the mapgen system.
+_target_: mettagrid.map.mapgen.MapGen
+
+# With mapgen, top-level width and height must be known in advance. We don't do layout based on children components.
+# So this is not exactly the same as the old simple.yaml config, but it's very close.
+width: 50
+height: 40
+
+# Outer border width. Defaults to 6.
+border_width: 2
+
+# MapGen is a tree of nodes, instantiated from scenes.
+# You can think of scenes as blueprints for nodes: parameters and the behavior that instantiate nodes.
+# The terminology is inspired by Godot.
+
+# This is the root scene.
+root:
+  # Class of scene to instantiate.
+  _target_: mettagrid.map.scenes.room_grid.RoomGrid
+
+  # Parameters to pass to the scene constructor.
+  rows: 2
+  columns: 3
+  border_width: 1
+
+
+  # Most scenes can have children scenes.
+  # Scenes can be nested arbitrarily.
+  children:
+  # This is a list of children to render.
+  # Children are applied in order, so you can think of them as "paint" commands or layers.
+  # Children that come later in the list will be painted on top of children that come earlier, and can erase or modify the grid.
+  - # ============== First child ==============
+    # This is a selector that selects "areas" from the parent scene.
+    # Each scene can define multiple areas during its render phase.
+    # Selectors can select multiple areas, so each child *scene* in the list can produce multiple *nodes*.
+    select: all # Select all areas from the parent scene.
+
+    scene:
+      _target_: mettagrid.map.scenes.random.Random
+
+      objects: {}
+      agents: 1 # render one agent in each area.
+
+  - select:
+      # Select all areas that have the tag "room".
+      # In RoomGrid, this is the only type of area, so this is equivalent to `select: all``.
+      tags:
+        - room
+      # Take some areas; if not set, all areas are selected.
+      take:
+        count: 2 # take two areas
+        mode: random # random mode is default; other modes are "first" and "last".
+
+    scene:
+      _target_: mettagrid.map.scenes.maze.MazeKruskal
+
+  - select: all
+
+    scene:
+      _target_: mettagrid.map.scenes.random.Random
+
+      # Let's place some objects in each room.
+      # Note that for the maze room it will take existing walls into account.
+      objects:
+        mine: 1
+        generator: 2
