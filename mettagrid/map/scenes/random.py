@@ -12,7 +12,7 @@ class Random(Scene):
     """
     def __init__(
         self,
-        objects: DictConfig,
+        objects: DictConfig | dict = {},
         agents: int | DictConfig = 0,
         seed: Optional[int] = None,
     ):
@@ -33,26 +33,19 @@ class Random(Scene):
         empty_mask = node.grid == "empty"
         empty_count = np.sum(empty_mask)
         empty_indices = np.where(empty_mask.flatten())[0]
-        
-        # Check if total objects exceed available empty space and adjust counts if needed
-        total_objects = sum(count for count in self._objects.values()) + len(agents)
-        while total_objects > empty_count * 2 / 3 and total_objects > 0:
-            for obj_name in self._objects:
-                self._objects[obj_name] = max(1, self._objects[obj_name] // 2)
-            total_objects = sum(count for count in self._objects.values()) + len(agents)
-            
+
         # Add all objects in the proper amounts to a single large array
         symbols = []
         for obj_name, count in self._objects.items():
             symbols.extend([obj_name] * count)
         symbols.extend(agents)
-        
+
         assert len(symbols) <= empty_count, f"Too many objects for available empty cells: {len(symbols)} > {empty_count}"
-        
+
         # Shuffle the symbols
         symbols = np.array(symbols).astype(str)
         self._rng.shuffle(symbols)
-        
+
         # Place objects only in empty cells
         if len(symbols) > 0:
             # Shuffle the indices of empty cells

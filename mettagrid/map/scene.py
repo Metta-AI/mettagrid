@@ -26,10 +26,8 @@ class Scene:
     def render(self, node: Node):
         self._render(node)
 
-        for child in self._children:
-            selector = child["select"]
-            areas = node.select_areas(selector)
+        for query in self._children:
+            areas = node.select_areas(query)
             for area in areas:
-                child_node = child["scene"].make_node(area["grid"])
-                print(type(child_node.scene))
+                child_node = query["scene"].make_node(area["grid"])
                 child_node.render()

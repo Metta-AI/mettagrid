@@ -16,8 +16,7 @@ root:
   border_width: 0
 
   children:
-  - select: all
-    scene:
+  - scene:
       _target_: mettagrid.map.scenes.random.Random
 
       objects:

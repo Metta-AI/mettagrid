@@ -19,49 +19,86 @@ root:
   _target_: mettagrid.map.scenes.room_grid.RoomGrid
 
   # Parameters to pass to the scene constructor.
+  # This will draw 6 rooms in a 2x3 grid, all empty.
   rows: 2
   columns: 3
   border_width: 1
 
 
-  # Most scenes can have children scenes.
-  # Scenes can be nested arbitrarily.
+  # Most scenes can have children nodes.
+  # Each child is created in the areas (slots) defined by the parent scene, so the specific areas are determined by the parent scene.
+  #
+  # You can think of the children config listed below as a list of SQL-like queries.
+  # Each child on the list can match several areas and so produce multiple nodes.
+  #
+  # Children are applied in order, so you can also think of them as "paint" commands or layers.
+  # Children that come later in the list will be rendered on top of the map that was rendered previously, and can erase or modify the map.
   children:
-  # This is a list of children to render.
-  # Children are applied in order, so you can think of them as "paint" commands or layers.
-  # Children that come later in the list will be painted on top of children that come earlier, and can erase or modify the grid.
-  - # ============== First child ==============
-    # This is a selector that selects "areas" from the parent scene.
-    # Each scene can define multiple areas during its render phase.
-    # Selectors can select multiple areas, so each child *scene* in the list can produce multiple *nodes*.
-    select: all # Select all areas from the parent scene.
 
-    scene:
-      _target_: mettagrid.map.scenes.random.Random
+  - # First, let's turn two rooms into mazes.
 
-      objects: {}
-      agents: 1 # render one agent in each area.
+    # Take only two areas; if not set, all matching areas are selected.
+    limit: 2
 
-  - select:
-      # Select all areas that have the tag "room".
-      # In RoomGrid, this is the only type of area, so this is equivalent to `select: all``.
-      tags:
-        - room
-      # Take some areas; if not set, all areas are selected.
-      take:
-        count: 2 # take two areas
-        mode: random # random mode is default; other modes are "first" and "last".
+    # Random mode is default, which means "take 2 random areas"; other modes are "index" and "reverse_index".
+    # If `limit` is not set, `order_by` is ignored.
+    order_by: random
 
+    # Optionally lock selected areas; will be explained later.
+    lock: lockname
+
+    # Scene will be instantiated for each matched area.
     scene:
       _target_: mettagrid.map.scenes.maze.MazeKruskal
 
-  - select: all
+      # Scenes can be nested arbitrarily.
+      # MazeKruskal defines a 1x1 area at each of the four corners, so we can use these to place an agent and an altar.
+      children:
+      - where: # similar to SQL "WHERE" clause; selects areas based on their tags.
+          # Each corner is tagged, so we can select them individually.
+          tags:
+          - top-left
+        scene:
+          _target_: mettagrid.map.scenes.inline_ascii.InlineAscii
+          data: A
+      - where:
+          tags:
+          - bottom-right
+        scene:
+          _target_: mettagrid.map.scenes.inline_ascii.InlineAscii
+          data: a
 
+  - # No conditions, so all areas are selected.
     scene:
       _target_: mettagrid.map.scenes.random.Random
 
       # Let's place some objects in each room.
-      # Note that for the maze room it will take existing walls into account.
+      # Note that for the maze rooms, Random scene will take existing walls into account.
       objects:
         mine: 1
         generator: 2
+
+  # What if we want to draw a custom scene in one room, but that room shouldn't have a maze? Let's use a lock.
+  #
+  # Lock will exclude the areas that were already selected by previous children that use the same lock name.
+  # (Inspired by GitHub Actions "concurrency" feature.)
+  # So this guarantees that the custom map will not overlap with the maze.
+  - lock: lockname
+    limit: 1
+
+    scene:
+      _target_: mettagrid.map.scenes.inline_ascii.InlineAscii
+      data: |
+        WWWWWWWWWW
+             A    
+        WWWWWWWWWW
+      # Indenting in YAML is not easy, so we can specify row and column explicitly.
+      # If not set, the map will be drawn in the top-left corner of the area.
+      row: 2
+      column: 3
+
+  # Fill the remaining 3 rooms with agents.
+  - lock: lockname
+    scene:
+      _target_: mettagrid.map.scenes.random.Random
+      agents: 1

@@ -3,14 +3,28 @@ _target_: mettagrid.map.mapgen.MapGen
 width: ${uniform:20,80,40}
 height: ${uniform:20,80,40}
 
+border_width: 1
+
 root:
   _target_: mettagrid.map.scenes.room_grid.RoomGrid
   rows: 2
   columns: 2
 
   children:
-  - select: all
-    scene:
-      _target_: mettagrid.map.scenes.maze.MazeKruskal
-      start_pos: top-left
-      end_pos: bottom-right
+  - scene:
+    _target_: mettagrid.map.scenes.maze.MazeKruskal
+
+    children:
+    - where: # similar to SQL "WHERE" clause; selects areas based on their tags.
+        # Each corner is tagged, so we can select them individually.
+        tags:
+        - top-left
+      scene:
+        _target_: mettagrid.map.scenes.inline_ascii.InlineAscii
+        data: A
+    - where:
+        tags:
+        - bottom-right
+      scene:
+        _target_: mettagrid.map.scenes.inline_ascii.InlineAscii
+        data: a

@@ -1,11 +1,13 @@
 import random
-from typing import Literal, Tuple, Union
+from typing import Any, List, Literal, Tuple, Union
 
 from mettagrid.config.room.utils import create_grid, set_position
 from mettagrid.map.scene import Scene
 from mettagrid.map.node import Node
 
 Anchor = Union[Literal["top-left"], Literal["top-right"], Literal["bottom-left"], Literal["bottom-right"]]
+
+ALL_ANCHORS: List[Anchor] = ["top-left", "top-right", "bottom-left", "bottom-right"]
 
 def anchor_to_position(anchor: Anchor, width: int, height: int) -> Tuple[int, int]:
     if anchor == "top-left":
@@ -20,16 +22,10 @@ def anchor_to_position(anchor: Anchor, width: int, height: int) -> Tuple[int, in
 # Maze generation using Randomized Kruskal's algorithm
 class MazeKruskal(Scene):
     EMPTY, WALL = "empty", "wall"
-    START, END = "agent.agent", "altar"
 
-    _start_pos: Anchor
-    _end_pos: Anchor
-
-    def __init__(self, start_pos: Anchor = "top-left", end_pos: Anchor = "bottom-right", seed=None):
-        super().__init__()
+    def __init__(self, seed=None, children: list[Any] = []):
+        super().__init__(children=children)
         self._rng = random.Random(seed)
-        self._start_pos = start_pos
-        self._end_pos = end_pos
 
     def _render(self, node: Node):
         grid = node.grid
@@ -67,9 +63,8 @@ class MazeKruskal(Scene):
                 grid[wy, wx] = self.EMPTY
                 union(cell1, cell2)
 
-        sx, sy = anchor_to_position(self._start_pos, width, height)
-        ex, ey = anchor_to_position(self._end_pos, width, height)
-        grid[sy, sx] = self.START
-        grid[ey, ex] = self.END
+        for anchor in ALL_ANCHORS:
+            x, y = anchor_to_position(anchor, node.width, node.height)
+            node.make_area(x, y, 1, 1, tags=[anchor])
 
         return grid
