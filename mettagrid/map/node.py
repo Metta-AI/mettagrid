@@ -74,6 +74,8 @@ class Node:
                 filtered_areas = filtered_areas[:limit]
             elif order_by == "last":
                 filtered_areas = filtered_areas[-limit:]
+            else:
+                raise ValueError(f"Invalid order_by value: {order_by}")
 
         if lock:
             # Add final list of used areas to the lock.

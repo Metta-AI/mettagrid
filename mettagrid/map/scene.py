@@ -28,6 +28,7 @@ class Scene:
 
         for query in self._children:
             areas = node.select_areas(query)
+            # print(f"Found {len(areas)} areas matching query {query}")
             for area in areas:
                 child_node = query["scene"].make_node(area["grid"])
                 child_node.render()
