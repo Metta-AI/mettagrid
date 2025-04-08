@@ -45,7 +45,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         #self._env = FeatureMasker(self._env, self._cfg.hidden_features)
 
     def reset(self, seed=None, options=None):
-        self.make_env()
+        self.reset_env()
 
         self._c_env.set_buffers(
             self.observations,
