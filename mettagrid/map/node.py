@@ -66,7 +66,6 @@ class Node:
 
 
         limit = query.get("limit")
-        print(self._locks, len(filtered_areas), limit)
         if limit is not None and limit < len(filtered_areas):
             order_by = query.get("order_by", "random")
             if order_by == "random":

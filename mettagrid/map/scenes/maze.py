@@ -1,7 +1,6 @@
 import random
 from typing import Any, List, Literal, Tuple, Union
 
-from mettagrid.config.room.utils import create_grid, set_position
 from mettagrid.map.scene import Scene
 from mettagrid.map.node import Node
 
@@ -19,12 +18,32 @@ def anchor_to_position(anchor: Anchor, width: int, height: int) -> Tuple[int, in
     elif anchor == "bottom-right":
         return (width - 1, height - 1)
 
-# Maze generation using Randomized Kruskal's algorithm
 class MazeKruskal(Scene):
+    """
+    Maze generation using Randomized Kruskal's algorithm.
+
+    The generated maze doesn't have an outer border.
+
+    Example output:
+    ┌─────────┐
+    │         │
+    │ # ##### │
+    │ # # #   │
+    │#### ### │
+    │   # # # │
+    │ ### # # │
+    │         │
+    │## ### ##│
+    │     #   │
+    └─────────┘
+
+    It's preferred that width and height are odd. If they are even, last row and/or column will be walled off. You can override this by setting extra_space_empty=True.
+    """
     EMPTY, WALL = "empty", "wall"
 
-    def __init__(self, seed=None, children: list[Any] = []):
+    def __init__(self, extra_space_empty: bool = False, seed=None, children: list[Any] = []):
         super().__init__(children=children)
+        self._extra_space_empty = extra_space_empty
         self._rng = random.Random(seed)
 
     def _render(self, node: Node):
@@ -32,6 +51,18 @@ class MazeKruskal(Scene):
         width = node.width
         height = node.height
         grid[:] = self.WALL
+
+        print(width, height, self._extra_space_empty)
+
+        if width % 2 == 0:
+            width -= 1
+            if self._extra_space_empty:
+                grid[-1, :] = self.EMPTY
+
+        if height % 2 == 0:
+            height -= 1
+            if self._extra_space_empty:
+                grid[:, -1] = self.EMPTY
 
         cells = [(x, y) for y in range(0, height, 2) for x in range(0, width, 2)]
         for (x, y) in cells:
@@ -64,7 +95,7 @@ class MazeKruskal(Scene):
                 union(cell1, cell2)
 
         for anchor in ALL_ANCHORS:
-            x, y = anchor_to_position(anchor, node.width, node.height)
+            x, y = anchor_to_position(anchor, width, height)
             node.make_area(x, y, 1, 1, tags=[anchor])
 
         return grid
