@@ -7,7 +7,6 @@ import hydra
 import numpy as np
 import pufferlib
 from omegaconf import OmegaConf, DictConfig
-from omegaconf.errors import ConfigKeyError
 from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
 
 logger = logging.getLogger(__name__)
