@@ -81,7 +81,6 @@ root:
   # What if we want to draw a custom scene in one room, but that room shouldn't have a maze? Let's use a lock.
   #
   # Lock will exclude the areas that were already selected by previous children that use the same lock name.
-  # (Inspired by GitHub Actions "concurrency" feature.)
   # So this guarantees that the custom map will not overlap with the maze.
   - lock: lockname
     limit: 1

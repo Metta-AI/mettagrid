@@ -316,32 +316,3 @@ class BSP(Scene):
                     grid[line.start[1]:line.start[1]+line.length, line.start[0]] = "empty"
                 else:
                     grid[line.start[1], line.start[0]:line.start[0]+line.length] = "empty"
-
-            # room1 = rooms[i]
-            # room2 = rooms[i + 1]
-
-            # if room1 is None or room2 is None:
-            #     continue # TODO
-
-            # assert room1 and room2
-            
-
-            # transposed = False
-            # if corridor_direction == "horizontal":
-            #     room1 = room1.transpose()
-            #     room2 = room2.transpose()
-            #     transposed = True
-
-            # if room1.y > room2.y:
-            #     (room1, room2) = (room2, room1)
-
-            # lines = connect_rooms(room1, room2)
-
-            # for line in lines:
-            #     if transposed:
-            #         line = line.transpose()
-
-            #     if line.direction == "vertical":
-            #         grid[line.start[1]:line.start[1]+line.length, line.start[0]] = "empty"
-            #     else:
-            #         grid[line.start[1], line.start[0]:line.start[0]+line.length] = "empty"
