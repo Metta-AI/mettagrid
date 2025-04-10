@@ -1,6 +1,6 @@
 import copy
 import random
-from typing import Any, Dict
+from typing import Any, Dict, List
 import gymnasium as gym
 import hydra
 import numpy as np
@@ -173,20 +173,26 @@ class MettaGridEnvSet(MettaGridEnv):
     This is a wrapper around MettaGridEnv that allows for multiple environments to be used for training.
     """
 
-    def __init__(self, env_cfg: DictConfig, render_mode: str, buf=None, **kwargs):
+    def __init__(self, env_cfg: DictConfig, probabilities: List[float] | None, render_mode: str, buf=None, **kwargs):
         self._env_cfgs = env_cfg.envs
         self._num_agents_global = env_cfg.num_agents
+        self._probabilities = probabilities
 
         self.set_env()
 
         super().__init__(env_cfg, render_mode, buf, **kwargs)
         self._cfg_template = None #we don't use this with multiple envs, so we clear it to emphasize that fact
 
-    def set_env(self):
-        selected_env = random.choice(self._env_cfgs)
+    def get_new_env_cfg(self):
+        selected_env = np.random.choice(self._env_cfgs, probabilities = self._probabilities)
         env_cfg = config_from_path(selected_env)
         if self._num_agents_global != env_cfg.game.num_agents:
             raise ValueError("For MettaGridEnvSet, the number of agents must be the same for all environments. Global: {}, Env: {}".format(self._num_agents_global, env_cfg.game.num_agents))
+
+        return env_cfg
+
+    def set_env(self):
+        env_cfg = self.get_new_env_cfg()
         self._env_cfg = OmegaConf.create(env_cfg)
         OmegaConf.resolve(self._env_cfg)
 
