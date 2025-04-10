@@ -185,7 +185,7 @@ class MettaGridEnvSet(MettaGridEnv):
         self._cfg_template = None #we don't use this with multiple envs, so we clear it to emphasize that fact
 
     def _get_new_env_cfg(self):
-        selected_env = np.random.choice(self._env_cfgs, probabilities = self._probabilities)
+        selected_env = np.random.choice(self._env_cfgs, p = self._probabilities)
         env_cfg = config_from_path(selected_env)
         if self._num_agents_global != env_cfg.game.num_agents:
             raise ValueError("For MettaGridEnvSet, the number of agents must be the same for all environments. Global: {}, Env: {}".format(self._num_agents_global, env_cfg.game.num_agents))
