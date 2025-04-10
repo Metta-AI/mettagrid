@@ -13,6 +13,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     def __init__(self, env_cfg: DictConfig, render_mode: str, buf=None, **kwargs):
         self._render_mode = render_mode
         self._cfg_template = env_cfg
+        self._env_cfg = self._get_new_env_cfg()
         self.reset_env()
         self.should_reset = False
         self._renderer = None
