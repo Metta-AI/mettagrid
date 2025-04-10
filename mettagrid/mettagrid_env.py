@@ -180,7 +180,7 @@ class MettaGridEnvSet(MettaGridEnv):
         self.set_env()
 
         super().__init__(env_cfg, render_mode, buf, **kwargs)
-        self._cfg_template = None #no cfg template since we are using multiple envs
+        self._cfg_template = None #we don't use this with multiple envs, so we clear it to emphasize that fact
 
     def set_env(self):
         selected_env = random.choice(self._env_cfgs)
@@ -190,9 +190,6 @@ class MettaGridEnvSet(MettaGridEnv):
         self._env_cfg = OmegaConf.create(env_cfg)
         OmegaConf.resolve(self._env_cfg)
 
-    def reset_env(self):
-        env_cfg = self.select_env()
-        super().reset_env(env_cfg)
 
 
 def make_env_from_cfg(cfg_path: str, *args, **kwargs):
