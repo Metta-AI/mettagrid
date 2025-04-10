@@ -57,8 +57,6 @@ class MazeKruskal(Room):
         self._height = height if height % 2 == 1 else height - 1
         self._start_pos = (set_position(start_pos[0], self._width), set_position(start_pos[1], self._height))
         self._end_pos = (set_position(end_pos[0], self._width), set_position(end_pos[1], self._height))
-        print(start_pos, self._start_pos)
-        print(end_pos, self._end_pos)
 
     def _build(self):
         final_maze = create_grid(self._height, self._width, fill_value=self.WALL)
