@@ -19,9 +19,10 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         super().__init__(buf)
 
-    def set_env(self):
-        self._env_cfg = OmegaConf.create(copy.deepcopy(self._cfg_template))
-        OmegaConf.resolve(self._env_cfg)
+    def get_new_env_cfg(self):
+        env_cfg = OmegaConf.create(copy.deepcopy(self._cfg_template))
+        OmegaConf.resolve(env_cfg)
+        return env_cfg
 
     def reset_env(self):
         self._map_builder = hydra.utils.instantiate(self._env_cfg.game.map_builder)
@@ -41,7 +42,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         #self._env = FeatureMasker(self._env, self._cfg.hidden_features)
 
     def reset(self, seed=None, options=None):
-        self.set_env()
+        self._env_cfg = self.get_new_env_cfg()
         self.reset_env()
 
         self._c_env.set_buffers(
@@ -188,15 +189,9 @@ class MettaGridEnvSet(MettaGridEnv):
         env_cfg = config_from_path(selected_env)
         if self._num_agents_global != env_cfg.game.num_agents:
             raise ValueError("For MettaGridEnvSet, the number of agents must be the same for all environments. Global: {}, Env: {}".format(self._num_agents_global, env_cfg.game.num_agents))
-
+        env_cfg = OmegaConf.create(env_cfg)
+        OmegaConf.resolve(env_cfg)
         return env_cfg
-
-    def set_env(self):
-        env_cfg = self.get_new_env_cfg()
-        self._env_cfg = OmegaConf.create(env_cfg)
-        OmegaConf.resolve(self._env_cfg)
-
-
 
 def make_env_from_cfg(cfg_path: str, *args, **kwargs):
     cfg = OmegaConf.load(cfg_path)
