@@ -19,7 +19,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         super().__init__(buf)
 
-    def get_new_env_cfg(self):
+    def _get_new_env_cfg(self):
         env_cfg = OmegaConf.create(copy.deepcopy(self._cfg_template))
         OmegaConf.resolve(env_cfg)
         return env_cfg
@@ -42,7 +42,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         #self._env = FeatureMasker(self._env, self._cfg.hidden_features)
 
     def reset(self, seed=None, options=None):
-        self._env_cfg = self.get_new_env_cfg()
+        self._env_cfg = self._get_new_env_cfg()
         self.reset_env()
 
         self._c_env.set_buffers(
@@ -178,12 +178,12 @@ class MettaGridEnvSet(MettaGridEnv):
         self._env_cfgs = env_cfg.envs
         self._num_agents_global = env_cfg.num_agents
         self._probabilities = probabilities
-        self._env_cfg = self.get_new_env_cfg()
+        self._env_cfg = self._get_new_env_cfg()
 
         super().__init__(env_cfg, render_mode, buf, **kwargs)
         self._cfg_template = None #we don't use this with multiple envs, so we clear it to emphasize that fact
 
-    def get_new_env_cfg(self):
+    def _get_new_env_cfg(self):
         selected_env = np.random.choice(self._env_cfgs, probabilities = self._probabilities)
         env_cfg = config_from_path(selected_env)
         if self._num_agents_global != env_cfg.game.num_agents:
