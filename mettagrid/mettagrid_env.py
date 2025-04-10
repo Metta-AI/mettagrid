@@ -1,7 +1,6 @@
 import copy
 import random
 from typing import Any, Dict
-import logging
 import gymnasium as gym
 import hydra
 import numpy as np
@@ -9,7 +8,6 @@ import pufferlib
 from omegaconf import OmegaConf, DictConfig
 from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
 
-logger = logging.getLogger(__name__)
 
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     def __init__(self, env_cfg: DictConfig, render_mode: str, buf=None, **kwargs):
@@ -21,12 +19,11 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         super().__init__(buf)
 
-    def reset_env(self, env_cfg: DictConfig | None = None):
-        env_cfg = env_cfg or self._cfg_template
-        self._env_cfg = OmegaConf.create(copy.deepcopy(env_cfg))
-
+    def set_env(self):
+        self._env_cfg = OmegaConf.create(copy.deepcopy(self._cfg_template))
         OmegaConf.resolve(self._env_cfg)
 
+    def reset_env(self):
         self._map_builder = hydra.utils.instantiate(self._env_cfg.game.map_builder)
         env_map = self._map_builder.build()
         map_agents = np.count_nonzero(np.char.startswith(env_map, "agent"))
@@ -44,6 +41,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         #self._env = FeatureMasker(self._env, self._cfg.hidden_features)
 
     def reset(self, seed=None, options=None):
+        self.set_env()
         self.reset_env()
 
         self._c_env.set_buffers(
@@ -179,17 +177,18 @@ class MettaGridEnvSet(MettaGridEnv):
         self._env_cfgs = env_cfg.envs
         self._num_agents_global = env_cfg.num_agents
 
-        env_cfg = self.select_env()
+        self.set_env()
 
         super().__init__(env_cfg, render_mode, buf, **kwargs)
-        self._cfg_template = None
+        self._cfg_template = None #no cfg template since we are using multiple envs
 
-    def select_env(self):
+    def set_env(self):
         selected_env = random.choice(self._env_cfgs)
         env_cfg = config_from_path(selected_env)
         if self._num_agents_global != env_cfg.game.num_agents:
             raise ValueError("For MettaGridEnvSet, the number of agents must be the same for all environments. Global: {}, Env: {}".format(self._num_agents_global, env_cfg.game.num_agents))
-        return env_cfg
+        self._env_cfg = OmegaConf.create(env_cfg)
+        OmegaConf.resolve(self._env_cfg)
 
     def reset_env(self):
         env_cfg = self.select_env()
@@ -204,7 +203,8 @@ def make_env_from_cfg(cfg_path: str, *args, **kwargs):
 def config_from_path(config_path: str) -> DictConfig:
     env_cfg = hydra.compose(config_name=config_path)
 
-    # need to strip the path-keys to have a valid config
+    # when hydra loads a config, it "prefixes" the keys with the path of the config file.
+    # We don't want that prefix, so we remove it.
     if config_path.startswith("/"):
         config_path = config_path[1:]
     path = config_path.split("/")
