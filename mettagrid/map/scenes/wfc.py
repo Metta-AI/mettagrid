@@ -1,9 +1,12 @@
+import logging
 from typing import Any, Literal
 
 import numpy as np
 from mettagrid.map.scene import Scene
 from mettagrid.map.node import Node
 from mettagrid.map.utils.pattern import Symmetry, ascii_to_patterns_with_counts
+
+logger = logging.getLogger(__name__)
 
 dx = [0, 1, 0, -1]
 dy = [-1, 0, 1, 0]
@@ -22,10 +25,13 @@ class WFC(Scene):
             periodic_input: bool = True,
             symmetry: Symmetry = "all",
             attempts: int = 3,
+            seed=None,
             children: list[Any] = []):
         super().__init__(children=children)
 
+        self._ascii_pattern = pattern
         self._pattern_size = pattern_size
+        self._rng = np.random.default_rng(seed)
         patterns_with_counts = ascii_to_patterns_with_counts(
             pattern,
             pattern_size,
@@ -74,6 +80,7 @@ class WFCRenderSession:
         self.height = self.node.height
         self.weights = self.scene._weights
         self.pattern_count = len(self.weights)
+        self.rng = self.scene._rng
 
         self.reset()
     
@@ -96,17 +103,29 @@ class WFCRenderSession:
         self.stack = np.zeros((self.width * self.height * self.pattern_count, 3), dtype=np.int_)
         self.stacksize = 0
 
-    def run(self):
-        for _ in range(self.scene._attempts):
-            self.reset()
-            while True:
-                cell = self.pick_next_node()
-                if cell is None:
-                    break
+    def attempt_run(self):
+        while True:
+            cell = self.pick_next_node()
+            if cell is None:
+                return True
 
-                self.observe(cell)
-                if not self.propagate():
-                    raise Exception("Contradiction found")
+            self.observe(cell)
+            if not self.propagate():
+                return False
+
+    def run(self):
+        ok = False
+        for i in range(self.scene._attempts):
+            logger.info(f"Attempt {i + 1} of {self.scene._attempts}, pattern:\n{self.scene._ascii_pattern}")
+            self.reset()
+            ok = self.attempt_run()
+            if ok:
+                break
+            else:
+                logger.info(f"Attempt {i + 1} failed")
+
+        if not ok:
+            raise Exception(f"Failed to generate map with pattern:\n{self.scene._ascii_pattern}")
 
         for y in range(self.height):
             for x in range(self.width):
@@ -142,7 +161,7 @@ class WFCRenderSession:
                     entropy = self.entropies[y, x]
 
                 if entropy <= min:
-                    noise = 1e-6 * np.random.rand()
+                    noise = 1e-6 * self.rng.random()
                     if entropy + noise < min:
                         min = entropy + noise
                         argmin = (y, x)
@@ -152,7 +171,7 @@ class WFCRenderSession:
         y, x = cell
         distribution = self.wave[y, x] * self.weights
         distribution /= np.sum(distribution)
-        r = np.random.choice(range(self.pattern_count), p=distribution)
+        r = self.rng.choice(range(self.pattern_count), p=distribution)
         for t in range(self.pattern_count):
             if t != r and self.wave[y, x, t]:
                 self.ban(y, x, t)
