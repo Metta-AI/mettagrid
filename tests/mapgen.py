@@ -40,7 +40,7 @@ def main(cfg):
         while True:
             renderer.render_and_wait()
     elif show == "ascii":
-        print(ascii_grid)
+        print("\n".join(ascii_grid))
     elif show == "ascii_border":
         # Useful for generating examples for docstrings in code.
         width = len(ascii_grid[0])

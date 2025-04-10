@@ -47,7 +47,6 @@ class RoomGrid(Scene):
             for y in range(node.height):
                 if x % room_width == 0 or y % room_height == 0:
                     node.grid[y, x] = self._border_object
-                    # node.make_area(x, y, room_width, room_height, tags=["border"])
 
         for row in range(self._rows):
             for col in range(self._columns):

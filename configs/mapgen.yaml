@@ -5,7 +5,7 @@ defaults:
 mapgen:
   show: raylib
 
-  save: true
+  save: false
   target:
     dir: ./maps
     # name: ??? - will be generated if not set
