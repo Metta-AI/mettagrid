@@ -1,6 +1,8 @@
 from typing import TypedDict
+import hydra
 import numpy as np
 import numpy.typing as npt
+from omegaconf import OmegaConf
 
 from .node import Node
 
@@ -27,8 +29,19 @@ class Scene:
         self._render(node)
 
         for query in self._children:
-            areas = node.select_areas(query)
-            # print(f"Found {len(areas)} areas matching query {query}")
-            for area in areas:
-                child_node = query["scene"].make_node(area["grid"])
-                child_node.render()
+            sweep = query.get("sweep")
+            subqueries: list[TypedChild] = [query]
+            if sweep:
+                subqueries = [
+                    OmegaConf.merge(entry, query)
+                    for entry in sweep
+                ]
+
+            for query in subqueries:
+                areas = node.select_areas(query)
+                for area in areas:
+                    scene = query["scene"]
+                    if not isinstance(scene, Scene):
+                        scene = hydra.utils.instantiate(scene, _recursive_=False)
+                    child_node = scene.make_node(area["grid"])
+                    child_node.render()
