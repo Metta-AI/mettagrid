@@ -14,7 +14,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self._render_mode = render_mode
         self._cfg_template = env_cfg
         self._env_cfg = self._get_new_env_cfg()
-        self.reset_env()
+        self._reset_env()
         self.should_reset = False
         self._renderer = None
 
@@ -25,7 +25,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         OmegaConf.resolve(env_cfg)
         return env_cfg
 
-    def reset_env(self):
+    def _reset_env(self):
         self._map_builder = hydra.utils.instantiate(self._env_cfg.game.map_builder)
         env_map = self._map_builder.build()
         map_agents = np.count_nonzero(np.char.startswith(env_map, "agent"))
@@ -44,7 +44,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
     def reset(self, seed=None, options=None):
         self._env_cfg = self._get_new_env_cfg()
-        self.reset_env()
+        self._reset_env()
 
         self._c_env.set_buffers(
             self.observations,
