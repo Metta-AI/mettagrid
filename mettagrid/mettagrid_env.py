@@ -179,7 +179,7 @@ class MettaGridEnvSet(MettaGridEnv):
         self._num_agents_global = env_cfg.num_agents
         self._probabilities = probabilities
 
-        self.set_env()
+        self._env_cfg = self.get_new_env_cfg()
 
         super().__init__(env_cfg, render_mode, buf, **kwargs)
         self._cfg_template = None #we don't use this with multiple envs, so we clear it to emphasize that fact
