@@ -160,7 +160,6 @@ cdef class MettaGrid(GridEnv):
         return self._grid_features
 
     def render(self):
-        # must match
         grid = self.render_ascii()
         for r in grid:
                 print("".join(r))
