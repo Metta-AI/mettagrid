@@ -11,7 +11,7 @@ from mettagrid.renderer.raylib.raylib_renderer import MettaGridRaylibRenderer
 signal.signal(signal.SIGINT, lambda sig, frame: os._exit(0))
 
 def env_to_ascii(env):
-    grid = env._c_env.render_ascii(["A", "#", "g", "c", "a"])
+    grid = env._c_env.render_ascii()
     # convert to strings
     return ["".join(row) for row in grid]
 
