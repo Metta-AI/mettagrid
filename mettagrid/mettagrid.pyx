@@ -272,8 +272,14 @@ cdef class MettaGrid(GridEnv):
                 group_id = agent.group
                 if self._total_reward_var > 0:
                     group_fitness_reward = self._group_reward_vars_np[group_id] / self._total_reward_var
-                    rewards[agent_idx] += group_fitness_reward * self._group_fitness_reward_coef
-                    print(f"Agent {agent_idx} (Group {group_id}) final reward: {rewards[agent_idx]} (fitness reward: {group_fitness_reward * self._group_fitness_reward_coef})")
+                    fitness_reward = group_fitness_reward * self._group_fitness_reward_coef
+                    rewards[agent_idx] += fitness_reward
+                    # Track fitness reward in agent stats
+                    agent.stats.incr(b"rewards.fitness", fitness_reward)
+                    print(f"Agent {agent_idx} (Group {group_id}):")
+                    print(f"  Episode reward: {self._total_rewards[agent_idx]}")
+                    print(f"  Fitness reward: {fitness_reward}")
+                    print(f"  Final reward: {rewards[agent_idx]}")
 
             # Reset accumulators for next episode
             self._group_rewards[:] = 0
