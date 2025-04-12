@@ -20,7 +20,7 @@ from typing import Optional, Tuple, List
 import numpy as np
 from mettagrid.config.room.room import Room
 
-class VariedTerrainDiverse(Room):
+class VariedTerrain(Room):
     # Base style parameters for a 60x60 (area=3600) grid.
     # These counts are intentionally moderate.
     STYLE_PARAMETERS = {
