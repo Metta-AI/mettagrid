@@ -251,8 +251,8 @@ cdef class MettaGrid(GridEnv):
             if rewards[agent_idx] != 0:
                 agent = <Agent*>self._agents[agent_idx]
                 group_id = agent.group
-                # Use the final reward for variance calculation
-                group_reward = rewards[agent_idx] * self._group_reward_pct[group_id]
+                # Use the accumulated group reward for variance calculation
+                group_reward = self._group_rewards[group_id]
                 # Update group mean and variance using Welford's online algorithm
                 self._group_reward_counts[group_id] += 1
                 delta = group_reward - self._group_means[group_id]
@@ -264,20 +264,20 @@ cdef class MettaGrid(GridEnv):
             for group_id in range(len(self._group_reward_vars)):
                 if self._group_reward_counts[group_id] > 1:
                     self._group_reward_vars[group_id] /= (self._group_reward_counts[group_id] - 1)
-                    print(f"Group {group_id} variance: {self._group_reward_vars[group_id]} (count: {self._group_reward_counts[group_id]}, mean: {self._group_means[group_id]})")
+                    print(f"Group {group_id} variance: {self._group_reward_vars_np[group_id]} (count: {self._group_reward_counts_np[group_id]}, mean: {self._group_means_np[group_id]})")
 
             # Calculate total variance across all agents
             if self._agents.size() > 1:
-                mean_reward = np.mean(self._total_rewards)
-                self._total_reward_var = np.sum((self._total_rewards - mean_reward) ** 2) / (self._agents.size() - 1)
-                print(f"Total reward variance: {self._total_reward_var} (mean: {mean_reward}, rewards: {self._total_rewards})")
+                mean_reward = np.mean(self._total_rewards_np)
+                self._total_reward_var = np.sum((self._total_rewards_np - mean_reward) ** 2) / (self._agents.size() - 1)
+                print(f"Total reward variance: {self._total_reward_var} (mean: {mean_reward}, rewards: {self._total_rewards_np})")
 
             # Add species reward based on variance ratio
             for agent_idx in range(self._agents.size()):
                 agent = <Agent*>self._agents[agent_idx]
                 group_id = agent.group
                 if self._total_reward_var > 0:
-                    group_fitness_reward = self._group_reward_vars[group_id] / self._total_reward_var
+                    group_fitness_reward = self._group_reward_vars_np[group_id] / self._total_reward_var
                     rewards[agent_idx] += group_fitness_reward * self._group_fitness_reward_coef
                     print(f"Agent {agent_idx} (Group {group_id}) final reward: {rewards[agent_idx]} (fitness reward: {group_fitness_reward * self._group_fitness_reward_coef})")
 
