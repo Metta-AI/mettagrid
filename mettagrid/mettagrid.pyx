@@ -237,7 +237,6 @@ cdef class MettaGrid(GridEnv):
                 rewards[agent_idx] -= group_reward
                 self._group_rewards[group_id] += group_reward / self._group_sizes[group_id]
                 self._total_rewards[agent_idx] = rewards[agent_idx]
-                print(f"Agent {agent_idx} (Group {group_id}) initial reward: {rewards[agent_idx] + group_reward}, individual reward: {rewards[agent_idx]}, group contribution: {group_reward}")
 
         if share_rewards:
             for agent_idx in range(self._agents.size()):
@@ -246,7 +245,6 @@ cdef class MettaGrid(GridEnv):
                 group_reward = self._group_rewards[group_id]
                 rewards[agent_idx] += group_reward
                 self._total_rewards[agent_idx] = rewards[agent_idx]
-                print(f"Agent {agent_idx} (Group {group_id}) after sharing: {rewards[agent_idx]}")
 
         # Second pass: calculate variances
         for agent_idx in range(self._agents.size()):
