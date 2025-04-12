@@ -7,8 +7,8 @@ It creates a grid world with configurable features including:
       and with at least two-cell gaps along the borders; empty cells may be replaced with "heart".
   - Scattered single walls: individual wall cells placed at random empty cells.
   - Blocks: new rectangular objects whose width and height are sampled uniformly between 2 and 14.
-      The number of blocks is sampled from 0 to 10.
-  - Altars: the only object placed, with the number determined by hearts_count.
+      The number of blocks is determined from the style.
+  - Altars: the only object placed, whose count is determined by hearts_count.
   - A clumpiness factor that biases object placement.
 All objects are placed with at least a one-cell clearance.
 If no space is found for a new object, placement is skipped.
@@ -20,59 +20,59 @@ from typing import Optional, Tuple, List
 import numpy as np
 from mettagrid.config.room.room import Room
 
-class VariedTerrain(Room):
-    # Base style parameters are defined for a reference grid of 60x60 (area=3600).
-    # These values represent the counts for a 60x60 grid.
+class VariedTerrainDiverse(Room):
+    # Base style parameters for a 60x60 (area=3600) grid.
+    # These counts are intentionally moderate.
     STYLE_PARAMETERS = {
-        "sparse-altars-dense-objects": {
-            "hearts_count": 50,
-            "large_obstacles": {"size_range": [10, 25], "count": 20},
-            "small_obstacles": {"size_range": [3, 6], "count": 30},
-            "crosses": {"count": 16},
-            "labyrinths": {"count": 6},
-            "scattered_walls": {"count": 100},
-            "blocks": {"count": 5},
-            "clumpiness": 3,
-        },
-        "dense-altars-sparse-objects": {
-            "hearts_count": 200,
-            "large_obstacles": {"size_range": [10, 25], "count": 5},
-            "small_obstacles": {"size_range": [3, 6], "count": 5},
-            "crosses": {"count": 2},
-            "labyrinths": {"count": 1},
-            "scattered_walls": {"count": 10},
-            "blocks": {"count": 3},
-            "clumpiness": 1,
-        },
         "all-sparse": {
-            "hearts_count": 35,
+            "hearts_count": 50,
             "large_obstacles": {"size_range": [10, 25], "count": 2},
             "small_obstacles": {"size_range": [3, 6], "count": 2},
             "crosses": {"count": 0},
             "labyrinths": {"count": 0},
-            "scattered_walls": {"count": 0},
+            "scattered_walls": {"count": 5},
             "blocks": {"count": 0},
             "clumpiness": 0,
         },
-        "all-dense": {
-            "hearts_count": 150,
-            "large_obstacles": {"size_range": [10, 25], "count": 25},
-            "small_obstacles": {"size_range": [3, 6], "count": 25},
-            "crosses": {"count": 15},
-            "labyrinths": {"count": 4},
-            "scattered_walls": {"count": 100},
-            "blocks": {"count": 6},
-            "clumpiness": 5,
-        },
         "balanced": {
             "hearts_count": 100,
+            "large_obstacles": {"size_range": [10, 25], "count": 6},
+            "small_obstacles": {"size_range": [3, 6], "count": 6},
+            "crosses": {"count": 3},
+            "labyrinths": {"count": 2},
+            "scattered_walls": {"count": 20},
+            "blocks": {"count": 2},
+            "clumpiness": 1,
+        },
+        "dense-altars-sparse-objects": {
+            "hearts_count": 150,
+            "large_obstacles": {"size_range": [10, 25], "count": 4},
+            "small_obstacles": {"size_range": [3, 6], "count": 4},
+            "crosses": {"count": 2},
+            "labyrinths": {"count": 1},
+            "scattered_walls": {"count": 10},
+            "blocks": {"count": 1},
+            "clumpiness": 1,
+        },
+        "sparse-altars-dense-objects": {
+            "hearts_count": 50,
             "large_obstacles": {"size_range": [10, 25], "count": 10},
-            "small_obstacles": {"size_range": [3, 6], "count": 10},
-            "crosses": {"count": 5},
+            "small_obstacles": {"size_range": [3, 6], "count": 15},
+            "crosses": {"count": 8},
             "labyrinths": {"count": 4},
-            "scattered_walls": {"count": 30},
-            "blocks": {"count": 5},
+            "scattered_walls": {"count": 40},
+            "blocks": {"count": 3},
             "clumpiness": 2,
+        },
+        "all-dense": {
+            "hearts_count": 100,
+            "large_obstacles": {"size_range": [10, 25], "count": 10},
+            "small_obstacles": {"size_range": [3, 6], "count": 15},
+            "crosses": {"count": 8},
+            "labyrinths": {"count": 3},
+            "scattered_walls": {"count": 50},
+            "blocks": {"count": 3},
+            "clumpiness": 3,
         }
     }
 
@@ -98,25 +98,44 @@ class VariedTerrain(Room):
             raise ValueError(
                 f"Unknown style: '{style}'. Available styles: {list(self.STYLE_PARAMETERS.keys())}"
             )
-        # Use the provided style's base counts and scale them according to the area.
         base_params = self.STYLE_PARAMETERS[style]
-        ref_area = 3600  # reference area for a 60x60 grid
+        # Determine scale from the room area relative to a 60x60 (3600 cells) grid.
         area = width * height
-        scale = area / ref_area
+        scale = area / 3600.0
+
+        # Define approximate average cell occupancy for each obstacle type.
+        avg_sizes = {
+            "large_obstacles": 17.5,     # average of 10 and 25
+            "small_obstacles": 4.5,      # average of 3 and 6
+            "crosses": 9,                # assumed average area
+            "labyrinths": 72,            # rough estimate for labyrinth wall area
+            "scattered_walls": 1,
+            "blocks": 64,                # approximate average block area (e.g., 8x8)
+            "hearts_count": 1,
+        }
+
+        # Allowed fraction of the room that obstacles of each type may occupy.
+        # Here we use 0.3 (30%) as a rough cap for each obstacle category.
+        allowed_fraction = 0.3
+
+        def clamp_count(base_count, avg_size):
+            scaled = int(base_count * scale)
+            max_allowed = int((allowed_fraction * area) / avg_size)
+            return min(scaled, max_allowed) if scaled > 0 else 0
 
         self._large_obstacles = {
             "size_range": base_params["large_obstacles"]["size_range"],
-            "count": int(base_params["large_obstacles"]["count"] * scale),
+            "count": clamp_count(base_params["large_obstacles"]["count"], avg_sizes["large_obstacles"]),
         }
         self._small_obstacles = {
             "size_range": base_params["small_obstacles"]["size_range"],
-            "count": int(base_params["small_obstacles"]["count"] * scale),
+            "count": clamp_count(base_params["small_obstacles"]["count"], avg_sizes["small_obstacles"]),
         }
-        self._crosses = {"count": int(base_params["crosses"]["count"] * scale)}
-        self._labyrinths = {"count": int(base_params["labyrinths"]["count"] * scale)}
-        self._scattered_walls = {"count": int(base_params["scattered_walls"]["count"] * scale)}
-        self._blocks = {"count": int(base_params["blocks"]["count"] * scale)}
-        self._hearts_count = int(base_params["hearts_count"] * scale)
+        self._crosses = {"count": clamp_count(base_params["crosses"]["count"], avg_sizes["crosses"])}
+        self._labyrinths = {"count": clamp_count(base_params["labyrinths"]["count"], avg_sizes["labyrinths"])}
+        self._scattered_walls = {"count": clamp_count(base_params["scattered_walls"]["count"], avg_sizes["scattered_walls"])}
+        self._blocks = {"count": clamp_count(base_params["blocks"]["count"], avg_sizes["blocks"])}
+        self._hearts_count = clamp_count(base_params["hearts_count"], avg_sizes["hearts_count"])
         self._clumpiness = base_params["clumpiness"]
 
     def _build(self) -> np.ndarray:
@@ -140,13 +159,14 @@ class VariedTerrain(Room):
         for _ in range(self._hearts_count):
             pos = self._choose_random_empty(grid)
             if pos is None:
-                raise ValueError("No empty space available for altar placement.")
+                # If no candidate exists, we silently skip further altar placements.
+                break
             grid[pos[0], pos[1]] = "altar"
         # Place agents.
         for agent in agents:
             pos = self._choose_random_empty(grid)
             if pos is None:
-                raise ValueError("No empty space available for agent placement.")
+                break
             grid[pos[0], pos[1]] = agent
 
         return grid
@@ -192,8 +212,7 @@ class VariedTerrain(Room):
             if candidates:
                 r, c = candidates[self._rng.integers(0, len(candidates))]
                 grid[r:r + pattern.shape[0], c:c + pattern.shape[1]] = pattern
-            else:
-                print("Warning: Could not place a labyrinth; no valid region found.")
+            # If no candidate region is found, silently continue.
         return grid
 
     def _place_all_obstacles(self, grid: np.ndarray) -> np.ndarray:
@@ -205,7 +224,7 @@ class VariedTerrain(Room):
             target = self._rng.integers(low_large, high_large + 1)
             pattern = self._generate_random_shape(target)
             if not self._place_candidate_region(grid, pattern, clearance):
-                print(f"Warning: Could not place large obstacle of {target} blocks.")
+                continue
         # Place small obstacles.
         small_count = self._small_obstacles.get("count", 0)
         low_small, high_small = self._small_obstacles.get("size_range", [3, 6])
@@ -213,7 +232,7 @@ class VariedTerrain(Room):
             target = self._rng.integers(low_small, high_small + 1)
             pattern = self._generate_random_shape(target)
             if not self._place_candidate_region(grid, pattern, clearance):
-                print(f"Warning: Could not place small obstacle of {target} blocks.")
+                continue
         # Place cross obstacles (with no extra clearance).
         crosses_count = self._crosses.get("count", 0)
         for _ in range(crosses_count):
@@ -222,8 +241,6 @@ class VariedTerrain(Room):
             if candidates:
                 r, c = candidates[self._rng.integers(0, len(candidates))]
                 grid[r:r + pattern.shape[0], c:c + pattern.shape[1]] = pattern
-            else:
-                print("Warning: Could not place cross obstacle.")
         return grid
 
     def _place_scattered_walls(self, grid: np.ndarray) -> np.ndarray:
@@ -235,7 +252,7 @@ class VariedTerrain(Room):
         indices = self._rng.permutation(len(empty_positions))[:num_to_place]
         for idx in indices:
             r, c = empty_positions[idx]
-            grid[r, c] = "block"
+            grid[r, c] = "wall"
         return grid
 
     def _place_blocks(self, grid: np.ndarray) -> np.ndarray:
@@ -252,9 +269,7 @@ class VariedTerrain(Room):
             candidates = self._find_candidates(grid, (block_h, block_w))
             if candidates:
                 r, c = candidates[self._rng.integers(0, len(candidates))]
-                grid[r:r + block_h, c:c + block_w] = "wall"
-            else:
-                print(f"Warning: Could not place block of size {block_h}x{block_w}.")
+                grid[r:r + block_h, c:c + block_w] = "block"
         return grid
 
     # ---------------------------
