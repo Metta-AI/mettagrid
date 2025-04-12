@@ -57,17 +57,20 @@ class WFC(Scene):
 
 
     def _fill_propagator(self):
-        self._propagator = np.full((4, self._pattern_count, self._pattern_count), -1, dtype=np.int_)
+        self._propagator = [] # no point in using numpy arrays here (I tested it, it's slower)
+
         self._propagator_lengths = np.zeros((4, self._pattern_count), dtype=np.int_)
 
         for d in range(4):
+            d_propagator = []
             for t in range(self._pattern_count):
                 compatibles = []
                 for t2 in range(self._pattern_count):
                     if self._patterns[t].is_compatible(self._patterns[t2], dx[d], dy[d]):
                         compatibles.append(t2)
-                self._propagator[d, t, :len(compatibles)] = np.array(compatibles, dtype=np.int_)
+                d_propagator.append(compatibles)
                 self._propagator_lengths[d, t] = len(compatibles)
+            self._propagator.append(d_propagator)
 
     def _render(self, node: Node):
         WFCRenderSession(self, node).run()
@@ -223,7 +226,7 @@ class WFCRenderSession:
                 if y2 < 0 or y2 >= self.height or x2 < 0 or x2 >= self.width:
                     continue
 
-                dt_propagator = self.scene._propagator[d, t1, :self.scene._propagator_lengths[d, t1]]
+                dt_propagator = self.scene._propagator[d][t1]
                 compat = self.compatible[y2, x2, d]
                 for t2 in dt_propagator:
                     compat[t2] -= 1
