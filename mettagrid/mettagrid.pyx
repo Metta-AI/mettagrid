@@ -264,7 +264,7 @@ cdef class MettaGrid(GridEnv):
             for group_id in range(len(self._group_reward_vars)):
                 if self._group_reward_counts[group_id] > 1:
                     self._group_reward_vars[group_id] /= (self._group_reward_counts[group_id] - 1)
-                    print(f"Group {group_id} variance: {self._group_reward_vars_np[group_id]} (count: {self._group_reward_counts_np[group_id]}, mean: {self._group_means_np[group_id]})")
+                    print(f"Group {group_id} variance: {self._group_reward_vars_np[group_id]} (count: {self._group_reward_counts_np[group_id]}, mean: {self._group_means_np[group_id]}, total rewards: {self._group_rewards_np[group_id]})")
 
             # Calculate total variance across all agents
             if self._agents.size() > 1:
