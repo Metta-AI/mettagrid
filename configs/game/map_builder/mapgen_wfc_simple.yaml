@@ -2,7 +2,6 @@ _target_: mettagrid.map.mapgen.MapGen
 
 width: 50
 height: 50
-border_width: 1
 
 root:
   _target_: mettagrid.map.scenes.wfc.WFC

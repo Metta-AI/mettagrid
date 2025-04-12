@@ -5,7 +5,7 @@ from omegaconf import DictConfig
 from .scene import Scene
 
 class MapGen:
-    def __init__(self, width: int, height: int, root: DictConfig, border_width: int = 6):
+    def __init__(self, width: int, height: int, root: DictConfig, border_width: int = 1):
         self._width = width
         self._height = height
         self._border_width = border_width

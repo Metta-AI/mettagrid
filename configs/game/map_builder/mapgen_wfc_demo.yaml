@@ -2,7 +2,6 @@ _target_: mettagrid.map.mapgen.MapGen
 
 width: 200
 height: 100
-border_width: 1
 
 root:
   _target_: mettagrid.map.scenes.room_grid.RoomGrid

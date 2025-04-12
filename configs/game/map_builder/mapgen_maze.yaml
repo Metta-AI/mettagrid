@@ -3,8 +3,6 @@ _target_: mettagrid.map.mapgen.MapGen
 width: ${uniform:20,80,40}
 height: ${uniform:20,80,40}
 
-border_width: 1
-
 root:
   _target_: mettagrid.map.scenes.room_grid.RoomGrid
   rows: 2
