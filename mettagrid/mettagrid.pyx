@@ -153,7 +153,7 @@ cdef class MettaGrid(GridEnv):
                 elif map[r,c].startswith("agent."):
                     group_name = map[r,c].split(".")[1]
                     agent_cfg = OmegaConf.to_container(OmegaConf.merge(
-                        cfg.agent, cfg.groups[group_name].props))
+                        cfg.agent, cfg.groups[group_name].get("props", {})))
                     rewards = agent_cfg.get("rewards", {})
                     del agent_cfg["rewards"]
                     for inv_item in InventoryItemNames:
