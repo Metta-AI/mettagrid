@@ -10,6 +10,16 @@
             "request": "launch",
             "module": "test_perf",
             "preLaunchTask": "build_cython_extensions",
+        },
+        {
+            "name": "MettaGrid: Test TorchRL",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/test_torchrl.py",
+                "-v"
+            ]
         }
     ]
 }

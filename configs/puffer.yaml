@@ -165,6 +165,9 @@ game:
     wall:
       hp: 10
 
+    block:
+      hp: 10
+
   actions:
     noop:
       enabled: true
