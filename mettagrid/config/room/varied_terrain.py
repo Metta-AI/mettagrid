@@ -115,7 +115,6 @@ class VariedTerrain(Room):
         }
 
         # Allowed fraction of the room that obstacles of each type may occupy.
-        # Here we use 0.3 (30%) as a rough cap for each obstacle category.
         allowed_fraction = 0.3
 
         def clamp_count(base_count, avg_size):
@@ -149,6 +148,8 @@ class VariedTerrain(Room):
 
         # Create an empty grid.
         grid = np.full((self._height, self._width), "empty", dtype=object)
+        # Initialize an occupancy mask: False means cell is empty, True means occupied.
+        self._occupancy = np.zeros((self._height, self._width), dtype=bool)
 
         # Place features in order.
         grid = self._place_labyrinths(grid)
@@ -157,47 +158,75 @@ class VariedTerrain(Room):
         grid = self._place_blocks(grid)
         # Place altars.
         for _ in range(self._hearts_count):
-            pos = self._choose_random_empty(grid)
+            pos = self._choose_random_empty()
             if pos is None:
-                # If no candidate exists, we silently skip further altar placements.
                 break
-            grid[pos[0], pos[1]] = "altar"
+            r, c = pos
+            grid[r, c] = "altar"
+            self._occupancy[r, c] = True
         # Place agents.
         for agent in agents:
-            pos = self._choose_random_empty(grid)
+            pos = self._choose_random_empty()
             if pos is None:
                 break
-            grid[pos[0], pos[1]] = agent
+            r, c = pos
+            grid[r, c] = agent
+            self._occupancy[r, c] = True
 
         return grid
 
     # ---------------------------
     # Helper Functions
     # ---------------------------
-    def _find_candidates(self, grid: np.ndarray, region_shape: Tuple[int, int]) -> List[Tuple[int, int]]:
-        region_h, region_w = region_shape
-        h, w = grid.shape
-        candidates = []
-        for r in range(h - region_h + 1):
-            for c in range(w - region_w + 1):
-                if np.all(grid[r:r + region_h, c:c + region_w] == "empty"):
-                    candidates.append((r, c))
-        return candidates
+    def _update_occupancy(self, top_left: Tuple[int, int], pattern: np.ndarray) -> None:
+        """
+        Updates the occupancy mask for the region where the pattern was placed.
+        """
+        r, c = top_left
+        p_h, p_w = pattern.shape
+        self._occupancy[r:r+p_h, c:c+p_w] |= (pattern != "empty")
 
-    def _choose_random_empty(self, grid: np.ndarray) -> Optional[Tuple[int, int]]:
-        empty_positions = np.argwhere(grid == "empty")
-        if len(empty_positions) == 0:
+    def _find_candidates(self, region_shape: Tuple[int, int]) -> List[Tuple[int, int]]:
+        """
+        Efficiently finds candidate top-left positions where a subregion of shape 'region_shape'
+        is completely empty using a sliding window approach on the occupancy mask.
+        """
+        r_h, r_w = region_shape
+        H, W = self._occupancy.shape
+        if H < r_h or W < r_w:
+            return []
+        # Create a view of all submatrices of shape (r_h, r_w)
+        shape = (H - r_h + 1, W - r_w + 1, r_h, r_w)
+        strides = self._occupancy.strides * 2
+        submats = np.lib.stride_tricks.as_strided(self._occupancy, shape=shape, strides=strides)
+        # Sum over each submatrix; candidate if sum == 0 (i.e., completely empty)
+        window_sums = submats.sum(axis=(2, 3))
+        candidates = np.argwhere(window_sums == 0)
+        return [tuple(idx) for idx in candidates]
+
+    def _choose_random_empty(self) -> Optional[Tuple[int, int]]:
+        """
+        Efficiently returns a random empty position using the occupancy mask.
+        """
+        empty_flat = np.flatnonzero(~self._occupancy)
+        if empty_flat.size == 0:
             return None
-        idx = self._rng.integers(0, len(empty_positions))
-        return tuple(empty_positions[idx])
+        idx = self._rng.integers(0, empty_flat.size)
+        return np.unravel_index(empty_flat[idx], self._occupancy.shape)
 
     def _place_candidate_region(self, grid: np.ndarray, pattern: np.ndarray, clearance: int = 0) -> bool:
+        """
+        Attempts to place the given pattern in a candidate region that is completely empty,
+        taking into account a clearance border around the pattern.
+        """
         p_h, p_w = pattern.shape
         eff_h, eff_w = p_h + 2 * clearance, p_w + 2 * clearance
-        candidates = self._find_candidates(grid, (eff_h, eff_w))
+        candidates = self._find_candidates((eff_h, eff_w))
         if candidates:
             r, c = candidates[self._rng.integers(0, len(candidates))]
+            # Place pattern with clearance offset.
             grid[r + clearance:r + clearance + p_h, c + clearance:c + clearance + p_w] = pattern
+            self._update_occupancy((r + clearance, c + clearance), pattern)
             return True
         return False
 
@@ -208,11 +237,11 @@ class VariedTerrain(Room):
         labyrinth_count = self._labyrinths.get("count", 0)
         for _ in range(labyrinth_count):
             pattern = self._generate_labyrinth_pattern()
-            candidates = self._find_candidates(grid, pattern.shape)
+            candidates = self._find_candidates(pattern.shape)
             if candidates:
                 r, c = candidates[self._rng.integers(0, len(candidates))]
                 grid[r:r + pattern.shape[0], c:c + pattern.shape[1]] = pattern
-            # If no candidate region is found, silently continue.
+                self._update_occupancy((r, c), pattern)
         return grid
 
     def _place_all_obstacles(self, grid: np.ndarray) -> np.ndarray:
@@ -223,36 +252,35 @@ class VariedTerrain(Room):
         for _ in range(large_count):
             target = self._rng.integers(low_large, high_large + 1)
             pattern = self._generate_random_shape(target)
-            if not self._place_candidate_region(grid, pattern, clearance):
-                continue
+            self._place_candidate_region(grid, pattern, clearance)
         # Place small obstacles.
         small_count = self._small_obstacles.get("count", 0)
         low_small, high_small = self._small_obstacles.get("size_range", [3, 6])
         for _ in range(small_count):
             target = self._rng.integers(low_small, high_small + 1)
             pattern = self._generate_random_shape(target)
-            if not self._place_candidate_region(grid, pattern, clearance):
-                continue
+            self._place_candidate_region(grid, pattern, clearance)
         # Place cross obstacles (with no extra clearance).
         crosses_count = self._crosses.get("count", 0)
         for _ in range(crosses_count):
             pattern = self._generate_cross_pattern()
-            candidates = self._find_candidates(grid, pattern.shape)
+            candidates = self._find_candidates(pattern.shape)
             if candidates:
                 r, c = candidates[self._rng.integers(0, len(candidates))]
                 grid[r:r + pattern.shape[0], c:c + pattern.shape[1]] = pattern
+                self._update_occupancy((r, c), pattern)
         return grid
 
     def _place_scattered_walls(self, grid: np.ndarray) -> np.ndarray:
         count = self._scattered_walls.get("count", 0)
-        empty_positions = np.argwhere(grid == "empty")
-        if len(empty_positions) == 0:
+        empty_flat = np.flatnonzero(~self._occupancy)
+        num_to_place = min(count, empty_flat.size)
+        if num_to_place == 0:
             return grid
-        num_to_place = min(count, len(empty_positions))
-        indices = self._rng.permutation(len(empty_positions))[:num_to_place]
-        for idx in indices:
-            r, c = empty_positions[idx]
-            grid[r, c] = "block"
+        chosen_flat = self._rng.choice(empty_flat, size=num_to_place, replace=False)
+        r_coords, c_coords = np.unravel_index(chosen_flat, grid.shape)
+        grid[r_coords, c_coords] = "block"
+        self._occupancy[r_coords, c_coords] = True
         return grid
 
     def _place_blocks(self, grid: np.ndarray) -> np.ndarray:
@@ -266,10 +294,12 @@ class VariedTerrain(Room):
         for _ in range(block_count):
             block_w = self._rng.integers(2, 15)  # 2 to 14 inclusive.
             block_h = self._rng.integers(2, 15)
-            candidates = self._find_candidates(grid, (block_h, block_w))
+            candidates = self._find_candidates((block_h, block_w))
             if candidates:
                 r, c = candidates[self._rng.integers(0, len(candidates))]
                 grid[r:r + block_h, c:c + block_w] = "wall"
+                block_pattern = np.full((block_h, block_w), "wall", dtype=object)
+                self._update_occupancy((r, c), block_pattern)
         return grid
 
     # ---------------------------
@@ -375,10 +405,4 @@ class VariedTerrain(Room):
                 return True
         return False
 
-    def _choose_random_empty_region(self, grid: np.ndarray, region_shape: Tuple[int, int]) -> Optional[Tuple[int, int]]:
-        candidates = self._find_candidates(grid, region_shape)
-        if candidates:
-            return candidates[self._rng.integers(0, len(candidates))]
-        return None
-
-# End of VariedTerrainDiverse class implementation
+# End of VariedTerrain class implementation
