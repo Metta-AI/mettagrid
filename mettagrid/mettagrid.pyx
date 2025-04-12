@@ -246,25 +246,19 @@ cdef class MettaGrid(GridEnv):
                 rewards[agent_idx] += group_reward
                 self._total_rewards[agent_idx] += group_reward  # Accumulate group rewards
 
-        # Second pass: calculate variances
-        for agent_idx in range(self._agents.size()):
-            if rewards[agent_idx] != 0:
-                agent = <Agent*>self._agents[agent_idx]
-                group_id = agent.group
-                # Use the accumulated group reward for variance calculation
-                group_reward = self._group_rewards[group_id]
-                # Update group mean and variance using Welford's online algorithm
-                self._group_reward_counts[group_id] += 1
-                delta = group_reward - self._group_means[group_id]
-                self._group_means[group_id] += delta / self._group_reward_counts[group_id]
-                self._group_reward_vars[group_id] += delta * (group_reward - self._group_means[group_id])
-
         if terms.all() or truncs.all():
-            # Normalize group variances by counts
+            # Calculate group variances using episode rewards
             for group_id in range(len(self._group_reward_vars)):
-                if self._group_reward_counts[group_id] > 1:
-                    self._group_reward_vars[group_id] /= (self._group_reward_counts[group_id] - 1)
-                    print(f"Group {group_id} variance: {self._group_reward_vars_np[group_id]} (count: {self._group_reward_counts_np[group_id]}, mean: {self._group_means_np[group_id]}, total rewards: {self._group_rewards_np[group_id]})")
+                if self._group_sizes[group_id] > 0:
+                    # Get all agents in this group
+                    group_agents = [i for i in range(self._agents.size()) if (<Agent*>self._agents[i]).group == group_id]
+                    if len(group_agents) > 1:
+                        # Calculate mean and variance for this group's episode rewards
+                        group_episode_rewards = [self._total_rewards[i] for i in group_agents]
+                        mean_reward = np.mean(group_episode_rewards)
+                        self._group_reward_vars[group_id] = np.sum((group_episode_rewards - mean_reward) ** 2) / (len(group_agents) - 1)
+                        self._group_means[group_id] = mean_reward
+                        print(f"Group {group_id} variance: {self._group_reward_vars_np[group_id]} (count: {len(group_agents)}, mean: {self._group_means_np[group_id]}, total rewards: {self._group_rewards_np[group_id]})")
 
             # Calculate total variance across all agents
             if self._agents.size() > 1:
