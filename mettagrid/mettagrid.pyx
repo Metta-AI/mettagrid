@@ -275,7 +275,7 @@ cdef class MettaGrid(GridEnv):
                     fitness_reward = group_fitness_reward * self._group_fitness_reward_coef
                     rewards[agent_idx] += fitness_reward
                     # Track fitness reward in agent stats
-                    agent.stats.incr(b"rewards.fitness", fitness_reward)
+                    agent.stats.incr(b"rewards.fitness", str(fitness_reward).encode())
                     print(f"Agent {agent_idx} (Group {group_id}):")
                     print(f"  Episode reward: {self._total_rewards[agent_idx]}")
                     print(f"  Fitness reward: {fitness_reward}")
