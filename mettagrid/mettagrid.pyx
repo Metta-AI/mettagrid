@@ -58,7 +58,7 @@ cdef class MettaGrid(GridEnv):
     def __init__(self, env_cfg: OmegaConf, map: np.ndarray):
         cfg = OmegaConf.create(env_cfg.game)
         self._cfg = cfg
-        self._group_fitness_reward_coef = cfg.agent.group_fitness
+        self._group_fitness_reward_coef = cfg.agent.rewards.group_fitness
 
         obs_encoder = ObservationEncoder()
         if env_cfg.semi_compact_obs:
