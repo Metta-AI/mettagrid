@@ -54,6 +54,8 @@ cdef class MettaGrid(GridEnv):
         double _total_reward_var
         unsigned int _total_reward_count
         float _group_fitness_reward_coef
+        cnp.ndarray _group_means_np
+        double[:] _group_means
 
     def __init__(self, env_cfg: OmegaConf, map: np.ndarray):
         cfg = OmegaConf.create(env_cfg.game)
@@ -106,6 +108,8 @@ cdef class MettaGrid(GridEnv):
         self._total_reward_var_np = np.zeros(1)
         self._total_reward_var = 0.0
         self._total_reward_count = 0
+        self._group_means_np = np.zeros(len(cfg.groups))
+        self._group_means = self._group_means_np
         self._group_sizes = {
             g.id: 0 for g in cfg.groups.values()
         }
@@ -231,7 +235,7 @@ cdef class MettaGrid(GridEnv):
                 group_id = agent.group
                 group_reward = rewards[agent_idx] * self._group_reward_pct[group_id]
                 rewards[agent_idx] -= group_reward
-                self._group_rewards[group_id] += group_reward / self._group_sizes[group_id]
+                self._group_rewards[group_id] += group_reward / self._group_sizes[group_id]  # Accumulate group rewards
                 self._total_rewards[agent_idx] += rewards[agent_idx]  # Accumulate individual rewards
 
         if share_rewards:
@@ -249,17 +253,18 @@ cdef class MettaGrid(GridEnv):
                 group_id = agent.group
                 # Use the final reward for variance calculation
                 group_reward = rewards[agent_idx] * self._group_reward_pct[group_id]
-                # Update group variance using Welford's online algorithm
+                # Update group mean and variance using Welford's online algorithm
                 self._group_reward_counts[group_id] += 1
-                delta = group_reward - self._group_rewards[group_id]
-                self._group_reward_vars[group_id] += delta * delta
+                delta = group_reward - self._group_means[group_id]
+                self._group_means[group_id] += delta / self._group_reward_counts[group_id]
+                self._group_reward_vars[group_id] += delta * (group_reward - self._group_means[group_id])
 
         if terms.all() or truncs.all():
             # Normalize group variances by counts
             for group_id in range(len(self._group_reward_vars)):
                 if self._group_reward_counts[group_id] > 1:
                     self._group_reward_vars[group_id] /= (self._group_reward_counts[group_id] - 1)
-                    print(f"Group {group_id} variance: {self._group_reward_vars[group_id]} (count: {self._group_reward_counts[group_id]}, mean: {self._group_rewards[group_id]})")
+                    print(f"Group {group_id} variance: {self._group_reward_vars[group_id]} (count: {self._group_reward_counts[group_id]}, mean: {self._group_means[group_id]})")
 
             # Calculate total variance across all agents
             if self._agents.size() > 1:
@@ -279,6 +284,7 @@ cdef class MettaGrid(GridEnv):
             # Reset accumulators for next episode
             self._group_rewards[:] = 0
             self._group_reward_vars[:] = 0
+            self._group_means[:] = 0
             self._total_rewards[:] = 0
             self._total_reward_var = 0.0
 
