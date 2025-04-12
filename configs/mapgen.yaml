@@ -4,6 +4,7 @@ defaults:
 
 mapgen:
   show: raylib
+  metadata: {}
 
   save: false
   target:
