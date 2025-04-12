@@ -252,7 +252,7 @@ class VariedTerrain(Room):
         indices = self._rng.permutation(len(empty_positions))[:num_to_place]
         for idx in indices:
             r, c = empty_positions[idx]
-            grid[r, c] = "wall"
+            grid[r, c] = "block"
         return grid
 
     def _place_blocks(self, grid: np.ndarray) -> np.ndarray:
@@ -269,7 +269,7 @@ class VariedTerrain(Room):
             candidates = self._find_candidates(grid, (block_h, block_w))
             if candidates:
                 r, c = candidates[self._rng.integers(0, len(candidates))]
-                grid[r:r + block_h, c:c + block_w] = "block"
+                grid[r:r + block_h, c:c + block_w] = "wall"
         return grid
 
     # ---------------------------
