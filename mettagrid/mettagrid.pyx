@@ -251,24 +251,25 @@ cdef class MettaGrid(GridEnv):
             if rewards[agent_idx] != 0:
                 agent = <Agent*>self._agents[agent_idx]
                 group_id = agent.group
+                # Use the final reward for variance calculation
                 group_reward = rewards[agent_idx] * self._group_reward_pct[group_id]
                 # Update group variance using Welford's online algorithm
                 self._group_reward_counts[group_id] += 1
                 delta = group_reward - self._group_rewards[group_id]
-                self._group_reward_vars[group_id] += delta * (group_reward - self._group_rewards[group_id])
+                self._group_reward_vars[group_id] += delta * delta
 
         if terms.all() or truncs.all():
             # Normalize group variances by counts
             for group_id in range(len(self._group_reward_vars)):
                 if self._group_reward_counts[group_id] > 1:
                     self._group_reward_vars[group_id] /= (self._group_reward_counts[group_id] - 1)
-                    print(f"Group {group_id} variance: {self._group_reward_vars[group_id]} (count: {self._group_reward_counts[group_id]})")
+                    print(f"Group {group_id} variance: {self._group_reward_vars[group_id]} (count: {self._group_reward_counts[group_id]}, mean: {self._group_rewards[group_id]})")
 
             # Calculate total variance across all agents
             if self._agents.size() > 1:
                 mean_reward = np.mean(self._total_rewards)
                 self._total_reward_var = np.sum((self._total_rewards - mean_reward) ** 2) / (self._agents.size() - 1)
-                print(f"Total reward variance: {self._total_reward_var} (mean: {mean_reward})")
+                print(f"Total reward variance: {self._total_reward_var} (mean: {mean_reward}, rewards: {self._total_rewards})")
 
             # Add species reward based on variance ratio
             for agent_idx in range(self._agents.size()):
