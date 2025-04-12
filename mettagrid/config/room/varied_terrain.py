@@ -45,7 +45,7 @@ class VariedTerrain(Room):
             "clumpiness": 1,
         },
         "dense-altars-sparse-objects": {
-            "hearts_count": 150,
+            "hearts_count": 100,
             "large_obstacles": {"size_range": [10, 25], "count": 4},
             "small_obstacles": {"size_range": [3, 6], "count": 4},
             "crosses": {"count": 2},
@@ -134,7 +134,7 @@ class VariedTerrain(Room):
         self._labyrinths = {"count": clamp_count(base_params["labyrinths"]["count"], avg_sizes["labyrinths"])}
         self._scattered_walls = {"count": clamp_count(base_params["scattered_walls"]["count"], avg_sizes["scattered_walls"])}
         self._blocks = {"count": clamp_count(base_params["blocks"]["count"], avg_sizes["blocks"])}
-        self._hearts_count = clamp_count(base_params["hearts_count"], avg_sizes["hearts_count"])
+        self._hearts_count = base_params["hearts_count"]
         self._clumpiness = base_params["clumpiness"]
 
     def _build(self) -> np.ndarray:
