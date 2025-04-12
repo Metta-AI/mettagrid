@@ -1,4 +1,6 @@
+import heapq
 import logging
+import time
 from typing import Any, Literal
 
 import numpy as np
@@ -85,6 +87,7 @@ class WFCRenderSession:
         self.reset()
     
     def reset(self):
+        start = time.time()
         self.wave = np.full((self.height, self.width, self.pattern_count), True, dtype=np.bool_)
 
         self.compatible = np.zeros((self.height, self.width, 4, self.pattern_count), dtype=np.int_)
@@ -97,11 +100,26 @@ class WFCRenderSession:
         self.sums_of_ones = np.full((self.height, self.width), len(self.weights), dtype=np.int_)
         self.sums_of_weights = np.full((self.height, self.width), self.scene._sum_of_weights, dtype=np.float_)
         self.sums_of_weight_log_weights = np.full((self.height, self.width), self.scene._sum_of_weight_log_weights, dtype=np.float_)
-        self.entropies = np.full((self.height, self.width), self.scene._starting_entropy, dtype=np.float_)
         self.observed = 0
+        self.queue = []
+        for y in range(self.height):
+            for x in range(self.width):
+                heapq.heappush(self.queue, (self.cell_score(y, x), y, x))
 
         self.stack = np.zeros((self.width * self.height * self.pattern_count, 3), dtype=np.int_)
         self.stacksize = 0
+        logger.info(f"reset() time: {time.time() - start}")
+
+        self._pick_next_time = 0
+        self._pick_next_count = 0
+        self._observe_time = 0
+        self._propagate_time = 0
+
+    def cell_score(self, x: int, y: int) -> float:
+        if self.scene._next_node_heuristic == "mrv":
+            return self.sums_of_ones[y, x]
+        else:
+            return self.scene._starting_entropy
 
     def attempt_run(self):
         while True:
@@ -110,8 +128,10 @@ class WFCRenderSession:
                 return True
 
             self.observe(cell)
+            start = time.time()
             if not self.propagate():
                 return False
+            self._propagate_time += time.time() - start
 
     def run(self):
         ok = False
@@ -119,6 +139,8 @@ class WFCRenderSession:
             logger.info(f"Attempt {i + 1} of {self.scene._attempts}, pattern:\n{self.scene._ascii_pattern}")
             self.reset()
             ok = self.attempt_run()
+            logger.info(f"Attempt {i + 1} time: pick_next_node: {self._pick_next_time}, observe: {self._observe_time}, propagate: {self._propagate_time}")
+            logger.info(f"Attempt {i + 1} time: pick_next_count: {self._pick_next_count}")
             if ok:
                 break
             else:
@@ -133,9 +155,10 @@ class WFCRenderSession:
                     if self.wave[y, x, t]:
                         self.node.grid[y, x] = "wall" if self.scene._patterns[t].data[0][0] else "empty"
 
-    # initialize data structures
     def pick_next_node(self):
         # non-periodic
+        self._pick_next_count += 1
+        start = time.time()
         used_width = self.width - self.scene._pattern_size + 1
         used_height = self.height - self.scene._pattern_size + 1
 
@@ -147,27 +170,17 @@ class WFCRenderSession:
                     self.observed = i + 1
                     return (y, x)
             return None
+        else: # entropy or mrv
+            while len(self.queue) > 0:
+                _, x, y = heapq.heappop(self.queue)
+                if self.sums_of_ones[y, x] > 1:
+                    self._pick_next_time += time.time() - start
+                    return (y, x)
+            return None
 
-        min = 1e9
-        argmin = None
-        for y in range(used_height):
-            for x in range(used_width):
-                if self.sums_of_ones[y, x] <= 1:
-                    continue
-
-                if self.scene._next_node_heuristic == "mrv":
-                    entropy = self.sums_of_ones[y, x]
-                else:
-                    entropy = self.entropies[y, x]
-
-                if entropy <= min:
-                    noise = 1e-6 * self.rng.random()
-                    if entropy + noise < min:
-                        min = entropy + noise
-                        argmin = (y, x)
-        return argmin
 
     def observe(self, cell: tuple[int, int]):
+        start = time.time()
         y, x = cell
         distribution = self.wave[y, x] * self.weights
         distribution /= np.sum(distribution)
@@ -175,6 +188,7 @@ class WFCRenderSession:
         for t in range(self.pattern_count):
             if t != r and self.wave[y, x, t]:
                 self.ban(y, x, t)
+        self._observe_time += time.time() - start
 
 
     def ban(self, y: int, x: int, t: int) -> bool:
@@ -192,7 +206,8 @@ class WFCRenderSession:
         self.sums_of_weight_log_weights[y, x] -= self.scene._weights[t] * np.log(self.scene._weights[t])
 
         sum = self.sums_of_weights[y, x]
-        self.entropies[y, x] = np.log(sum) - self.sums_of_weight_log_weights[y, x] / sum
+        if sum > 0:
+            heapq.heappush(self.queue, (self.cell_score(y, x), x, y))
 
         return True
 
