@@ -25,7 +25,7 @@ class VariedTerrain(Room):
     # These counts are intentionally moderate.
     STYLE_PARAMETERS = {
         "all-sparse": {
-            "hearts_count": 50,
+            "hearts_count": 25,
             "large_obstacles": {"size_range": [10, 25], "count": 2},
             "small_obstacles": {"size_range": [3, 6], "count": 2},
             "crosses": {"count": 0},
@@ -55,7 +55,7 @@ class VariedTerrain(Room):
             "clumpiness": 1,
         },
         "sparse-altars-dense-objects": {
-            "hearts_count": 50,
+            "hearts_count": 25,
             "large_obstacles": {"size_range": [10, 25], "count": 10},
             "small_obstacles": {"size_range": [3, 6], "count": 15},
             "crosses": {"count": 8},
