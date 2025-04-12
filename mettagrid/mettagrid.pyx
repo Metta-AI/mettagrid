@@ -218,10 +218,6 @@ cdef class MettaGrid(GridEnv):
     cpdef tuple[cnp.ndarray, cnp.ndarray, cnp.ndarray, cnp.ndarray, dict] step(self, cnp.ndarray actions):
         (obs, rewards, terms, truncs, infos) = super(MettaGrid, self).step(actions)
 
-        self._group_rewards[:] = 0
-        self._group_reward_vars[:] = 0
-        self._total_rewards[:] = 0
-        self._total_reward_var = 0.0
         cdef Agent *agent
         cdef unsigned int group_id
         cdef float group_reward
@@ -236,7 +232,7 @@ cdef class MettaGrid(GridEnv):
                 group_reward = rewards[agent_idx] * self._group_reward_pct[group_id]
                 rewards[agent_idx] -= group_reward
                 self._group_rewards[group_id] += group_reward / self._group_sizes[group_id]
-                self._total_rewards[agent_idx] = rewards[agent_idx]
+                self._total_rewards[agent_idx] += rewards[agent_idx]  # Accumulate individual rewards
 
         if share_rewards:
             for agent_idx in range(self._agents.size()):
@@ -244,7 +240,7 @@ cdef class MettaGrid(GridEnv):
                 group_id = agent.group
                 group_reward = self._group_rewards[group_id]
                 rewards[agent_idx] += group_reward
-                self._total_rewards[agent_idx] = rewards[agent_idx]
+                self._total_rewards[agent_idx] += group_reward  # Accumulate group rewards
 
         # Second pass: calculate variances
         for agent_idx in range(self._agents.size()):
@@ -279,6 +275,12 @@ cdef class MettaGrid(GridEnv):
                     group_fitness_reward = self._group_reward_vars[group_id] / self._total_reward_var
                     rewards[agent_idx] += group_fitness_reward * self._group_fitness_reward_coef
                     print(f"Agent {agent_idx} (Group {group_id}) final reward: {rewards[agent_idx]} (fitness reward: {group_fitness_reward * self._group_fitness_reward_coef})")
+
+            # Reset accumulators for next episode
+            self._group_rewards[:] = 0
+            self._group_reward_vars[:] = 0
+            self._total_rewards[:] = 0
+            self._total_reward_var = 0.0
 
         return (obs, rewards, terms, truncs, infos)
 
