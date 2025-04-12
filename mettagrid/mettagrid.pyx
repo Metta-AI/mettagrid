@@ -44,10 +44,21 @@ cdef class MettaGrid(GridEnv):
         map[unsigned int, unsigned int] _group_sizes
         cnp.ndarray _group_rewards_np
         double[:] _group_rewards
+        cnp.ndarray _group_reward_vars_np
+        double[:] _group_reward_vars
+        cnp.ndarray _group_reward_counts_np
+        unsigned int[:] _group_reward_counts
+        cnp.ndarray _total_rewards_np
+        double[:] _total_rewards
+        cnp.ndarray _total_reward_var_np
+        double _total_reward_var
+        unsigned int _total_reward_count
+        float _group_fitness_reward_coef
 
     def __init__(self, env_cfg: OmegaConf, map: np.ndarray):
         cfg = OmegaConf.create(env_cfg.game)
         self._cfg = cfg
+        self._group_fitness_reward_coef = cfg.agent.group_fitness
 
         obs_encoder = ObservationEncoder()
         if env_cfg.semi_compact_obs:
@@ -86,6 +97,15 @@ cdef class MettaGrid(GridEnv):
 
         self._group_rewards_np = np.zeros(len(cfg.groups))
         self._group_rewards = self._group_rewards_np
+        self._group_reward_vars_np = np.zeros(len(cfg.groups))
+        self._group_reward_vars = self._group_reward_vars_np
+        self._group_reward_counts_np = np.zeros(len(cfg.groups), dtype=np.uint32)
+        self._group_reward_counts = self._group_reward_counts_np
+        self._total_rewards_np = np.zeros(cfg.num_agents)
+        self._total_rewards = self._total_rewards_np
+        self._total_reward_var_np = np.zeros(1)
+        self._total_reward_var = 0.0
+        self._total_reward_count = 0
         self._group_sizes = {
             g.id: 0 for g in cfg.groups.values()
         }
@@ -199,6 +219,9 @@ cdef class MettaGrid(GridEnv):
         (obs, rewards, terms, truncs, infos) = super(MettaGrid, self).step(actions)
 
         self._group_rewards[:] = 0
+        self._group_reward_vars[:] = 0
+        self._total_rewards[:] = 0
+        self._total_reward_var = 0.0
         cdef Agent *agent
         cdef unsigned int group_id
         cdef float group_reward
@@ -212,6 +235,12 @@ cdef class MettaGrid(GridEnv):
                 group_reward = rewards[agent_idx] * self._group_reward_pct[group_id]
                 rewards[agent_idx] -= group_reward
                 self._group_rewards[group_id] += group_reward / self._group_sizes[group_id]
+                # Update group variance using Welford's online algorithm
+                self._group_reward_counts[group_id] += 1
+                delta = group_reward - self._group_rewards[group_id]
+                self._group_reward_vars[group_id] += delta * (group_reward - self._group_rewards[group_id])
+                # Update total reward tracking
+                self._total_rewards[agent_idx] = rewards[agent_idx]
 
         if share_rewards:
             for agent_idx in range(self._agents.size()):
@@ -219,6 +248,28 @@ cdef class MettaGrid(GridEnv):
                 group_id = agent.group
                 group_reward = self._group_rewards[group_id]
                 rewards[agent_idx] += group_reward
+                self._total_rewards[agent_idx] = rewards[agent_idx]
+
+        if terms.all() or truncs.all():
+            # Normalize group variances by counts
+            for group_id in range(len(self._group_reward_vars)):
+                if self._group_reward_counts[group_id] > 1:
+                    self._group_reward_vars[group_id] /= (self._group_reward_counts[group_id] - 1)
+
+            # Calculate total variance across all agents
+            if self._agents.size() > 1:
+                mean_reward = np.mean(self._total_rewards)
+                self._total_reward_var = np.sum((self._total_rewards - mean_reward) ** 2) / (self._agents.size() - 1)
+
+            # Add species reward based on variance ratio
+            for agent_idx in range(self._agents.size()):
+                agent = <Agent*>self._agents[agent_idx]
+                group_id = agent.group
+                if self._total_reward_var > 0:
+                    group_fitness_reward = self._group_reward_vars[group_id] / self._total_reward_var
+                    rewards[agent_idx] += group_fitness_reward * self._group_fitness_reward_coef
+                    print(f"Group {group_id} fitness reward: {group_fitness_reward}")
+
         return (obs, rewards, terms, truncs, infos)
 
     cpdef dict get_episode_stats(self):

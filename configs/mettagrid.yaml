@@ -30,6 +30,7 @@ game:
     rewards:
       # action_failure_penalty: 0.00001
       action_failure_penalty: 0
+      group_fitness: 0.0
       ore.red: 0.005
       ore.blue: 0
       ore.green: 0.005
