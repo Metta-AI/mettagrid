@@ -6,4 +6,3 @@ height: 10
 
 root:
   _target_: mettagrid.map.scenes.maze.MazeKruskal
-  extra_space_empty: true

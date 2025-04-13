@@ -29,6 +29,6 @@ root:
       lock: lock1
       scene:
         _target_: mettagrid.map.scenes.maze.MazeKruskal
-        extra_space_empty: true
-        # TODO - extra_space_empty is not enough, entrypoint can still be blocked because the corridor is attached randomly
+        room_size: 2
+        # TODO - entrypoint can be blocked because the corridor is attached randomly
         # Should the maze scene accept an entrypoint somehow?

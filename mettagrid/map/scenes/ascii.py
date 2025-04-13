@@ -1,6 +1,3 @@
-import numpy as np
-
-from mettagrid.map.scene import Scene
 from mettagrid.map.scenes.inline_ascii import InlineAscii
 
 SYMBOLS = {
