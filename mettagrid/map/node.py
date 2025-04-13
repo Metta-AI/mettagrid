@@ -3,10 +3,12 @@ from typing import TypedDict
 import numpy as np
 import numpy.typing as npt
 
+
 class Area(TypedDict):
-    id: int # unique for areas in a node; not unique across nodes.
+    id: int  # unique for areas in a node; not unique across nodes.
     grid: npt.NDArray[np.str_]
     tags: list[str]
+
 
 # Container for a map slice, with a scene to render.
 class Node:
@@ -24,14 +26,21 @@ class Node:
 
         # { "lockname": [area_id1, area_id2, ...] }
         self._locks = {}
+        self._full_area: Area = {
+            "id": -1,
+            "grid": self.grid,
+            "tags": [],
+        }
 
     def render(self):
         self.scene.render(self)
 
-    def make_area(self, x: int, y: int, width: int, height: int, tags: list[str] = []) -> Area:
+    def make_area(
+        self, x: int, y: int, width: int, height: int, tags: list[str] = []
+    ) -> Area:
         area: Area = {
             "id": len(self._areas),
-            "grid": self.grid[y:y+height, x:x+width],
+            "grid": self.grid[y : y + height, x : x + width],
             "tags": tags,
         }
         self._areas.append(area)
@@ -40,20 +49,24 @@ class Node:
     def select_areas(self, query) -> list[Area]:
         areas = self._areas
 
-        filtered_areas: list[Area] = []
+        selected_areas: list[Area] = []
+
         where = query.get("where")
         if where:
-            for area in areas:
-                match = True
-                for tag in where["tags"]:
-                    if tag not in area["tags"]:
-                        match = False
-                        break
+            if isinstance(where, str) and where == "full":
+                selected_areas = [self._full_area]
+            else:
+                for area in areas:
+                    match = True
+                    for tag in where["tags"]:
+                        if tag not in area["tags"]:
+                            match = False
+                            break
 
-                if match:
-                    filtered_areas.append(area)
+                    if match:
+                        selected_areas.append(area)
         else:
-            filtered_areas = areas
+            selected_areas = areas
 
         # Filter out locked areas.
         lock = query.get("lock")
@@ -62,24 +75,24 @@ class Node:
                 self._locks[lock] = []
 
             # Remove areas that are locked.
-            filtered_areas = [area for area in filtered_areas if area["id"] not in self._locks[lock]]
-
+            selected_areas = [
+                area for area in selected_areas if area["id"] not in self._locks[lock]
+            ]
 
         limit = query.get("limit")
-        if limit is not None and limit < len(filtered_areas):
+        if limit is not None and limit < len(selected_areas):
             order_by = query.get("order_by", "random")
             if order_by == "random":
-                filtered_areas = random.sample(filtered_areas, k=limit)
+                selected_areas = random.sample(selected_areas, k=limit)
             elif order_by == "first":
-                filtered_areas = filtered_areas[:limit]
+                selected_areas = selected_areas[:limit]
             elif order_by == "last":
-                filtered_areas = filtered_areas[-limit:]
+                selected_areas = selected_areas[-limit:]
             else:
                 raise ValueError(f"Invalid order_by value: {order_by}")
 
         if lock:
             # Add final list of used areas to the lock.
-            self._locks[lock].extend([area["id"] for area in filtered_areas])
+            self._locks[lock].extend([area["id"] for area in selected_areas])
 
-        return filtered_areas
-
+        return selected_areas

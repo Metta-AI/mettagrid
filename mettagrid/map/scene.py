@@ -6,9 +6,11 @@ from omegaconf import OmegaConf
 
 from .node import Node
 
+
 class TypedChild(TypedDict):
-    scene: 'Scene'
+    scene: "Scene"
     select: str
+
 
 # Base class for all map scenes.
 class Scene:
@@ -33,7 +35,7 @@ class Scene:
             subqueries: list[TypedChild] = [query]
             if sweep:
                 subqueries = [
-                    OmegaConf.merge(entry, query)
+                    OmegaConf.merge(entry, query)  # type: ignore
                     for entry in sweep
                 ]
 

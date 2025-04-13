@@ -32,3 +32,8 @@ root:
         room_size: 2
         # TODO - entrypoint can be blocked because the corridor is attached randomly
         # Should the maze scene accept an entrypoint somehow?
+
+    # fix bugs with MazeKruskal connection points
+    - where: full
+      scene:
+        _target_: mettagrid.map.scenes.make_connected.MakeConnected

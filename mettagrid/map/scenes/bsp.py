@@ -1,6 +1,5 @@
-import math
 import random
-from typing import Any, Literal, Tuple, Union
+from typing import Any, Literal, Tuple
 
 import numpy as np
 from mettagrid.map.node import Node
@@ -16,6 +15,7 @@ class BSP(Scene):
         min_room_size: int = 3,
         min_room_size_ratio: float = 0.4,
         max_room_size_ratio: float = 0.8,
+        skip_corridors: bool = False,
         children: list[Any] = [],
     ):
         super().__init__(children=children)
@@ -23,6 +23,7 @@ class BSP(Scene):
         self._min_room_size = min_room_size
         self._min_room_size_ratio = min_room_size_ratio
         self._max_room_size_ratio = max_room_size_ratio
+        self._skip_corridors = skip_corridors
 
     def _render(self, node: Node):
         grid = node.grid
@@ -68,6 +69,10 @@ class BSP(Scene):
             node.make_area(room.x, room.y, room.width, room.height, tags=["room"])
 
         # Make corridors
+        if self._skip_corridors:
+            print("Skipping corridors")
+            return
+
         for i in range(len(zones) - 2, 0, -2):
             zone1 = zones[i]
             zone2 = zones[i + 1]
