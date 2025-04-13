@@ -11,8 +11,9 @@ SYMBOLS = {
     "W": "wall",
     " ": "empty",
     "b": "block",
-    "L": "lasery"
+    "L": "lasery",
 }
+
 
 class Ascii(InlineAscii):
     def __init__(self, uri: str):

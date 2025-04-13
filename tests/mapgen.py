@@ -1,16 +1,17 @@
-from datetime import datetime
-import time
 import os
-import signal  # Aggressively exit on ctrl+c
 import random
+import signal  # Aggressively exit on ctrl+c
 import string
-from typing import Any, Dict
+import time
+from datetime import datetime
 
 import hydra
 from omegaconf import OmegaConf
+
 from mettagrid.mettagrid_env import MettaGridEnv
 
 signal.signal(signal.SIGINT, lambda sig, frame: os._exit(0))
+
 
 def env_to_ascii(env):
     grid = env._c_env.render_ascii()
@@ -31,11 +32,13 @@ def save_env_map(env, target_file, gen_time):
 
     with open(target_file, "w") as f:
         # Note: OmegaConf messes up multiline strings (adds extra newlines). But we take care of it in the mettamap viewer.
-        frontmatter = OmegaConf.to_yaml({
-            "metadata": metadata,
-            "config": config,
-            "resolved_config": resolved_config,
-        })
+        frontmatter = OmegaConf.to_yaml(
+            {
+                "metadata": metadata,
+                "config": config,
+                "resolved_config": resolved_config,
+            }
+        )
         f.write(frontmatter)
         f.write("\n---\n")
         f.write("\n".join(ascii_grid) + "\n")
@@ -51,9 +54,11 @@ def main(cfg):
     print(f"Time taken to create env: {gen_time} seconds")
 
     if cfg.mapgen.save:
-        target_name = cfg.mapgen.target.get('name', None)
+        target_name = cfg.mapgen.target.get("name", None)
         if target_name is None:
-            random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+            random_suffix = "".join(
+                random.choices(string.ascii_lowercase + string.digits, k=8)
+            )
             target_name = f"map_{random_suffix}.yaml"
 
         target_file = os.path.join(cfg.mapgen.target.dir, target_name)
@@ -62,6 +67,7 @@ def main(cfg):
     show = cfg.mapgen.show
     if show == "raylib":
         from mettagrid.renderer.raylib.raylib_renderer import MettaGridRaylibRenderer
+
         renderer = MettaGridRaylibRenderer(env._c_env, env._env_cfg.game)
         while True:
             renderer.render_and_wait()

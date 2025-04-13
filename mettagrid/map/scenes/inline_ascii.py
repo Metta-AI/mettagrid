@@ -13,8 +13,9 @@ SYMBOLS = {
     "W": "wall",
     " ": "empty",
     "b": "block",
-    "L": "lasery"
+    "L": "lasery",
 }
+
 
 class InlineAscii(Scene):
     def __init__(self, data: str, row: int = 0, column: int = 0):
@@ -26,8 +27,16 @@ class InlineAscii(Scene):
         self._column = column
 
     def _render(self, node):
-        if node.width < self._level.shape[1] + self._column or node.height < self._level.shape[0] + self._row:
-            raise ValueError(f"Level size {self._level.shape} is too large for node size {node.width}x{node.height} at {self._column},{self._row}")
+        if (
+            node.width < self._level.shape[1] + self._column
+            or node.height < self._level.shape[0] + self._row
+        ):
+            raise ValueError(
+                f"Level size {self._level.shape} is too large for node size {node.width}x{node.height} at {self._column},{self._row}"
+            )
 
         level_height, level_width = self._level.shape
-        node.grid[self._row:self._row+level_height, self._column:self._column+level_width] = self._level
+        node.grid[
+            self._row : self._row + level_height,
+            self._column : self._column + level_width,
+        ] = self._level

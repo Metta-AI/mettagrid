@@ -4,12 +4,14 @@ from ..scene import Scene
 from ..node import Node
 from omegaconf import DictConfig
 
+
 class Random(Scene):
     """
     Fill the grid with random symbols, based on configuration.
 
     This scene takes into account the existing grid content, and places objects in empty spaces only.
     """
+
     def __init__(
         self,
         objects: DictConfig | dict = {},
@@ -27,7 +29,11 @@ class Random(Scene):
         if isinstance(self._agents, int):
             agents = ["agent.agent"] * self._agents
         elif isinstance(self._agents, DictConfig):
-            agents = ["agent." + str(agent) for agent, na in self._agents.items() for _ in range(na)]
+            agents = [
+                "agent." + str(agent)
+                for agent, na in self._agents.items()
+                for _ in range(na)
+            ]
 
         # Find empty cells in the grid
         empty_mask = node.grid == "empty"
@@ -40,7 +46,9 @@ class Random(Scene):
             symbols.extend([obj_name] * count)
         symbols.extend(agents)
 
-        assert len(symbols) <= empty_count, f"Too many objects for available empty cells: {len(symbols)} > {empty_count}"
+        assert len(symbols) <= empty_count, (
+            f"Too many objects for available empty cells: {len(symbols)} > {empty_count}"
+        )
 
         # Shuffle the symbols
         symbols = np.array(symbols).astype(str)
@@ -51,8 +59,8 @@ class Random(Scene):
             # Shuffle the indices of empty cells
             self._rng.shuffle(empty_indices)
             # Take only as many indices as we have symbols
-            selected_indices = empty_indices[:len(symbols)]
-            
+            selected_indices = empty_indices[: len(symbols)]
+
             # Create a flat copy of the grid
             flat_grid = node.grid.flatten()
             # Place symbols at the selected empty positions
