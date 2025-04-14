@@ -1,34 +1,43 @@
 _target_: mettagrid.map.mapgen.MapGen
 
-width: 200
-height: 200
+width: 100
+height: 100
 
 root:
   _target_: mettagrid.map.scenes.auto.Auto
   config:
     num_agents: 10
 
-    grid:
-      min_rows: 3
-      max_rows: 8
-      min_columns: 3
-      max_columns: 8
+    layout:
+      # weights for layout choice
+      grid: 1
+      bsp: 1
 
-    maze:
-      min_wall_size: 1
-      max_wall_size: 3
-      min_cell_size: 2
-      max_cell_size: 3
+    grid:
+      # if we pick grid layout, how many rows and columns?
+      min_rows: 2
+      max_rows: 5
+      min_columns: 2
+      max_columns: 5
 
     room_symmetry:
+      # weights for room symmetry choice
       horizontal: 3
       vertical: 3
       none: 10
       x4: 3
 
     content:
+      # weights for content choice
       maze: 2
       wfc: 8
+
+    maze:
+      # if we pick maze layout, how big are walls and cells?
+      min_wall_size: 1
+      max_wall_size: 3
+      min_cell_size: 2
+      max_cell_size: 3
 
     wfc_patterns:
         - |

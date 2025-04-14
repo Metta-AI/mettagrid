@@ -8,7 +8,63 @@ from mettagrid.map.scene import Scene
 Direction = Literal["horizontal", "vertical"]
 
 
+def bsp_layout(grid: np.ndarray, zone_count: int):
+    """
+    Split the grid into zones, and return the zones and the index of the first leaf zone.
+
+    This function is used in BSP scene that creates rooms at leaf zones and connects them with corridors.
+
+    It's also reused as a helper layout function in other scenes.
+    """
+    next_split_id = 0
+
+    # Store the tree as flat list:
+    # [
+    #   layer1,
+    #   layer2, layer2,
+    #   layer3, layer3, layer3, layer3,
+    #   ...
+    # ]
+    zones = [Zone(0, 0, grid.shape[1], grid.shape[0])]
+
+    for _ in range(zone_count - 1):  # split rooms-1 times
+        zone = zones[next_split_id]
+
+        (child1, child2) = zone.split()
+        if random.random() < 0.5:
+            child1, child2 = child2, child1
+
+        zones.append(child1)
+        zones.append(child2)
+        next_split_id += 1
+
+    return (zones, next_split_id)
+
+
+class BSPLayout(Scene):
+    """
+    This scene doesn't render anything, it just creates areas that can be used by other scenes.
+    """
+
+    def __init__(self, area_count: int, children: list[Any]):
+        super().__init__(children=children)
+        self._area_count = area_count
+
+    def _render(self, node: Node):
+        grid = node.grid
+
+        zones, first_leaf_index = bsp_layout(grid, self._area_count)
+        for zone in zones[first_leaf_index:]:
+            node.make_area(zone.x, zone.y, zone.width, zone.height, tags=["zone"])
+
+
 class BSP(Scene):
+    """
+    Binary Space Partitioning. (Roguelike dungeon generator)
+
+    This scene creates a grid of rooms, and then connects them with corridors.
+    """
+
     def __init__(
         self,
         rooms: int,
@@ -30,33 +86,12 @@ class BSP(Scene):
 
         grid[:] = "wall"
 
-        next_split_id = 0
-
-        # Store the tree as flat list:
-        # [
-        #   layer1,
-        #   layer2, layer2,
-        #   layer3, layer3, layer3, layer3,
-        #   ...
-        # ]
-        zones = [Zone(0, 0, grid.shape[1], grid.shape[0])]
-
-        for _ in range(self._rooms - 1):  # split rooms-1 times
-            zone = zones[next_split_id]
-
-            (child1, child2) = zone.split()
-            if random.random() < 0.5:
-                child1, child2 = child2, child1
-
-            zones.append(child1)
-            zones.append(child2)
-            next_split_id += 1
-
+        zones, first_leaf_index = bsp_layout(grid, self._rooms)
         # make room for all zones, but only the leaf zones will be used
         rooms: list[Zone | None] = [None] * len(zones)
 
         # Make rooms at leaf zones
-        for i in range(next_split_id, len(zones)):
+        for i in range(first_leaf_index, len(zones)):
             zone = zones[i]
             room = zone.make_room(
                 min_size=self._min_room_size,

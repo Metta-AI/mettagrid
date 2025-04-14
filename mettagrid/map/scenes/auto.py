@@ -3,6 +3,7 @@ from typing import Any
 import numpy as np
 from omegaconf import Node
 from mettagrid.map.scene import Scene, TypedChild
+from mettagrid.map.scenes.bsp import BSPLayout
 from mettagrid.map.scenes.make_connected import MakeConnected
 from mettagrid.map.scenes.maze import MazeKruskal
 from mettagrid.map.scenes.mirror import Mirror
@@ -43,29 +44,50 @@ class Auto(BaseAuto):
 
 class AutoLayout(BaseAuto):
     def get_children(self, node) -> list[TypedChild]:
-        rows = np.random.randint(
-            self._config.grid.min_rows, self._config.grid.max_rows + 1
-        )
-        columns = np.random.randint(
-            self._config.grid.min_columns, self._config.grid.max_columns + 1
-        )
+        weights = [0.1, 0.9]
+        layout = np.random.choice(["grid", "bsp"], p=weights)
 
-        return [
-            {
-                "scene": RoomGrid(
-                    rows=rows,
-                    columns=columns,
-                    border_width=0,  # TODO - randomize?
-                    children=[
-                        {
-                            "scene": AutoSymmetry(config=self._config),
-                            "where": {"tags": ["room"]},
-                        }
-                    ],
-                ),
-                "where": "full",
-            },
-        ]
+        if layout == "grid":
+            rows = np.random.randint(
+                self._config.grid.min_rows, self._config.grid.max_rows + 1
+            )
+            columns = np.random.randint(
+                self._config.grid.min_columns, self._config.grid.max_columns + 1
+            )
+
+            return [
+                {
+                    "scene": RoomGrid(
+                        rows=rows,
+                        columns=columns,
+                        border_width=0,  # TODO - randomize?
+                        children=[
+                            {
+                                "scene": AutoSymmetry(config=self._config),
+                                "where": {"tags": ["room"]},
+                            }
+                        ],
+                    ),
+                    "where": "full",
+                },
+            ]
+        elif layout == "bsp":
+            return [
+                {
+                    "scene": BSPLayout(
+                        area_count=9,
+                        children=[
+                            {
+                                "scene": AutoSymmetry(config=self._config),
+                                "where": {"tags": ["zone"]},
+                            }
+                        ],
+                    ),  # TODO - configurable
+                    "where": "full",
+                }
+            ]
+        else:
+            raise ValueError(f"Invalid layout: {layout}")
 
 
 class AutoSymmetry(BaseAuto):

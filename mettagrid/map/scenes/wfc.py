@@ -115,8 +115,6 @@ class WFCRenderSession:
         self.pattern_count = len(self.weights)
         self.rng = self.scene._rng
 
-        print(self.width, self.height, self.pattern_count)
-
         self.reset()
 
     def reset(self):
