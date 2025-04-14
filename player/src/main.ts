@@ -784,6 +784,7 @@ function onFrame() {
   // /Users/me/p/mettagrid/player/data/meta_grid_icon.png
   drawer.drawSprite('meta_grid_icon.png', 100, 100);
 
+  drawer.flushMesh();
   drawer.flush();
   console.log("Flushed drawer.");
 }
