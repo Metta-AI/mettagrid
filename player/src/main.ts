@@ -428,7 +428,7 @@ async function loadReplayText(replayData: any) {
     }
 
     // Set the scrubber max value to the max steps.
-    scrubber.max = replay.max_steps.toString();
+    scrubber.max = (replay.max_steps - 1).toString();
 
     closeModal();
     focusFullMap(mapPanel);
@@ -457,7 +457,7 @@ function onKeyDown(event: KeyboardEvent) {
         onFrame();
     }
     if (event.key == "ArrowRight") {
-        step = Math.min(step + 1, replay.max_steps);
+        step = Math.min(step + 1, replay.max_steps - 1);
         scrubber.value = step.toString();
         onFrame();
     }
