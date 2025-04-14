@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import Any, Optional, TypedDict
 import hydra
 import numpy as np
 import numpy.typing as npt
@@ -9,7 +9,8 @@ from .node import Node
 
 class TypedChild(TypedDict):
     scene: "Scene"
-    select: str
+    where: Optional[Any]
+    # TODO - more props; use dataclasses instead, or structured configs?
 
 
 # Base class for all map scenes.
@@ -27,10 +28,15 @@ class Scene:
     def _render(self, node: Node) -> None:
         raise NotImplementedError("Subclass must implement render method")
 
+    # Subclasses can override this to provide a list of children based on the node.
+    # By default, children are static, which makes them configurable in the config file, but they can't depend on the node.
+    def get_children(self, node) -> list[TypedChild]:
+        return self._children
+
     def render(self, node: Node):
         self._render(node)
 
-        for query in self._children:
+        for query in self.get_children(node):
             sweep = query.get("sweep")
             subqueries: list[TypedChild] = [query]
             if sweep:

@@ -4,7 +4,7 @@ from mettagrid.map.node import Node
 from mettagrid.map.scene import Scene
 
 
-Symmetry = Literal["horizontal", "vertical", "4x"]
+Symmetry = Literal["horizontal", "vertical", "x4"]
 
 
 class Mirror(Scene):
@@ -32,7 +32,7 @@ class Mirror(Scene):
 
             node.grid[node.height - top_height :, :] = child_node.grid[::-1, :]
 
-        elif self._symmetry == "4x":
+        elif self._symmetry == "x4":
             # fill top left quadrant
             sub_width = (node.width + 1) // 2  # take half, plus one for odd width
             sub_height = (node.height + 1) // 2  # take half, plus one for odd width
