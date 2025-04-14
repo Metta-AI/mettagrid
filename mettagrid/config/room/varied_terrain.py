@@ -73,6 +73,17 @@ class VariedTerrain(Room):
             "scattered_walls": {"count": 35},
             "blocks": {"count": 8},
             "clumpiness": 5,
+        },
+        # New style: maze-like with predominant labyrinth features.
+        "maze": {
+            "hearts_count": 25,  # Altars placed after obstacles; keeps the grid sparse for maze corridors.
+            "large_obstacles": {"size_range": [10, 25], "count": 0},  # Disable large obstacles.
+            "small_obstacles": {"size_range": [3, 6], "count": 0},     # Disable small obstacles.
+            "crosses": {"count": 0},  # No cross obstacles.
+            "labyrinths": {"count": 10},  # Increase labyrinth count to generate more maze segments.
+            "scattered_walls": {"count": 0},  # Avoid adding extra walls that could break up maze consistency.
+            "blocks": {"count": 0},  # No rectangular blocks.
+            "clumpiness": 0,  # Clumpiness is not necessary when only labyrinths are used.
         }
     }
 
@@ -339,10 +350,8 @@ class VariedTerrain(Room):
 
     def _generate_labyrinth_pattern(self) -> np.ndarray:
         # Choose dimensions between 11 and 13, then clamp to 11 and force odd.
-        h = int(self._rng.integers(11, 14))
-        w = int(self._rng.integers(11, 14))
-        h = 11 if h > 11 else h
-        w = 11 if w > 11 else w
+        h = int(self._rng.integers(11, 26))
+        w = int(self._rng.integers(11, 26))
         if h % 2 == 0: h -= 1
         if w % 2 == 0: w -= 1
 
