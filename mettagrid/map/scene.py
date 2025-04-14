@@ -45,5 +45,5 @@ class Scene:
                     scene = query["scene"]
                     if not isinstance(scene, Scene):
                         scene = hydra.utils.instantiate(scene, _recursive_=False)
-                    child_node = scene.make_node(area["grid"])
+                    child_node = scene.make_node(area.grid)
                     child_node.render()

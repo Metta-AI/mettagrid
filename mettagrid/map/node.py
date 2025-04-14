@@ -1,10 +1,11 @@
+from dataclasses import dataclass
 import random
-from typing import TypedDict
 import numpy as np
 import numpy.typing as npt
 
 
-class Area(TypedDict):
+@dataclass
+class Area:
     id: int  # unique for areas in a node; not unique across nodes.
     grid: npt.NDArray[np.str_]
     tags: list[str]
@@ -26,11 +27,11 @@ class Node:
 
         # { "lockname": [area_id1, area_id2, ...] }
         self._locks = {}
-        self._full_area: Area = {
-            "id": -1,
-            "grid": self.grid,
-            "tags": [],
-        }
+        self._full_area = Area(
+            id=-1,
+            grid=self.grid,
+            tags=[],
+        )
 
     def render(self):
         self.scene.render(self)
@@ -38,11 +39,11 @@ class Node:
     def make_area(
         self, x: int, y: int, width: int, height: int, tags: list[str] = []
     ) -> Area:
-        area: Area = {
-            "id": len(self._areas),
-            "grid": self.grid[y : y + height, x : x + width],
-            "tags": tags,
-        }
+        area = Area(
+            id=len(self._areas),
+            grid=self.grid[y : y + height, x : x + width],
+            tags=tags,
+        )
         self._areas.append(area)
         return area
 
@@ -59,7 +60,7 @@ class Node:
                 for area in areas:
                     match = True
                     for tag in where["tags"]:
-                        if tag not in area["tags"]:
+                        if tag not in area.tags:
                             match = False
                             break
 
@@ -72,11 +73,11 @@ class Node:
         lock = query.get("lock")
         if lock:
             if lock not in self._locks:
-                self._locks[lock] = []
+                self._locks[lock] = set()
 
             # Remove areas that are locked.
             selected_areas = [
-                area for area in selected_areas if area["id"] not in self._locks[lock]
+                area for area in selected_areas if area.id not in self._locks[lock]
             ]
 
         limit = query.get("limit")
@@ -93,6 +94,6 @@ class Node:
 
         if lock:
             # Add final list of used areas to the lock.
-            self._locks[lock].extend([area["id"] for area in selected_areas])
+            self._locks[lock].update([area.id for area in selected_areas])
 
         return selected_areas

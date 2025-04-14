@@ -88,3 +88,7 @@ root:
           |###     ###|
           |##### #####|
           |##### #####|
+
+    - where: full
+      scene:
+        _target_: mettagrid.map.scenes.make_connected.MakeConnected

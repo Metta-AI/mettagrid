@@ -30,8 +30,6 @@ class MapGen:
         self._grid[:, :border_width] = "wall"
         self._grid[:, -border_width:] = "wall"
 
-        # TODO - add outer wall borders, always useful
-
     def _inner_grid(self):
         if self._border_width > 0:
             return self._grid[

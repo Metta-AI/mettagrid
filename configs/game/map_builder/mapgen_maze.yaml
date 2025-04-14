@@ -13,8 +13,7 @@ root:
       _target_: mettagrid.map.scenes.maze.MazeKruskal
 
       children:
-      - where: # similar to SQL "WHERE" clause; selects areas based on their tags.
-          # Each corner is tagged, so we can select them individually.
+      - where:
           tags:
           - top-left
         scene:

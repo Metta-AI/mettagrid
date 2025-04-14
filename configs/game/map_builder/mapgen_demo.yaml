@@ -6,7 +6,8 @@ _target_: mettagrid.map.mapgen.MapGen
 width: 50
 height: 40
 
-# Outer border width. Defaults to 6.
+# Outer border width. Defaults to 1.
+# This border will be added outside of width and height.
 border_width: 2
 
 # MapGen is a tree of nodes, instantiated from scenes.
@@ -40,7 +41,7 @@ root:
     # Take only two areas; if not set, all matching areas are selected.
     limit: 2
 
-    # Random mode is default, which means "take 2 random areas"; other modes are "index" and "reverse_index".
+    # Random mode is default, which means "take 2 random areas"; other modes are "first" and "last".
     # If `limit` is not set, `order_by` is ignored.
     order_by: random
 
@@ -56,6 +57,7 @@ root:
       children:
       - where: # similar to SQL "WHERE" clause; selects areas based on their tags.
           # Each corner is tagged, so we can select them individually.
+          # These tags are specific for MazeKruskal scene. Other scenes might have different tags.
           tags:
           - top-left
         scene:
