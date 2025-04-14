@@ -1,4 +1,5 @@
 import logging
+import random
 from typing import Any, Tuple, Union
 
 import numpy as np
@@ -21,8 +22,9 @@ class MakeConnected(Scene):
     TODO: This can result in some extra tunnels being dug.
     """
 
-    def __init__(self, children: list[Any] = []):
+    def __init__(self, seed=None, children: list[Any] = []):
         super().__init__(children=children)
+        self._rng = random.Random(seed)
 
     def _render(self, node: Node):
         height, width = node.grid.shape
@@ -69,22 +71,24 @@ class MakeConnected(Scene):
             while distances_to_largest_component[current_cell[0], current_cell[1]] > 0:
                 # Find the neighbor with the smallest distance to the largest component
                 y, x = current_cell
-                next_cell = None
+                # Find all neighbors with the smallest distance to the largest component
+                candidates = []
                 min_neighbor_distance = np.inf
 
                 for dy, dx in directions:
                     ny, nx = y + dy, x + dx
-                    if (
-                        0 <= ny < height
-                        and 0 <= nx < width
-                        and distances_to_largest_component[ny, nx]
-                        < min_neighbor_distance
-                    ):
-                        min_neighbor_distance = distances_to_largest_component[ny, nx]
-                        next_cell = (ny, nx)
+                    if ny < 0 or ny >= height or nx < 0 or nx >= width:
+                        continue
+                    distance = distances_to_largest_component[ny, nx]
+                    if distance < min_neighbor_distance:
+                        min_neighbor_distance = distance
+                        candidates = [(ny, nx)]
+                    elif distance == min_neighbor_distance:
+                        candidates.append((ny, nx))
 
-                # Dig the tunnel by setting the cell to empty
-                if next_cell:
+                # Pick a random candidate from those with the minimum distance
+                if candidates:
+                    next_cell = self._rng.choice(candidates)
                     node.grid[current_cell[0], current_cell[1]] = "empty"
                     current_cell = next_cell
                 else:
