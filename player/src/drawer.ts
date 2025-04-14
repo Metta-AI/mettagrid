@@ -949,26 +949,21 @@ class Drawer {
         // In a 3x3 matrix, we need to ensure the translation values are preserved
         // The Mat3f data array is stored in row-major order: [m00, m01, m02, m10, m11, m12, m20, m21, m22]
         // But WebGPU expects a 4x3 matrix with translation in the 4th column:
-        // [m00, m01, 0, m02, m10, m11, 0, m12, m20, m21, 1, 0]
-        paddedMatrix[0] = finalTransform.data[0];  // m00 (scale x)
-        paddedMatrix[1] = finalTransform.data[1];  // m01 (skew x)
-        paddedMatrix[2] = 0;                       // 0
-        paddedMatrix[3] = finalTransform.data[2];  // m02 (translation x)
 
-        paddedMatrix[4] = finalTransform.data[3];  // m10 (skew y)
-        paddedMatrix[5] = finalTransform.data[4];  // m11 (scale y)
-        paddedMatrix[6] = 0;                       // 0
-        paddedMatrix[7] = finalTransform.data[5];  // m12 (translation y)
+        paddedMatrix[0] = finalTransform.data[0];
+        paddedMatrix[1] = finalTransform.data[1];
+        paddedMatrix[2] = 0;
+        paddedMatrix[3] = 0;
 
-        paddedMatrix[8] = finalTransform.data[6];  // m20 (0)
-        paddedMatrix[9] = finalTransform.data[7];  // m21 (0)
-        paddedMatrix[10] = 1;                      // 1
-        paddedMatrix[11] = 0;                      // 0
+        paddedMatrix[4] = finalTransform.data[3];
+        paddedMatrix[5] = finalTransform.data[4];
+        paddedMatrix[6] = 0;
+        paddedMatrix[7] = 0;
 
-        paddedMatrix[12] = 0;
-        paddedMatrix[13] = 0;
-        paddedMatrix[14] = 0;
-        paddedMatrix[15] = 1;
+        paddedMatrix[8] = finalTransform.data[2] / this.canvas.width;
+        paddedMatrix[9] = 1 -finalTransform.data[5] / this.canvas.height;
+        paddedMatrix[10] = 1;
+        paddedMatrix[11] = 0;
 
         // Write the transform to the GPU
         this.device.queue.writeBuffer(
