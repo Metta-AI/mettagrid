@@ -6,7 +6,6 @@ from mettagrid.config.room.room import Room
 from mettagrid.config.room.utils import compute_positions, create_grid, draw_border
 from omegaconf import DictConfig
 
-
 class BarrierMaze(Room):
     """
     Maze with an outer wall and three barriers separating seven blocks:
