@@ -12,21 +12,21 @@ game:
 
     room:
       _target_: mettagrid.config.room.random.Random
-      width: ${uniform:10,100,25}
-      height: ${uniform:10,100,25}
+      width: ${if:${eq:${..sampling},0},25,${uniform:10,100}}
+      height: ${if:${eq:${..sampling},0},25,${uniform:10,100}}
       border_width: 0
 
       agents: 6
 
       objects:
-        mine: ${uniform:1,20,10}
-        generator: ${uniform:1,10,2}
-        altar: ${uniform:1,5,1}
-        armory: ${uniform:1,5,1}
-        lasery: ${uniform:1,5,1}
-        lab: ${uniform:1,5,1}
-        factory: ${uniform:1,5,1}
-        temple: ${uniform:1,5,1}
+        mine: ${if:${eq:${..sampling},0},10,${uniform:1,20}}
+        generator: ${if:${eq:${..sampling},0},2,${uniform:1,10}}
+        altar: ${if:${eq:${..sampling},0},1,${uniform:1,5}}
+        armory: ${if:${eq:${..sampling},0},1,${uniform:1,5}}
+        lasery: ${if:${eq:${..sampling},0},1,${uniform:1,5}}
+        lab: ${if:${eq:${..sampling},0},1,${uniform:1,5}}
+        factory: ${if:${eq:${..sampling},0},1,${uniform:1,5}}
+        temple: ${if:${eq:${..sampling},0},1,${uniform:1,5}}
 
-        block: ${uniform:5,50,20}
-        wall: ${uniform:5,50,20}
+        block: ${if:${eq:${..sampling},0},20,${uniform:5,50}}
+        wall: ${if:${eq:${..sampling},0},20,${uniform:5,50}}
