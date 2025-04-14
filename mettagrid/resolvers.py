@@ -44,10 +44,11 @@ def oc_clamp(value: float, min_val: float, max_val: float) -> float:
 
 
 def oc_make_integer(value: float) -> int:
-    """
-    Convert a float value to the nearest integer.
-    """
     return int(round(value))
+
+
+def oc_equals(a, b) -> bool:
+    return a == b
 
 
 def register_resolvers():
@@ -68,3 +69,5 @@ def register_resolvers():
     OmegaConf.register_new_resolver("clamp", oc_clamp, replace=True)
     OmegaConf.register_new_resolver("make_integer", oc_make_integer, replace=True)
     OmegaConf.register_new_resolver("int", oc_make_integer, replace=True)
+    OmegaConf.register_new_resolver("equals", oc_equals, replace=True)
+    OmegaConf.register_new_resolver("eq", oc_equals, replace=True)
