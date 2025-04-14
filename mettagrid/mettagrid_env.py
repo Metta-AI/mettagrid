@@ -1,25 +1,13 @@
 import copy
 import random
-<<<<<<< HEAD
-from typing import Any, Dict
-import logging
-=======
 from typing import Any, Dict, List
->>>>>>> edada07b6886ce341e85ff2693e3031fca73e99e
 import gymnasium as gym
 import hydra
 import numpy as np
 import pufferlib
 from omegaconf import OmegaConf, DictConfig
-<<<<<<< HEAD
-from util.config import config_from_path
 from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
 
-logger = logging.getLogger(__name__)
-=======
-from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
-
->>>>>>> edada07b6886ce341e85ff2693e3031fca73e99e
 
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     def __init__(self, env_cfg: DictConfig, render_mode: str, buf=None, **kwargs):
@@ -183,30 +171,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         pass
 
 class MettaGridEnvSet(MettaGridEnv):
-<<<<<<< HEAD
-
-    def __init__(self, env_cfg: DictConfig, render_mode: str, buf=None, **kwargs):
-        self._env_cfgs = env_cfg.envs
-        self._num_agents_global = env_cfg.num_agents
-
-        env_cfg = self.select_env()
-
-        super().__init__(env_cfg, render_mode, buf, **kwargs)
-        self._cfg_template = None
-
-    def select_env(self):
-        selected_env = random.choice(self._env_cfgs)
-        env_cfg = config_from_path(selected_env)
-        if self._num_agents_global != env_cfg.game.num_agents:
-            raise ValueError("For MettaGridEnvSet, the number of agents must be the same for all environments. Global: {}, Env: {}".format(self._num_agents_global, env_cfg.game.num_agents))
-        return env_cfg
-
-    def make_env(self):
-        env_cfg = self.select_env()
-        super().make_env(env_cfg)
-
-
-=======
     """
     This is a wrapper around MettaGridEnv that allows for multiple environments to be used for training.
     """
@@ -229,7 +193,6 @@ class MettaGridEnvSet(MettaGridEnv):
         OmegaConf.resolve(env_cfg)
         return env_cfg
 
->>>>>>> edada07b6886ce341e85ff2693e3031fca73e99e
 def make_env_from_cfg(cfg_path: str, *args, **kwargs):
     cfg = OmegaConf.load(cfg_path)
     env = MettaGridEnv(cfg, *args, **kwargs)
