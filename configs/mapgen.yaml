@@ -1,6 +1,7 @@
 defaults:
   - mettagrid
   - game/map_builder: ???
+  - _self_
 
 mapgen:
   show: raylib
