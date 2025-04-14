@@ -91,6 +91,8 @@ class WFCRenderSession:
         self.pattern_count = len(self.weights)
         self.rng = self.scene._rng
 
+        print(self.width, self.height, self.pattern_count)
+
         self.reset()
 
     def reset(self):
@@ -125,7 +127,7 @@ class WFCRenderSession:
         self.queue = []
         for y in range(self.height):
             for x in range(self.width):
-                heapq.heappush(self.queue, (self.cell_score(y, x), y, x))
+                heapq.heappush(self.queue, (self.cell_score(x, y), x, y))
 
         self.stack = np.zeros(
             (self.width * self.height * self.pattern_count, 3), dtype=np.int_
@@ -240,7 +242,7 @@ class WFCRenderSession:
 
         sum = self.sums_of_weights[y, x]
         if sum > 0:
-            heapq.heappush(self.queue, (self.cell_score(y, x), x, y))
+            heapq.heappush(self.queue, (self.cell_score(x, y), x, y))
 
         return True
 
