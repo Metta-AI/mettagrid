@@ -1,5 +1,4 @@
-from raylib import rl, colors
-
+from raylib import colors, rl
 
 class FontRenderer:
     def __init__(self, ffi, font_path: str):

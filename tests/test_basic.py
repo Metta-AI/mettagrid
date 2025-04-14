@@ -1,49 +1,25 @@
 import hydra
-import numpy as np
 
+# Make sure all dependencies are installed:
 # Make sure all modules import without errors:
 import mettagrid
-
-import mettagrid.mettagrid_env
-import mettagrid.objects
-import mettagrid.observation_encoder
-
+import mettagrid.action
 import mettagrid.actions.actions
 import mettagrid.actions.attack
 import mettagrid.actions.move
 import mettagrid.actions.noop
 import mettagrid.actions.rotate
 import mettagrid.actions.swap
-
-import mettagrid.action
 import mettagrid.event
 import mettagrid.grid_env
 import mettagrid.grid_object
+import mettagrid.mettagrid_env
+import mettagrid.objects
 import mettagrid.observation_encoder
-
-# Make sure all dependencies are installed:
-import hydra
-import jmespath
-import matplotlib
-import pettingzoo
-import pynvml
-import pytest
-import yaml
-import raylib
-import rich
-import scipy
-import tabulate
-import tensordict
-import torchrl
-import termcolor
-import wandb
-import wandb_core
-import pandas
-import tqdm
+import numpy as np
 
 @hydra.main(version_base=None, config_path="../configs", config_name="test_basic")
 def main(cfg):
-
     # Create the environment:
     mettaGridEnv = mettagrid.mettagrid_env.MettaGridEnv(cfg, render_mode=None)
 
@@ -56,7 +32,7 @@ def main(cfg):
     assert mettaGridEnv._grid_env is not None
     assert mettaGridEnv._c_env == mettaGridEnv._grid_env
     print("mettaGridEnv.done: ", mettaGridEnv.done)
-    assert mettaGridEnv.done == False
+    assert mettaGridEnv.done is False
 
     # Make sure reset works:
     mettaGridEnv.reset()
@@ -64,7 +40,7 @@ def main(cfg):
     # Run a single step:
     print("current_timestep: ", mettaGridEnv._c_env.current_timestep())
     assert mettaGridEnv._c_env.current_timestep() == 0
-    (obs, rewards, terminated, truncated, infos) = mettaGridEnv.step([[0,0]]*5)
+    (obs, rewards, terminated, truncated, infos) = mettaGridEnv.step([[0, 0]] * 5)
     assert mettaGridEnv._c_env.current_timestep() == 1
     print("obs: ", obs)
     # We have 5 agents, ~22 channels, 11x11 grid
@@ -87,7 +63,7 @@ def main(cfg):
 
     print("grid_objects: ")
     for grid_object in mettaGridEnv._c_env.grid_objects().values():
-      print(f"* {grid_object}")
+        print(f"* {grid_object}")
 
     infos = {}
     mettaGridEnv.process_episode_stats(infos)
@@ -110,7 +86,7 @@ def main(cfg):
     print("mettaGridEnv.grid_features: ", mettaGridEnv.grid_features)
     print("mettaGridEnv.global_features: ", mettaGridEnv.global_features)
     print("mettaGridEnv.render_mode: ", mettaGridEnv.render_mode)
-    assert mettaGridEnv.render_mode == None
+    assert mettaGridEnv.render_mode is None
 
     print("mettaGridEnv._c_env.map_width(): ", mettaGridEnv._c_env.map_width())
     assert mettaGridEnv._c_env.map_width() == 25
@@ -126,6 +102,7 @@ def main(cfg):
 
     print("mettaGridEnv.object_type_names: ", mettaGridEnv.object_type_names())
     assert mettaGridEnv.object_type_names() == mettaGridEnv._c_env.object_type_names()
+
 
 if __name__ == "__main__":
     main()

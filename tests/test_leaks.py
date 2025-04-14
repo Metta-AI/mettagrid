@@ -1,11 +1,9 @@
 import hydra
-import numpy as np
 
 # Make sure all modules import without errors:
 from mettagrid.mettagrid_env import MettaGridEnv
 
 # Make sure all dependencies are installed:
-import hydra
 
 @hydra.main(version_base=None, config_path="../configs", config_name="test_basic")
 def main(cfg):

@@ -1,8 +1,8 @@
-from typing import Optional, Tuple, List
-import numpy as np
-from omegaconf import DictConfig
+from typing import List, Optional, Tuple
 
+import numpy as np
 from mettagrid.config.room.room import Room
+from omegaconf import DictConfig
 
 class LabyrinthMaze(Room):
     """

@@ -1,5 +1,4 @@
 import numpy as np
-
 from mettagrid.config.room.room import Room
 
 SYMBOLS = {

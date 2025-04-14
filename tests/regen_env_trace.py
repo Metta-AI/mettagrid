@@ -1,8 +1,7 @@
 import hydra
-import numpy as np
 import mettagrid
 import mettagrid.mettagrid_env
-
+import numpy as np
 
 def dump_agents(env, show_team=False, agent_id=None):
   output = ""
