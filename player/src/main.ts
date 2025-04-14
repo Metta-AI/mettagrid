@@ -192,6 +192,11 @@ let replay: any = null;
 let step = 0;
 let selectedGridObject: any = null;
 
+// Clamp a value between a min and max.
+function clamp(value: number, min: number, max: number): number {
+    return Math.min(Math.max(value, min), max);
+}
+
 // Handle resize events.
 function onResize() {
     // Adjust for high DPI displays.
@@ -211,6 +216,12 @@ function onResize() {
 
     // Scale the context to handle high DPI displays.
     globalCtx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Make sure that traceSplit and infoSplit are valid.
+    let percentMarginWidth = 20 / window.innerWidth;
+    traceSplit = clamp(traceSplit, percentMarginWidth, 1 - percentMarginWidth);
+    let percentMarginHeight = 20 / window.innerHeight;
+    infoSplit = clamp(infoSplit, percentMarginHeight, 1 - percentMarginHeight);
 
     mapPanel.x = 0;
     mapPanel.y = 0;
