@@ -1,7 +1,7 @@
 from typing import Any, List
 
-from ..scene import Scene
-from ..node import Node
+from mettagrid.map.scene import Scene
+from mettagrid.map.node import Node
 
 
 class RoomGrid(Scene):
