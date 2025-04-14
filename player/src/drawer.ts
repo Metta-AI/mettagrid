@@ -301,7 +301,7 @@ class Drawer {
     // Create a buffer for the transformation matrix
     this.transformUniformBuffer = this.device.createBuffer({
       label: 'transform uniform buffer',
-      size: 9 * Float32Array.BYTES_PER_ELEMENT, // 3x3 matrix
+      size: 48, // Update to 48 bytes to match shader's requirement
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -401,7 +401,7 @@ class Drawer {
           buffer: {
             type: 'uniform',
             hasDynamicOffset: false,
-            minBindingSize: 9 * Float32Array.BYTES_PER_ELEMENT // 3x3 matrix
+            minBindingSize: 48 // Update to 48 bytes to match shader's actual usage
           }
         },
         {
@@ -820,70 +820,194 @@ class Drawer {
 
   // Flushes the mesh to the offscreen texture
   flushMesh(): void {
-    if (!this.ready || this.currentQuad === 0 || !this.device) {
-      // Don't submit empty command buffers.
+    if (!this.ready || !this.device) {
+      // Don't proceed if not ready or no device
       return;
     }
 
-    const device = this.device;
+    try {
+      const device = this.device;
 
-    // Calculate data sizes based on current usage.
-    const vertexDataCount = this.currentVertex * 8; // 8 floats per vertex.
-    const indexDataCount = this.currentQuad * 6; // 6 indices per quad.
+      // Step 1: Clear the offscreen texture with green
+      if (this.offscreenRenderPassDescriptor) {
+        const clearCommandEncoder = device.createCommandEncoder({ label: 'Clear Offscreen Texture Encoder' });
 
-    // Write Data to Buffers.
-    this.canvasSize = new Vec2f(this.canvas.width, this.canvas.height);
-    device.queue.writeBuffer(
-      this.canvasSizeUniformBuffer!,
-      0, // Buffer offset.
-      this.canvasSize.data // Use Vec2f data directly.
-    );
+        // Cast the descriptor to modify the clear color
+        const descriptor = this.offscreenRenderPassDescriptor as {
+          colorAttachments: GPURenderPassColorAttachment[];
+        };
 
-    // Only write the portion of vertex data that we're actually using.
-    device.queue.writeBuffer(
-      this.vertexBuffer!,
-      0, // Buffer offset.
-      this.vertexData, // Data.
-      0, // Data offset.
-      vertexDataCount // Size - only write what we need.
-    );
+        // Set clear color to green
+        descriptor.colorAttachments[0].clearValue = { r: 0.0, g: 1.0, b: 0.0, a: 1.0 }; // Solid green
 
-    // Note: We don't need to write the index buffer again since it never changes.
+        // Begin a render pass to clear with green
+        const passEncoder = clearCommandEncoder.beginRenderPass(this.offscreenRenderPassDescriptor);
+        passEncoder.end();
 
-    // Render.
-    const commandEncoder = device.createCommandEncoder({ label: 'Frame Command Encoder' });
+        // Submit the command to clear with green
+        device.queue.submit([clearCommandEncoder.finish()]);
+      }
 
-    // Acquire the canvas texture view *just before* the render pass.
-    if (this.renderPassDescriptor && this.context) {
-      // Cast the descriptor to help TypeScript understand the structure
-      const descriptor = this.renderPassDescriptor as {
-        colorAttachments: GPURenderPassColorAttachment[];
-      };
+      // Step 2: If there are no quads to render, return early
+      if (this.currentQuad === 0) {
+        return;
+      }
 
-      // Update the view
-      descriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
+      // Calculate data sizes based on current usage.
+      const vertexDataCount = this.currentVertex * 8; // 8 floats per vertex.
+      const indexDataCount = this.currentQuad * 6; // 6 indices per quad.
 
-      const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
-      passEncoder.setPipeline(this.pipeline!);
-      passEncoder.setBindGroup(0, this.bindGroup!);
-      passEncoder.setVertexBuffer(0, this.vertexBuffer!);
-      passEncoder.setIndexBuffer(this.indexBuffer!, 'uint16'); // Use 16-bit indices.
-      passEncoder.drawIndexed(indexDataCount); // Draw only the indices we need.
-      passEncoder.end();
+      // Check if we're trying to write more data than our buffer can hold
+      if (vertexDataCount > this.vertexData.length) {
+        console.error(`Buffer overflow: Trying to write ${vertexDataCount} floats to a buffer of length ${this.vertexData.length}`);
+        return;
+      }
+
+      // Write Data to Buffers.
+      device.queue.writeBuffer(
+        this.canvasSizeUniformBuffer!,
+        0, // Buffer offset.
+        this.offscreenTextureSize.data // Use offscreen texture size for rendering to texture
+      );
+
+      // Only write the portion of vertex data that we're actually using.
+      device.queue.writeBuffer(
+        this.vertexBuffer!,
+        0, // Buffer offset.
+        this.vertexData, // Data.
+        0, // Data offset.
+        vertexDataCount // Size - only write what we need.
+      );
+
+      // Note: We don't need to write the index buffer again since it never changes.
+
+      // Render to the offscreen texture
+      const commandEncoder = device.createCommandEncoder({ label: 'Mesh Render Encoder' });
+
+      if (this.offscreenRenderPassDescriptor && this.offscreenView) {
+        // Update the offscreen render pass to load instead of clear (since we already cleared)
+        const descriptor = this.offscreenRenderPassDescriptor as {
+          colorAttachments: GPURenderPassColorAttachment[];
+        };
+        descriptor.colorAttachments[0].loadOp = 'load'; // Don't clear again, load existing content
+
+        const passEncoder = commandEncoder.beginRenderPass(this.offscreenRenderPassDescriptor);
+        passEncoder.setPipeline(this.pipeline!);
+        passEncoder.setBindGroup(0, this.bindGroup!);
+        passEncoder.setVertexBuffer(0, this.vertexBuffer!);
+        passEncoder.setIndexBuffer(this.indexBuffer!, 'uint16'); // Use 16-bit indices.
+        passEncoder.drawIndexed(indexDataCount); // Draw only the indices we need.
+        passEncoder.end();
+      }
+
+      const commandBuffer = commandEncoder.finish();
+      device.queue.submit([commandBuffer]);
+
+      // Reset counters after rendering so we can start fresh.
+      this.currentQuad = 0;
+      this.currentVertex = 0;
+      this.currentIndex = 0;
+    } catch (error) {
+      console.error("Error in flushMesh:", error);
     }
-
-    const commandBuffer = commandEncoder.finish();
-    device.queue.submit([commandBuffer]);
-
-    // Reset counters after rendering so we can start fresh.
-    // This matches the behavior in the auto-flush mechanism.
-    this.currentQuad = 0;
-    this.currentVertex = 0;
-    this.currentIndex = 0;
   }
 
-  flush() {
-    // TODO: Implement flush.
+  // Renders the offscreen texture to the canvas with a transformation
+  flush(transform: Mat3f = Mat3f.identity()) {
+    if (!this.ready || !this.device) {
+      return;
+    }
+
+    try {
+      // Render the offscreen texture to the canvas
+      if (this.textureBindGroup && this.texturePipeline && this.context) {
+        // Update the canvas size uniform buffer with actual canvas size
+        this.canvasSize = new Vec2f(this.canvas.width, this.canvas.height);
+        this.device.queue.writeBuffer(
+          this.canvasSizeUniformBuffer!,
+          0,
+          this.canvasSize.data
+        );
+
+        // Calculate the aspect ratio correction to prevent stretching
+        const canvasAspect = this.canvas.width / this.canvas.height;
+        const textureAspect = this.offscreenTextureSize.x() / this.offscreenTextureSize.y();
+        const aspectCorrection = new Mat3f(
+          1.0, 0.0, 0.0,
+          0.0, canvasAspect / textureAspect, 0.0,
+          0.0, 0.0, 1.0
+        );
+
+        // Combine the provided transform with aspect correction
+        const finalTransform = transform.mul(aspectCorrection);
+
+        // Create a padded array for WebGPU's alignment requirements
+        // WebGPU expects each row of the matrix to be aligned to 16 bytes (4 floats)
+        const paddedMatrix = new Float32Array(12);
+
+        // Copy the matrix data into the padded array with the correct layout
+        // In a 3x3 matrix, we need to ensure the translation values are preserved
+        // The Mat3f data array is stored in row-major order: [m00, m01, m02, m10, m11, m12, m20, m21, m22]
+        // But WebGPU expects a 4x3 matrix with translation in the 4th column:
+        // [m00, m01, 0, m02, m10, m11, 0, m12, m20, m21, 1, 0]
+        paddedMatrix[0] = finalTransform.data[0];  // m00 (scale x)
+        paddedMatrix[1] = finalTransform.data[1];  // m01 (skew x)
+        paddedMatrix[2] = 0;                       // 0
+        paddedMatrix[3] = finalTransform.data[2];  // m02 (translation x)
+
+        paddedMatrix[4] = finalTransform.data[3];  // m10 (skew y)
+        paddedMatrix[5] = finalTransform.data[4];  // m11 (scale y)
+        paddedMatrix[6] = 0;                       // 0
+        paddedMatrix[7] = finalTransform.data[5];  // m12 (translation y)
+
+        paddedMatrix[8] = finalTransform.data[6];  // m20 (0)
+        paddedMatrix[9] = finalTransform.data[7];  // m21 (0)
+        paddedMatrix[10] = 1;                      // 1
+        paddedMatrix[11] = 0;                      // 0
+
+        paddedMatrix[12] = 0;
+        paddedMatrix[13] = 0;
+        paddedMatrix[14] = 0;
+        paddedMatrix[15] = 1;
+
+        // Write the transform to the GPU
+        this.device.queue.writeBuffer(
+          this.transformUniformBuffer!,
+          0,
+          paddedMatrix
+        );
+
+        // Create a command encoder for rendering to canvas
+        const renderCommandEncoder = this.device.createCommandEncoder({ label: 'Display Texture Encoder' });
+
+        // Create a render pass for the canvas
+        const canvasRenderPassDescriptor: GPURenderPassDescriptor = {
+          label: 'Canvas Render Pass',
+          colorAttachments: [
+            {
+              view: this.context.getCurrentTexture().createView(),
+              clearValue: { r: 0.1, g: 0.1, b: 0.1, a: 1.0 }, // Dark gray background
+              loadOp: 'clear',
+              storeOp: 'store',
+            },
+          ],
+        };
+
+        // Render the texture to the canvas
+        const passEncoder = renderCommandEncoder.beginRenderPass(canvasRenderPassDescriptor);
+        passEncoder.setPipeline(this.texturePipeline);
+        passEncoder.setBindGroup(0, this.textureBindGroup);
+        passEncoder.setVertexBuffer(0, this.quadVertexBuffer!);
+        passEncoder.setIndexBuffer(this.quadIndexBuffer!, 'uint16');
+        passEncoder.drawIndexed(6); // 6 indices for the quad (2 triangles)
+        passEncoder.end();
+
+        // Submit the command to render to canvas
+        this.device.queue.submit([renderCommandEncoder.finish()]);
+      }
+    } catch (error) {
+      console.error("Error in flush:", error);
+    }
   }
 
   // Helper method to generate mipmaps for a texture.

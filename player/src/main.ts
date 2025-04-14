@@ -614,8 +614,8 @@ function drawMap(panel: PanelInfo) {
 
   drawer.save();
 
-  drawer.translate(panel.panPos.x(), panel.panPos.y());
-  drawer.scale(panel.zoomLevel, panel.zoomLevel);
+  // drawer.translate(panel.panPos.x(), panel.panPos.y());
+  // drawer.scale(panel.zoomLevel, panel.zoomLevel);
 
   drawFloor(replay.map_size);
   drawWalls(replay);
@@ -785,7 +785,17 @@ function onFrame() {
   drawer.drawSprite('meta_grid_icon.png', 100, 100);
 
   drawer.flushMesh();
-  drawer.flush();
+
+  // Scale the texture
+  //const scaleMatrix = Mat3f.scale(1.0, 1.0);
+
+  let m = Mat3f.identity();
+  console.log("mapPanel.panPos: ", mapPanel.panPos.x(), mapPanel.panPos.y());
+  m = m.mul(Mat3f.translate(mapPanel.panPos.x(), mapPanel.panPos.y()));
+  // m = m.mul(Mat3f.scale(mapPanel.zoomLevel, mapPanel.zoomLevel));
+  console.log("m: ", m);
+  drawer.flush(m);
+
   console.log("Flushed drawer.");
 }
 
