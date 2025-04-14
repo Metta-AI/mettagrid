@@ -145,6 +145,27 @@ const ACTION_IMPORTANCE = {
     "change_color": 3
 }
 
+const SUPPORTED_OBJECT_TYPES = [
+    "agent",
+    "wall",
+    "mine",
+    "mine.red",
+    "mine.blue",
+    "mine.green",
+    "generator",
+    "generator.red",
+    "generator.blue",
+    "generator.green",
+    "altar",
+    "armory",
+    "lasery",
+    "lab",
+    "factory",
+    "temple",
+    "converter",
+    "block"
+]
+
 if (mapPanel.ctx !== null && globalCtx !== null && tracePanel.ctx !== null) {
     mapPanel.ctx.imageSmoothingEnabled = true;
     globalCtx.imageSmoothingEnabled = true;
@@ -385,6 +406,18 @@ async function loadReplayText(replayData: any) {
     replay = JSON.parse(replayData);
     console.log("replay: ", replay);
 
+    // Check if all actions or object types are supported.
+    for (const action of replay.action_names) {
+        if (!ACTION_IMPORTANCE.hasOwnProperty(action)) {
+            console.error("Unsupported action: ", action);
+        }
+    }
+    for (const objectType of replay.object_types) {
+        if (!SUPPORTED_OBJECT_TYPES.includes(objectType)) {
+            console.error("Unsupported object type: ", objectType);
+        }
+    }
+
     // Go through each grid object and expand its key sequence.
     for (const gridObject of replay.grid_objects) {
         for (const key in gridObject) {
@@ -458,6 +491,8 @@ function drawImage(
     if (atlasEntry !== undefined) {
         const [uvx, uvy, width, height] = atlasEntry;
         ctx.drawImage(atlasImage, uvx, uvy, width, height, x, y, width, height);
+    } else {
+        console.error("Unknown image: ", imagePath);
     }
 }
 
@@ -611,8 +646,10 @@ function drawObjects(ctx: CanvasRenderingContext2D, replay: any) {
             drawImage(ctx, typeName + suffix + ".mouth." + style.mouthId + ".png", x * 64, y * 64);
             drawImage(ctx, typeName + suffix + ".horns." + style.hornsId + ".png", x * 64, y * 64);
             drawImage(ctx, typeName + suffix + ".eyes." + style.eyesId + ".png", x * 64, y * 64);
-        } else {
+        } else if (SUPPORTED_OBJECT_TYPES.includes(typeName)) {
             drawImage(ctx, typeName + ".png", x * 64, y * 64);
+        } else {
+            drawImage(ctx, "unknown_object.png", x * 64, y * 64);
         }
     }
 }
