@@ -13,6 +13,8 @@ from mettagrid.map.scenes.wfc import WFC
 
 
 # Global config for convenience.
+# Never instantiated, used as a duck type for hydra configs.
+# (Not registered as a structured config with Hydra yet.)
 @dataclass
 class AutoConfig:
     num_agents: int = 0
@@ -21,6 +23,8 @@ class AutoConfig:
     room_symmetry: Any = field(default_factory=dict)
     content: Any = field(default_factory=dict)
     maze: Any = field(default_factory=dict)
+    bsp: Any = field(default_factory=dict)
+    layout: Any = field(default_factory=dict)
     # TODO - stricter types
 
 
@@ -44,7 +48,10 @@ class Auto(BaseAuto):
 
 class AutoLayout(BaseAuto):
     def get_children(self, node) -> list[TypedChild]:
-        weights = [0.1, 0.9]
+        weights = np.array(
+            [self._config.layout.grid, self._config.layout.bsp], dtype=np.float32
+        )
+        weights /= weights.sum()
         layout = np.random.choice(["grid", "bsp"], p=weights)
 
         if layout == "grid":
@@ -72,10 +79,14 @@ class AutoLayout(BaseAuto):
                 },
             ]
         elif layout == "bsp":
+            area_count = np.random.randint(
+                self._config.bsp.min_area_count, self._config.bsp.max_area_count + 1
+            )
+
             return [
                 {
                     "scene": BSPLayout(
-                        area_count=9,
+                        area_count=area_count,
                         children=[
                             {
                                 "scene": AutoSymmetry(config=self._config),
@@ -123,11 +134,11 @@ class AutoContent(BaseAuto):
                 self._config.maze.min_wall_size,
                 self._config.maze.max_wall_size + 1,
             )
-            cell_size = np.random.randint(
-                self._config.maze.min_cell_size,
-                self._config.maze.max_cell_size + 1,
+            room_size = np.random.randint(
+                self._config.maze.min_room_size,
+                self._config.maze.max_room_size + 1,
             )
-            scene = MazeKruskal(wall_size, cell_size)
+            scene = MazeKruskal(room_size=room_size, wall_size=wall_size)
         else:
             pattern = np.random.choice(self._config.wfc_patterns)
             scene = WFC(

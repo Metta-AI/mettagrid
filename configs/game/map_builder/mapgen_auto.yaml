@@ -1,7 +1,7 @@
 _target_: mettagrid.map.mapgen.MapGen
 
-width: 100
-height: 100
+width: 160
+height: 160
 
 root:
   _target_: mettagrid.map.scenes.auto.Auto
@@ -20,6 +20,11 @@ root:
       min_columns: 2
       max_columns: 5
 
+    bsp:
+      # if we pick bsp layout, how many areas?
+      min_area_count: 4
+      max_area_count: 20
+
     room_symmetry:
       # weights for room symmetry choice
       horizontal: 3
@@ -29,15 +34,15 @@ root:
 
     content:
       # weights for content choice
-      maze: 2
-      wfc: 8
+      maze: 3
+      wfc: 7
 
     maze:
       # if we pick maze layout, how big are walls and cells?
       min_wall_size: 1
       max_wall_size: 3
-      min_cell_size: 2
-      max_cell_size: 3
+      min_room_size: 1
+      max_room_size: 3
 
     wfc_patterns:
         - |
