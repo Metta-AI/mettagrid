@@ -172,6 +172,8 @@ class Zone:
         return Zone(self.x + shift_x, self.y + shift_y, room_width, room_height)
 
     def transpose(self) -> "Zone":
+        # Zones can be transposed, to avoid having to write code for both horizontal and vertical splits.
+        # See also: Line.transpose()
         return Zone(self.y, self.x, self.height, self.width)
 
     def __repr__(self):
@@ -281,6 +283,14 @@ class Surface:
 
 
 class Line:
+    """
+    A line is a straight corridor that can be drawn on the grid.
+
+    It can be horizontal or vertical.
+
+    Full corridor between two rooms can be represented as multiple lines.
+    """
+
     def __init__(self, direction: Direction, start: Tuple[int, int], length: int):
         self.direction = direction
 
@@ -296,6 +306,8 @@ class Line:
         self.length = length
 
     def transpose(self) -> "Line":
+        # Trick to avoid having to write code for both horizontal and vertical lines.
+        # See also: Zone.transpose()
         direction = "horizontal" if self.direction == "vertical" else "vertical"
         return Line(direction, (self.start[1], self.start[0]), self.length)
 
@@ -308,6 +320,8 @@ def connect_surfaces(surface1: Surface, surface2: Surface):
     Connect two surfaces with a corridor.
 
     Assumes that the surfaces are adjacent and the surface1 is strictly above of surface2, i.e. all its positions are strictly smaller than all of surface2's positions.
+
+    Surfaces should have been transposed as needed to make this true.
 
     Example:
     ┌────────────┐
