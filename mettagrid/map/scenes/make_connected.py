@@ -6,7 +6,7 @@ import numpy as np
 from mettagrid.map.node import Node
 from mettagrid.map.scene import Scene
 
-directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]
+DIRECTIONS = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ class MakeConnected(Scene):
                 candidates = []
                 min_neighbor_distance = np.inf
 
-                for dy, dx in directions:
+                for dy, dx in DIRECTIONS:
                     ny, nx = y + dy, x + dx
                     if ny < 0 or ny >= height or nx < 0 or nx >= width:
                         continue
@@ -125,7 +125,7 @@ class MakeConnected(Scene):
                     components[y, x] = component_id
                     components_cells[component_id].append((y, x))
 
-                    for dy, dx in directions:
+                    for dy, dx in DIRECTIONS:
                         ny, nx = y + dy, x + dx
                         if (
                             0 <= ny < height
@@ -150,7 +150,7 @@ class MakeConnected(Scene):
         distances = np.full((height, width), np.inf)
         queue = []
         for cell in component_cells:
-            distances[cell[0], cell[1]] = 0
+            distances[*cell] = 0
             queue.append(cell)
 
         i = 0
@@ -158,7 +158,7 @@ class MakeConnected(Scene):
             y, x = queue[i]
             i += 1
 
-            for dy, dx in directions:
+            for dy, dx in DIRECTIONS:
                 ny, nx = y + dy, x + dx
                 if 0 <= ny < height and 0 <= nx < width and distances[ny, nx] == np.inf:
                     distances[ny, nx] = distances[y, x] + 1
