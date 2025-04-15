@@ -28,6 +28,7 @@ from mettagrid.renderer.raylib.object_render import (
     WallRenderer,
 )
 
+
 class MettaGridRaylibRenderer:
     def __init__(self, env: MettaGridEnv, cfg: OmegaConf):
         self.cfg = cfg

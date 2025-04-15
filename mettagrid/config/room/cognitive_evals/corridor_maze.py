@@ -3,6 +3,7 @@ import numpy as np
 from mettagrid.config.room.room import Room
 from mettagrid.config.room.utils import create_grid
 
+
 class CorridorMaze(Room):
     def __init__(self, width: int, height: int, border_width: int = 1, corridor_width: int = 2,
                  arm_length: int = 10, num_mines: int = 0, num_convertors: int = 0,

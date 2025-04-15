@@ -6,6 +6,7 @@ from omegaconf import DictConfig
 
 from mettagrid.config.room.room import Room
 
+
 class MeanDistance(Room):
     def __init__(
         self,

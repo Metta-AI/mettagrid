@@ -5,6 +5,7 @@ from regen_env_trace import dump_agents, header, render_obs_to_string, render_to
 import mettagrid
 import mettagrid.mettagrid_env
 
+
 @hydra.main(version_base=None, config_path="../configs", config_name="test_basic")
 def main(cfg):
     output = ""

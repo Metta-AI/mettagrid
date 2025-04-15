@@ -10,6 +10,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
 
+
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     def __init__(self, env_cfg: DictConfig, render_mode: str, buf=None, **kwargs):
         self._render_mode = render_mode

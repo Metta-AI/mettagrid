@@ -18,6 +18,7 @@ import mettagrid.mettagrid_env
 import mettagrid.objects
 import mettagrid.observation_encoder
 
+
 @hydra.main(version_base=None, config_path="../configs", config_name="test_basic")
 def main(cfg):
     # Create the environment:

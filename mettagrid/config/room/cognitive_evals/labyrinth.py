@@ -5,6 +5,7 @@ from omegaconf import DictConfig
 
 from mettagrid.config.room.room import Room
 
+
 class LabyrinthMaze(Room):
     """
     Generates a labyrinth using recursive backtracking. Maze passages are corridor_width×corridor_width blocks
