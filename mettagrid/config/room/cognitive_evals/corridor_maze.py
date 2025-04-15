@@ -1,4 +1,5 @@
 import numpy as np
+
 from mettagrid.config.room.room import Room
 from mettagrid.config.room.utils import create_grid
 

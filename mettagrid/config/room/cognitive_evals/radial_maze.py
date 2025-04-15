@@ -2,9 +2,10 @@ import math
 from typing import Set, Tuple, Union
 
 import numpy as np
+from omegaconf import DictConfig
+
 from mettagrid.config.room.room import Room
 from mettagrid.config.room.utils import bresenham_line, create_grid
-from omegaconf import DictConfig
 
 class RadialMaze(Room):
     """A radial maze with a central starting position."""

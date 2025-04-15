@@ -1,15 +1,5 @@
 {
-  "editor.formatOnSave": true,
-  "ruff.enable": true,
-  "ruff.organizeImports": true,
-  "ruff.fixAll": true,
-  "ruff.configuration": "${workspaceFolder}/ruff.toml",
   "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.codeActionsOnSave": {
-      "source.fixAll.ruff": "explicit",
-      "source.organizeImports.ruff": "explicit"
-    },
     "editor.rulers": [120],
     "editor.renderWhitespace": "all"
   },

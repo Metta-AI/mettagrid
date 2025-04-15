@@ -1,4 +1,5 @@
 import hydra
+import numpy as np
 
 # Make sure all dependencies are installed:
 # Make sure all modules import without errors:
@@ -16,7 +17,6 @@ import mettagrid.grid_object
 import mettagrid.mettagrid_env
 import mettagrid.objects
 import mettagrid.observation_encoder
-import numpy as np
 
 @hydra.main(version_base=None, config_path="../configs", config_name="test_basic")
 def main(cfg):
@@ -72,8 +72,14 @@ def main(cfg):
     # Print some environment info:
     print("mettaGridEnv._max_steps: ", mettaGridEnv._max_steps)
     assert mettaGridEnv._max_steps == 5000
-    print("mettaGridEnv.single_observation_space: ", mettaGridEnv.single_observation_space)
-    assert mettaGridEnv.single_observation_space.shape == (grid_width, grid_height, num_channels)
+    print(
+        "mettaGridEnv.single_observation_space: ", mettaGridEnv.single_observation_space
+    )
+    assert mettaGridEnv.single_observation_space.shape == (
+        grid_width,
+        grid_height,
+        num_channels,
+    )
     print("mettaGridEnv.single_action_space: ", mettaGridEnv.single_action_space)
     [num_actions, max_arg] = mettaGridEnv.single_action_space.nvec.tolist()
     # We don't want to hard-code the number of actions to expect (we might add more), so
