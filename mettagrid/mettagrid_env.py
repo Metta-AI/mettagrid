@@ -10,7 +10,6 @@ from omegaconf import DictConfig, OmegaConf
 from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
 from mettagrid.resolvers import register_resolvers
 
-
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     def __init__(self, env_config: DictConfig, render_mode: str, buf=None, **kwargs):
         self._render_mode = render_mode
@@ -34,11 +33,14 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         return episode_config
 
     def _reset_env(self):
-        self._map_builder = hydra.utils.instantiate(self._episode_env_config.game.map_builder)
+        self._map_builder = hydra.utils.instantiate(
+            self._episode_env_config.game.map_builder
+        )
         env_map = self._map_builder.build()
         map_agents = np.count_nonzero(np.char.startswith(env_map, "agent"))
         assert self._episode_env_config.game.num_agents == map_agents, (
-            f"Number of agents {self._episode_env_config.game.num_agents} does not match number of agents in map {map_agents}"
+            f"Number of agents {self._episode_env_config.game.num_agents} "
+            f"does not match number of agents in map {map_agents}"
         )
 
         self._c_env = MettaGrid(self._env_cfg, env_map)
@@ -55,7 +57,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self._episode_env_config = self._get_new_env_config()
         self._reset_env()
 
-        self._c_env.set_buffers(self.observations, self.terminals, self.truncations, self.rewards)
+        self._c_env.set_buffers(
+            self.observations, self.terminals, self.truncations, self.rewards
+        )
 
         # obs, infos = self._env.reset(**kwargs)
         # return obs, infos
@@ -177,8 +181,12 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         if "episode_stats" not in self._episode_env_config:
             self._episode_env_config.episode_stats = OmegaConf.create({})
 
-        for key, value in OmegaConf.to_container(self._original_env_config.episode_stats):
-            OmegaConf.update(self._episode_env_config.episode_stats, key, value, merge=True)
+        for key, value in OmegaConf.to_container(
+            self._original_env_config.episode_stats
+        ):
+            OmegaConf.update(
+                self._episode_env_config.episode_stats, key, value, merge=True
+            )
 
     @property
     def _max_steps(self):
@@ -207,7 +215,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         if self._renderer is None:
             return None
 
-        return self._renderer.render(self._c_env.current_timestep(), self._c_env.grid_objects())
+        return self._renderer.render(
+            self._c_env.current_timestep(), self._c_env.grid_objects()
+        )
 
     @property
     def done(self):
@@ -267,7 +277,14 @@ class MettaGridEnvSet(MettaGridEnv):
     This is a wrapper around MettaGridEnv that allows for multiple environments to be used for training.
     """
 
-    def __init__(self, env_config: DictConfig, probabilities: List[float] | None, render_mode: str, buf=None, **kwargs):
+    def __init__(
+        self,
+        env_config: DictConfig,
+        probabilities: List[float] | None,
+        render_mode: str,
+        buf=None,
+        **kwargs,
+    ):
         self._env_configs = env_config.envs
         self._num_agents_global = env_config.num_agents
         self._probabilities = probabilities
