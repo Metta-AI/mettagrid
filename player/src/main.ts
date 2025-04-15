@@ -73,6 +73,11 @@ let drawer: Drawer;
 let mapFrame: Frame | null = null;
 let traceFrame: Frame | null = null; // Add traceFrame for the trace panel
 
+// Separator divs
+let verticalSeparator = document.getElementById('vertical-separator') as HTMLDivElement;
+let horizontalSeparator = document.getElementById('horizontal-separator') as HTMLDivElement;
+
+
 // Get the html elements we will use.
 const scrubber = document.getElementById('main-scrubber') as HTMLInputElement;
 
@@ -171,6 +176,16 @@ function onResize() {
     div.style.width = infoPanel.width + 'px';
     div.style.height = infoPanel.height + 'px';
   }
+
+  // Position the vertical separator between map and trace panels
+  verticalSeparator.style.top = '0px';
+  verticalSeparator.style.left = (mapPanel.width) + 'px';
+  verticalSeparator.style.height = (mapHeight - PANEL_BOTTOM_MARGIN) + 'px';
+
+  // Position the horizontal separator between info and trace panels
+  horizontalSeparator.style.top = (infoPanel.height) + 'px';
+  horizontalSeparator.style.left = (mapPanel.width) + 'px';
+  horizontalSeparator.style.width = (infoPanel.width) + 'px';
 
   // Redraw the square after resizing.
   onFrame();
@@ -946,7 +961,6 @@ window.addEventListener('dragover', preventDefaults, false);
 window.addEventListener('drop', handleDrop, false);
 
 window.addEventListener('load', async () => {
-  //await loadAtlas("dist/atlas.json");
 
   drawer = new Drawer(globalCanvas);
 
