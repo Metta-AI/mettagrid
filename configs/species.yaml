@@ -12,8 +12,8 @@ game:
 
     room:
       _target_: mettagrid.config.room.random.Random
-      width: ${if:${eq:${..sampling},0},25,${uniform:10,100}}
-      height: ${if:${eq:${..sampling},0},25,${uniform:10,100}}
+      width: ${uniform:10,100,25}
+      height: ${uniform:10,100,25}
       border_width: 0
 
       agents:
@@ -21,9 +21,9 @@ game:
         predator: 1
 
       objects:
-        altar: ${if:${eq:${..sampling},0},1,${uniform:1,5}}
-        converter: ${if:${eq:${..sampling},0},5,${uniform:1,15}}
-        generator: ${if:${eq:${..sampling},0},15,${uniform:1,50}}
-        wall: ${if:${eq:${..sampling},0},40,${uniform:10,100}}
+        altar: ${uniform:1,5,1}
+        converter: ${uniform:1,15,5}
+        generator: ${uniform:1,50,15}
+        wall: ${uniform:10,100,40}
 
 
