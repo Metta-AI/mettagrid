@@ -1,14 +1,15 @@
 import logging
 import random
-from typing import Any, Tuple, Union
 
 import numpy as np
 from mettagrid.map.node import Node
-from mettagrid.map.scene import Scene
+from mettagrid.map.scene import Scene, TypedChild
 
 DIRECTIONS = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
 logger = logging.getLogger(__name__)
+
+Cell = tuple[int, int]
 
 
 class MakeConnected(Scene):
@@ -22,7 +23,7 @@ class MakeConnected(Scene):
     TODO: This can result in some extra tunnels being dug.
     """
 
-    def __init__(self, seed=None, children: list[Any] = []):
+    def __init__(self, seed=None, children: list[TypedChild] = []):
         super().__init__(children=children)
         self._rng = random.Random(seed)
 
@@ -55,12 +56,9 @@ class MakeConnected(Scene):
                 continue
 
             # find the cell that's closest to the largest component
-            min_distance = np.inf
-            min_distance_cell: Union[Tuple[int, int], None] = None
-            for cell in component:
-                if distances_to_largest_component[cell[0], cell[1]] < min_distance:
-                    min_distance = distances_to_largest_component[cell[0], cell[1]]
-                    min_distance_cell = cell
+            min_distance_cell = min(
+                component, key=lambda c: distances_to_largest_component[*c]
+            )
 
             # shouldn't happen
             if min_distance_cell is None:
@@ -68,32 +66,29 @@ class MakeConnected(Scene):
 
             # connect the cell to the largest component by digging a tunnel based on the shortest path
             current_cell = min_distance_cell
-            while distances_to_largest_component[current_cell[0], current_cell[1]] > 0:
-                # Find the neighbor with the smallest distance to the largest component
+            current_distance = distances_to_largest_component[*current_cell]
+            while current_distance > 0:
                 y, x = current_cell
-                # Find all neighbors with the smallest distance to the largest component
-                candidates = []
-                min_neighbor_distance = np.inf
 
-                for dy, dx in DIRECTIONS:
-                    ny, nx = y + dy, x + dx
-                    if ny < 0 or ny >= height or nx < 0 or nx >= width:
-                        continue
-                    distance = distances_to_largest_component[ny, nx]
-                    if distance < min_neighbor_distance:
-                        min_neighbor_distance = distance
-                        candidates = [(ny, nx)]
-                    elif distance == min_neighbor_distance:
-                        candidates.append((ny, nx))
+                # Find all neighbors with the minimum distance to the largest component
+                candidates: list[Cell] = [
+                    (y + dy, x + dx)
+                    for dy, dx in DIRECTIONS
+                    if 0 <= y + dy < height
+                    and 0 <= x + dx < width
+                    and distances_to_largest_component[y + dy, x + dx]
+                    == current_distance - 1
+                ]
 
                 # Pick a random candidate from those with the minimum distance
-                if candidates:
-                    next_cell = self._rng.choice(candidates)
-                    node.grid[current_cell[0], current_cell[1]] = "empty"
-                    current_cell = next_cell
-                else:
+                if not candidates:
                     # This shouldn't happen if distances are calculated correctly
                     raise ValueError("No next cell found")
+
+                next_cell = self._rng.choice(candidates)
+                node.grid[*current_cell] = "empty"
+                current_cell = next_cell
+                current_distance -= 1
 
     def _make_components(self, node: Node):
         # run BFS from each empty cell, find connected components
@@ -101,7 +96,7 @@ class MakeConnected(Scene):
 
         components = np.full((height, width), -1)
         component_id = 0
-        components_cells = []
+        components_cells: list[list[Cell]] = []
 
         logger.debug("Finding components")
         for y in range(height):
@@ -143,7 +138,7 @@ class MakeConnected(Scene):
     def _distance_to_component(
         self,
         node: Node,
-        component_cells: list[Tuple[int, int]],
+        component_cells: list[Cell],
     ):
         height, width = node.grid.shape
         # find the distance from the component to all other cells (ignoring the walls - used for finding the optimal tunnels)
