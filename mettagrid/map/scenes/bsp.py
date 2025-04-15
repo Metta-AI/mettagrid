@@ -1,3 +1,4 @@
+import logging
 import random
 from typing import Any, Literal, Tuple
 
@@ -5,40 +6,9 @@ import numpy as np
 from mettagrid.map.node import Node
 from mettagrid.map.scene import Scene
 
+logger = logging.getLogger(__name__)
+
 Direction = Literal["horizontal", "vertical"]
-
-
-def bsp_layout(grid: np.ndarray, zone_count: int):
-    """
-    Split the grid into zones, and return the zones and the index of the first leaf zone.
-
-    This function is used in BSP scene that creates rooms at leaf zones and connects them with corridors.
-
-    It's also reused as a helper layout function in other scenes.
-    """
-    next_split_id = 0
-
-    # Store the tree as flat list:
-    # [
-    #   layer1,
-    #   layer2, layer2,
-    #   layer3, layer3, layer3, layer3,
-    #   ...
-    # ]
-    zones = [Zone(0, 0, grid.shape[1], grid.shape[0])]
-
-    for _ in range(zone_count - 1):  # split rooms-1 times
-        zone = zones[next_split_id]
-
-        (child1, child2) = zone.split()
-        if random.random() < 0.5:
-            child1, child2 = child2, child1
-
-        zones.append(child1)
-        zones.append(child2)
-        next_split_id += 1
-
-    return (zones, next_split_id)
 
 
 class BSPLayout(Scene):
@@ -53,8 +23,10 @@ class BSPLayout(Scene):
     def _render(self, node: Node):
         grid = node.grid
 
-        zones, first_leaf_index = bsp_layout(grid, self._area_count)
-        for zone in zones[first_leaf_index:]:
+        tree = BSPTree(
+            width=grid.shape[1], height=grid.shape[0], leaf_zone_count=self._area_count
+        )
+        for zone in tree.get_leaf_zones():
             node.make_area(zone.x, zone.y, zone.width, zone.height, tags=["zone"])
 
 
@@ -86,32 +58,29 @@ class BSP(Scene):
 
         grid[:] = "wall"
 
-        zones, first_leaf_index = bsp_layout(grid, self._rooms)
-        # make room for all zones, but only the leaf zones will be used
-        rooms: list[Zone | None] = [None] * len(zones)
+        bsp_tree = BSPTree(
+            width=grid.shape[1], height=grid.shape[0], leaf_zone_count=self._rooms
+        )
 
-        # Make rooms at leaf zones
-        for i in range(first_leaf_index, len(zones)):
-            zone = zones[i]
+        # Make rooms
+        rooms: list[Zone] = []
+        for zone in bsp_tree.get_leaf_zones():
             room = zone.make_room(
                 min_size=self._min_room_size,
                 min_size_ratio=self._min_room_size_ratio,
                 max_size_ratio=self._max_room_size_ratio,
             )
-            rooms[i] = room
+            rooms.append(room)
 
             grid[room.y : room.y + room.height, room.x : room.x + room.width] = "empty"
             node.make_area(room.x, room.y, room.width, room.height, tags=["room"])
 
         # Make corridors
         if self._skip_corridors:
-            print("Skipping corridors")
+            logger.info("Skipping corridors")
             return
 
-        for i in range(len(zones) - 2, 0, -2):
-            zone1 = zones[i]
-            zone2 = zones[i + 1]
-
+        for zone1, zone2 in bsp_tree.get_sibling_pairs():
             corridor_direction = "vertical" if zone1.x == zone2.x else "horizontal"
 
             used_grid = grid
@@ -385,3 +354,52 @@ def connect_rooms(room1: Zone, room2: Zone):
         Line("vertical", end, turn_y - end[1] - 1),
     ]
     return lines
+
+
+class BSPTree:
+    """
+    Split the grid into zones, and return the zones and the index of the first leaf zone.
+
+    This function is used in:
+    1) BSP scene that creates rooms at leaf zones and connects them with corridors.
+    2) BSPLayout scene that just creates a grid of zones, without rooms or corridors.
+    """
+
+    zones: list["Zone"]
+
+    def __init__(self, width: int, height: int, leaf_zone_count: int):
+        next_split_id = 0
+
+        # Store the tree as flat list:
+        # [
+        #   layer1,
+        #   layer2, layer2,
+        #   layer3, layer3, layer3, layer3,
+        #   ...
+        # ]
+        self.zones = [Zone(0, 0, width, height)]
+
+        for _ in range(leaf_zone_count - 1):  # split rooms-1 times
+            zone = self.zones[next_split_id]
+
+            (child1, child2) = zone.split()
+            if random.random() < 0.5:
+                child1, child2 = child2, child1
+
+            self.zones.append(child1)
+            self.zones.append(child2)
+            next_split_id += 1
+
+        self.first_leaf_index = next_split_id
+
+    def get_leaf_zones(self) -> list["Zone"]:
+        return self.zones[self.first_leaf_index :]
+
+    def get_all_zones(self) -> list["Zone"]:
+        return self.zones
+
+    def get_sibling_pairs(self) -> list[Tuple["Zone", "Zone"]]:
+        pairs = []
+        for i in range(len(self.zones) - 2, 0, -2):
+            pairs.append((self.zones[i], self.zones[i + 1]))
+        return pairs
