@@ -68,9 +68,9 @@ class BSP(Scene):
     def __init__(
         self,
         rooms: int,
-        min_room_size: int = 3,
-        min_room_size_ratio: float = 0.4,
-        max_room_size_ratio: float = 0.8,
+        min_room_size: int,
+        min_room_size_ratio: float,
+        max_room_size_ratio: float,
         skip_corridors: bool = False,
         children: list[Any] = [],
     ):
