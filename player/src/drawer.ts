@@ -961,7 +961,7 @@ class Drawer {
         paddedMatrix[7] = 0;
 
         paddedMatrix[8] = finalTransform.data[2] / this.canvas.width;
-        paddedMatrix[9] = 1 -finalTransform.data[5] / this.canvas.height;
+        paddedMatrix[9] = 1 - finalTransform.data[5] / this.canvas.height;
         paddedMatrix[10] = 1;
         paddedMatrix[11] = 0;
 
