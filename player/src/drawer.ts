@@ -67,7 +67,7 @@ class Drawer {
     this.transformStack = [];
 
     // Pre-allocated buffers for better performance.
-    this.maxQuads = 10000; // Maximum number of quads we can render at once.
+    this.maxQuads = 32000; // Maximum number of quads we can render at once.
     this.vertexCapacity = this.maxQuads * 4; // 4 vertices per quad.
     this.indexCapacity = this.maxQuads * 6; // 6 indices per quad (2 triangles).
 

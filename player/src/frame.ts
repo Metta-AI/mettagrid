@@ -282,7 +282,12 @@ export class Frame {
   }
 
   // Draw the frame to a canvas
-  drawToScreen(canvas: HTMLCanvasElement, context: GPUCanvasContext, transform: Mat3f = Mat3f.identity()): void {
+  drawToScreen(
+    canvas: HTMLCanvasElement,
+    context: GPUCanvasContext,
+    transform: Mat3f = Mat3f.identity(),
+    clearScreen: boolean = true
+  ): void {
     try {
       // Update the canvas size uniform buffer with actual canvas size
       const canvasSize = new Vec2f(canvas.width, canvas.height);
@@ -347,7 +352,7 @@ export class Frame {
           {
             view: context.getCurrentTexture().createView(),
             clearValue: { r: 0.1, g: 0.1, b: 0.1, a: 1.0 }, // Dark gray background
-            loadOp: 'clear',
+            loadOp: clearScreen ? 'clear' : 'load', // Use 'load' if not clearing
             storeOp: 'store',
           },
         ],

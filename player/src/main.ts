@@ -70,7 +70,8 @@ const SCRUBBER_MARGIN = 64;        // margin for scrubber width
 const PANEL_BOTTOM_MARGIN = 60;    // bottom margin for panels
 
 let drawer: Drawer;
-let mapFrame: Frame | null = null; // Fix type to allow null
+let mapFrame: Frame | null = null;
+let traceFrame: Frame | null = null; // Add traceFrame for the trace panel
 
 // Get the html elements we will use.
 const scrubber = document.getElementById('main-scrubber') as HTMLInputElement;
@@ -650,72 +651,118 @@ function drawTrace(panel: PanelInfo) {
     }
   }
 
-  // panel.canvas.width = replay.max_steps * 4 + 64;
-  // panel.canvas.height = replay.num_agents * 64 + 100;
+  // Draw the trace visualization using WebGPU
+  // Background
+  drawer.save();
 
-  // panel.ctx.clearRect(0, 0, panel.canvas.width, panel.canvas.height);
+  // Position at panel origin
+  drawer.translate(panel.x, panel.y);
 
-  // // Draw trace canvas to global canvas with proper scaling
-  // panel.ctx.fillStyle = "rgba(20, 20, 20, 1)";
-  // panel.ctx.fillRect(0, 0, panel.canvas.width, panel.canvas.height);
+  // Draw dark background
+  // We could use a semi-transparent quad for the background
+  // But for now, we'll just use the default clear color
 
-  // // Draw current step line that goes through all of the traces:
-  // panel.ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-  // panel.ctx.fillRect(32 + step * 4, 0, 2, panel.canvas.height)
+  // Draw timeline
+  const timelineY = 40;
+  for (let i = 0; i < replay.num_agents; i++) {
+    // Draw agent ID
+    // We would need text rendering for this, but it's not implemented yet
+    // Instead, we can draw a colored marker
 
-  // panel.ctx.fillStyle = "white";
-  // for (let i = 0; i < replay.num_agents; i++) {
-  //   // Draw the agents id:
-  //   panel.ctx.fillStyle = "white";
-  //   panel.ctx.font = "16px Arial";
-  //   panel.ctx.fillText(i.toString(), 10, 45 + i * 64);
+    // Draw agent timeline
+    const agentY = timelineY + i * 64;
 
-  //   // Draw the agent's actions:
-  //   for (const gridObject of replay.grid_objects) {
-  //     if (gridObject["agent_id"] == i) {
-  //       for (let j = 0; j < replay.max_steps; j++) {
-  //         const action = getAttr(gridObject, "action", j);
-  //         const action_success = getAttr(gridObject, "action_success", j);
-  //         if (action_success) {
-  //           const actionName = replay.action_names[action[0]] as string;
-  //           const color = ACTION_COLORS[actionName as keyof typeof ACTION_COLORS];
-  //           const importance = ACTION_IMPORTANCE[actionName as keyof typeof ACTION_IMPORTANCE];
-  //           panel.ctx.fillStyle = color;
-  //           panel.ctx.fillRect(32 + j * 4, 40 + i * 64 - 2 * importance, 2, 4 * importance);
-  //         } else {
-  //           panel.ctx.fillStyle = "rgba(30, 30, 30, 1)";
-  //           panel.ctx.fillRect(32 + j * 4, 40 + i * 64 - 2, 2, 4);
-  //         }
+    // First draw the action tracks
+    for (const gridObject of replay.grid_objects) {
+      if (gridObject["agent_id"] == i) {
+        for (let j = 0; j < replay.max_steps; j++) {
+          const action = getAttr(gridObject, "action", j);
+          const action_success = getAttr(gridObject, "action_success", j);
+          if (action_success) {
+            const actionName = replay.action_names[action[0]] as string;
+            const color = ACTION_COLORS[actionName as keyof typeof ACTION_COLORS];
+            const importance = ACTION_IMPORTANCE[actionName as keyof typeof ACTION_IMPORTANCE];
 
-  //         const reward = getAttr(gridObject, "reward", j);
-  //         const total_reward = getAttr(gridObject, "total_reward", j);
-  //         // If there is reward draw a sharp bar.
-  //         if (reward > 0) {
-  //           const importance = 10;
-  //           panel.ctx.fillStyle = "hsl(46, 100.00%, 76.70%)";
-  //           panel.ctx.fillRect(32 + j * 4, 40 + i * 64 - 2 * importance, 2, 4 * importance);
-  //         }
-  //       }
-  //     }
+            // Convert hex color to RGB components
+            const r = parseInt(color.substring(1, 3), 16) / 255;
+            const g = parseInt(color.substring(3, 5), 16) / 255;
+            const b = parseInt(color.substring(5, 7), 16) / 255;
 
-  //   }
-  // }
+            // Draw action marker
+            drawer.drawRect(
+              32 + j * 4, // x position
+              agentY - 2 * importance, // y position, adjusted for importance
+              2, // width
+              4 * importance, // height, scaled by importance
+              0, 0, 0, 0, // UV coordinates (not used)
+              [r, g, b, 1.0] // color
+            );
+          } else {
+            // Draw inactive step
+            drawer.drawRect(
+              32 + j * 4, // x position
+              agentY - 2, // y position
+              2, // width
+              4, // height
+              0, 0, 0, 0, // UV coordinates (not used)
+              [0.2, 0.2, 0.2, 1.0] // dark gray color
+            );
+          }
 
-  // // Draw rectangle around the selected agent.
-  // if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
-  //   const agentId = selectedGridObject.agent_id;
-  //   panel.ctx.strokeStyle = "white";
-  //   panel.ctx.strokeRect(0, 40 + agentId * 64 - 32, tracePanel.canvas.width - 1, 64);
+          // Draw reward indicator if there's a reward
+          const reward = getAttr(gridObject, "reward", j);
+          if (reward > 0) {
+            const importance = 10;
+            drawer.drawRect(
+              32 + j * 4, // x position
+              agentY - 2 * importance, // y position
+              2, // width
+              4 * importance, // height
+              0, 0, 0, 0, // UV coordinates (not used)
+              [0.95, 0.85, 0.45, 1.0] // gold color
+            );
+          }
+        }
+      }
+    }
+  }
 
-  //   // Draw the action name above the selected action trace bar.
-  //   const action = getAttr(selectedGridObject, "action", step);
-  //   if (action != null) {
-  //     const actionName = replay.action_names[action[0]] as string;
-  //     panel.ctx.fillStyle = "white";
-  //     panel.ctx.font = "16px Arial";
-  //     panel.ctx.fillText(actionName + " " + action[1], 32 + step * 4, 20 + agentId * 64);
-  //   }
-  // }
+  // Draw the current step indicator
+  const stepLineHeight = panel.height;
+  drawer.drawRect(
+    32 + step * 4, // x position
+    0, // y position
+    2, // width
+    stepLineHeight, // height - full panel height
+    0, 0, 0, 0, // UV coordinates (not used)
+    [1.0, 1.0, 1.0, 0.5] // semi-transparent white
+  );
+
+  // Draw highlight box around selected agent
+  if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
+    const agentId = selectedGridObject.agent_id;
+    const agentY = timelineY + agentId * 64;
+
+    drawer.drawRect(
+      0, // x position
+      agentY - 32, // y position
+      panel.width, // width - full panel width
+      64, // height
+      0, 0, 0, 0, // UV coordinates (not used)
+      [1.0, 1.0, 1.0, 0.2] // very transparent white
+    );
+
+    // Draw the action name above the selected agent's timeline
+    // (We would need text rendering for this)
+    const action = getAttr(selectedGridObject, "action", step);
+    if (action != null) {
+      const actionName = replay.action_names[action[0]] as string;
+      // We can't render text directly with WebGPU yet, so we'd need to implement
+      // a text rendering system or use textures with pre-rendered text
+    }
+  }
+
+  drawer.restore();
 }
 
 // Updates the readout of the selected object or replay info.
@@ -752,7 +799,7 @@ function updateReadout() {
 
 // Draw a frame.
 function onFrame() {
-  if (replay === null || drawer === null || drawer.ready === false || mapFrame === null) {
+  if (replay === null || drawer === null || drawer.ready === false || mapFrame === null || traceFrame === null) {
     return;
   }
 
@@ -762,6 +809,7 @@ function onFrame() {
 
   drawer.clear();
   mapFrame.clear();
+  traceFrame.clear();
 
   var fullUpdate = true;
   if (mapPanel.inside(mousePos)) {
@@ -770,27 +818,43 @@ function onFrame() {
     }
   }
 
-  // if (tracePanel.inside(mousePos)) {
-  //   if (tracePanel.updatePanAndZoom()) {
-  //     fullUpdate = false;
-  //   }
-  // }
+  if (tracePanel.inside(mousePos)) {
+    if (tracePanel.updatePanAndZoom()) {
+      fullUpdate = false;
+    }
+  }
 
   updateReadout();
-  drawMap(mapPanel);
-  //drawTrace(tracePanel);
 
-  // Draw to the frame instead of directly to the screen
+  // Draw map contents to mapFrame
+  drawMap(mapPanel);
   drawer.drawToFrame(mapFrame);
 
-  // Now draw the frame to the screen with the panel's transform
-  let m = Mat3f.identity();
-  m = m.mul(Mat3f.translate(mapPanel.panPos.x(), mapPanel.panPos.y()));
-  m = m.mul(Mat3f.scale(mapPanel.zoomLevel, mapPanel.zoomLevel));
+  // Draw trace contents
+  // drawTrace(tracePanel);
+  drawer.drawSprite("meta_grid_icon.png", 100, 100, [1, 1, 1, 1]);
+  drawer.drawToFrame(traceFrame);
 
-  // Draw the frame to the screen with the transform
+  // Prepare transforms for each panel
+  // Map frame transform
+  let mapTransform = Mat3f.identity();
+  mapTransform = mapTransform.mul(Mat3f.translate(mapPanel.panPos.x(), mapPanel.panPos.y()));
+  mapTransform = mapTransform.mul(Mat3f.scale(mapPanel.zoomLevel, mapPanel.zoomLevel));
+
+  // Trace frame transform
+  let traceTransform = Mat3f.identity();
+  traceTransform = traceTransform.mul(Mat3f.translate(tracePanel.x + tracePanel.panPos.x(), tracePanel.y + tracePanel.panPos.y()));
+  traceTransform = traceTransform.mul(Mat3f.scale(tracePanel.zoomLevel, tracePanel.zoomLevel));
+
+  // Draw the frames to the screen with their transforms
   if (drawer.canvas && drawer.canvas.getContext('webgpu')) {
-    mapFrame.drawToScreen(drawer.canvas, drawer.canvas.getContext('webgpu')!, m);
+    const context = drawer.canvas.getContext('webgpu')!;
+
+    // First frame clears the screen
+    mapFrame.drawToScreen(drawer.canvas, context, mapTransform);
+
+    // Second frame preserves what was already drawn
+    traceFrame.drawToScreen(drawer.canvas, context, traceTransform, false);
   }
 }
 
@@ -879,12 +943,14 @@ window.addEventListener('load', async () => {
   } else {
     console.log("Drawer initialized successfully.");
 
-    // Create the map frame after drawer initialization
+    // Create frames after drawer initialization
     mapFrame = drawer.createFrame();
-    if (!mapFrame) {
+    traceFrame = drawer.createFrame(new Vec2f(replay?.max_steps * 4 + 64 || 2048, replay?.num_agents * 64 + 100 || 1024));
+
+    if (!mapFrame || !traceFrame) {
       showModal(
         "error",
-        "Failed to create map frame",
+        "Failed to create frames",
         "Please check the console for more information."
       );
       return;
