@@ -50,14 +50,14 @@ class MakeConnected(Scene):
 
         # connect the largest component all other components
         logger.info(f"Connecting {len(component_sizes)} components")
-        for component_id in range(len(component_sizes)):
+        for component_id, component in enumerate(component_cells):
             if component_id == largest_component_id:
                 continue
 
             # find the cell that's closest to the largest component
             min_distance = np.inf
             min_distance_cell: Union[Tuple[int, int], None] = None
-            for cell in component_cells[component_id]:
+            for cell in component:
                 if distances_to_largest_component[cell[0], cell[1]] < min_distance:
                     min_distance = distances_to_largest_component[cell[0], cell[1]]
                     min_distance_cell = cell
