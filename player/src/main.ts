@@ -1,7 +1,7 @@
-
 import { Vec2f, Mat3f } from './vector_math.js';
 import { Grid } from './grid.js';
 import { Drawer } from './drawer.js';
+import { Frame } from './frame.js';
 
 export class PanelInfo {
   public x: number = 0;
@@ -70,6 +70,7 @@ const SCRUBBER_MARGIN = 64;        // margin for scrubber width
 const PANEL_BOTTOM_MARGIN = 60;    // bottom margin for panels
 
 let drawer: Drawer;
+let mapFrame: Frame | null = null; // Fix type to allow null
 
 // Get the html elements we will use.
 const scrubber = document.getElementById('main-scrubber') as HTMLInputElement;
@@ -760,6 +761,9 @@ function onFrame() {
   globalCanvas.height = window.innerHeight;
 
   drawer.clear();
+  if (mapFrame) {
+    mapFrame.clear();
+  }
 
   var fullUpdate = true;
   if (mapPanel.inside(mousePos)) {
@@ -778,13 +782,20 @@ function onFrame() {
   drawMap(mapPanel);
   //drawTrace(tracePanel);
 
-  drawer.flushMesh();
+  // Draw to the frame instead of directly to the screen
+  if (mapFrame) {
+    drawer.drawToFrame(mapFrame);
 
-  let m = Mat3f.identity();
-  m = m.mul(Mat3f.translate(mapPanel.panPos.x(), mapPanel.panPos.y()));
-  m = m.mul(Mat3f.scale(mapPanel.zoomLevel, mapPanel.zoomLevel));
-  drawer.flush(m);
+    // Now draw the frame to the screen with the panel's transform
+    let m = Mat3f.identity();
+    m = m.mul(Mat3f.translate(mapPanel.panPos.x(), mapPanel.panPos.y()));
+    m = m.mul(Mat3f.scale(mapPanel.zoomLevel, mapPanel.zoomLevel));
 
+    // Draw the frame to the screen with the transform
+    if (drawer.device && drawer.canvas && drawer.canvas.getContext('webgpu')) {
+      mapFrame.drawToScreen(drawer.canvas, drawer.canvas.getContext('webgpu')!, m);
+    }
+  }
 }
 
 function preventDefaults(event: Event) {
@@ -871,6 +882,17 @@ window.addEventListener('load', async () => {
     return;
   } else {
     console.log("Drawer initialized successfully.");
+
+    // Create the map frame after drawer initialization
+    mapFrame = drawer.createFrame();
+    if (!mapFrame) {
+      showModal(
+        "error",
+        "Failed to create map frame",
+        "Please check the console for more information."
+      );
+      return;
+    }
   }
 
   const replayUrl = getUrlParameter('replayUrl');
