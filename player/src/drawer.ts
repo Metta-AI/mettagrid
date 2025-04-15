@@ -315,11 +315,11 @@ class Drawer {
 
     // Create a quad mesh for rendering the texture
     const quadVertices = new Float32Array([
-      // x, y, u, v
-      -1.0, -1.0, 0.0, 1.0, // bottom-left
-      1.0, -1.0, 1.0, 1.0,  // bottom-right
-      -1.0, 1.0, 0.0, 0.0,  // top-left
-      1.0, 1.0, 1.0, 0.0,   // top-right
+      // Top down quad like UI, 0 to 1.
+      0, 0, 0, 0, // top left
+      1, 0, 1, 0, // top right
+      0, -1, 0, 1, // bottom left
+      1, -1, 1, 1, // bottom right
     ]);
 
     this.quadVertexBuffer = this.device.createBuffer({
@@ -363,20 +363,10 @@ class Drawer {
 
         @vertex fn vs(vert: VertexInput) -> VertexOutput {
           var out: VertexOutput;
+          // Combined matrix does everything in one step
+          let clipPos = transform.matrix * vec3f(vert.position, 1.0);
 
-          // The quad vertices are in clip space (-1 to 1)
-          // We need to convert them to match our transformation space
-
-          // First convert from clip space [-1,1] to normalized [0,1]
-          let normalizedPos = (vert.position + 1.0) * 0.5;
-
-          // Apply the transformation matrix (includes scaling, translation, etc.)
-          let transformed = transform.matrix * vec3f(normalizedPos, 1.0);
-
-          // Convert back to clip space [-1,1] for rendering
-          let clipSpacePos = vec2f(transformed.xy * 2.0 - 1.0);
-
-          out.position = vec4f(clipSpacePos, 0.0, 1.0);
+          out.position = vec4f(clipPos.xy, 0.0, 1.0);
           out.texcoord = vert.texcoord;
           return out;
         }
@@ -837,7 +827,7 @@ class Drawer {
           colorAttachments: GPURenderPassColorAttachment[];
         };
 
-        // Set clear color to green
+        // Set clear color
         descriptor.colorAttachments[0].clearValue = { r: 0.0, g: 1.0, b: 0.0, a: 1.0 }; // Solid green
 
         // Begin a render pass to clear with green
@@ -929,17 +919,18 @@ class Drawer {
           this.canvasSize.data
         );
 
-        // Calculate the aspect ratio correction to prevent stretching
-        const canvasAspect = this.canvas.width / this.canvas.height;
-        const textureAspect = this.offscreenTextureSize.x() / this.offscreenTextureSize.y();
-        const aspectCorrection = new Mat3f(
-          1.0, 0.0, 0.0,
-          0.0, canvasAspect / textureAspect, 0.0,
-          0.0, 0.0, 1.0
+        // Calculate the screen transform to map the offscreen texture to the canvas.
+        var screenTransform = Mat3f.identity();
+        screenTransform = screenTransform.mul(Mat3f.translate(-1, 1));
+        screenTransform = screenTransform.mul(Mat3f.scale(
+          2 * this.offscreenTextureSize.x() / this.canvas.width,
+          2 * this.offscreenTextureSize.y() / this.canvas.height)
         );
 
-        // Combine the provided transform with aspect correction
-        const finalTransform = transform.mul(aspectCorrection);
+        // Convert the provided transform to the screen transform.
+        transform.data[2] = transform.data[2] / this.offscreenTextureSize.x();
+        transform.data[5] = - (transform.data[5] / this.offscreenTextureSize.y());
+        const finalTransform = screenTransform.mul(transform);
 
         // Create a padded array for WebGPU's alignment requirements
         // WebGPU expects each row of the matrix to be aligned to 16 bytes (4 floats)
@@ -960,8 +951,8 @@ class Drawer {
         paddedMatrix[6] = 0;
         paddedMatrix[7] = 0;
 
-        paddedMatrix[8] = finalTransform.data[2] / this.canvas.width;
-        paddedMatrix[9] = 1 - finalTransform.data[5] / this.canvas.height;
+        paddedMatrix[8] = finalTransform.data[2];
+        paddedMatrix[9] = finalTransform.data[5];
         paddedMatrix[10] = 1;
         paddedMatrix[11] = 0;
 

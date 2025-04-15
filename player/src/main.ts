@@ -222,9 +222,9 @@ function onMouseMove(event: MouseEvent) {
     console.log("infoDragging...")
     infoSplit = mousePos.y() / window.innerHeight
     onResize()
-  } else if (mouseDown) {
-    onFrame();
   }
+
+  onFrame();
 }
 
 // Handle scroll events.
@@ -403,6 +403,7 @@ function getAgentStyle(agentId: number) {
 
 // Make the panel focus on the full map, used at the start of the replay.
 function focusFullMap(panel: PanelInfo) {
+  return;
   if (replay === null) {
     return;
   }
@@ -784,13 +785,19 @@ function onFrame() {
   // /Users/me/p/mettagrid/player/data/meta_grid_icon.png
   drawer.drawSprite('meta_grid_icon.png', 100, 100);
 
+
+  // Compute x, y from mouse position.
+  drawer.drawSprite('agent_selection.png', mousePos.x(), mousePos.y());
+
+
+
   drawer.flushMesh();
 
   // Scale the texture
   //const scaleMatrix = Mat3f.scale(1.0, 1.0);
 
   let m = Mat3f.identity();
-  // m = m.mul(Mat3f.translate(0, -4096 * 2));
+  console.log("mapPanel.panPos: ", mapPanel.panPos.x(), mapPanel.panPos.y());
   m = m.mul(Mat3f.translate(mapPanel.panPos.x(), mapPanel.panPos.y()));
   m = m.mul(Mat3f.scale(mapPanel.zoomLevel, mapPanel.zoomLevel));
   drawer.flush(m);
