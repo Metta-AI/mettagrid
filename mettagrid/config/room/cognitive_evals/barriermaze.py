@@ -2,9 +2,10 @@ import random
 from typing import List
 
 import numpy as np
+from omegaconf import DictConfig
+
 from mettagrid.config.room.room import Room
 from mettagrid.config.room.utils import compute_positions, create_grid, draw_border
-from omegaconf import DictConfig
 
 class BarrierMaze(Room):
     """
