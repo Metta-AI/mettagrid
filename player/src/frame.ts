@@ -286,7 +286,8 @@ export class Frame {
     canvas: HTMLCanvasElement,
     context: GPUCanvasContext,
     transform: Mat3f = Mat3f.identity(),
-    clearScreen: boolean = true
+    clearScreen: boolean = true,
+    scissorRect?: { x: number, y: number, width: number, height: number } // Optional scissor rectangle
   ): void {
     try {
       // Update the canvas size uniform buffer with actual canvas size
@@ -360,6 +361,17 @@ export class Frame {
 
       // Render the texture to the canvas
       const passEncoder = renderCommandEncoder.beginRenderPass(canvasRenderPassDescriptor);
+
+      // Set scissor rectangle if provided
+      if (scissorRect) {
+        passEncoder.setScissorRect(
+          scissorRect.x,
+          scissorRect.y,
+          scissorRect.width,
+          scissorRect.height
+        );
+      }
+
       passEncoder.setPipeline(this.texturePipeline);
       passEncoder.setBindGroup(0, this.textureBindGroup);
       passEncoder.setVertexBuffer(0, this.quadVertexBuffer);

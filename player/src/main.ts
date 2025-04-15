@@ -64,7 +64,7 @@ const MIN_ZOOM_LEVEL = 0.1;
 const MAX_ZOOM_LEVEL = 2.0;
 const SPLIT_DRAG_THRESHOLD = 10;  // pixels to detect split dragging
 const SCROLL_ZOOM_FACTOR = 1000;  // divisor for scroll delta to zoom conversion
-const DEFAULT_TRACE_SPLIT = 0.50;  // default horizontal split ratio
+const DEFAULT_TRACE_SPLIT = 0.80;  // default horizontal split ratio
 const DEFAULT_INFO_SPLIT = 0.25;   // default vertical split ratio
 const SCRUBBER_MARGIN = 64;        // margin for scrubber width
 const PANEL_BOTTOM_MARGIN = 60;    // bottom margin for panels
@@ -850,11 +850,33 @@ function onFrame() {
   if (drawer.canvas && drawer.canvas.getContext('webgpu')) {
     const context = drawer.canvas.getContext('webgpu')!;
 
-    // First frame clears the screen
-    mapFrame.drawToScreen(drawer.canvas, context, mapTransform);
+    // First frame clears the screen, confined to map panel area
+    mapFrame.drawToScreen(
+      drawer.canvas,
+      context,
+      mapTransform,
+      true,
+      {
+        x: mapPanel.x,
+        y: mapPanel.y,
+        width: mapPanel.width,
+        height: mapPanel.height
+      }
+    );
 
-    // Second frame preserves what was already drawn
-    traceFrame.drawToScreen(drawer.canvas, context, traceTransform, false);
+    // Second frame preserves what was already drawn, confined to trace panel area
+    traceFrame.drawToScreen(
+      drawer.canvas,
+      context,
+      traceTransform,
+      false,
+      {
+        x: tracePanel.x,
+        y: tracePanel.y,
+        width: tracePanel.width,
+        height: tracePanel.height
+      }
+    );
   }
 }
 
