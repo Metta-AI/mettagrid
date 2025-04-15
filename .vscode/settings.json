@@ -1,35 +1,38 @@
 {
-    // ruff format on save is configured in metta.code-workspace
-    "[python]": {
-      "editor.rulers": [120],
-      "editor.renderWhitespace": "all"
+  "editor.formatOnSave": true,
+  "ruff.enable": true,
+  "ruff.organizeImports": true,
+  "ruff.fixAll": true,
+  "ruff.configuration": "${workspaceFolder}/ruff.toml",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
     },
-    "files.exclude": {
-      "**/*.egg-info": true,
-      "**/__pycache__": true,
-      "replays": true,
-      "train_dir": true,
-      "outputs": true,
-      ".pytest_cache": true
+    "editor.rulers": [120],
+    "editor.renderWhitespace": "all"
+  },
+  "files.exclude": {
+    "**/*.egg-info": true,
+    "**/__pycache__": true,
+    "replays": true,
+    "train_dir": true,
+    "outputs": true,
+    ".pytest_cache": true
+  },
+  "python.analysis.typeCheckingMode": "basic",
+  "python.testing.unittestArgs": ["-v", "-s", "./tests", "-p", "test_*.py"],
+  "python.testing.pytestEnabled": false,
+  "python.testing.unittestEnabled": true,
+  "[yaml]": {
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2,
+    "editor.quickSuggestions": {
+      "other": true,
+      "comments": false,
+      "strings": true
     },
-    "python.analysis.typeCheckingMode": "basic",
-    "python.testing.unittestArgs": [
-      "-v",
-      "-s",
-      "./tests",
-      "-p",
-      "test_*.py"
-    ],
-    "python.testing.pytestEnabled": false,
-    "python.testing.unittestEnabled": true,
-    "[yaml]": {
-      "editor.insertSpaces": true,
-      "editor.tabSize": 2,
-      "editor.quickSuggestions": {
-        "other": true,
-        "comments": false,
-        "strings": true
-      },
-      "editor.autoIndent": "keep"
-    }  
+    "editor.autoIndent": "keep"
   }
+}
