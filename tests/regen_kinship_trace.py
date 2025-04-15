@@ -1,8 +1,9 @@
 import hydra
-import mettagrid
-import mettagrid.mettagrid_env
 import numpy as np
 from regen_env_trace import dump_agents, header, render_obs_to_string, render_to_string
+
+import mettagrid
+import mettagrid.mettagrid_env
 
 @hydra.main(version_base=None, config_path="../configs", config_name="test_basic")
 def main(cfg):
