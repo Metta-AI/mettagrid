@@ -4,6 +4,7 @@ from typing import Any
 import numpy as np
 from omegaconf import OmegaConf
 
+
 def oc_if(condition, true_value, false_value):
     return true_value if condition else false_value
 

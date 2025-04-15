@@ -7,6 +7,7 @@ import pyray as ray
 from omegaconf import DictConfig, OmegaConf
 from raylib import colors, rl
 
+
 class ObjectRenderer:
     def __init__(self, sprite_sheet, tile_size=24):
         module_path = os.path.dirname(__file__)

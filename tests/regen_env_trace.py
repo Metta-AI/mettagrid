@@ -4,6 +4,7 @@ import numpy as np
 import mettagrid
 import mettagrid.mettagrid_env
 
+
 def dump_agents(env, show_team=False, agent_id=None):
   output = ""
   for thing in env.grid_objects.values():

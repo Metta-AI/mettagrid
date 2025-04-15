@@ -22,6 +22,7 @@ from mettagrid.resolvers import (
     register_resolvers,
 )
 
+
 def test_if_resolver():
     """Test the if resolver functionality"""
     assert oc_if(True, "yes", "no") == "yes"
