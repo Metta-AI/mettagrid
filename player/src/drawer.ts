@@ -75,7 +75,7 @@ class Drawer {
 
     // Initialize offscreen rendering properties
     this.offscreenTexture = null;
-    this.offscreenTextureSize = new Vec2f(4096, 4096); // 4K x 4K texture
+    this.offscreenTextureSize = new Vec2f(4096 * 2, 4096 * 2); // 2 * 4K x 4K texture
     this.offscreenView = null;
     this.offscreenRenderPassDescriptor = null;
 
@@ -691,7 +691,7 @@ class Drawer {
 
     // Check if we need to flush before adding more vertices.
     if (this.currentQuad >= this.maxQuads) {
-      this.flush();
+      throw new Error("Max quads reached");
     }
 
     const pos = new Vec2f(x, y);

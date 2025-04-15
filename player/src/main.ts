@@ -790,6 +790,7 @@ function onFrame() {
   //const scaleMatrix = Mat3f.scale(1.0, 1.0);
 
   let m = Mat3f.identity();
+  // m = m.mul(Mat3f.translate(0, -4096 * 2));
   m = m.mul(Mat3f.translate(mapPanel.panPos.x(), mapPanel.panPos.y()));
   m = m.mul(Mat3f.scale(mapPanel.zoomLevel, mapPanel.zoomLevel));
   drawer.flush(m);
