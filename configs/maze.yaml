@@ -15,41 +15,42 @@ game:
     _target_: mettagrid.config.room.multi_room.RoomList
     rooms:
       - _target_: mettagrid.config.room.maze.MazeKruskal
-        width: ${if:${eq:${..sampling},0},20,${uniform:10,40}}
-        height: ${if:${eq:${..sampling},0},20,${uniform:10,40}}
+        width: ${uniform:10,40,20}
+        height: ${uniform:10,40,20}
         start_pos: [1, 0]
         end_pos:
         - ${sub:${..width},2}
         - ${sub:${..height},2}
-        branching: ${if:${eq:${..sampling},0},0.7,${uniform:0.1,0.95}}
+        branching: ${uniform:0.1,0.95,0.7}
       - _target_: mettagrid.config.room.maze.MazeKruskal
-        width: ${if:${eq:${..sampling},0},20,${uniform:10,40}}
-        height: ${if:${eq:${..sampling},0},20,${uniform:10,40}}
+        width: ${uniform:10,40,20}
+        height: ${uniform:10,40,20}
         start_pos: [1, 0]
         end_pos:
         - ${sub:${..width},2}
         - ${sub:${..height},2}
-        branching: ${if:${eq:${..sampling},0},0.7,${uniform:0.1,0.95}}
+        branching: ${uniform:0.1,0.95,0.7}
       - _target_: mettagrid.config.room.maze.MazeKruskal
-        width: ${if:${eq:${..sampling},0},20,${uniform:10,40}}
-        height: ${if:${eq:${..sampling},0},20,${uniform:10,40}}
+        width: ${uniform:10,40,20}
+        height: ${uniform:10,40,20}
         start_pos: [1, 0]
         end_pos:
         - ${sub:${..width},2}
         - ${sub:${..height},2}
-        branching: ${if:${eq:${..sampling},0},0.7,${uniform:0.1,0.95}}
+        branching: ${uniform:0.1,0.95,0.7}
       - _target_: mettagrid.config.room.maze.MazeKruskal
-        width: ${if:${eq:${..sampling},0},20,${uniform:10,40}}
-        height: ${if:${eq:${..sampling},0},20,${uniform:10,40}}
+        width: ${uniform:10,40,20}
+        height: ${uniform:10,40,20}
         start_pos: [1, 0]
         end_pos:
         - ${sub:${..width},2}
         - ${sub:${..height},2}
-        branching: ${if:${eq:${..sampling},0},0.7,${uniform:0.1,0.95}}
+        branching: ${uniform:0.1,0.95,0.7}
+
   objects:
     altar:
       cooldown: 250
+
   actions:
     move: {}
     attack: {}
-  
