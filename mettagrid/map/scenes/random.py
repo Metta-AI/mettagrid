@@ -50,20 +50,22 @@ class Random(Scene):
             f"Too many objects for available empty cells: {len(symbols)} > {empty_count}"
         )
 
+        if not symbols:
+            return
+
         # Shuffle the symbols
         symbols = np.array(symbols).astype(str)
         self._rng.shuffle(symbols)
 
-        # Place objects only in empty cells
-        if len(symbols) > 0:
-            # Shuffle the indices of empty cells
-            self._rng.shuffle(empty_indices)
-            # Take only as many indices as we have symbols
-            selected_indices = empty_indices[: len(symbols)]
+        # Shuffle the indices of empty cells
+        self._rng.shuffle(empty_indices)
 
-            # Create a flat copy of the grid
-            flat_grid = node.grid.flatten()
-            # Place symbols at the selected empty positions
-            flat_grid[selected_indices] = symbols
-            # Reshape back to original dimensions
-            node.grid[:] = flat_grid.reshape(height, width)
+        # Take only as many indices as we have symbols
+        selected_indices = empty_indices[: len(symbols)]
+
+        # Create a flat copy of the grid
+        flat_grid = node.grid.flatten()
+        # Place symbols at the selected empty positions
+        flat_grid[selected_indices] = symbols
+        # Reshape back to original dimensions
+        node.grid[:] = flat_grid.reshape(height, width)
