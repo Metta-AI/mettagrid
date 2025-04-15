@@ -40,10 +40,12 @@ body {
 
 /* Separator styles */
 #vertical-separator,
-#horizontal-separator {
+#horizontal-separator,
+#scrubber-separator {
   position: absolute;
   background-color: rgb(139, 139, 139);
   z-index: 100;
+
 }
 
 #vertical-separator {
@@ -51,9 +53,18 @@ body {
   cursor: ew-resize;
 }
 
-#horizontal-separator {
+#horizontal-separator,
+#scrubber-separator {
   height: 1px;
   cursor: ns-resize;
+}
+
+#scrubber-separator {
+  bottom: 60px;
+  /* Position it above the scrubber */
+  left: 0;
+  width: 100%;
+  /* Full window width */
 }
 
 /* End separator styles */

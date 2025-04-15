@@ -76,7 +76,7 @@ let traceFrame: Frame | null = null; // Add traceFrame for the trace panel
 // Separator divs
 let verticalSeparator = document.getElementById('vertical-separator') as HTMLDivElement;
 let horizontalSeparator = document.getElementById('horizontal-separator') as HTMLDivElement;
-
+let scrubberSeparator = document.getElementById('scrubber-separator') as HTMLDivElement;
 
 // Get the html elements we will use.
 const scrubber = document.getElementById('main-scrubber') as HTMLInputElement;
@@ -186,6 +186,11 @@ function onResize() {
   horizontalSeparator.style.top = (infoPanel.height) + 'px';
   horizontalSeparator.style.left = (mapPanel.width) + 'px';
   horizontalSeparator.style.width = (infoPanel.width) + 'px';
+
+  // Position the scrubber separator at the top of the scrubber area
+  scrubberSeparator.style.bottom = PANEL_BOTTOM_MARGIN + 'px';
+  scrubberSeparator.style.left = '0px';
+  scrubberSeparator.style.width = mapWidth + 'px';
 
   // Redraw the square after resizing.
   onFrame();
