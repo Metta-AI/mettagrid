@@ -1,4 +1,3 @@
-
 defaults:
   - mettagrid
 
@@ -25,5 +24,3 @@ game:
         converter: ${sampling:1,15,5}
         generator: ${sampling:1,50,15}
         wall: ${sampling:10,100,40}
-
-
