@@ -1,15 +1,18 @@
 import random
-from typing import Any
+from typing import Any, Dict, Optional, TypeVar, Union
 
 import numpy as np
 from omegaconf import OmegaConf
 
+T = TypeVar("T")  # For generic conditional function
+Numeric = Union[int, float]  # Type alias for numeric types
 
-def oc_if(condition, true_value, false_value):
+
+def oc_if(condition: bool, true_value: T, false_value: T) -> T:
     return true_value if condition else false_value
 
 
-def oc_uniform(min_val: float, max_val: float) -> float:
+def oc_uniform(min_val: Numeric, max_val: Numeric) -> float:
     return float(np.random.uniform(min_val, max_val))
 
 
@@ -17,63 +20,72 @@ def oc_choose(*args: Any) -> Any:
     return random.choice(args)
 
 
-def oc_divide(a: float, b: float) -> float:
-    return a / b
+def oc_divide(a: Numeric, b: Numeric) -> Numeric:
+    """
+    Divide a by b, returning an int if both inputs are ints and result is a whole number,
+    otherwise return a float.
+    """
+    result = a / b
+    # If both inputs are integers and the result is a whole number, return as int
+    if isinstance(a, int) and isinstance(b, int) and result.is_integer():
+        return int(result)
+    return result
 
 
-def oc_subtract(a: float, b: float) -> float:
+def oc_subtract(a: Numeric, b: Numeric) -> Numeric:
     return a - b
 
 
-def oc_multiply(a: float, b: float) -> float:
+def oc_multiply(a: Numeric, b: Numeric) -> Numeric:
     return a * b
 
 
-def oc_add(a: float, b: float) -> float:
+def oc_add(a: Numeric, b: Numeric) -> Numeric:
     return a + b
 
 
-def oc_to_odd_min3(a: float) -> int:
+def oc_to_odd_min3(a: Numeric) -> int:
     """
     Ensure a value is odd and at least 3.
     """
     return max(3, int(a) // 2 * 2 + 1)
 
 
-def oc_clamp(value: float, min_val: float, max_val: float) -> float:
+def oc_clamp(value: Numeric, min_val: Numeric, max_val: Numeric) -> Numeric:
     return max(min_val, min(max_val, value))
 
 
-def oc_make_integer(value: float) -> int:
+def oc_make_integer(value: Numeric) -> int:
     return int(round(value))
 
 
-def oc_equals(a, b) -> bool:
+def oc_equals(a: Any, b: Any) -> bool:
     return a == b
 
 
-def oc_scaled_range(lower_limit, upper_limit, center, *, root=None):
+def oc_scaled_range(
+    lower_limit: Numeric, upper_limit: Numeric, center: Numeric, *, root: Optional[Dict[str, Numeric]] = None
+) -> Numeric:
     """
     Generates a value centered around a specified point based on a "sampling" parameter that controls how
     widely the distribution spreads between the limiting values.
 
     Parameters:
     -----------
-    lower_limit : numeric
+    lower_limit : Numeric
         The minimum allowed value (lower boundary).
-    upper_limit : numeric
+    upper_limit : Numeric
         The maximum allowed value (upper boundary).
-    center : numeric
+    center : Numeric
         The center point of the distribution. When sampling=0, this value is returned directly.
     root : dict, optional
         A dictionary containing the "sampling" parameter. If None, sampling defaults to 0. Must be between 0 and 1.
 
     Returns:
     --------
-    numeric
+    Numeric
         A value between lower_limit and upper_limit, with distribution controlled by the sampling parameter.
         Returns integer if center is an integer, float otherwise.
-
     """
     # Get sampling parameter from root, defaulting to 0
     root = root or {}
@@ -96,7 +108,7 @@ def oc_scaled_range(lower_limit, upper_limit, center, *, root=None):
     return int(round(val)) if isinstance(center, int) else val
 
 
-def register_resolvers():
+def register_resolvers() -> None:
     """
     Register all OmegaConf resolvers defined in this module.
     This function should be called before using any configuration that depends on these resolvers.
