@@ -9,6 +9,9 @@ import numpy as np
 import pyray as ray
 import torch
 from cffi import FFI
+from omegaconf import OmegaConf
+from raylib import colors, rl
+
 from mettagrid.mettagrid_env import MettaGridEnv
 from mettagrid.renderer.raylib.camera_controller import CameraController
 from mettagrid.renderer.raylib.font_renderer import FontRenderer
@@ -24,8 +27,6 @@ from mettagrid.renderer.raylib.object_render import (
     TempleRenderer,
     WallRenderer,
 )
-from omegaconf import OmegaConf
-from raylib import colors, rl
 
 class MettaGridRaylibRenderer:
     def __init__(self, env: MettaGridEnv, cfg: OmegaConf):
