@@ -95,7 +95,7 @@ def oc_scaled_range(
     if sampling == 0:
         return center
 
-    assert sampling <= 1, 'Environment configuration for "sampling" must be in range [0, 1]!'
+    assert sampling >= 0 and sampling <= 1, 'Environment configuration for "sampling" must be in range [0, 1]!'
 
     # Calculate the scaled range on both sides of the center
     left_range = sampling * (center - lower_limit)
