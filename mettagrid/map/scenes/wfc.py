@@ -83,6 +83,9 @@ class WFC(Scene):
         self._fill_propagator()
 
     def _fill_propagator(self):
+        """
+        Here we pre-calculate pattern compatibility, and we'll use this to check the compatibility of potential patterns going forward, when we exclude some possibility from the wave function and want to propagate the change.
+        """
         self._propagator = []  # no point in using numpy arrays here (I tested it, it's slower)
 
         self._propagator_lengths = np.zeros((4, self._pattern_count), dtype=np.int_)
