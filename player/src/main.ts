@@ -155,9 +155,9 @@ function onResize() {
   mapPanel.height = mapHeight - PANEL_BOTTOM_MARGIN;
 
   tracePanel.x = mapWidth * traceSplit;
-  tracePanel.y = mapHeight * infoSplit - PANEL_BOTTOM_MARGIN;
+  tracePanel.y = mapHeight * infoSplit;
   tracePanel.width = mapWidth * (1 - traceSplit);
-  tracePanel.height = mapHeight * (1 - infoSplit);
+  tracePanel.height = mapHeight * (1 - infoSplit) - PANEL_BOTTOM_MARGIN;
 
   infoPanel.x = mapWidth * traceSplit;
   infoPanel.y = 0;
@@ -179,7 +179,7 @@ function onResize() {
 
   // Position the vertical separator between map and trace panels
   verticalSeparator.style.top = '0px';
-  verticalSeparator.style.left = (mapPanel.width) + 'px';
+  verticalSeparator.style.left = (mapPanel.width - 1) + 'px';
   verticalSeparator.style.height = (mapHeight - PANEL_BOTTOM_MARGIN) + 'px';
 
   // Position the horizontal separator between info and trace panels
