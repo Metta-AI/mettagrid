@@ -4,6 +4,8 @@ Tests for the resolver module
 
 import numpy as np
 import pytest
+from omegaconf import OmegaConf
+
 from mettagrid.resolvers import (
     oc_add,
     oc_choose,
@@ -19,7 +21,6 @@ from mettagrid.resolvers import (
     oc_uniform,
     register_resolvers,
 )
-from omegaconf import OmegaConf
 
 def test_if_resolver():
     """Test the if resolver functionality"""
