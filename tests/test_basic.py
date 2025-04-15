@@ -1,115 +1,122 @@
 import hydra
 import numpy as np
 
-# Make sure all dependencies are installed:
-# Make sure all modules import without errors:
 import mettagrid
-import mettagrid.action
-import mettagrid.actions.actions
-import mettagrid.actions.attack
-import mettagrid.actions.move
-import mettagrid.actions.noop
-import mettagrid.actions.rotate
-import mettagrid.actions.swap
-import mettagrid.event
-import mettagrid.grid_env
-import mettagrid.grid_object
 import mettagrid.mettagrid_env
-import mettagrid.objects
-import mettagrid.observation_encoder
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="test_basic")
-def main(cfg):
-    # Create the environment:
-    mettaGridEnv = mettagrid.mettagrid_env.MettaGridEnv(cfg, render_mode=None)
+# This function will be recognized as a test by pytest
+def test_dependencies():
+    """Test that all required dependencies can be imported."""
+    dependencies = [
+        "hydra",
+        "jmespath",
+        "matplotlib",
+        "pettingzoo",
+        "pynvml",
+        "pytest",
+        "yaml",
+        "raylib",
+        "rich",
+        "scipy",
+        "tabulate",
+        "tensordict",
+        "torchrl",
+        "termcolor",
+        "wandb",
+        "wandb_core",
+        "pandas",
+        "tqdm",
+    ]
 
-    # Make sure the environment was created correctly:
-    print("mettaGridEnv._renderer: ", mettaGridEnv._renderer)
-    assert mettaGridEnv._renderer is None
-    print("mettaGridEnv._c_env: ", mettaGridEnv._c_env)
-    assert mettaGridEnv._c_env is not None
-    print("mettaGridEnv._grid_env: ", mettaGridEnv._grid_env)
-    assert mettaGridEnv._grid_env is not None
-    assert mettaGridEnv._c_env == mettaGridEnv._grid_env
-    print("mettaGridEnv.done: ", mettaGridEnv.done)
-    assert mettaGridEnv.done is False
+    missing_deps = []
+    for dep in dependencies:
+        try:
+            # Use globals() to store the imported module, avoiding linter complaints
+            globals()[dep] = __import__(dep)
+            print(f"Successfully imported {dep}")
+        except ImportError as e:
+            missing_deps.append(f"{dep}: {str(e)}")
 
-    # Make sure reset works:
-    mettaGridEnv.reset()
+    if missing_deps:
+        print("Missing dependencies:")
+        for dep in missing_deps:
+            print(f"  - {dep}")
+        raise ImportError("Missing required dependencies")
 
-    # Run a single step:
-    print("current_timestep: ", mettaGridEnv._c_env.current_timestep())
-    assert mettaGridEnv._c_env.current_timestep() == 0
-    (obs, rewards, terminated, truncated, infos) = mettaGridEnv.step([[0, 0]] * 5)
-    assert mettaGridEnv._c_env.current_timestep() == 1
-    print("obs: ", obs)
-    # We have 5 agents, ~22 channels, 11x11 grid
-    # We expect the number of channels to be updated more regularly, so we give that a range.
-    # Feel free to make this less fragile if you're updating this.
-    [num_agents, grid_width, grid_height, num_channels] = obs.shape
-    assert num_agents == 5
-    assert grid_width == 11
-    assert grid_height == 11
-    assert 20 <= num_channels <= 50
-    print("rewards: ", rewards)
-    assert rewards.shape == (5,)
-    print("terminated: ", terminated)
-    assert np.array_equal(terminated, [0, 0, 0, 0, 0])
-    print("truncated: ", truncated)
-    assert np.array_equal(truncated, [0, 0, 0, 0, 0])
-    print("infos: ", infos)
+    # Check mettagrid modules
+    mettagrid_modules = [
+        "mettagrid.objects",
+        "mettagrid.observation_encoder",
+        "mettagrid.actions.actions",
+        "mettagrid.actions.attack",
+        "mettagrid.actions.move",
+        "mettagrid.actions.noop",
+        "mettagrid.actions.rotate",
+        "mettagrid.actions.swap",
+        "mettagrid.action",
+        "mettagrid.event",
+        "mettagrid.grid_env",
+        "mettagrid.grid_object",
+    ]
 
-    print(mettaGridEnv._c_env.render())
-
-    print("grid_objects: ")
-    for grid_object in mettaGridEnv._c_env.grid_objects().values():
-        print(f"* {grid_object}")
-
-    infos = {}
-    mettaGridEnv.process_episode_stats(infos)
-    print("process_episode_stats infos: ", infos)
-
-    # Print some environment info:
-    print("mettaGridEnv._max_steps: ", mettaGridEnv._max_steps)
-    assert mettaGridEnv._max_steps == 5000
-    print(
-        "mettaGridEnv.single_observation_space: ", mettaGridEnv.single_observation_space
-    )
-    assert mettaGridEnv.single_observation_space.shape == (
-        grid_width,
-        grid_height,
-        num_channels,
-    )
-    print("mettaGridEnv.single_action_space: ", mettaGridEnv.single_action_space)
-    [num_actions, max_arg] = mettaGridEnv.single_action_space.nvec.tolist()
-    # We don't want to hard-code the number of actions to expect (we might add more), so
-    # we do some loose testing of "is this a reasonable number of actions?"
-    assert 5 <= num_actions <= 20, f"num_actions: {num_actions}"
-    # Same this for max_arg. No reason the it's "reasonable range" should be the same as num_actions,
-    # but it happens to be.
-    assert 5 <= max_arg <= 20, f"max_arg: {max_arg}"
-    print("mettaGridEnv.action_names(): ", mettaGridEnv.action_names())
-    print("mettaGridEnv.grid_features: ", mettaGridEnv.grid_features)
-    print("mettaGridEnv.global_features: ", mettaGridEnv.global_features)
-    print("mettaGridEnv.render_mode: ", mettaGridEnv.render_mode)
-    assert mettaGridEnv.render_mode is None
-
-    print("mettaGridEnv._c_env.map_width(): ", mettaGridEnv._c_env.map_width())
-    assert mettaGridEnv._c_env.map_width() == 25
-    print("mettaGridEnv._c_env.map_height(): ", mettaGridEnv._c_env.map_height())
-    assert mettaGridEnv._c_env.map_height() == 25
-
-    print("mettaGridEnv._c_env.num_agents(): ", mettaGridEnv._c_env.num_agents())
-    assert mettaGridEnv._c_env.num_agents() == 5
-
-    # Test action success:
-    print("mettaGridEnv.action_success: ", mettaGridEnv.action_success)
-    assert mettaGridEnv.action_success.shape == (5,)
-
-    print("mettaGridEnv.object_type_names: ", mettaGridEnv.object_type_names())
-    assert mettaGridEnv.object_type_names() == mettaGridEnv._c_env.object_type_names()
+    for module_name in mettagrid_modules:
+        try:
+            __import__(module_name)
+            print(f"Successfully imported {module_name}")
+        except ImportError as err:
+            raise ImportError(f"Failed to import {module_name}: {str(err)}") from err
 
 
-if __name__ == "__main__":
-    main()
+def test_env_functionality():
+    """Test basic environment functionality with hydra config."""
+    config_path = "../configs"
+    config_name = "test_basic"
+
+    with hydra.initialize(version_base=None, config_path=config_path):
+        cfg = hydra.compose(config_name=config_name)
+
+        # Create the environment:
+        mettaGridEnv = mettagrid.mettagrid_env.MettaGridEnv(cfg, render_mode=None)
+
+        # Make sure the environment was created correctly:
+        assert mettaGridEnv._renderer is None
+        assert mettaGridEnv._c_env is not None
+        assert mettaGridEnv._grid_env is not None
+        assert mettaGridEnv._c_env == mettaGridEnv._grid_env
+        assert mettaGridEnv.done is False
+
+        # Make sure reset works:
+        mettaGridEnv.reset()
+
+        # Run a single step:
+        assert mettaGridEnv._c_env.current_timestep() == 0
+        (obs, rewards, terminated, truncated, infos) = mettaGridEnv.step([[0, 0]] * 5)
+        assert mettaGridEnv._c_env.current_timestep() == 1
+
+        # We have 5 agents, ~22 channels, 11x11 grid
+        [num_agents, grid_width, grid_height, num_channels] = obs.shape
+        assert num_agents == 5
+        assert grid_width == 11
+        assert grid_height == 11
+        assert 20 <= num_channels <= 50
+        assert rewards.shape == (5,)
+        assert np.array_equal(terminated, [0, 0, 0, 0, 0])
+        assert np.array_equal(truncated, [0, 0, 0, 0, 0])
+
+        # Test episode stats
+        infos = {}
+        mettaGridEnv.process_episode_stats(infos)
+
+        # Test environment properties
+        assert mettaGridEnv._max_steps == 5000
+        assert mettaGridEnv.single_observation_space.shape == (grid_width, grid_height, num_channels)
+        [num_actions, max_arg] = mettaGridEnv.single_action_space.nvec.tolist()
+        assert 5 <= num_actions <= 20, f"num_actions: {num_actions}"
+        assert 5 <= max_arg <= 20, f"max_arg: {max_arg}"
+        assert mettaGridEnv.render_mode is None
+        assert mettaGridEnv._c_env.map_width() == 25
+        assert mettaGridEnv._c_env.map_height() == 25
+        assert mettaGridEnv._c_env.num_agents() == 5
+        assert mettaGridEnv.action_success.shape == (5,)
+        assert mettaGridEnv.object_type_names() == mettaGridEnv._c_env.object_type_names()

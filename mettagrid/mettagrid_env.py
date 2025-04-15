@@ -1,6 +1,6 @@
 import copy
 import random
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import gymnasium as gym
 import hydra
@@ -12,7 +12,7 @@ from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
 
 
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
-    def __init__(self, env_cfg: DictConfig, render_mode: str, buf=None, **kwargs):
+    def __init__(self, env_cfg: DictConfig, render_mode: Optional[str], buf=None, **kwargs):
         self._render_mode = render_mode
         self._cfg_template = env_cfg
         self._env_cfg = self._get_new_env_cfg()
