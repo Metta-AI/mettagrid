@@ -9,7 +9,9 @@ class MazePrim(Room):
     START, END = "agent.agent", "altar"
     DIRECTIONS = [(2, 0), (-2, 0), (0, 2), (0, -2)]
 
-    def __init__(self, width, height, start_pos, end_pos, branching=0.0, seed=None, border_width=0, border_object="wall"):
+    def __init__(
+        self, width, height, start_pos, end_pos, branching=0.0, seed=None, border_width=0, border_object="wall"
+    ):
         super().__init__(border_width=border_width, border_object=border_object)
         self._rng = random.Random(seed)
         self._width = width if width % 2 == 1 else width - 1
@@ -41,7 +43,7 @@ class MazePrim(Room):
                         walls.append((nwx, nwy, nnx, nny))
         maze[self._start_pos[1], self._start_pos[0]] = self.START
         maze[self._end_pos[1], self._end_pos[0]] = self.END
-        final_maze[:self._height, :self._width] = maze
+        final_maze[: self._height, : self._width] = maze
         return final_maze
 
 
@@ -50,7 +52,9 @@ class MazeKruskal(Room):
     EMPTY, WALL = "empty", "wall"
     START, END = "agent.agent", "altar"
 
-    def __init__(self, width, height, start_pos, end_pos, branching=0.0, seed=None, border_width=0, border_object="wall"):
+    def __init__(
+        self, width, height, start_pos, end_pos, branching=0.0, seed=None, border_width=0, border_object="wall"
+    ):
         super().__init__(border_width=border_width, border_object=border_object)
         self._rng = random.Random(seed)
         self._width = width if width % 2 == 1 else width - 1
@@ -62,7 +66,7 @@ class MazeKruskal(Room):
         final_maze = create_grid(self._height, self._width, fill_value=self.WALL)
         maze = create_grid(self._height, self._width, fill_value=self.WALL)
         cells = [(x, y) for y in range(1, self._height, 2) for x in range(1, self._width, 2)]
-        for (x, y) in cells:
+        for x, y in cells:
             maze[y, x] = self.EMPTY
 
         parent = {cell: cell for cell in cells}
@@ -76,7 +80,7 @@ class MazeKruskal(Room):
             parent[find(c2)] = find(c1)
 
         walls = []
-        for (x, y) in cells:
+        for x, y in cells:
             for dx, dy in [(2, 0), (0, 2)]:
                 nx, ny = x + dx, y + dy
                 if nx < self._width and ny < self._height:
@@ -92,5 +96,5 @@ class MazeKruskal(Room):
         ex, ey = self._end_pos
         maze[sy, sx] = self.START
         maze[ey, ex] = self.END
-        final_maze[:self._height, :self._width] = maze
+        final_maze[: self._height, : self._width] = maze
         return final_maze

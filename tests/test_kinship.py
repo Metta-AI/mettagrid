@@ -1,4 +1,3 @@
-import hydra
 import numpy as np
 from mettagrid.mettagrid_c import MettaGrid
 from omegaconf import OmegaConf

@@ -1,8 +1,8 @@
 from typing import Optional
-import numpy as np
-from omegaconf import DictConfig
 
-from mettagrid.config.room.room import Room, GameObject
+import numpy as np
+from mettagrid.config.room.room import Room
+from omegaconf import DictConfig
 
 class Random(Room):
     def __init__(
