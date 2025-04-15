@@ -752,7 +752,7 @@ function updateReadout() {
 
 // Draw a frame.
 function onFrame() {
-  if (replay === null || drawer === null || drawer.ready === false) {
+  if (replay === null || drawer === null || drawer.ready === false || mapFrame === null) {
     return;
   }
 
@@ -761,9 +761,7 @@ function onFrame() {
   globalCanvas.height = window.innerHeight;
 
   drawer.clear();
-  if (mapFrame) {
-    mapFrame.clear();
-  }
+  mapFrame.clear();
 
   var fullUpdate = true;
   if (mapPanel.inside(mousePos)) {
@@ -783,18 +781,16 @@ function onFrame() {
   //drawTrace(tracePanel);
 
   // Draw to the frame instead of directly to the screen
-  if (mapFrame) {
-    drawer.drawToFrame(mapFrame);
+  drawer.drawToFrame(mapFrame);
 
-    // Now draw the frame to the screen with the panel's transform
-    let m = Mat3f.identity();
-    m = m.mul(Mat3f.translate(mapPanel.panPos.x(), mapPanel.panPos.y()));
-    m = m.mul(Mat3f.scale(mapPanel.zoomLevel, mapPanel.zoomLevel));
+  // Now draw the frame to the screen with the panel's transform
+  let m = Mat3f.identity();
+  m = m.mul(Mat3f.translate(mapPanel.panPos.x(), mapPanel.panPos.y()));
+  m = m.mul(Mat3f.scale(mapPanel.zoomLevel, mapPanel.zoomLevel));
 
-    // Draw the frame to the screen with the transform
-    if (drawer.device && drawer.canvas && drawer.canvas.getContext('webgpu')) {
-      mapFrame.drawToScreen(drawer.canvas, drawer.canvas.getContext('webgpu')!, m);
-    }
+  // Draw the frame to the screen with the transform
+  if (drawer.canvas && drawer.canvas.getContext('webgpu')) {
+    mapFrame.drawToScreen(drawer.canvas, drawer.canvas.getContext('webgpu')!, m);
   }
 }
 
