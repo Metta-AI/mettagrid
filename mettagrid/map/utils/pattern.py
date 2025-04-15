@@ -11,6 +11,8 @@ def parse_ascii_into_grid(source: str) -> npt.NDArray[np.bool_]:
 
     The string must be enclosed in | characters, and must be composed of # and space characters.
 
+    # will be treated as walls, and spaces as empty.
+
     Example source:
     |# #|
     |# #|
