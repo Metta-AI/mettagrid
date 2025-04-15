@@ -377,17 +377,6 @@ class VariedTerrain(Room):
             else:
                 stack.pop()
 
-        # Apply thickening based on a random probability between 0.3 and 1.0.
-        thick_prob = 0.3 + 0.7 * self._rng.random()
-        maze_thick = maze.copy()
-        for i in range(1, h - 1):
-            for j in range(1, w - 1):
-                if maze[i, j] == "empty":
-                    if self._rng.random() < thick_prob and j + 1 < w:
-                        maze_thick[i, j + 1] = "empty"
-                    if self._rng.random() < thick_prob and i + 1 < h:
-                        maze_thick[i + 1, j] = "empty"
-        maze = maze_thick
 
         # Ensure each border has at least two contiguous empty cells.
         if w > 3 and not self._has_gap(maze[0, 1:w - 1]):
@@ -402,8 +391,20 @@ class VariedTerrain(Room):
         # Scatter hearts in empty cells with 30% probability.
         for i in range(h):
             for j in range(w):
-                if maze[i, j] == "empty" and self._rng.random() < 0.3:
-                    maze[i, j] = "heart"
+                if maze[i, j] == "empty" and self._rng.random() < 0.05:
+                    maze[i, j] = "altar"
+
+            # Apply thickening based on a random probability between 0.3 and 1.0.
+        thick_prob =  0.7 * self._rng.random()
+        maze_thick = maze.copy()
+        for i in range(1, h - 1):
+            for j in range(1, w - 1):
+                if maze[i, j] == "empty":
+                    if self._rng.random() < thick_prob and j + 1 < w:
+                        maze_thick[i, j + 1] = "empty"
+                    if self._rng.random() < thick_prob and i + 1 < h:
+                        maze_thick[i + 1, j] = "empty"
+        maze = maze_thick
         return maze
 
     def _has_gap(self, line: np.ndarray) -> bool:
