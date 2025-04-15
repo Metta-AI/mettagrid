@@ -42,7 +42,7 @@ def parse_ascii_into_grid(source: str) -> npt.NDArray[np.bool_]:
 
 
 def ascii_to_patterns_with_counts(
-    source: str, n: int, periodic: bool = False, symmetry: Symmetry = "none"
+    source: str, n: int, periodic: bool, symmetry: Symmetry
 ) -> list[tuple["Pattern", int]]:
     # This function is useful for WFC - we need to get patterns, not just weights.
 
@@ -69,7 +69,7 @@ def ascii_to_patterns_with_counts(
 
 
 def ascii_to_weights_of_all_patterns(
-    source: str, n: int, periodic: bool = False, symmetry: Symmetry = "none"
+    source: str, n: int, periodic: bool, symmetry: Symmetry
 ) -> npt.NDArray[np.float_]:
     # This function is useful for ConvChain. We get weights for all possible patterns, even the ones that don't exist in the sample. (2^(N*N) patterns)
 

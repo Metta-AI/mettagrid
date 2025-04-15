@@ -31,7 +31,11 @@ class ConvChain(Scene):
         self._receptor_size = receptor_size
 
         self._weights = ascii_to_weights_of_all_patterns(
-            self._pattern, self._receptor_size
+            self._pattern,
+            self._receptor_size,
+            # TODO: make these configurable
+            periodic=False,
+            symmetry="none",
         )
         # Ensure all weights are positive
         self._weights = np.maximum(self._weights, 0.1)
