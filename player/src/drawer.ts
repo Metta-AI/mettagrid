@@ -828,7 +828,7 @@ class Drawer {
         };
 
         // Set clear color
-        descriptor.colorAttachments[0].clearValue = { r: 0.0, g: 1.0, b: 0.0, a: 1.0 }; // Solid green
+        descriptor.colorAttachments[0].clearValue = { r: 0.1, g: 0.1, b: 0.1, a: 1.0 } // Dark gray background
 
         // Begin a render pass to clear with green
         const passEncoder = clearCommandEncoder.beginRenderPass(this.offscreenRenderPassDescriptor);

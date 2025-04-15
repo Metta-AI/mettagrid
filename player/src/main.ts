@@ -403,7 +403,6 @@ function getAgentStyle(agentId: number) {
 
 // Make the panel focus on the full map, used at the start of the replay.
 function focusFullMap(panel: PanelInfo) {
-  return;
   if (replay === null) {
     return;
   }
@@ -547,7 +546,7 @@ function drawObjects(replay: any) {
   }
 }
 
-function drawSelection(ctx: CanvasRenderingContext2D, selectedObject: any | null, step: number) {
+function drawSelection(selectedObject: any | null, step: number) {
   if (selectedObject === null) {
     return;
   }
@@ -556,6 +555,7 @@ function drawSelection(ctx: CanvasRenderingContext2D, selectedObject: any | null
   const y = getAttr(selectedObject, "r")
   // ctx.strokeStyle = "white";
   // ctx.strokeRect(x * 64, y * 64, 64, 64);
+  drawer.drawSprite('agent_selection.png', x * 64, y * 64);
 
   // // If object has a trajectory, draw the path it took through the map.
   // if (selectedObject.c.length > 0 || selectedObject.r.length > 0) {
@@ -597,13 +597,14 @@ function drawMap(panel: PanelInfo) {
     const localMousePos = panel.transformPoint(mousePos);
     if (localMousePos != null) {
       const gridMousePos = new Vec2f(
-        Math.floor(localMousePos.x() / 64),
-        Math.floor(localMousePos.y() / 64)
+        Math.round(localMousePos.x() / 64),
+        Math.round(localMousePos.y() / 64)
       );
+      console.log("gridMousePos: ", gridMousePos.x(), gridMousePos.y());
       const gridObject = replay.grid_objects.find((obj: any) => {
-        const x = getAttr(obj, "c");
-        const y = getAttr(obj, "r");
-        return x === gridMousePos.x && y === gridMousePos.y;
+        const x: number = getAttr(obj, "c");
+        const y: number = getAttr(obj, "r");
+        return x === gridMousePos.x() && y === gridMousePos.y();
       });
       if (gridObject !== undefined) {
         selectedGridObject = gridObject;
@@ -612,16 +613,12 @@ function drawMap(panel: PanelInfo) {
     }
   }
 
-
   drawer.save();
-
-  // drawer.translate(panel.panPos.x(), panel.panPos.y());
-  // drawer.scale(panel.zoomLevel, panel.zoomLevel);
 
   drawFloor(replay.map_size);
   drawWalls(replay);
   drawObjects(replay);
-  // drawSelection(panel.ctx, selectedGridObject, step);
+  drawSelection(selectedGridObject, step);
 
   drawer.restore();
 }
@@ -781,28 +778,13 @@ function onFrame() {
   drawMap(mapPanel);
   //drawTrace(tracePanel);
 
-
-  // /Users/me/p/mettagrid/player/data/meta_grid_icon.png
-  drawer.drawSprite('meta_grid_icon.png', 100, 100);
-
-
-  // Compute x, y from mouse position.
-  drawer.drawSprite('agent_selection.png', mousePos.x(), mousePos.y());
-
-
-
   drawer.flushMesh();
 
-  // Scale the texture
-  //const scaleMatrix = Mat3f.scale(1.0, 1.0);
-
   let m = Mat3f.identity();
-  console.log("mapPanel.panPos: ", mapPanel.panPos.x(), mapPanel.panPos.y());
   m = m.mul(Mat3f.translate(mapPanel.panPos.x(), mapPanel.panPos.y()));
   m = m.mul(Mat3f.scale(mapPanel.zoomLevel, mapPanel.zoomLevel));
   drawer.flush(m);
 
-  console.log("Flushed drawer.");
 }
 
 function preventDefaults(event: Event) {

@@ -8,7 +8,7 @@ import json
 atlas_image = pixie.Image(2048, 2048)
 images = {}
 heights = [0] * atlas_image.width
-margin = 4
+margin = 6
 for file in os.listdir("data"):
     if file.endswith(".png"):
         img = pixie.read_image("data/" + file)
