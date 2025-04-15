@@ -4,6 +4,7 @@ import numpy as np
 
 from mettagrid.config.room.room import Room
 
+
 class RoomList(Room):
     def __init__(
         self,

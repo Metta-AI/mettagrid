@@ -3,6 +3,7 @@ import random
 from mettagrid.config.room.room import Room
 from mettagrid.config.room.utils import create_grid, set_position
 
+
 # Maze generation using Prim's algorithm
 class MazePrim(Room):
     EMPTY, WALL = "empty", "wall"

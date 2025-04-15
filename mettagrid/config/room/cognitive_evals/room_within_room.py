@@ -5,6 +5,7 @@ import numpy as np
 from mettagrid.config.room.room import Room
 from mettagrid.config.room.utils import create_grid, draw_border  # New utility functions
 
+
 class RoomWithinRoom(Room):
     """
     Outer room with walls and a centered inner room (with a door gap in its top wall).

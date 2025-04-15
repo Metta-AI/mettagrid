@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
+
 def create_grid(height: int, width: int, fill_value: str = "empty", dtype: str = "<U50") -> np.ndarray:
     """
     Creates a NumPy grid with the given height and width, pre-filled with the specified fill_value.

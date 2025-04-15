@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from gymnasium.spaces import Discrete
 
+
 class SingleAgentWrapper(gym.Wrapper):
     def __init__(self, env):
         super(SingleAgentWrapper, self).__init__(env)
