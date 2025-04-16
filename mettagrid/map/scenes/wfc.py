@@ -31,6 +31,7 @@ import numpy as np
 from mettagrid.map.scene import Scene
 from mettagrid.map.node import Node
 from mettagrid.map.utils.pattern import Symmetry, ascii_to_patterns_with_counts
+from mettagrid.map.utils.random import MaybeSeed
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ class WFC(Scene):
         periodic_input: bool = True,
         symmetry: Symmetry = "all",
         attempts: int = 3,
-        seed=None,
+        seed: MaybeSeed = None,
         children: list[Any] = [],
     ):
         super().__init__(children=children)

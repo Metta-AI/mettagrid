@@ -1,10 +1,10 @@
 import logging
-import random
-from typing import Any, Literal, Tuple
+from typing import Any, Literal, Tuple, Union
 
 import numpy as np
 from mettagrid.map.node import Node
 from mettagrid.map.scene import Scene
+from mettagrid.map.utils.random import MaybeSeed
 
 logger = logging.getLogger(__name__)
 
@@ -16,15 +16,19 @@ class BSPLayout(Scene):
     This scene doesn't render anything, it just creates areas that can be used by other scenes.
     """
 
-    def __init__(self, area_count: int, children: list[Any]):
+    def __init__(self, area_count: int, children: list[Any], seed: MaybeSeed = None):
         super().__init__(children=children)
         self._area_count = area_count
+        self._rng = np.random.default_rng(seed)
 
     def _render(self, node: Node):
         grid = node.grid
 
         tree = BSPTree(
-            width=grid.shape[1], height=grid.shape[0], leaf_zone_count=self._area_count
+            width=grid.shape[1],
+            height=grid.shape[0],
+            leaf_zone_count=self._area_count,
+            rng=self._rng,
         )
         for zone in tree.get_leaf_zones():
             node.make_area(zone.x, zone.y, zone.width, zone.height, tags=["zone"])
@@ -44,6 +48,7 @@ class BSP(Scene):
         min_room_size_ratio: float,
         max_room_size_ratio: float,
         skip_corridors: bool = False,
+        seed: MaybeSeed = None,
         children: list[Any] = [],
     ):
         super().__init__(children=children)
@@ -52,6 +57,7 @@ class BSP(Scene):
         self._min_room_size_ratio = min_room_size_ratio
         self._max_room_size_ratio = max_room_size_ratio
         self._skip_corridors = skip_corridors
+        self._rng = np.random.default_rng(seed)
 
     def _render(self, node: Node):
         grid = node.grid
@@ -59,7 +65,10 @@ class BSP(Scene):
         grid[:] = "wall"
 
         bsp_tree = BSPTree(
-            width=grid.shape[1], height=grid.shape[0], leaf_zone_count=self._rooms
+            width=grid.shape[1],
+            height=grid.shape[0],
+            leaf_zone_count=self._rooms,
+            rng=self._rng,
         )
 
         # Make rooms
@@ -112,17 +121,15 @@ class BSP(Scene):
                     )
 
 
-def random_divide(size: int):
-    min_size = size // 3  # TODO - configurable proportion
-    return random.randint(min_size, size - min_size)
-
-
 class Zone:
-    def __init__(self, x: int, y: int, width: int, height: int):
+    def __init__(
+        self, x: int, y: int, width: int, height: int, rng: np.random.Generator
+    ):
         self.x = x
         self.y = y
         self.width = width
         self.height = height
+        self.rng = rng
 
     def split(self) -> Tuple["Zone", "Zone"]:
         # Split in random direction, unless the room is too wide or too tall.
@@ -132,18 +139,28 @@ class Zone:
         elif self.height > self.width * 2:
             direction = "horizontal"
         else:
-            direction = random.choice(["horizontal", "vertical"])
+            direction = self.rng.choice(["horizontal", "vertical"])
 
         if direction == "horizontal":
             return self.horizontal_split()
         else:
             return self.vertical_split()
 
+    def random_divide(self, size: int):
+        min_size = size // 3  # TODO - configurable proportion
+        return self.rng.integers(min_size, size - min_size + 1)
+
     def horizontal_split(self) -> Tuple["Zone", "Zone"]:
-        first_height = random_divide(self.height)
+        first_height = self.random_divide(self.height)
         return (
-            Zone(self.x, self.y, self.width, first_height),
-            Zone(self.x, self.y + first_height, self.width, self.height - first_height),
+            Zone(self.x, self.y, self.width, first_height, self.rng),
+            Zone(
+                self.x,
+                self.y + first_height,
+                self.width,
+                self.height - first_height,
+                self.rng,
+            ),
         )
 
     def vertical_split(self) -> Tuple["Zone", "Zone"]:
@@ -158,23 +175,25 @@ class Zone:
     ) -> "Zone":
         # Randomly determine room size
         def random_size(n: int) -> int:
-            return random.randint(
+            return self.rng.integers(
                 max(min_size, int(n * min_size_ratio)),
-                max(min_size, int(n * max_size_ratio)),
+                max(min_size, int(n * max_size_ratio)) + 1,
             )
 
         room_width = random_size(self.width)
         room_height = random_size(self.height)
 
         # Randomly position the room within the zone; always leave a 1 cell border on bottom-right, otherwise the rooms could touch each other.
-        shift_x = random.randint(1, max(1, self.width - room_width))
-        shift_y = random.randint(1, max(1, self.height - room_height))
-        return Zone(self.x + shift_x, self.y + shift_y, room_width, room_height)
+        shift_x = self.rng.integers(1, max(1, self.width - room_width) + 1)
+        shift_y = self.rng.integers(1, max(1, self.height - room_height) + 1)
+        return Zone(
+            self.x + shift_x, self.y + shift_y, room_width, room_height, self.rng
+        )
 
     def transpose(self) -> "Zone":
         # Zones can be transposed, to avoid having to write code for both horizontal and vertical splits.
         # See also: Line.transpose()
-        return Zone(self.y, self.x, self.height, self.width)
+        return Zone(self.y, self.x, self.height, self.width, self.rng)
 
     def __repr__(self):
         return f"Zone({self.x}, {self.y}, {self.width}, {self.height})"
@@ -200,10 +219,17 @@ class Surface:
     The code that uses the surface doesn't care what the surface is made of, it just needs to know which that can be approached.
     """
 
-    def __init__(self, min_x: int, ys: list[int], side: Literal["up", "down"]):
+    def __init__(
+        self,
+        min_x: int,
+        ys: list[int],
+        side: Literal["up", "down"],
+        rng: np.random.Generator,
+    ):
         self.min_x = min_x
         self.ys = ys
         self.side = side
+        self.rng = rng
 
     @property
     def max_y(self) -> int:
@@ -237,7 +263,7 @@ class Surface:
 
             valid_xs.append(i)
 
-        x = random.choice(valid_xs)
+        x = self.rng.choice(valid_xs)
         return (x + self.min_x, self.ys[x])
 
     @staticmethod
@@ -276,7 +302,7 @@ class Surface:
         if min_x is None:
             raise ValueError("No surface found")
 
-        return Surface(min_x, ys, side)
+        return Surface(min_x, ys, side, zone.rng)
 
     def __repr__(self):
         return f"Surface(min_x={self.min_x}, ys={self.ys})"
@@ -338,28 +364,7 @@ def connect_surfaces(surface1: Surface, surface2: Surface):
     start = surface1.random_position()
     end = surface2.random_position()
 
-    turn_y = random.randint(surface1.max_y, surface2.min_y)
-
-    lines = [
-        # Note: off-by-one errors here were quite annoying, be careful.
-        Line("vertical", start, turn_y - start[1] + 1),
-        Line("horizontal", (start[0], turn_y), end[0] - start[0]),
-        Line("vertical", end, turn_y - end[1] - 1),
-    ]
-    return lines
-
-
-def connect_rooms(room1: Zone, room2: Zone):
-    """
-    Connect two rooms with a corridor.
-
-    Assumes that the rooms are adjacent and the room1 is above of room2.
-    """
-
-    start = (room1.x + random.randrange(room1.width), room1.y + room1.height)
-    end = (room2.x + random.randrange(room2.width), room2.y - 1)
-
-    turn_y = random.randint(start[1], end[1])
+    turn_y = surface1.rng.integers(surface1.max_y, surface2.min_y + 1)
 
     lines = [
         # Note: off-by-one errors here were quite annoying, be careful.
@@ -381,7 +386,13 @@ class BSPTree:
 
     zones: list["Zone"]
 
-    def __init__(self, width: int, height: int, leaf_zone_count: int):
+    def __init__(
+        self,
+        width: int,
+        height: int,
+        leaf_zone_count: int,
+        rng: np.random.Generator,
+    ):
         next_split_id = 0
 
         # Store the tree as flat list:
@@ -391,13 +402,13 @@ class BSPTree:
         #   layer3, layer3, layer3, layer3,
         #   ...
         # ]
-        self.zones = [Zone(0, 0, width, height)]
+        self.zones = [Zone(0, 0, width, height, rng)]
 
         for _ in range(leaf_zone_count - 1):  # split rooms-1 times
             zone = self.zones[next_split_id]
 
             (child1, child2) = zone.split()
-            if random.random() < 0.5:
+            if rng.random() < 0.5:
                 child1, child2 = child2, child1
 
             self.zones.append(child1)

@@ -1,9 +1,9 @@
 import logging
-import random
 
 import numpy as np
 from mettagrid.map.node import Node
 from mettagrid.map.scene import Scene, TypedChild
+from mettagrid.map.utils.random import MaybeSeed
 
 DIRECTIONS = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
@@ -24,9 +24,9 @@ class MakeConnected(Scene):
     TODO: This can result in some extra tunnels being dug.
     """
 
-    def __init__(self, seed=None, children: list[TypedChild] = []):
+    def __init__(self, seed: MaybeSeed = None, children: list[TypedChild] = []):
         super().__init__(children=children)
-        self._rng = random.Random(seed)
+        self._rng = np.random.default_rng(seed)
 
     def _is_empty(self, symbol: str) -> bool:
         return symbol == "empty"
