@@ -46,3 +46,4 @@ class MapGen:
         root_node.render()
         # Save grid to .map file
         np.save(f"terrain_maps_nohearts/{self._width}x{self._height}_{random.randint(0, 1000000)}", self._grid)
+        #return self._grid

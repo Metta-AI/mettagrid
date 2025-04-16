@@ -50,10 +50,10 @@ class Auto(BaseAuto):
     def get_children(self, node) -> list[TypedChild]:
         return [
             {"scene": AutoLayout(config=self._config, rng=self._rng), "where": "full"},
-            {
-                "scene": Random(objects=self._config.objects, seed=self._rng),
-                "where": "full",
-            },
+            # {
+            #     "scene": Random(objects=self._config.objects, seed=self._rng),
+            #     "where": "full",
+            # },
             {"scene": MakeConnected(seed=self._rng), "where": "full"},
             {
                 "scene": Random(agents=self._config.num_agents, seed=self._rng),
@@ -76,12 +76,12 @@ class AutoLayout(BaseAuto):
                     "scene": AutoSymmetry(config=self._config, rng=self._rng),
                     "where": {"tags": [tag]},
                 },
-                {
-                    "scene": RandomObjects(
-                        object_ranges=self._config.room_objects, seed=self._rng
-                    ),
-                    "where": {"tags": [tag]},
-                },
+                # {
+                #     "scene": Random(
+                #         object_ranges=self._config.room_objects, seed=self._rng
+                #     ),
+                #     "where": {"tags": [tag]},
+                # },
             ]
 
         if layout == "grid":
