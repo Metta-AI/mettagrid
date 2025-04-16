@@ -9,6 +9,16 @@ atlas_image = pixie.Image(2048, 2048)
 images = {}
 heights = [0] * atlas_image.width
 margin = 6
+
+# Create an 64x64 white image and put it first at 0,0.
+# This image is used to draw solid colors.
+white_image = pixie.Image(64, 64)
+white_image.fill(pixie.Color(1, 1, 1, 1))
+atlas_image.draw(white_image, pixie.translate(0, 0))
+images["white.png"] = (0, 0, white_image.width, white_image.height)
+for i in range(white_image.width + margin):
+    heights[i] = white_image.height + margin
+
 for file in os.listdir("data"):
     if file.endswith(".png"):
         img = pixie.read_image("data/" + file)

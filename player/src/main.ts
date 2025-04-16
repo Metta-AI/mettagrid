@@ -139,6 +139,11 @@ let replay: any = null;
 let step = 0;
 let selectedGridObject: any = null;
 
+// Clamp a value between a min and max.
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(value, max));
+}
+
 // Handle resize events.
 function onResize() {
   // Adjust for high DPI displays.
@@ -148,6 +153,12 @@ function onResize() {
   const mapHeight = window.innerHeight;
 
   scrubber.style.width = (mapWidth - SCRUBBER_MARGIN) + 'px';
+
+  // Make sure that traceSplit and infoSplit are valid.
+  let percentMarginWidth = 20 / window.innerWidth;
+  traceSplit = clamp(traceSplit, percentMarginWidth, 1 - percentMarginWidth);
+  let percentMarginHeight = 20 / window.innerHeight;
+  infoSplit = clamp(infoSplit, percentMarginHeight, 1 - percentMarginHeight);
 
   mapPanel.x = 0;
   mapPanel.y = 0;
@@ -360,7 +371,7 @@ async function loadReplayText(replayData: any) {
   }
 
   // Set the scrubber max value to the max steps.
-  scrubber.max = replay.max_steps.toString();
+  scrubber.max = (replay.max_steps - 1).toString();
 
   closeModal();
   focusFullMap(mapPanel);
@@ -389,7 +400,7 @@ function onKeyDown(event: KeyboardEvent) {
     onFrame();
   }
   if (event.key == "ArrowRight") {
-    step = Math.min(step + 1, replay.max_steps);
+    step = Math.min(step + 1, replay.max_steps - 1);
     scrubber.value = step.toString();
     onFrame();
   }
@@ -650,23 +661,34 @@ function drawTrace(panel: PanelInfo) {
     return;
   }
 
-  const localMousePos = panel.transformPoint(mousePos);
+  drawer.drawRect(
+    0, // x position
+    0, // y position
+    1024 * 8, // width
+    1024 * 8, // height - full panel height
+    0, 0, 0, 0, // UV coordinates (not used)
+    [0.0, 0.0, 0.0, 1.0]
+  );
 
-  if (localMousePos != null) {
-    if (mouseDown) {
-      const mapX = localMousePos.x() - 32;
-      if (mapX > 0 && mapX < replay.max_steps * 4 &&
-        localMousePos.y() > 0 && localMousePos.y() < replay.num_agents * 64) {
-        const agentId = Math.floor(localMousePos.y() / 64);
-        for (const gridObject of replay.grid_objects) {
-          if (gridObject["agent_id"] == agentId) {
-            selectedGridObject = gridObject;
-            console.log("selectedGridObject: ", selectedGridObject);
-            focusMapOn(mapPanel, getAttr(selectedGridObject, "c"), getAttr(selectedGridObject, "r"));
+  if (panel.inside(mousePos)) {
+    const localMousePos = panel.transformPoint(mousePos);
+
+    if (localMousePos != null) {
+      if (mouseDown) {
+        const mapX = localMousePos.x() - 32;
+        if (mapX > 0 && mapX < replay.max_steps * 4 &&
+          localMousePos.y() > 0 && localMousePos.y() < replay.num_agents * 64) {
+          const agentId = Math.floor(localMousePos.y() / 64);
+          for (const gridObject of replay.grid_objects) {
+            if (gridObject["agent_id"] == agentId) {
+              selectedGridObject = gridObject;
+              console.log("selectedGridObject: ", selectedGridObject);
+              focusMapOn(mapPanel, getAttr(selectedGridObject, "c"), getAttr(selectedGridObject, "r"));
+            }
           }
+          step = Math.floor(mapX / 4);
+          scrubber.value = step.toString();
         }
-        step = Math.floor(mapX / 4);
-        scrubber.value = step.toString();
       }
     }
   }
@@ -675,19 +697,46 @@ function drawTrace(panel: PanelInfo) {
   // Background
   drawer.save();
 
-  // Position at panel origin
-  drawer.translate(panel.x, panel.y);
-
-  // Draw dark background
-  // We could use a semi-transparent quad for the background
-  // But for now, we'll just use the default clear color
+  // Draw the current step indicator
+  const stepLineHeight = panel.height;
+  drawer.drawRect(
+    32 + step * 4, // x position
+    0, // y position
+    2, // width
+    stepLineHeight, // height - full panel height
+    0, 0, 0, 0, // UV coordinates (not used)
+    [1.0, 1.0, 1.0, 0.5] // semi-transparent white
+  );
 
   // Draw timeline
   const timelineY = 40;
+
+  // Draw highlight box around selected agent
+  if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
+    const agentId = selectedGridObject.agent_id;
+    const agentY = timelineY + agentId * 64;
+
+    drawer.drawRect(
+      0, // x position
+      agentY - 32, // y position
+      panel.width, // width - full panel width
+      64, // height
+      0, 0, 0, 0, // UV coordinates (not used)
+      [1.0, 1.0, 1.0, 0.2] // very transparent white
+    );
+
+    // Draw the action name above the selected agent's timeline
+    // (We would need text rendering for this)
+    const action = getAttr(selectedGridObject, "action", step);
+    if (action != null) {
+      const actionName = replay.action_names[action[0]] as string;
+      // We can't render text directly with WebGPU yet, so we'd need to implement
+      // a text rendering system or use textures with pre-rendered text
+    }
+  }
+
   for (let i = 0; i < replay.num_agents; i++) {
     // Draw agent ID
-    // We would need text rendering for this, but it's not implemented yet
-    // Instead, we can draw a colored marker
 
     // Draw agent timeline
     const agentY = timelineY + i * 64;
@@ -744,41 +793,6 @@ function drawTrace(panel: PanelInfo) {
           }
         }
       }
-    }
-  }
-
-  // Draw the current step indicator
-  const stepLineHeight = panel.height;
-  drawer.drawRect(
-    32 + step * 4, // x position
-    0, // y position
-    2, // width
-    stepLineHeight, // height - full panel height
-    0, 0, 0, 0, // UV coordinates (not used)
-    [1.0, 1.0, 1.0, 0.5] // semi-transparent white
-  );
-
-  // Draw highlight box around selected agent
-  if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
-    const agentId = selectedGridObject.agent_id;
-    const agentY = timelineY + agentId * 64;
-
-    drawer.drawRect(
-      0, // x position
-      agentY - 32, // y position
-      panel.width, // width - full panel width
-      64, // height
-      0, 0, 0, 0, // UV coordinates (not used)
-      [1.0, 1.0, 1.0, 0.2] // very transparent white
-    );
-
-    // Draw the action name above the selected agent's timeline
-    // (We would need text rendering for this)
-    const action = getAttr(selectedGridObject, "action", step);
-    if (action != null) {
-      const actionName = replay.action_names[action[0]] as string;
-      // We can't render text directly with WebGPU yet, so we'd need to implement
-      // a text rendering system or use textures with pre-rendered text
     }
   }
 
@@ -851,8 +865,7 @@ function onFrame() {
   drawer.drawToFrame(mapFrame);
 
   // Draw trace contents
-  // drawTrace(tracePanel);
-  drawer.drawSprite("meta_grid_icon.png", 100, 100, [1, 1, 1, 1]);
+  drawTrace(tracePanel);
   drawer.drawToFrame(traceFrame);
 
   // Prepare transforms for each panel
