@@ -6,7 +6,7 @@ defaults:
 game:
   num_agents: 4
   max_steps: 250
-  
+
   groups:
     mazer:
       id: 0
