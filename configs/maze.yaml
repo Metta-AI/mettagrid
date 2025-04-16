@@ -1,12 +1,11 @@
 defaults:
   - mettagrid
   - _self_
-  - game/map_builder: maze
 
 game:
   num_agents: 4
   max_steps: 250
-
+  map_builder: maze
   groups:
     mazer:
       id: 0
