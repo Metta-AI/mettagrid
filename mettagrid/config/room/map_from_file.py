@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import random
 from mettagrid.config.room.room import Room
 
 
@@ -17,7 +18,7 @@ class MapFromFile(Room):
         uri = np.random.choice(self.files)
         level = np.load(f"{self.dir}/{uri}")
         num_hearts = random.randint(30, 150)
-        
+
         # Find valid empty spaces surrounded by empty
         valid_positions = []
         for i in range(1, level.shape[0]-1):
@@ -29,7 +30,7 @@ class MapFromFile(Room):
                         level[i,j-1] == "empty" or
                         level[i,j+1] == "empty"):
                         valid_positions.append((i,j))
-                            
+
         # Randomly place hearts in valid positions
         positions = random.sample(valid_positions, min(num_hearts, len(valid_positions)))
         for pos in positions:
