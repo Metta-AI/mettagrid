@@ -67,7 +67,7 @@ def main(cfg):
     if show == "raylib":
         from mettagrid.renderer.raylib.raylib_renderer import MettaGridRaylibRenderer
 
-        renderer = MettaGridRaylibRenderer(env._c_env, env._active_cfg.game)
+        renderer = MettaGridRaylibRenderer(env._c_env, env._env_cfg.game)
         while True:
             renderer.render_and_wait()
     elif show == "ascii":
