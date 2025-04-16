@@ -23,7 +23,7 @@ class MapFromFile(Room):
         valid_positions = []
         for i in range(1, level.shape[0]-1):
             for j in range(1, level.shape[1]-1):
-                if self._grid[i,j] == "empty":
+                if level[i,j] == "empty":
                     # Check if position is accessible from at least one direction
                     if (level[i-1,j] == "empty" or
                         level[i+1,j] == "empty" or
