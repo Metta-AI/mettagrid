@@ -6,7 +6,9 @@ from omegaconf import OmegaConf
 T = TypeVar("T")  # For generic conditional function
 Numeric = Union[int, float]  # Type alias for numeric types
 
-RANDOM_SEED = 1
+# Generate a random integer using NumPy's random number generator
+# This uses whatever entropy source NumPy is using by default
+RANDOM_SEED = np.random.randint(0, 2**32 - 1)
 
 
 def oc_set_random_seed(seed: int):
