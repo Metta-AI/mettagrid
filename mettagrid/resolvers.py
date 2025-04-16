@@ -18,6 +18,13 @@ def oc_uniform(min_val: Numeric, max_val: Numeric, seed: Optional[int] = None) -
     return float(np.random.uniform(min_val, max_val))
 
 
+def oc_uniform_list(min_val: Numeric, max_val: Numeric, count: int, seed: Optional[int] = None) -> list[float]:
+    if seed is not None:
+        np.random.seed(seed)
+
+    return [float(x) for x in np.random.uniform(min_val, max_val, size=count)]
+
+
 def oc_choose(*args: Any) -> Any:
     return random.choice(args)
 
@@ -131,3 +138,4 @@ def register_resolvers() -> None:
     OmegaConf.register_new_resolver("equals", oc_equals, replace=True)
     OmegaConf.register_new_resolver("eq", oc_equals, replace=True)
     OmegaConf.register_new_resolver("sampling", oc_scaled_range, replace=True)
+    OmegaConf.register_new_resolver("uniform_list", oc_uniform_list, replace=True)
