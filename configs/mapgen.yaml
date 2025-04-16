@@ -1,5 +1,6 @@
 defaults:
   - mettagrid
+  - game/map_builder: ???
   - _self_
 
 mapgen:
@@ -14,4 +15,4 @@ mapgen:
 game:
   num_agents: 0
   recursive_map_builder: false
-  map_builder: ???
+  

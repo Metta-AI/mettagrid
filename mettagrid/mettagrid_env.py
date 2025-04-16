@@ -32,7 +32,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     rewards: np.ndarray
     actions: np.ndarray
 
-    def __init__(self, env_cfg: Union[DictConfig, ListConfig], render_mode: Optional[str], buf=None, **kwargs):
+    def __init__(self, cfg: Union[DictConfig, ListConfig], render_mode: Optional[str], buf=None, **kwargs):
         """
         Initialize a MettaGridEnv.
 
@@ -43,17 +43,29 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
             **kwargs: Additional arguments passed to parent classes
         """
         self._render_mode = render_mode
-        self._cfg_template = env_cfg
-        self._env_cfg = self._get_new_env_cfg()
+        self._original_cfg = cfg
+        self._active_cfg = self._resolve_original_cfg()
         self._reset_env()
         self.should_reset = False
         self._renderer = None
 
         super().__init__(buf)
 
-    def _get_new_env_cfg(self):
-        """Create a new resolved environment configuration from the template."""
-        env_cfg = OmegaConf.create(copy.deepcopy(self._cfg_template))
+    def _resolve_original_cfg(self):
+        """
+        Create a new resolved environment configuration from the template.
+
+        This method:
+        1. Creates a deep copy of the original configuration
+        2. Resolves all variable interpolations, references, and custom resolvers
+        - Any randomness in resolvers (e.g. ${sampling:0, 100, 50}) will be
+            evaluated at this point, potentially resulting in a different environment
+            each time this method is called
+
+        Returns:
+            The resolved configuration object with all references replaced by concrete values
+        """
+        env_cfg = OmegaConf.create(copy.deepcopy(self._original_cfg))
         OmegaConf.resolve(env_cfg)
         return env_cfg
 
@@ -61,20 +73,21 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         """Reset the internal environment state with a new configuration."""
         # Instantiate map builder
         self._map_builder = hydra.utils.instantiate(
-            self._env_cfg.game.map_builder,
-            _recursive_=self._env_cfg.game.recursive_map_builder,
+            self._active_cfg.game.map_builder,
+            _recursive_=self._active_cfg.game.recursive_map_builder,
         )
 
         # Build map and verify agent count
         env_map = self._map_builder.build()
         map_agents = np.count_nonzero(np.char.startswith(env_map, "agent"))
-        if self._env_cfg.game.num_agents != map_agents:
+        if self._active_cfg.game.num_agents != map_agents:
             raise ValueError(
-                f"Number of agents {self._env_cfg.game.num_agents} does not match number of agents in map {map_agents}"
+                f"Number of agents {self._active_cfg.game.num_agents} "
+                f"does not match number of agents in map {map_agents}"
             )
 
         # Create C++ environment
-        self._c_env = MettaGrid(self._env_cfg, env_map)
+        self._c_env = MettaGrid(self._active_cfg, env_map)
         self._grid_env = self._c_env
         self._num_agents = self._c_env.num_agents()
         self._env = self._grid_env
@@ -94,7 +107,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Returns:
             Tuple of (observations, info)
         """
-        self._env_cfg = self._get_new_env_cfg()
+        self._active_cfg = self._resolve_original_cfg()
         self._reset_env()
 
         self._c_env.set_buffers(self.observations, self.terminals, self.truncations, self.rewards)
@@ -120,7 +133,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self.actions[:] = np.array(actions).astype(np.uint32)
         self._c_env.step(self.actions)
 
-        if self._env_cfg.normalize_rewards:
+        if self._active_cfg.normalize_rewards:
             self.rewards -= self.rewards.mean()
 
         infos = {}
@@ -170,7 +183,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     @property
     def _max_steps(self):
         """Maximum number of steps allowed in an episode."""
-        return self._env_cfg.game.max_steps
+        return self._active_cfg.game.max_steps
 
     @property
     def single_observation_space(self):
@@ -285,13 +298,13 @@ class MettaGridEnvSet(MettaGridEnv):
         self._env_cfgs = env_cfg.envs
         self._num_agents_global = env_cfg.num_agents
         self._probabilities = probabilities
-        self._env_cfg = self._get_new_env_cfg()
+        self._env_cfg = self._resolve_original_cfg()
 
         super().__init__(env_cfg, render_mode, buf, **kwargs)
         # Clear template as it's not used with multiple environments
         self._cfg_template = None
 
-    def _get_new_env_cfg(self):
+    def _resolve_original_cfg(self):
         """
         Select a random environment configuration based on probabilities.
 

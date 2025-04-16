@@ -1,7 +1,8 @@
 defaults:
   - mettagrid
+  - game/map_builder: species
   - _self_
 
 game:
   num_agents: 20
-  map_builder: species
+  
