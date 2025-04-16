@@ -9,6 +9,7 @@ DIRECTIONS = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
 logger = logging.getLogger(__name__)
 
+
 Cell = tuple[int, int]
 
 
@@ -26,6 +27,9 @@ class MakeConnected(Scene):
     def __init__(self, seed=None, children: list[TypedChild] = []):
         super().__init__(children=children)
         self._rng = random.Random(seed)
+
+    def _is_empty(self, symbol: str) -> bool:
+        return symbol == "empty"
 
     def _render(self, node: Node):
         height, width = node.grid.shape
@@ -86,49 +90,51 @@ class MakeConnected(Scene):
                     raise ValueError("No next cell found")
 
                 next_cell = self._rng.choice(candidates)
-                node.grid[*current_cell] = "empty"
                 current_cell = next_cell
                 current_distance -= 1
+                node.grid[*current_cell] = "empty"
+
+        assert len(self._make_components(node)) == 1
 
     def _make_components(self, node: Node):
         # run BFS from each empty cell, find connected components
         height, width = node.grid.shape
 
-        components = np.full((height, width), -1)
+        visited = np.full((height, width), False)
         component_id = 0
         components_cells: list[list[Cell]] = []
 
         logger.debug("Finding components")
         for y in range(height):
             for x in range(width):
-                if node.grid[y, x] == "wall":
+                if not self._is_empty(node.grid[y, x]):
                     continue
 
                 # already visited
-                if components[y, x] != -1:
+                if visited[y, x]:
                     continue
 
                 components_cells.append([])
                 queue = [(y, x)]
                 i = 0
                 while i < len(queue):
-                    y, x = queue[i]
+                    y0, x0 = queue[i]
                     i += 1
-                    if components[y, x] != -1:
+                    if visited[y0, x0]:
                         continue
 
-                    components[y, x] = component_id
-                    components_cells[component_id].append((y, x))
+                    visited[y0, x0] = True
+                    components_cells[component_id].append((y0, x0))
 
                     for dy, dx in DIRECTIONS:
-                        ny, nx = y + dy, x + dx
+                        y1, x1 = y0 + dy, x0 + dx
                         if (
-                            0 <= ny < height
-                            and 0 <= nx < width
-                            and node.grid[ny, nx] != "wall"
-                            and components[ny, nx] == -1
+                            0 <= y1 < height
+                            and 0 <= x1 < width
+                            and self._is_empty(node.grid[y1, x1])
+                            and not visited[y1, x1]
                         ):
-                            queue.append((ny, nx))
+                            queue.append((y1, x1))
 
                 component_id += 1
 
@@ -141,7 +147,7 @@ class MakeConnected(Scene):
         component_cells: list[Cell],
     ):
         height, width = node.grid.shape
-        # find the distance from the component to all other cells (ignoring the walls - used for finding the optimal tunnels)
+        # find the distance from the component to all other cells (ignoring the occupied cells - used for finding the optimal tunnels)
         distances = np.full((height, width), np.inf)
         queue = []
         for cell in component_cells:
