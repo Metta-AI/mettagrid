@@ -4,13 +4,13 @@ This module provides environment classes for Metta Grid simulations.
 """
 
 import copy
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import gymnasium as gym
 import hydra
 import numpy as np
 import pufferlib
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, ListConfig, OmegaConf
 
 # Import with explicit comment about the pylint disable
 from mettagrid.mettagrid_c import MettaGrid  # C extension module
@@ -32,7 +32,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
     rewards: np.ndarray
     actions: np.ndarray
 
-    def __init__(self, env_cfg: DictConfig, render_mode: Optional[str], buf=None, **kwargs):
+    def __init__(self, env_cfg: Union[DictConfig, ListConfig], render_mode: Optional[str], buf=None, **kwargs):
         """
         Initialize a MettaGridEnv.
 
