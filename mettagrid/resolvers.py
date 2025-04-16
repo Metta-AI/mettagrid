@@ -1,4 +1,3 @@
-import random
 from typing import Any, Dict, Optional, TypeVar, Union
 
 import numpy as np
@@ -7,26 +6,29 @@ from omegaconf import OmegaConf
 T = TypeVar("T")  # For generic conditional function
 Numeric = Union[int, float]  # Type alias for numeric types
 
+RANDOM_SEED = 1
+
+
+def oc_set_random_seed(seed: int):
+    global RANDOM_SEED
+    RANDOM_SEED = seed
+    np.random.seed(RANDOM_SEED)
+
 
 def oc_if(condition: bool, true_value: T, false_value: T) -> T:
     return true_value if condition else false_value
 
 
-def oc_uniform(min_val: Numeric, max_val: Numeric, seed: Optional[int] = None) -> float:
-    if seed is not None:
-        np.random.seed(seed)
+def oc_uniform(min_val: Numeric, max_val: Numeric) -> float:
     return float(np.random.uniform(min_val, max_val))
 
 
-def oc_uniform_list(min_val: Numeric, max_val: Numeric, count: int, seed: Optional[int] = None) -> list[float]:
-    if seed is not None:
-        np.random.seed(seed)
-
+def oc_uniform_list(min_val: Numeric, max_val: Numeric, count: int) -> list[float]:
     return [float(x) for x in np.random.uniform(min_val, max_val, size=count)]
 
 
 def oc_choose(*args: Any) -> Any:
-    return random.choice(args)
+    return np.random.choice(args)
 
 
 def oc_divide(a: Numeric, b: Numeric) -> Numeric:
@@ -139,3 +141,7 @@ def register_resolvers() -> None:
     OmegaConf.register_new_resolver("eq", oc_equals, replace=True)
     OmegaConf.register_new_resolver("sampling", oc_scaled_range, replace=True)
     OmegaConf.register_new_resolver("uniform_list", oc_uniform_list, replace=True)
+    OmegaConf.register_new_resolver("set_random_seed", oc_set_random_seed, replace=True)
+
+
+oc_set_random_seed(RANDOM_SEED)
