@@ -12,7 +12,9 @@ def oc_if(condition: bool, true_value: T, false_value: T) -> T:
     return true_value if condition else false_value
 
 
-def oc_uniform(min_val: Numeric, max_val: Numeric) -> float:
+def oc_uniform(min_val: Numeric, max_val: Numeric, seed: Optional[int] = None) -> float:
+    if seed is not None:
+        np.random.seed(seed)
     return float(np.random.uniform(min_val, max_val))
 
 
