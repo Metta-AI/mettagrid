@@ -46,7 +46,7 @@ class MapFromFile(Room):
 
     def _build(self):
         uri = np.random.choice(self.files)
-        level = np.load(f"{self.dir}/{uri}")
+        level = np.load(f"{self.dir}/{uri}", allow_pickle=True)
         area = level.shape[0] * level.shape[1]
         num_hearts = area // random.randint(45, 150)
 
