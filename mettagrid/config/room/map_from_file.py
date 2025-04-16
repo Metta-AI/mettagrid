@@ -17,7 +17,8 @@ class MapFromFile(Room):
     def _build(self):
         uri = np.random.choice(self.files)
         level = np.load(f"{self.dir}/{uri}")
-        num_hearts = random.randint(30, 150)
+        area = level.shape[0] * level.shape[1]
+        num_hearts = area // random.randint(45, 160)
 
         # Find valid empty spaces surrounded by empty
         valid_positions = []
