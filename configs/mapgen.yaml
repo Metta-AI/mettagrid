@@ -15,4 +15,3 @@ mapgen:
 game:
   num_agents: 0
   recursive_map_builder: false
-  
