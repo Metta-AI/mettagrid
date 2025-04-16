@@ -16,3 +16,4 @@ stats.profile
 player/dist
 player/node_modules
 /multirun
+.coverage

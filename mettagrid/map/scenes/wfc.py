@@ -31,6 +31,7 @@ import numpy as np
 from mettagrid.map.scene import Scene
 from mettagrid.map.node import Node
 from mettagrid.map.utils.pattern import Symmetry, ascii_to_patterns_with_counts
+from mettagrid.map.utils.random import MaybeSeed
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ class WFC(Scene):
         periodic_input: bool = True,
         symmetry: Symmetry = "all",
         attempts: int = 3,
-        seed=None,
+        seed: MaybeSeed = None,
         children: list[Any] = [],
     ):
         super().__init__(children=children)
@@ -83,6 +84,9 @@ class WFC(Scene):
         self._fill_propagator()
 
     def _fill_propagator(self):
+        """
+        Here we pre-calculate pattern compatibility, and we'll use this to check the compatibility of potential patterns going forward, when we exclude some possibility from the wave function and want to propagate the change.
+        """
         self._propagator = []  # no point in using numpy arrays here (I tested it, it's slower)
 
         self._propagator_lengths = np.zeros((4, self._pattern_count), dtype=np.int_)

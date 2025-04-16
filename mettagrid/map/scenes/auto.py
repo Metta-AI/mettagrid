@@ -8,8 +8,10 @@ from mettagrid.map.scenes.make_connected import MakeConnected
 from mettagrid.map.scenes.maze import MazeKruskal
 from mettagrid.map.scenes.mirror import Mirror
 from mettagrid.map.scenes.random import Random
+from mettagrid.map.scenes.random_objects import RandomObjects
 from mettagrid.map.scenes.room_grid import RoomGrid
 from mettagrid.map.scenes.wfc import WFC
+from mettagrid.map.utils.random import MaybeSeed
 
 
 # Global config for convenience.
@@ -25,24 +27,38 @@ class AutoConfig:
     maze: Any = field(default_factory=dict)
     bsp: Any = field(default_factory=dict)
     layout: Any = field(default_factory=dict)
+    objects: Any = field(default_factory=dict)
+    room_objects: Any = field(default_factory=dict)
     # TODO - stricter types
 
 
 class BaseAuto(Scene):
-    def __init__(self, config: AutoConfig):
+    def __init__(self, config: AutoConfig, rng: np.random.Generator):
         super().__init__(children=[])
         self._config = config
+        self._rng = np.random.default_rng(rng)
 
     def _render(self, node: Node):
         pass
 
 
 class Auto(BaseAuto):
+    def __init__(self, config: AutoConfig, seed: MaybeSeed = None):
+        rng = np.random.default_rng(seed)
+        super().__init__(config, rng=rng)
+
     def get_children(self, node) -> list[TypedChild]:
         return [
-            {"scene": AutoLayout(config=self._config), "where": "full"},
-            {"scene": MakeConnected(), "where": "full"},
-            {"scene": Random(agents=self._config.num_agents), "where": "full"},
+            {"scene": AutoLayout(config=self._config, rng=self._rng), "where": "full"},
+            {
+                "scene": Random(objects=self._config.objects, seed=self._rng),
+                "where": "full",
+            },
+            {"scene": MakeConnected(seed=self._rng), "where": "full"},
+            {
+                "scene": Random(agents=self._config.num_agents, seed=self._rng),
+                "where": "full",
+            },
         ]
 
 
@@ -52,13 +68,27 @@ class AutoLayout(BaseAuto):
             [self._config.layout.grid, self._config.layout.bsp], dtype=np.float32
         )
         weights /= weights.sum()
-        layout = np.random.choice(["grid", "bsp"], p=weights)
+        layout = self._rng.choice(["grid", "bsp"], p=weights)
+
+        def children_for_tag(tag: str) -> list[TypedChild]:
+            return [
+                {
+                    "scene": AutoSymmetry(config=self._config, rng=self._rng),
+                    "where": {"tags": [tag]},
+                },
+                {
+                    "scene": RandomObjects(
+                        object_ranges=self._config.room_objects, seed=self._rng
+                    ),
+                    "where": {"tags": [tag]},
+                },
+            ]
 
         if layout == "grid":
-            rows = np.random.randint(
+            rows = self._rng.integers(
                 self._config.grid.min_rows, self._config.grid.max_rows + 1
             )
-            columns = np.random.randint(
+            columns = self._rng.integers(
                 self._config.grid.min_columns, self._config.grid.max_columns + 1
             )
 
@@ -67,19 +97,14 @@ class AutoLayout(BaseAuto):
                     "scene": RoomGrid(
                         rows=rows,
                         columns=columns,
-                        border_width=0,  # TODO - randomize?
-                        children=[
-                            {
-                                "scene": AutoSymmetry(config=self._config),
-                                "where": {"tags": ["room"]},
-                            }
-                        ],
+                        border_width=0,  # randomize? probably not very useful
+                        children=children_for_tag("room"),
                     ),
                     "where": "full",
                 },
             ]
         elif layout == "bsp":
-            area_count = np.random.randint(
+            area_count = self._rng.integers(
                 self._config.bsp.min_area_count, self._config.bsp.max_area_count + 1
             )
 
@@ -87,13 +112,9 @@ class AutoLayout(BaseAuto):
                 {
                     "scene": BSPLayout(
                         area_count=area_count,
-                        children=[
-                            {
-                                "scene": AutoSymmetry(config=self._config),
-                                "where": {"tags": ["zone"]},
-                            }
-                        ],
-                    ),  # TODO - configurable
+                        children=children_for_tag("zone"),
+                        seed=self._rng,
+                    ),
                     "where": "full",
                 }
             ]
@@ -113,8 +134,8 @@ class AutoSymmetry(BaseAuto):
             dtype=np.float32,
         )
         weights /= weights.sum()
-        symmetry = np.random.choice(["none", "horizontal", "vertical", "x4"], p=weights)
-        scene = AutoContent(config=self._config)
+        symmetry = self._rng.choice(["none", "horizontal", "vertical", "x4"], p=weights)
+        scene = AutoContent(config=self._config, rng=self._rng)
         if symmetry != "none":
             scene = Mirror(scene, symmetry)
         return [{"scene": scene, "where": "full"}]
@@ -127,23 +148,26 @@ class AutoContent(BaseAuto):
             [self._config.content.maze, self._config.content.wfc], dtype=np.float32
         )
         weights /= weights.sum()
-        choice = np.random.choice(candidates, p=weights)
+        choice = self._rng.choice(candidates, p=weights)
 
         if choice == "maze":
-            wall_size = np.random.randint(
+            wall_size = self._rng.integers(
                 self._config.maze.min_wall_size,
                 self._config.maze.max_wall_size + 1,
             )
-            room_size = np.random.randint(
+            room_size = self._rng.integers(
                 self._config.maze.min_room_size,
                 self._config.maze.max_room_size + 1,
             )
-            scene = MazeKruskal(room_size=room_size, wall_size=wall_size)
+            scene = MazeKruskal(
+                room_size=room_size, wall_size=wall_size, seed=self._rng
+            )
         else:
-            pattern = np.random.choice(self._config.wfc_patterns)
+            pattern = self._rng.choice(self._config.wfc_patterns)
             scene = WFC(
                 pattern=pattern,
                 pattern_size=3,
+                seed=self._rng,
             )
 
         return [{"scene": scene, "where": "full"}]

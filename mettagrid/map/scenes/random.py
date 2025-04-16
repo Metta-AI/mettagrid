@@ -1,5 +1,6 @@
 import numpy as np
-from typing import Optional
+
+from mettagrid.map.utils.random import MaybeSeed
 from ..scene import Scene
 from ..node import Node
 from omegaconf import DictConfig
@@ -16,12 +17,14 @@ class Random(Scene):
         self,
         objects: DictConfig | dict = {},
         agents: int | DictConfig = 0,
-        seed: Optional[int] = None,
+        too_many_is_ok: bool = True,
+        seed: MaybeSeed = None,
     ):
         super().__init__()
         self._rng = np.random.default_rng(seed)
         self._objects = objects
         self._agents = agents
+        self._too_many_is_ok = too_many_is_ok
 
     def _render(self, node: Node):
         height, width = node.height, node.width
@@ -46,24 +49,30 @@ class Random(Scene):
             symbols.extend([obj_name] * count)
         symbols.extend(agents)
 
-        assert len(symbols) <= empty_count, (
-            f"Too many objects for available empty cells: {len(symbols)} > {empty_count}"
-        )
+        if not self._too_many_is_ok and len(symbols) > empty_count:
+            raise ValueError(
+                f"Too many objects for available empty cells: {len(symbols)} > {empty_count}"
+            )
+        else:
+            # everything will be filled with symbols, oh well
+            symbols = symbols[:empty_count]
+
+        if not symbols:
+            return
 
         # Shuffle the symbols
         symbols = np.array(symbols).astype(str)
         self._rng.shuffle(symbols)
 
-        # Place objects only in empty cells
-        if len(symbols) > 0:
-            # Shuffle the indices of empty cells
-            self._rng.shuffle(empty_indices)
-            # Take only as many indices as we have symbols
-            selected_indices = empty_indices[: len(symbols)]
+        # Shuffle the indices of empty cells
+        self._rng.shuffle(empty_indices)
 
-            # Create a flat copy of the grid
-            flat_grid = node.grid.flatten()
-            # Place symbols at the selected empty positions
-            flat_grid[selected_indices] = symbols
-            # Reshape back to original dimensions
-            node.grid[:] = flat_grid.reshape(height, width)
+        # Take only as many indices as we have symbols
+        selected_indices = empty_indices[: len(symbols)]
+
+        # Create a flat copy of the grid
+        flat_grid = node.grid.flatten()
+        # Place symbols at the selected empty positions
+        flat_grid[selected_indices] = symbols
+        # Reshape back to original dimensions
+        node.grid[:] = flat_grid.reshape(height, width)

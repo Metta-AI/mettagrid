@@ -1,8 +1,11 @@
 import random
 from typing import Any, List, Literal, Tuple, Union
 
+import numpy as np
+
 from mettagrid.map.scene import Scene
 from mettagrid.map.node import Node
+from mettagrid.map.utils.random import MaybeSeed
 
 Anchor = Union[
     Literal["top-left"],
@@ -51,13 +54,13 @@ class MazeKruskal(Scene):
         self,
         room_size: int = 1,
         wall_size: int = 1,
-        seed=None,
+        seed: MaybeSeed = None,
         children: list[Any] = [],
     ):
         super().__init__(children=children)
         self._room_size = room_size
         self._wall_size = wall_size
-        self._rng = random.Random(seed)
+        self._rng = np.random.default_rng(seed)
 
     def _render(self, node: Node):
         grid = node.grid

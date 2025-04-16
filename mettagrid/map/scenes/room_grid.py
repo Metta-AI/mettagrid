@@ -49,11 +49,6 @@ class RoomGrid(Scene):
         # fill entire node.grid with walls
         node.grid[:] = self._border_object
 
-        for x in range(node.width):
-            for y in range(node.height):
-                if x % room_width == 0 or y % room_height == 0:
-                    node.grid[y, x] = self._border_object
-
         for row in range(self._rows):
             for col in range(self._columns):
                 x = col * (room_width + self._border_width)
