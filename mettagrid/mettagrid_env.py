@@ -1,16 +1,20 @@
 import copy
-import random
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
 import gymnasium as gym
 import hydra
 import numpy as np
 import pufferlib
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import DictConfig, OmegaConf
+
 from mettagrid.mettagrid_c import MettaGrid  # pylint: disable=E0611
+from mettagrid.resolvers import register_resolvers
 
 
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
-    def __init__(self, env_cfg: DictConfig, render_mode: str, buf=None, **kwargs):
+    def __init__(
+        self, env_cfg: DictConfig, render_mode: Optional[str], buf=None, **kwargs
+    ):
         self._render_mode = render_mode
         self._cfg_template = env_cfg
         self._env_cfg = self._get_new_env_cfg()
@@ -200,9 +204,8 @@ class MettaGridEnvSet(MettaGridEnv):
         env_cfg = config_from_path(selected_env)
         if self._num_agents_global != env_cfg.game.num_agents:
             raise ValueError(
-                "For MettaGridEnvSet, the number of agents must be the same for all environments. Global: {}, Env: {}".format(
-                    self._num_agents_global, env_cfg.game.num_agents
-                )
+                "For MettaGridEnvSet, the number of agents must be the same for all environments. "
+                f"Global: {self._num_agents_global}, Env: {env_cfg.game.num_agents}"
             )
         env_cfg = OmegaConf.create(env_cfg)
         OmegaConf.resolve(env_cfg)
@@ -228,48 +231,5 @@ def config_from_path(config_path: str) -> DictConfig:
     return env_cfg
 
 
-def oc_uniform(min_val, max_val, center, *, _root_):
-    sampling = _root_.get("sampling", 0)
-    if sampling == 0:
-        return center
-    else:
-        center = (max_val + min_val) // 2
-        # Calculate the available range on both sides of the center
-        left_range = center - min_val
-        right_range = max_val - center
-
-        # Scale the ranges based on the sampling parameter
-        scaled_left = min(left_range, sampling * left_range)
-        scaled_right = min(right_range, sampling * right_range)
-
-        # Generate a random value within the scaled range
-        val = np.random.uniform(center - scaled_left, center + scaled_right)
-
-        # Clip to ensure we stay within [min_val, max_val]
-        val = np.clip(val, min_val, max_val)
-
-        # Return integer if the original values were integers
-        return int(round(val)) if isinstance(center, int) else val
-
-
-def oc_choose(*args):
-    return random.choice(args)
-
-
-def oc_div(a, b):
-    return a // b
-
-
-def oc_sub(a, b):
-    return a - b
-
-
-def oc_make_odd(a):
-    return max(3, a // 2 * 2 + 1)
-
-
-OmegaConf.register_new_resolver("div", oc_div, replace=True)
-OmegaConf.register_new_resolver("uniform", oc_uniform, replace=True)
-OmegaConf.register_new_resolver("sub", oc_sub, replace=True)
-OmegaConf.register_new_resolver("make_odd", oc_make_odd, replace=True)
-OmegaConf.register_new_resolver("choose", oc_choose, replace=True)
+# Ensure resolvers are registered when this module is imported
+register_resolvers()

@@ -3,13 +3,10 @@ import numpy as np
 from mettagrid.mettagrid_c import MettaGrid
 from omegaconf import OmegaConf
 
+
 @hydra.main(version_base=None, config_path="../configs", config_name="test_basic")
 def main(cfg):
-    map = np.array([
-        ["A", "a", "A"],
-        [" ", " ", " "],
-        ["A", " ", "A"]
-    ])
+    map = np.array([["A", "a", "A"], [" ", " ", " "], ["A", " ", "A"]])
     cfg.game.num_agents = 4
     cfg.game.map_builder.width = 3
     cfg.game.map_builder.height = 3
@@ -21,12 +18,7 @@ def main(cfg):
     metta_grid = MettaGrid(cfg, map)
     metta_grid.reset()
 
-    actions = np.array([
-      [0, 0],
-      [0, 0],
-      [0, 0],
-      [0, 0]
-    ], dtype=np.int32)
+    actions = np.array([[0, 0], [0, 0], [0, 0], [0, 0]], dtype=np.int32)
     (obs, rewards, terms, truncs, infos) = metta_grid.step(actions)
     assert str(rewards) == "[0. 0. 0. 0.]"
 
