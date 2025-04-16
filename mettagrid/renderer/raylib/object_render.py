@@ -172,9 +172,9 @@ class GeneratorRenderer(ConverterRenderer):
 class AltarRenderer(ConverterRenderer):
     def _sprite_sheet_idx(self, obj):
         return {
-            "empty": (0, 6),
+            "empty": (0, 6),  # Use (11, 2),to get heart.
             "converting": (10, 3),
-            "has_inventory": (1, 6),
+            "has_inventory": (1, 6),  # Use (12, 2) to get heart.
         }[self._state(obj)]
 
 
