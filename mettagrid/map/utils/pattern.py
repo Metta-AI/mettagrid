@@ -1,22 +1,9 @@
 from typing import Literal
 
-import hydra
 import numpy as np
 import numpy.typing as npt
 
 Symmetry = Literal["all", "horizontal", "none"]
-
-
-def load_pattern_source(source: str) -> str:
-    if source.startswith("|") or "\n" in source:
-        # inlined pattern
-        return source
-    else:
-        # probably a file path
-        filename = hydra.utils.to_absolute_path(source)
-        print(filename)
-        with open(filename, "r") as f:
-            return f.read()
 
 
 def parse_ascii_into_grid(ascii_source: str) -> npt.NDArray[np.bool_]:
