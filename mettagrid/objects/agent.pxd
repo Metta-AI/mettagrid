@@ -21,6 +21,7 @@ cdef extern from "agent.hpp":
         unsigned char color
         unsigned char agent_id
         StatsTracker stats
+        float reward
 
         Agent(GridCoord r, GridCoord c,
             string group_name,
@@ -28,7 +29,7 @@ cdef extern from "agent.hpp":
             ObjectConfig cfg,
             map[string, float] rewards)
 
-        void update_inventory(InventoryItem item, short amount, float *reward)
+        void update_inventory(InventoryItem item, short amount)
 
         @staticmethod
         inline vector[string] feature_names()
