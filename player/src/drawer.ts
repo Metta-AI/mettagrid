@@ -92,7 +92,7 @@ class Drawer {
     this.transformStack = [];
 
     // Pre-allocated buffers for better performance.
-    this.maxQuads = 10000; // Maximum number of quads we can render at once.
+    this.maxQuads = 65536 / 6; // Maximum number of quads we can render at once.
     this.vertexCapacity = this.maxQuads * 4; // 4 vertices per quad.
     this.indexCapacity = this.maxQuads * 6; // 6 indices per quad (2 triangles).
 
@@ -691,7 +691,7 @@ class Drawer {
 
     // Check if we need to flush before adding more vertices.
     if (this.currentQuad >= this.maxQuads) {
-      this.flush();
+      throw new Error("Max quads reached");
     }
 
     const pos = new Vec2f(x, y);
@@ -816,6 +816,37 @@ class Drawer {
       sh + 2 * m,         // Reduce height by twice the margin.
       u0, v0, u1, v1, color
     );
+  }
+
+  drawSolidRect(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: number[]
+  ) {
+    const imageName = "white.png";
+    if (!this.ready || !this.atlasData?.[imageName]) {
+      console.warn(
+        `Image "${imageName}" not found in atlas or drawer not ready.`
+      );
+      return;
+    }
+    // Get the middle of the white texture.
+    const [sx, sy, sw, sh] = this.atlasData[imageName];
+    const uvx = sx + sw / 2;
+    const uvy = sy + sh / 2;
+    this.drawRect(
+      x,
+      y,
+      width,
+      height,
+      uvx,
+      uvy,
+      uvx,
+      uvy,
+      color
+    )
   }
 
   // Flushes the mesh to the offscreen texture

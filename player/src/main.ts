@@ -1,4 +1,3 @@
-
 import { Vec2f, Mat3f } from './vector_math.js';
 import { Grid } from './grid.js';
 import { Drawer } from './drawer.js';
@@ -626,97 +625,155 @@ function drawMap(panel: PanelInfo) {
 }
 
 function drawTrace(panel: PanelInfo) {
-  if (replay === null) {
+  if (replay === null || drawer === null || drawer.ready === false) {
     return;
   }
 
   const localMousePos = panel.transformPoint(mousePos);
 
-  if (localMousePos != null) {
-    if (mouseDown) {
-      const mapX = localMousePos.x() - 32;
-      if (mapX > 0 && mapX < replay.max_steps * 4 &&
-        localMousePos.y() > 0 && localMousePos.y() < replay.num_agents * 64) {
-        const agentId = Math.floor(localMousePos.y() / 64);
-        for (const gridObject of replay.grid_objects) {
-          if (gridObject["agent_id"] == agentId) {
-            selectedGridObject = gridObject;
-            console.log("selectedGridObject: ", selectedGridObject);
-            focusMapOn(mapPanel, getAttr(selectedGridObject, "c"), getAttr(selectedGridObject, "r"));
+  if (panel.inside(mousePos)) {
+    if (localMousePos != null) {
+      if (mouseDown) {
+        const mapX = localMousePos.x() - 32;
+        if (mapX > 0 && mapX < replay.max_steps * 4 &&
+          localMousePos.y() > 0 && localMousePos.y() < replay.num_agents * 64) {
+          const agentId = Math.floor(localMousePos.y() / 64);
+          for (const gridObject of replay.grid_objects) {
+            if (gridObject["agent_id"] == agentId) {
+              selectedGridObject = gridObject;
+              console.log("selectedGridObject: ", selectedGridObject);
+              focusMapOn(mapPanel, getAttr(selectedGridObject, "c"), getAttr(selectedGridObject, "r"));
+            }
           }
+          step = Math.floor(mapX / 4);
+          scrubber.value = step.toString();
         }
-        step = Math.floor(mapX / 4);
-        scrubber.value = step.toString();
       }
     }
   }
 
-  // panel.canvas.width = replay.max_steps * 4 + 64;
-  // panel.canvas.height = replay.num_agents * 64 + 100;
+  drawer.save();
+  drawer.resetTransform();
 
-  // panel.ctx.clearRect(0, 0, panel.canvas.width, panel.canvas.height);
+  // Draw background
+  drawer.drawSolidRect(
+    panel.x, panel.y, panel.width, panel.height,
+    [1, 0, 0, 1.0] // Dark background
+  );
 
-  // // Draw trace canvas to global canvas with proper scaling
-  // panel.ctx.fillStyle = "rgba(20, 20, 20, 1)";
-  // panel.ctx.fillRect(0, 0, panel.canvas.width, panel.canvas.height);
+  // Draw current step line that goes through all of the traces
+  drawer.drawSolidRect(
+    panel.x + 32 + step * 4, panel.y,
+    2, panel.height,
+    [1.0, 1.0, 1.0, 0.5] // White with 50% opacity
+  );
 
-  // // Draw current step line that goes through all of the traces:
-  // panel.ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-  // panel.ctx.fillRect(32 + step * 4, 0, 2, panel.canvas.height)
+  // Draw agent traces
+  for (let i = 0; i < replay.num_agents; i++) {
+    // Use a small font sprite for the agent ID
+    // Since we don't have a direct text drawing capability in WebGPU,
+    // we'll draw a small colored square instead of text for the agent ID
+    drawer.drawSolidRect(
+      panel.x + 10, panel.y + 35 + i * 64,
+      16, 16,
+      [1.0, 1.0, 1.0, 1.0] // White
+    );
 
-  // panel.ctx.fillStyle = "white";
-  // for (let i = 0; i < replay.num_agents; i++) {
-  //   // Draw the agents id:
-  //   panel.ctx.fillStyle = "white";
-  //   panel.ctx.font = "16px Arial";
-  //   panel.ctx.fillText(i.toString(), 10, 45 + i * 64);
+    // Draw the agent's actions
+    for (const gridObject of replay.grid_objects) {
+      if (gridObject["agent_id"] == i) {
+        for (let j = 0; j < replay.max_steps; j++) {
+          const action = getAttr(gridObject, "action", j);
+          const action_success = getAttr(gridObject, "action_success", j);
 
-  //   // Draw the agent's actions:
-  //   for (const gridObject of replay.grid_objects) {
-  //     if (gridObject["agent_id"] == i) {
-  //       for (let j = 0; j < replay.max_steps; j++) {
-  //         const action = getAttr(gridObject, "action", j);
-  //         const action_success = getAttr(gridObject, "action_success", j);
-  //         if (action_success) {
-  //           const actionName = replay.action_names[action[0]] as string;
-  //           const color = ACTION_COLORS[actionName as keyof typeof ACTION_COLORS];
-  //           const importance = ACTION_IMPORTANCE[actionName as keyof typeof ACTION_IMPORTANCE];
-  //           panel.ctx.fillStyle = color;
-  //           panel.ctx.fillRect(32 + j * 4, 40 + i * 64 - 2 * importance, 2, 4 * importance);
-  //         } else {
-  //           panel.ctx.fillStyle = "rgba(30, 30, 30, 1)";
-  //           panel.ctx.fillRect(32 + j * 4, 40 + i * 64 - 2, 2, 4);
-  //         }
+          if (action_success) {
+            const actionName = replay.action_names[action[0]] as string;
+            const color = ACTION_COLORS[actionName as keyof typeof ACTION_COLORS];
+            const importance = ACTION_IMPORTANCE[actionName as keyof typeof ACTION_IMPORTANCE];
 
-  //         const reward = getAttr(gridObject, "reward", j);
-  //         const total_reward = getAttr(gridObject, "total_reward", j);
-  //         // If there is reward draw a sharp bar.
-  //         if (reward > 0) {
-  //           const importance = 10;
-  //           panel.ctx.fillStyle = "hsl(46, 100.00%, 76.70%)";
-  //           panel.ctx.fillRect(32 + j * 4, 40 + i * 64 - 2 * importance, 2, 4 * importance);
-  //         }
-  //       }
-  //     }
+            // Convert hex color to RGBA array
+            const rgbaColor = hexToRgba(color);
+            drawer.drawSolidRect(
+              panel.x + 32 + j * 4, panel.y + 40 + i * 64 - 2 * importance,
+              2, 4 * importance,
+              rgbaColor
+            );
+          } else {
+            // drawer.drawSolidRect(
+            //   panel.x + 32 + j * 4, panel.y + 40 + i * 64 - 2,
+            //   2, 4,
+            //   [0.12, 0.12, 0.12, 1.0] // Dark gray
+            // );
+          }
 
-  //   }
-  // }
+          const reward = getAttr(gridObject, "reward", j);
+          // If there is reward, draw a sharp bar
+          if (reward > 0) {
+            const importance = 10;
+            // drawer.drawSolidRect(
+            //   panel.x + 32 + j * 4, panel.y + 40 + i * 64 - 2 * importance,
+            //   2, 4 * importance,
+            //   [0.97, 0.89, 0.47, 1.0] // Gold color approximating HSL(46, 100%, 76.7%)
+            // );
+          }
+        }
+      }
+    }
+  }
 
-  // // Draw rectangle around the selected agent.
+  // // Draw rectangle around the selected agent
   // if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
   //   const agentId = selectedGridObject.agent_id;
-  //   panel.ctx.strokeStyle = "white";
-  //   panel.ctx.strokeRect(0, 40 + agentId * 64 - 32, tracePanel.canvas.width - 1, 64);
 
-  //   // Draw the action name above the selected action trace bar.
+  //   // Draw selection rectangle (just the border, no fill)
+  //   // Since WebGPU doesn't have built-in stroke rect, we create it with 4 thin rectangles
+  //   const top = panel.y + 40 + agentId * 64 - 32;
+  //   const left = panel.x;
+  //   const width = panel.width;
+  //   const height = 64;
+  //   const borderWidth = 1;
+
+  //   // Top border
+  //   drawer.drawRect(left, top, width, borderWidth, 0, 0, 0, 0, [1, 1, 1, 1]);
+  //   // Bottom border
+  //   drawer.drawRect(left, top + height - borderWidth, width, borderWidth, 0, 0, 0, 0, [1, 1, 1, 1]);
+  //   // Left border
+  //   drawer.drawRect(left, top, borderWidth, height, 0, 0, 0, 0, [1, 1, 1, 1]);
+  //   // Right border
+  //   drawer.drawRect(left + width - borderWidth, top, borderWidth, height, 0, 0, 0, 0, [1, 1, 1, 1]);
+
+  //   // Draw the action name above the selected action trace bar (using a visual marker for now)
   //   const action = getAttr(selectedGridObject, "action", step);
   //   if (action != null) {
   //     const actionName = replay.action_names[action[0]] as string;
-  //     panel.ctx.fillStyle = "white";
-  //     panel.ctx.font = "16px Arial";
-  //     panel.ctx.fillText(actionName + " " + action[1], 32 + step * 4, 20 + agentId * 64);
+
+  //     // Since we can't draw text directly with WebGPU, draw a colored marker
+  //     const color = ACTION_COLORS[actionName as keyof typeof ACTION_COLORS];
+  //     const rgbaColor = hexToRgba(color);
+
+  //     drawer.drawRect(
+  //       panel.x + 32 + step * 4 - 5, panel.y + 20 + agentId * 64 - 5,
+  //       10, 10,
+  //       0, 0, 0, 0,
+  //       rgbaColor
+  //     );
   //   }
   // }
+
+  drawer.restore();
+}
+
+// Helper function to convert hex color to RGBA array
+function hexToRgba(hex: string): number[] {
+  // Remove the # if present
+  hex = hex.replace('#', '');
+
+  // Parse the hex values
+  const r = parseInt(hex.substring(0, 2), 16) / 255;
+  const g = parseInt(hex.substring(2, 4), 16) / 255;
+  const b = parseInt(hex.substring(4, 6), 16) / 255;
+
+  return [r, g, b, 1.0]; // Full opacity
 }
 
 // Updates the readout of the selected object or replay info.
@@ -770,16 +827,15 @@ function onFrame() {
     }
   }
 
-  // if (tracePanel.inside(mousePos)) {
-  //   if (tracePanel.updatePanAndZoom()) {
-  //     fullUpdate = false;
-  //   }
-  // }
+  if (tracePanel.inside(mousePos)) {
+    if (tracePanel.updatePanAndZoom()) {
+      fullUpdate = false;
+    }
+  }
 
   updateReadout();
   drawMap(mapPanel);
-  //drawTrace(tracePanel);
-
+  drawTrace(tracePanel);
 
   // /Users/me/p/mettagrid/player/data/meta_grid_icon.png
   drawer.drawSprite('meta_grid_icon.png', 100, 100);
