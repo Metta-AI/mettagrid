@@ -30,6 +30,7 @@ if OmegaConf.select(config, "root") is not None:
     root = config.root
 else:
     print("No root config found, using default maze")
+    
 world_map = MapGen(w,h,root = root).build()
 
 for y in range(world_map.shape[0]):

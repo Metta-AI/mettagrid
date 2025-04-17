@@ -1,5 +1,7 @@
 from typing import Any, NamedTuple
+import hydra
 from opensimplex import OpenSimplex
+from omegaconf import DictConfig
 
 import numpy as np
 
@@ -104,11 +106,13 @@ class TerrainGen(Scene):
         super().__init__(children=children)
         self._room_size = room_size
         self._wall_size = wall_size
-        self.layers = layers
         self.seed = seed
         self.sampling_params = sampling_params
         self.cutoff = cutoff
         self._rng = np.random.default_rng(seed)
+        self.layers = [Layer(hydra.utils.get_method(x.fn),x.satur) for x in layers if isinstance(x.fn, str)]
+        
+
 
     def _render(self, node: Node):
         grid = node.grid
