@@ -58,7 +58,7 @@ cdef class GridEnv:
         self._max_action_arg = 0
         self._max_action_args.resize(len(action_handlers))
         for i, handler in enumerate(action_handlers):
-            (<ActionHandler>handler).init(self)
+            (<ActionHandler>handler).init(self._grid)
             max_arg = (<ActionHandler>handler).max_arg()
             self._max_action_args[i] = max_arg
             self._max_action_arg = max(self._max_action_arg, max_arg)

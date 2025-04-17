@@ -1,15 +1,15 @@
 from mettagrid.grid_object cimport GridObjectId
-from mettagrid.grid_env cimport GridEnv
+from mettagrid.grid cimport Grid
 from libcpp.string cimport string
 
 ctypedef unsigned int ActionArg
 
 cdef class ActionHandler:
-    cdef GridEnv env
+    cdef Grid *_grid
     cdef string _action_name
     cdef unsigned char _priority
 
-    cdef void init(self, GridEnv env)
+    cdef void init(self, Grid *grid)
 
     cdef bint handle_action(
         self,
