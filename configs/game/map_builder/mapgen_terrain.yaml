@@ -1,0 +1,34 @@
+_target_: mettagrid.map.mapgen.MapGen
+
+width: ${uniform:20,80,40}
+height: ${uniform:20,80,40}
+
+root:
+  _target_: mettagrid.map.scenes.room_grid.RoomGrid
+  rows: 2
+  columns: 2
+
+  children:
+  - scene:
+      _target_: mettagrid.map.scenes.terraingen.TerrainGen
+      cutoff: 70
+      sampling_params: {lx:  0.1,
+                        ly: 0.1,
+                        t: 0.0,
+                        symmetry: 3,
+                        xc: 0.0,
+                        yc: 0.0}
+
+      children:
+      - where:
+          tags:
+          - top-left
+        scene:
+          _target_: mettagrid.map.scenes.inline_ascii.InlineAscii
+          data: A
+      - where:
+          tags:
+          - bottom-right
+        scene:
+          _target_: mettagrid.map.scenes.inline_ascii.InlineAscii
+          data: a
