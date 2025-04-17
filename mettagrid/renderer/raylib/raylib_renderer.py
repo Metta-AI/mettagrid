@@ -82,7 +82,7 @@ class MettaGridRaylibRenderer:
         self.camera_controller = CameraController(self.camera)
 
         self.game_objects = self.env.grid_objects()
-        self.actions = torch.zeros((self.num_agents, 2), dtype=torch.int32)
+        self.actions = torch.zeros((max(1, self.num_agents), 2), dtype=torch.int32)
         self.observations = None
         self.current_timestep = 0
         self.action_history = [deque(maxlen=10) for _ in range(self.num_agents)]
@@ -112,7 +112,13 @@ class MettaGridRaylibRenderer:
                 obj["total_reward"] = total_rewards[agent_id].item()
 
     def update(self, actions, observations, rewards, total_rewards, current_timestep):
-        self.actions = actions
+        # When num_agents=1, ensure actions tensor maintains shape [1, 2]
+        if self.num_agents == 1 and actions.dim() == 1:
+            # Reshape from [2] to [1, 2]
+            self.actions = actions.unsqueeze(0)
+        else:
+            self.actions = actions
+
         self.observations = observations.permute(0, 3, 1, 2)
         self.current_timestep = current_timestep
         self.game_objects = self.env.grid_objects()
