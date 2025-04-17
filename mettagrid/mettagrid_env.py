@@ -12,8 +12,12 @@ import numpy as np
 import pufferlib
 from omegaconf import DictConfig, ListConfig, OmegaConf
 
+from metta.util.logging import rich_logger
+
 # Import with explicit comment about the pylint disable
 from mettagrid.mettagrid_c import MettaGrid  # C extension module
+
+logger = rich_logger(__name__)
 
 
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
@@ -49,6 +53,8 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self._original_cfg = cfg
         self.active_cfg = self._resolve_original_cfg()
 
+        logger.debug("MettaGridEnv.init!")
+
         self.initialize_episode()
         super().__init__(buf)
 
@@ -75,31 +81,57 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         # Add rewards stats
         rewards = self._stats["rewards"]
-        stats_cfg.stats.rewards.count = len(rewards) if not isinstance(rewards, np.ndarray) else rewards.size
 
+        # Handle different types of rewards
         if isinstance(rewards, np.ndarray):
-            stats_cfg.stats.rewards.sum = np.sum(rewards) if rewards.size > 0 else 0
-            stats_cfg.stats.rewards.max = np.max(rewards) if rewards.size > 0 else 0
-            stats_cfg.stats.rewards.min = np.min(rewards) if rewards.size > 0 else 0
+            stats_cfg.stats.rewards.count = int(rewards.size)
+
+            if rewards.size > 0:
+                # Convert numpy types to Python native types
+                stats_cfg.stats.rewards.sum = float(np.sum(rewards))
+                stats_cfg.stats.rewards.max = float(np.max(rewards))
+                stats_cfg.stats.rewards.min = float(np.min(rewards))
+            else:
+                stats_cfg.stats.rewards.sum = 0.0
+                stats_cfg.stats.rewards.max = 0.0
+                stats_cfg.stats.rewards.min = 0.0
         else:
-            stats_cfg.stats.rewards.sum = sum(rewards) if rewards else 0
-            stats_cfg.stats.rewards.max = max(rewards) if rewards else 0
-            stats_cfg.stats.rewards.min = min(rewards) if rewards else 0
+            stats_cfg.stats.rewards.count = len(rewards)
+            if rewards:
+                stats_cfg.stats.rewards.sum = float(sum(rewards))
+                stats_cfg.stats.rewards.max = float(max(rewards))
+                stats_cfg.stats.rewards.min = float(min(rewards))
+            else:
+                stats_cfg.stats.rewards.sum = 0.0
+                stats_cfg.stats.rewards.max = 0.0
+                stats_cfg.stats.rewards.min = 0.0
 
         # Add total_rewards stats
         total_rewards = self._stats["total_rewards"]
-        stats_cfg.stats.total_rewards.count = (
-            len(total_rewards) if not isinstance(total_rewards, np.ndarray) else total_rewards.size
-        )
 
+        # Handle different types of total_rewards
         if isinstance(total_rewards, np.ndarray):
-            stats_cfg.stats.total_rewards.sum = np.sum(total_rewards) if total_rewards.size > 0 else 0
-            stats_cfg.stats.total_rewards.max = np.max(total_rewards) if total_rewards.size > 0 else 0
-            stats_cfg.stats.total_rewards.min = np.min(total_rewards) if total_rewards.size > 0 else 0
+            stats_cfg.stats.total_rewards.count = int(total_rewards.size)
+
+            if total_rewards.size > 0:
+                # Convert numpy types to Python native types
+                stats_cfg.stats.total_rewards.sum = float(np.sum(total_rewards))
+                stats_cfg.stats.total_rewards.max = float(np.max(total_rewards))
+                stats_cfg.stats.total_rewards.min = float(np.min(total_rewards))
+            else:
+                stats_cfg.stats.total_rewards.sum = 0.0
+                stats_cfg.stats.total_rewards.max = 0.0
+                stats_cfg.stats.total_rewards.min = 0.0
         else:
-            stats_cfg.stats.total_rewards.sum = sum(total_rewards) if total_rewards else 0
-            stats_cfg.stats.total_rewards.max = max(total_rewards) if total_rewards else 0
-            stats_cfg.stats.total_rewards.min = min(total_rewards) if total_rewards else 0
+            stats_cfg.stats.total_rewards.count = len(total_rewards)
+            if total_rewards:
+                stats_cfg.stats.total_rewards.sum = float(sum(total_rewards))
+                stats_cfg.stats.total_rewards.max = float(max(total_rewards))
+                stats_cfg.stats.total_rewards.min = float(min(total_rewards))
+            else:
+                stats_cfg.stats.total_rewards.sum = 0.0
+                stats_cfg.stats.total_rewards.max = 0.0
+                stats_cfg.stats.total_rewards.min = 0.0
 
         # Set struct flag to False to allow accessing undefined fields
         OmegaConf.set_struct(cfg, False)
@@ -194,6 +226,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self.initialize_episode()
         self._c_env.set_buffers(self.observations, self.terminals, self.truncations, self.rewards)
 
+        # log
+        logger.debug(f"{self.active_cfg.stats}")
+
         # Reset the environment and return initial (observations, infos)
         return self._c_env.reset()
 
@@ -224,6 +259,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         if self.active_cfg.normalize_rewards:
             self.rewards -= self.rewards.mean()
+
+        # log
+        logger.debug(f"{self._stats}")
 
         # if this step completes the episode, compute the stats
         if self.done:
