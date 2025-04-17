@@ -2,8 +2,9 @@ from libc.stdio cimport printf
 
 from omegaconf import OmegaConf
 
-from mettagrid.action cimport ActionHandler, ActionArg
-from mettagrid.actions.actions cimport MettaActionHandler
+from mettagrid.action_handler cimport ActionArg
+from mettagrid.actions.metta_action_handler cimport MettaActionHandler
+
 from mettagrid.grid_object cimport (
     GridLocation,
     GridObject,
