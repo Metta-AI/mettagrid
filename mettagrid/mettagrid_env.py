@@ -4,7 +4,7 @@ This module provides environment classes for Metta Grid simulations.
 """
 
 import copy
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 import gymnasium as gym
 import hydra
@@ -37,21 +37,52 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Initialize a MettaGridEnv.
 
         Args:
-            env_cfg: Configuration for the environment
+            cfg: provided OmegaConf configuration
             render_mode: Mode for rendering the environment
             buf: Buffer for Pufferlib
             **kwargs: Additional arguments passed to parent classes
         """
         self._render_mode = render_mode
         self._original_cfg = cfg
-        self._active_cfg = self._resolve_original_cfg()
-        self._reset_env()
-        self.should_reset = False
-        self._renderer = None
+        self.active_cfg = self._resolve_original_cfg()
 
+        # Setup episode stats
+        self._stats = {"steps": 0, "rewards": [], "total_steps": 0, "total_rewards": []}
+        self.infos = {}
+
+        self.initialize_episode()
         super().__init__(buf)
 
-    def _resolve_original_cfg(self):
+    def _insert_stats_into_cfg(self, cfg) -> DictConfig:
+        """
+        Insert statistics into the provided configuration.
+
+        This method ensures that the stats section exists and populates
+        it with current statistics from the environment.
+
+        Args:
+            cfg: The configuration to update
+
+        Returns:
+            The updated configuration with stats inserted
+        """
+        # Create stats section if it doesn't exist
+        if not hasattr(cfg, "stats"):
+            cfg.stats = OmegaConf.create({})
+
+        # Push our stats into the config so that we can use them in the resolvers
+        if hasattr(self, "_stats"):
+            # Copy all stats into the config
+            for key, value in self._stats.items():
+                setattr(cfg.stats, key, value)
+        else:
+            # Initialize with default values if _stats doesn't exist yet
+            cfg.stats.steps = 0
+            cfg.stats.rewards = []
+
+        return cfg
+
+    def _resolve_original_cfg(self) -> DictConfig:
         """
         Create a new resolved environment configuration from the template.
 
@@ -65,40 +96,45 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Returns:
             The resolved configuration object with all references replaced by concrete values
         """
-        env_cfg = OmegaConf.create(copy.deepcopy(self._original_cfg))
-        OmegaConf.resolve(env_cfg)
-        return env_cfg
+        cfg = OmegaConf.create(copy.deepcopy(self._original_cfg))
 
-    def _reset_env(self):
-        """Reset the internal environment state with a new configuration."""
+        # Insert stats into the configuration
+        cfg = self._insert_stats_into_cfg(cfg)
+
+        OmegaConf.resolve(cfg)
+        return cfg
+
+    def initialize_episode(self):
+        """Initialize a new episode."""
         # Instantiate map builder
         self._map_builder = hydra.utils.instantiate(
-            self._active_cfg.game.map_builder,
-            _recursive_=self._active_cfg.game.recursive_map_builder,
+            self.active_cfg.game.map_builder,
+            _recursive_=self.active_cfg.game.recursive_map_builder,
         )
 
         # Build map and verify agent count
         env_map = self._map_builder.build()
         map_agents = np.count_nonzero(np.char.startswith(env_map, "agent"))
-        if self._active_cfg.game.num_agents != map_agents:
+        if self.active_cfg.game.num_agents != map_agents:
             raise ValueError(
-                f"Number of agents {self._active_cfg.game.num_agents} "
+                f"Number of agents {self.active_cfg.game.num_agents} "
                 f"does not match number of agents in map {map_agents}"
             )
 
         # Create C++ environment
-        self._c_env = MettaGrid(self._active_cfg, env_map)
+        self._c_env = MettaGrid(self.active_cfg, env_map)
         self._grid_env = self._c_env
         self._num_agents = self._c_env.num_agents()
         self._env = self._grid_env
 
-        # Commented out code preserved for reference
-        # self._env = RewardTracker(self._env)
-        # self._env = FeatureMasker(self._env, self._cfg.hidden_features)
+        # update stats for next episode
+        total_steps = self._stats.get("total_steps", 0) + self._stats.get("steps", 0)
+        total_rewards = self._stats.get("total_rewards", []) + self._stats.get("rewards", [])
+        self._stats = {"steps": 0, "rewards": [], "total_steps": total_steps, "total_rewards": total_rewards}
 
     def reset(self, seed=None, options=None):
         """
-        Reset the environment.
+        Reset the environment for a new episode.
 
         Args:
             seed: Random seed
@@ -107,17 +143,19 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Returns:
             Tuple of (observations, info)
         """
-        self._active_cfg = self._resolve_original_cfg()
-        self._reset_env()
 
+        # Configure random seed if provided
+        if seed is not None:
+            np.random.seed(seed)
+
+        # resolve a new map
+        self.active_cfg = self._resolve_original_cfg()
+
+        self.initialize_episode()
         self._c_env.set_buffers(self.observations, self.terminals, self.truncations, self.rewards)
 
-        # Commented out code preserved for reference
-        # obs, infos = self._env.reset(**kwargs)
-        # return obs, infos
-
+        # Reset the environment and return initial observation
         obs, infos = self._c_env.reset()
-        self.should_reset = False
         return obs, infos
 
     def step(self, actions):
@@ -130,20 +168,23 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Returns:
             Tuple of (observations, rewards, terminals, truncations, infos)
         """
+        # Update stats
+        self._stats["steps"] += 1
+        self._stats["rewards"] = self._c_env.get_episode_rewards()
+
         self.actions[:] = np.array(actions).astype(np.uint32)
         self._c_env.step(self.actions)
 
-        if self._active_cfg.normalize_rewards:
+        if self.active_cfg.normalize_rewards:
             self.rewards -= self.rewards.mean()
 
-        infos = {}
-        if self.terminals.all() or self.truncations.all():
-            self.process_episode_stats(infos)
-            self.should_reset = True
+        # if this step completes the episode, compute the stats
+        if self.done:
+            self.process_episode_stats()
 
-        return self.observations, self.rewards, self.terminals, self.truncations, infos
+        return self.observations, self.rewards, self.terminals, self.truncations, self.infos
 
-    def process_episode_stats(self, infos: Dict[str, Any]):
+    def process_episode_stats(self):
         """
         Process statistics at the end of an episode.
 
@@ -154,7 +195,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         episode_rewards_sum = episode_rewards.sum()
         episode_rewards_mean = episode_rewards_sum / self._num_agents
 
-        infos.update(
+        self.infos.update(
             {
                 "episode/reward.sum": episode_rewards_sum,
                 "episode/reward.mean": episode_rewards_mean,
@@ -166,24 +207,24 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         stats = self._c_env.get_episode_stats()
 
-        infos["episode_rewards"] = episode_rewards
-        infos["agent_raw"] = stats["agent"]
-        infos["game"] = stats["game"]
-        infos["agent"] = {}
+        self.infos["episode_rewards"] = episode_rewards
+        self.infos["agent_raw"] = stats["agent"]
+        self.infos["game"] = stats["game"]
+        self.infos["agent"] = {}
 
         # Aggregate agent statistics
         for agent_stats in stats["agent"]:
             for name, value in agent_stats.items():
-                infos["agent"][name] = infos["agent"].get(name, 0) + value
+                self.infos["agent"][name] = self.infos["agent"].get(name, 0) + value
 
         # Calculate per-agent averages
-        for name, value in infos["agent"].items():
-            infos["agent"][name] = value / self._num_agents
+        for name, value in self.infos["agent"].items():
+            self.infos["agent"][name] = value / self._num_agents
 
     @property
     def _max_steps(self):
         """Maximum number of steps allowed in an episode."""
-        return self._active_cfg.game.max_steps
+        return self.active_cfg.game.max_steps
 
     @property
     def single_observation_space(self):
@@ -209,17 +250,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         """Number of agents in the environment."""
         return self._num_agents
 
-    def render(self):
-        """Render the environment if a renderer is available."""
-        if self._renderer is None:
-            return None
-
-        return self._renderer.render(self._c_env.current_timestep(), self._c_env.grid_objects())
-
     @property
     def done(self):
-        """Whether the episode is completed and needs reset."""
-        return self.should_reset
+        return self.terminals.all() or self.truncations.all()
 
     @property
     def grid_features(self):
@@ -272,16 +305,28 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
 class MettaGridEnvSet(MettaGridEnv):
     """
-    A wrapper around MettaGridEnv that allows for multiple environments to be used for training.
+    A wrapper around MettaGridEnv that allows for multiple configurations to be used for training.
 
-    This class randomly selects from a set of environments based on provided probabilities.
+    This class overrides the base method "_resolve_original_cfg" to choose from a list of options.
+
+    ex:
+        _target_: mettagrid.mettagrid_env.MettaGridEnvSet
+
+        envs:
+        - /env/mettagrid/simple
+        - /env/mettagrid/bases
+
+        probabilities:
+        - 0.5
+        - 0.5
+
     """
 
     def __init__(
         self,
-        env_cfg: DictConfig,
-        probabilities: List[float] | None,
-        render_mode: str,
+        cfg: Union[DictConfig, ListConfig],
+        weights: List[float] | None = None,
+        render_mode: Optional[str] = None,
         buf=None,
         **kwargs,
     ):
@@ -289,24 +334,56 @@ class MettaGridEnvSet(MettaGridEnv):
         Initialize a MettaGridEnvSet.
 
         Args:
-            env_cfg: Configuration containing multiple environment configs
-            probabilities: Probability distribution for selecting environments
+            cfg: provided OmegaConf configuration
+                - cfg.env should provide sub-configurations
+
+            weights: weights for selecting environments.
+                - Will be normalized to sum to 1.
+                - If None, uniform distribution will be used.
+
             render_mode: Mode for rendering the environment
             buf: Buffer for Pufferlib
             **kwargs: Additional arguments passed to parent classes
         """
-        self._env_cfgs = env_cfg.envs
-        self._num_agents_global = env_cfg.num_agents
-        self._probabilities = probabilities
-        self._env_cfg = self._resolve_original_cfg()
+        self._original_cfg_paths = cfg.envs
+
+        # Validate that all environments have the same agent count
+        num_agents = self._original_cfg_paths[0].game.num_agents
+        for env_path in self._original_cfg_paths:
+            env_cfg = config_from_path(env_path)
+            if env_cfg.game.num_agents != num_agents:
+                raise ValueError(
+                    "For MettaGridEnvSet, the number of agents must be the same in all environments. "
+                    f"Expecting {num_agents} agents, {env_path} has {env_cfg.game.num_agents} agents"
+                )
+
+        # Handle probabilities/weights
+        if weights is None:
+            # Use uniform distribution if no probabilities provided
+            self._probabilities = [1.0 / len(self._original_cfg_paths)] * len(self._original_cfg_paths)
+        else:
+            # Check that probabilities match the number of environments
+            if len(weights) != len(self._original_cfg_paths):
+                raise ValueError(
+                    f"Number of weights ({len(weights)}) must match "
+                    f"number of environments ({len(self._original_cfg_paths)})"
+                )
+
+            if any(p < 0 for p in weights):
+                raise ValueError("All weights must be non-negative")
+
+            # Normalize weights to probabilities
+            total = sum(weights)
+            self._probabilities = [p / total for p in weights]
 
         super().__init__(env_cfg, render_mode, buf, **kwargs)
-        # Clear template as it's not used with multiple environments
-        self._cfg_template = None
+
+        # start with a random config from the set
+        self.active_cfg = self._resolve_original_cfg()
 
     def _resolve_original_cfg(self):
         """
-        Select a random environment configuration based on probabilities.
+        Select a random configuration based on probabilities.
 
         Returns:
             A resolved environment configuration
@@ -315,35 +392,15 @@ class MettaGridEnvSet(MettaGridEnv):
             ValueError: If the number of agents in the selected environment
                        doesn't match the global number of agents
         """
-        selected_env = np.random.choice(self._env_cfgs, p=self._probabilities)
-        env_cfg = config_from_path(selected_env)
+        selected_path = np.random.choice(self._original_cfg_paths, p=self._probabilities)
+        cfg = config_from_path(selected_path)
+        cfg = OmegaConf.create(cfg)
 
-        if self._num_agents_global != env_cfg.game.num_agents:
-            raise ValueError(
-                "For MettaGridEnvSet, the number of agents must be the same for all environments. "
-                f"Global: {self._num_agents_global}, Env: {env_cfg.game.num_agents}"
-            )
+        # Insert stats into the configuration
+        cfg = self._insert_stats_into_cfg(cfg)
 
-        env_cfg = OmegaConf.create(env_cfg)
-        OmegaConf.resolve(env_cfg)
-        return env_cfg
-
-
-def make_env_from_cfg(cfg_path: str, *args, **kwargs):
-    """
-    Create a MettaGridEnv from a configuration file.
-
-    Args:
-        cfg_path: Path to the configuration file
-        *args: Additional positional arguments for MettaGridEnv
-        **kwargs: Additional keyword arguments for MettaGridEnv
-
-    Returns:
-        A MettaGridEnv instance
-    """
-    cfg = OmegaConf.load(cfg_path)
-    env = MettaGridEnv(cfg, *args, **kwargs)
-    return env
+        OmegaConf.resolve(cfg)
+        return cfg
 
 
 def config_from_path(config_path: str) -> DictConfig:

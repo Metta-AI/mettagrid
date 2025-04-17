@@ -23,7 +23,7 @@ def save_env_map(env, target_file, gen_time):
     ascii_grid = env_to_ascii(env)
 
     resolved_config = env._env_cfg.game.map_builder
-    config = env._cfg_template.game.map_builder
+    config = env.active_cfg.game.map_builder
     metadata = {
         **env._env_cfg.mapgen.metadata,
         "gen_time": gen_time,
@@ -67,7 +67,7 @@ def main(cfg):
     if show == "raylib":
         from mettagrid.renderer.raylib.raylib_renderer import MettaGridRaylibRenderer
 
-        renderer = MettaGridRaylibRenderer(env._c_env, env._active_cfg.game)
+        renderer = MettaGridRaylibRenderer(env._c_env, env.active_cfg.game)
         while True:
             renderer.render_and_wait()
     elif show == "ascii":
