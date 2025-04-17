@@ -4,7 +4,7 @@ This module provides environment classes for Metta Grid simulations.
 """
 
 import copy
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import gymnasium as gym
 import hydra
@@ -47,8 +47,8 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self.active_cfg = self._resolve_original_cfg()
 
         # Setup episode stats
-        self._stats = {"steps": 0, "rewards": [], "total_steps": 0, "total_rewards": []}
-        self.infos = {}
+        self._stats: Dict[str, Any] = {"steps": 0, "rewards": [], "total_steps": 0, "total_rewards": []}
+        self.infos: Dict[str, Any] = {}
 
         self.initialize_episode()
         super().__init__(buf)
@@ -127,9 +127,21 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self._num_agents = self._c_env.num_agents()
         self._env = self._grid_env
 
-        # update stats for next episode
+        # Update stats for next episode
         total_steps = self._stats.get("total_steps", 0) + self._stats.get("steps", 0)
-        total_rewards = self._stats.get("total_rewards", []) + self._stats.get("rewards", [])
+
+        total_rewards = self._stats.get("total_rewards", [])
+        current_rewards = self._stats.get("rewards", [])
+        if isinstance(total_rewards, list) and isinstance(current_rewards, list):
+            total_rewards = total_rewards + current_rewards
+        else:
+            # Handle case where one might be a numpy array
+            total_rewards = list(total_rewards) + list(current_rewards)
+
+        # Reset the infos dict
+        self.infos.clear()
+
+        # Update stats dict
         self._stats = {"steps": 0, "rewards": [], "total_steps": total_steps, "total_rewards": total_rewards}
 
     def reset(self, seed=None, options=None):
@@ -143,7 +155,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Returns:
             Tuple of (observations, info)
         """
-
         # Configure random seed if provided
         if seed is not None:
             np.random.seed(seed)
@@ -154,9 +165,8 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self.initialize_episode()
         self._c_env.set_buffers(self.observations, self.terminals, self.truncations, self.rewards)
 
-        # Reset the environment and return initial observation
-        obs, infos = self._c_env.reset()
-        return obs, infos
+        # Reset the environment and return initial (observations, infos)
+        return self._c_env.reset()
 
     def step(self, actions):
         """
@@ -168,10 +178,18 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Returns:
             Tuple of (observations, rewards, terminals, truncations, infos)
         """
+        # Validate actions
+        if not isinstance(actions, (list, np.ndarray)):
+            raise TypeError(f"Actions must be a list or numpy array, got {type(actions)}")
+
+        if len(actions) != self._num_agents:
+            raise ValueError(f"Expected {self._num_agents} actions, got {len(actions)}")
+
         # Update stats
         self._stats["steps"] += 1
         self._stats["rewards"] = self._c_env.get_episode_rewards()
 
+        # Execute step in environment
         self.actions[:] = np.array(actions).astype(np.uint32)
         self._c_env.step(self.actions)
 
@@ -182,14 +200,15 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         if self.done:
             self.process_episode_stats()
 
+            # Add completed flag and timestamp
+            self.infos["completed"] = True
+            self.infos["total_steps"] = self._stats["total_steps"] + self._stats["steps"]
+
         return self.observations, self.rewards, self.terminals, self.truncations, self.infos
 
     def process_episode_stats(self):
         """
         Process statistics at the end of an episode.
-
-        Args:
-            infos: Dictionary to store information about the episode
         """
         episode_rewards = self._c_env.get_episode_rewards()
         episode_rewards_sum = episode_rewards.sum()
@@ -348,13 +367,17 @@ class MettaGridEnvSet(MettaGridEnv):
         self._original_cfg_paths = cfg.envs
 
         # Validate that all environments have the same agent count
-        num_agents = self._original_cfg_paths[0].game.num_agents
+        first_env_cfg = config_from_path(self._original_cfg_paths[0])
+        num_agents = first_env_cfg.game.num_agents
+
+        # Improve error message with specific environment information
         for env_path in self._original_cfg_paths:
             env_cfg = config_from_path(env_path)
             if env_cfg.game.num_agents != num_agents:
                 raise ValueError(
                     "For MettaGridEnvSet, the number of agents must be the same in all environments. "
-                    f"Expecting {num_agents} agents, {env_path} has {env_cfg.game.num_agents} agents"
+                    f"Environment '{env_path}' has {env_cfg.game.num_agents} agents, but expected {num_agents} "
+                    f"(from first environment '{self._original_cfg_paths[0]}')"
                 )
 
         # Handle probabilities/weights
@@ -374,9 +397,11 @@ class MettaGridEnvSet(MettaGridEnv):
 
             # Normalize weights to probabilities
             total = sum(weights)
+            if total == 0:
+                raise ValueError("Sum of weights cannot be zero")
             self._probabilities = [p / total for p in weights]
 
-        super().__init__(env_cfg, render_mode, buf, **kwargs)
+        super().__init__(cfg, render_mode, buf, **kwargs)
 
         # start with a random config from the set
         self.active_cfg = self._resolve_original_cfg()
@@ -415,7 +440,7 @@ def config_from_path(config_path: str) -> DictConfig:
     """
     env_cfg = hydra.compose(config_name=config_path)
 
-    # Remove path prefix from the config
+    # Remove path prefix from the configuration
     if config_path.startswith("/"):
         config_path = config_path[1:]
     path = config_path.split("/")
