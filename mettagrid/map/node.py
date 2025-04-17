@@ -69,9 +69,10 @@ class Node:
                                     break
                             if match:
                                 selected_areas.append(area)
+                    else:
+                        raise ValueError(f"Invalid 'tags' format in 'where' clause: expected list, got {type(tags)}")
                 else:
-                    # Handle the case where "where" doesn't have expected structure
-                    selected_areas = areas
+                    raise ValueError(f"Invalid 'where' structure: {where}")
         else:
             selected_areas = areas
 
