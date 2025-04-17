@@ -14,7 +14,6 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 
 # Import with explicit comment about the pylint disable
 from mettagrid.mettagrid_c import MettaGrid  # C extension module
-from mettagrid.resolvers import register_resolvers
 
 
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
@@ -76,17 +75,31 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         # Add rewards stats
         rewards = self._stats["rewards"]
-        stats_cfg.stats.rewards.count = len(rewards)
-        stats_cfg.stats.rewards.sum = sum(rewards) if rewards else 0
-        stats_cfg.stats.rewards.max = max(rewards) if rewards else 0
-        stats_cfg.stats.rewards.min = min(rewards) if rewards else 0
+        stats_cfg.stats.rewards.count = len(rewards) if not isinstance(rewards, np.ndarray) else rewards.size
+
+        if isinstance(rewards, np.ndarray):
+            stats_cfg.stats.rewards.sum = np.sum(rewards) if rewards.size > 0 else 0
+            stats_cfg.stats.rewards.max = np.max(rewards) if rewards.size > 0 else 0
+            stats_cfg.stats.rewards.min = np.min(rewards) if rewards.size > 0 else 0
+        else:
+            stats_cfg.stats.rewards.sum = sum(rewards) if rewards else 0
+            stats_cfg.stats.rewards.max = max(rewards) if rewards else 0
+            stats_cfg.stats.rewards.min = min(rewards) if rewards else 0
 
         # Add total_rewards stats
         total_rewards = self._stats["total_rewards"]
-        stats_cfg.stats.total_rewards.count = len(total_rewards)
-        stats_cfg.stats.total_rewards.sum = sum(total_rewards) if total_rewards else 0
-        stats_cfg.stats.total_rewards.max = max(total_rewards) if total_rewards else 0
-        stats_cfg.stats.total_rewards.min = min(total_rewards) if total_rewards else 0
+        stats_cfg.stats.total_rewards.count = (
+            len(total_rewards) if not isinstance(total_rewards, np.ndarray) else total_rewards.size
+        )
+
+        if isinstance(total_rewards, np.ndarray):
+            stats_cfg.stats.total_rewards.sum = np.sum(total_rewards) if total_rewards.size > 0 else 0
+            stats_cfg.stats.total_rewards.max = np.max(total_rewards) if total_rewards.size > 0 else 0
+            stats_cfg.stats.total_rewards.min = np.min(total_rewards) if total_rewards.size > 0 else 0
+        else:
+            stats_cfg.stats.total_rewards.sum = sum(total_rewards) if total_rewards else 0
+            stats_cfg.stats.total_rewards.max = max(total_rewards) if total_rewards else 0
+            stats_cfg.stats.total_rewards.min = min(total_rewards) if total_rewards else 0
 
         # Set struct flag to False to allow accessing undefined fields
         OmegaConf.set_struct(cfg, False)
@@ -459,7 +472,3 @@ def config_from_path(config_path: str) -> DictConfig:
     for p in path[:-1]:
         env_cfg = env_cfg[p]
     return env_cfg
-
-
-# Ensure resolvers are registered when this module is imported
-register_resolvers()
