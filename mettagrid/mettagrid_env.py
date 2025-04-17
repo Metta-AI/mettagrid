@@ -157,6 +157,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # Update stats dict
         self._stats["episodes"] += 1
         self._stats["steps"] = 0
+        self._stats["total_steps"] = total_steps
         self._stats["rewards"] = []
 
     def reset(self, seed=None, options=None):
@@ -214,10 +215,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # if this step completes the episode, compute the stats
         if self.done:
             self.process_episode_stats()
-
-            # Add completed flag and timestamp
-            self.infos["completed"] = True
-            self.infos["total_steps"] = self._stats["total_steps"] + self._stats["steps"]
 
         return self.observations, self.rewards, self.terminals, self.truncations, self.infos
 
