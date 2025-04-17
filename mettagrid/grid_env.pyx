@@ -17,6 +17,7 @@ from mettagrid.objects.agent cimport Agent
 from mettagrid.observation_encoder cimport ObservationEncoder, ObsType
 from mettagrid.objects.production_handler cimport ProductionHandler, CoolDownHandler
 from mettagrid.objects.constants cimport ObjectTypeNames, ObjectTypeAscii
+from mettagrid.objects.agent cimport Agent
 
 # Constants
 obs_np_type = np.uint8
@@ -153,7 +154,8 @@ cdef class GridEnv:
             Agent *agent
             ActionHandler handler
 
-        self._rewards[:] = 0
+        for agent in self._agents:
+            agent.reward = 0
         self._observations[:, :, :, :] = 0
 
         self._current_timestep += 1
@@ -179,7 +181,7 @@ cdef class GridEnv:
         self._compute_observations(actions)
 
         for i in range(self._episode_rewards.shape[0]):
-            self._episode_rewards[i] += self._rewards[i]
+            self._episode_rewards[i] += self._agents[i].reward
 
         if self._max_timestep > 0 and self._current_timestep >= self._max_timestep:
             self._truncations[:] = 1
@@ -195,21 +197,26 @@ cdef class GridEnv:
         self._truncations[:] = 0
         self._episode_rewards[:] = 0
         self._observations[:, :, :, :] = 0
-        self._rewards[:] = 0
+        # Maybe not needed, but left over from when reward was on the grid.        
+        for agent in self._agents:
+            agent.reward = 0
 
         self._compute_observations(np.zeros((self._agents.size(), 2), dtype=np.int32))
         return (self._observations_np, {})
 
     cpdef tuple[cnp.ndarray, cnp.ndarray, cnp.ndarray, cnp.ndarray, dict] step(self, cnp.ndarray actions):
         self._step(actions)
-        return (self._observations_np, self._rewards_np, self._terminals_np, self._truncations_np, {})
+        rewards_np = np.zeros(self._agents.size(), dtype=np.float32)
+        for i in range(self._agents.size()):
+            rewards_np[i] = self._agents[i].reward
+        return (self._observations_np, rewards_np, self._terminals_np, self._truncations_np, {})
 
     cpdef void set_buffers(
         self,
         cnp.ndarray[ObsType, ndim=4] observations,
         cnp.ndarray[char, ndim=1] terminals,
         cnp.ndarray[char, ndim=1] truncations,
-        cnp.ndarray[float, ndim=1] rewards):
+        cnp.ndarray[float, ndim=1] episode_rewards):
 
         self._observations_np = observations
         self._observations = observations
@@ -217,10 +224,8 @@ cdef class GridEnv:
         self._terminals = terminals
         self._truncations_np = truncations
         self._truncations = truncations
-        self._rewards_np = rewards
-        self._rewards = rewards
-        self._episode_rewards_np = np.zeros_like(rewards)
-        self._episode_rewards = self._episode_rewards_np
+        self._episode_rewards_np = episode_rewards
+        self._episode_rewards = episode_rewards
 
         for i in range(self._agents.size()):
             self._agents[i].init(&self._rewards[i])
@@ -278,9 +283,6 @@ cdef class GridEnv:
         return {
             "game": self._stats.stats(),
         }
-
-    cpdef tuple get_buffers(self):
-        return (self._observations_np, self._terminals_np, self._truncations_np, self._rewards_np)
 
     cpdef cnp.ndarray render_ascii(self):
         cdef GridObject *obj
