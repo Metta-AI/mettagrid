@@ -1,12 +1,25 @@
 from typing import Literal
 
+import hydra
 import numpy as np
 import numpy.typing as npt
 
 Symmetry = Literal["all", "horizontal", "none"]
 
 
-def parse_ascii_into_grid(source: str) -> npt.NDArray[np.bool_]:
+def load_pattern_source(source: str) -> str:
+    if source.startswith("|") or "\n" in source:
+        # inlined pattern
+        return source
+    else:
+        # probably a file path
+        filename = hydra.utils.to_absolute_path(source)
+        print(filename)
+        with open(filename, "r") as f:
+            return f.read()
+
+
+def parse_ascii_into_grid(ascii_source: str) -> npt.NDArray[np.bool_]:
     """
     Parse an ascii string into a numpy ndarray of booleans.
 
@@ -20,7 +33,7 @@ def parse_ascii_into_grid(source: str) -> npt.NDArray[np.bool_]:
     |# #|
     """
     lines = []
-    for line in source.strip().split("\n"):
+    for line in ascii_source.strip().split("\n"):
         line = line.strip()
         if line[0] != "|" or line[-1] != "|":
             raise ValueError("Pattern must be enclosed in | characters")
@@ -43,13 +56,13 @@ def parse_ascii_into_grid(source: str) -> npt.NDArray[np.bool_]:
 
 
 def ascii_to_patterns_with_counts(
-    source: str, n: int, periodic: bool, symmetry: Symmetry
+    ascii_source: str, n: int, periodic: bool, symmetry: Symmetry
 ) -> list[tuple["Pattern", int]]:
     # This function is useful for WFC - we need to get patterns, not just weights.
 
     # TODO - support >2 colors?
 
-    grid = parse_ascii_into_grid(source)
+    grid = parse_ascii_into_grid(ascii_source)
 
     # pattern index -> { pattern, count }
     seen_patterns = {}
