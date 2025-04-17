@@ -25,7 +25,7 @@ public:
     StatsTracker stats;
     float current_resource_reward;
     // Accumulated reward for the agent.
-    float reward;
+    float *reward;
 
     Agent(
         GridCoord r, GridCoord c,
@@ -56,7 +56,11 @@ public:
         this->action_failure_penalty = rewards["action_failure_penalty"];
         this->color = 0;
         this->current_resource_reward = 0;
-        this->reward = 0;
+        this->reward = nullptr;
+    }
+
+    void init(float *reward) {
+        this->reward = reward;
     }
 
     void update_inventory(InventoryItem item, short amount) {
@@ -94,7 +98,7 @@ public:
             }
             new_reward += this->resource_rewards[i] * max_val;
         }
-        this->reward += (new_reward - this->current_resource_reward);
+        *this->reward += (new_reward - this->current_resource_reward);
         this->current_resource_reward = new_reward;
     }
 

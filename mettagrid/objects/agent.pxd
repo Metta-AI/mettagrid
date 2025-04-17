@@ -21,7 +21,7 @@ cdef extern from "agent.hpp":
         unsigned char color
         unsigned char agent_id
         StatsTracker stats
-        float reward
+        float *reward
 
         Agent(GridCoord r, GridCoord c,
             string group_name,
@@ -30,6 +30,11 @@ cdef extern from "agent.hpp":
             map[string, float] rewards)
 
         void update_inventory(InventoryItem item, short amount)
+
+        # This is used to link the agent's reward to the grid's rewards.
+        # It's valid to call this multiple times, if you need to re-link the
+        # reward.
+        void init(float *reward)
 
         @staticmethod
         inline vector[string] feature_names()
