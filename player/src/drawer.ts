@@ -48,7 +48,7 @@ class Drawer {
   private vertexCapacity: number;
   private indexCapacity: number;
   private vertexData: Float32Array;
-  private indexData: Uint16Array;
+  private indexData: Uint32Array;
   private currentQuad: number;
   private currentVertex: number;
   private currentIndex: number;
@@ -92,13 +92,13 @@ class Drawer {
     this.transformStack = [];
 
     // Pre-allocated buffers for better performance.
-    this.maxQuads = 65536 / 6; // Maximum number of quads we can render at once.
+    this.maxQuads = 65536; // Maximum number of quads we can render at once.
     this.vertexCapacity = this.maxQuads * 4; // 4 vertices per quad.
     this.indexCapacity = this.maxQuads * 6; // 6 indices per quad (2 triangles).
 
     // Pre-allocated CPU-side buffers.
     this.vertexData = new Float32Array(this.vertexCapacity * 8); // 8 floats per vertex (pos*2, uv*2, color*4).
-    this.indexData = new Uint16Array(this.indexCapacity);
+    this.indexData = new Uint32Array(this.indexCapacity);
 
     // Counters to track buffer usage.
     this.currentQuad = 0;
@@ -269,8 +269,8 @@ class Drawer {
     });
     this.indexBuffer = this.device.createBuffer({
       label: 'index buffer',
-      size: this.indexCapacity * Uint16Array.BYTES_PER_ELEMENT,
-      // Using 16-bit indices.
+      size: this.indexCapacity * Uint32Array.BYTES_PER_ELEMENT,
+      // Using 32-bit indices.
       usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
     });
 
@@ -329,7 +329,7 @@ class Drawer {
     });
     this.device.queue.writeBuffer(this.quadVertexBuffer, 0, quadVertices);
 
-    const quadIndices = new Uint16Array([0, 1, 2, 2, 1, 3]);
+    const quadIndices = new Uint32Array([0, 1, 2, 2, 1, 3]);
     this.quadIndexBuffer = this.device.createBuffer({
       label: 'quad index buffer',
       size: quadIndices.byteLength,
@@ -898,7 +898,7 @@ class Drawer {
       passEncoder.setPipeline(this.pipeline!);
       passEncoder.setBindGroup(0, this.bindGroup!);
       passEncoder.setVertexBuffer(0, this.vertexBuffer!);
-      passEncoder.setIndexBuffer(this.indexBuffer!, 'uint16'); // Use 16-bit indices.
+      passEncoder.setIndexBuffer(this.indexBuffer!, 'uint32'); // Use 32-bit indices.
       passEncoder.drawIndexed(indexDataCount); // Draw only the indices we need.
       passEncoder.end();
     }

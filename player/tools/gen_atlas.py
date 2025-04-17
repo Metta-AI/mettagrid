@@ -8,7 +8,7 @@ import json
 atlas_image = pixie.Image(2048, 2048)
 images = {}
 heights = [0] * atlas_image.width
-margin = 6
+margin = 4
 
 # Create an 64x64 white image and put it first at 0,0.
 # This image is used to draw solid colors.

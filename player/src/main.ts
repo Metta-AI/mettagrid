@@ -658,7 +658,7 @@ function drawTrace(panel: PanelInfo) {
   // Draw background
   drawer.drawSolidRect(
     panel.x, panel.y, panel.width, panel.height,
-    [1, 0, 0, 1.0] // Dark background
+    [0.08, 0.08, 0.08, 1.0] // Dark background
   );
 
   // Draw current step line that goes through all of the traces
@@ -713,6 +713,7 @@ function drawTrace(panel: PanelInfo) {
             // drawer.drawSolidRect(
             //   panel.x + 32 + j * 4, panel.y + 40 + i * 64 - 2 * importance,
             //   2, 4 * importance,
+            //   0, 0, 0, 0,
             //   [0.97, 0.89, 0.47, 1.0] // Gold color approximating HSL(46, 100%, 76.7%)
             // );
           }
