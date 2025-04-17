@@ -24,3 +24,5 @@ wandb-core>=0.17.0b11
 pandas>=2.2.3
 tqdm>=4.67.1
 pytest-cov==6.1.1
+git+https://github.com/Metta-AI/pufferlib.git@metta 
+git+https://github.com/Metta-AI/metta.git 
