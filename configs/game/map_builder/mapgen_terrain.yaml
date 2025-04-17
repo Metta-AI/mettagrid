@@ -19,16 +19,3 @@ root:
                         xc: 0.0,
                         yc: 0.0}
 
-      children:
-      - where:
-          tags:
-          - top-left
-        scene:
-          _target_: mettagrid.map.scenes.inline_ascii.InlineAscii
-          data: A
-      - where:
-          tags:
-          - bottom-right
-        scene:
-          _target_: mettagrid.map.scenes.inline_ascii.InlineAscii
-          data: a
