@@ -53,36 +53,48 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self.initialize_episode()
         super().__init__(buf)
 
-    def _insert_stats_into_cfg(self, cfg) -> DictConfig:
+    def _insert_stats_into_cfg(self, cfg: Union[DictConfig, ListConfig]) -> Union[DictConfig, ListConfig]:
         """
         Insert statistics into the provided configuration.
-
-        This method ensures that the stats section exists and populates
-        it with current statistics from the environment.
+        This method ensures that the stats section exists and populates it with current data.
 
         Args:
             cfg: The configuration to update
-
         Returns:
             The updated configuration with stats inserted
         """
-        # Create stats section if it doesn't exist
-        if not hasattr(cfg, "stats"):
-            cfg.stats = OmegaConf.create({})
+        # Create cfg with stats data
+        stats_cfg = OmegaConf.create({})
+        stats_cfg.stats = OmegaConf.create({})
+        stats_cfg.stats.steps = self._stats["steps"]
+        stats_cfg.stats.total_steps = self._stats["total_steps"]
 
-        # Push our stats into the config so that we can use them in the resolvers
-        if hasattr(self, "_stats"):
-            # Copy all stats into the config
-            for key, value in self._stats.items():
-                setattr(cfg.stats, key, value)
-        else:
-            # Initialize with default values if _stats doesn't exist yet
-            cfg.stats.steps = 0
-            cfg.stats.rewards = []
+        # Create nested structures first
+        stats_cfg.stats.rewards = OmegaConf.create({})
+        stats_cfg.stats.total_rewards = OmegaConf.create({})
+
+        # Add rewards stats
+        rewards = self._stats["rewards"]
+        stats_cfg.stats.rewards.count = len(rewards)
+        stats_cfg.stats.rewards.sum = sum(rewards) if rewards else 0
+        stats_cfg.stats.rewards.max = max(rewards) if rewards else 0
+        stats_cfg.stats.rewards.min = min(rewards) if rewards else 0
+
+        # Add total_rewards stats
+        total_rewards = self._stats["total_rewards"]
+        stats_cfg.stats.total_rewards.count = len(total_rewards)
+        stats_cfg.stats.total_rewards.sum = sum(total_rewards) if total_rewards else 0
+        stats_cfg.stats.total_rewards.max = max(total_rewards) if total_rewards else 0
+        stats_cfg.stats.total_rewards.min = min(total_rewards) if total_rewards else 0
+
+        # Set struct flag to False to allow accessing undefined fields
+        OmegaConf.set_struct(cfg, False)
+        cfg = OmegaConf.merge(cfg, stats_cfg)
+        OmegaConf.set_struct(cfg, True)
 
         return cfg
 
-    def _resolve_original_cfg(self) -> DictConfig:
+    def _resolve_original_cfg(self) -> Union[DictConfig, ListConfig]:
         """
         Create a new resolved environment configuration from the template.
 
