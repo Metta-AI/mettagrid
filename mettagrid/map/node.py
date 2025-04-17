@@ -42,7 +42,7 @@ class Node:
         area = Area(
             id=len(self._areas),
             grid=self.grid[y : y + height, x : x + width],
-            tags=tags if tags is not None else [],
+            tags=tags or [],
         )
         self._areas.append(area)
         return area
