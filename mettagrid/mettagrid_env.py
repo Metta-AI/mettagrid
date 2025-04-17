@@ -42,13 +42,13 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
             buf: Buffer for Pufferlib
             **kwargs: Additional arguments passed to parent classes
         """
-        self._render_mode = render_mode
-        self._original_cfg = cfg
-        self.active_cfg = self._resolve_original_cfg()
-
         # Setup episode stats
         self._stats: Dict[str, Any] = {"steps": 0, "rewards": [], "total_steps": 0, "total_rewards": []}
         self.infos: Dict[str, Any] = {}
+
+        self._render_mode = render_mode
+        self._original_cfg = cfg
+        self.active_cfg = self._resolve_original_cfg()
 
         self.initialize_episode()
         super().__init__(buf)
