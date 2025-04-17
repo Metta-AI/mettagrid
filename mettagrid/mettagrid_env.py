@@ -4,6 +4,7 @@ This module provides environment classes for Metta Grid simulations.
 """
 
 import copy
+import uuid
 from typing import Any, Dict, List, Optional, Union
 
 import gymnasium as gym
@@ -45,20 +46,18 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
             buf: Buffer for Pufferlib
             **kwargs: Additional arguments passed to parent classes
         """
-        # Setup episode stats
-        self._stats: Dict[str, Any] = {"episodes": 0, "steps": 0, "rewards": [], "total_steps": 0, "total_rewards": []}
-        self.infos: Dict[str, Any] = {}
+
+        self.instance_id = str(uuid.uuid4())
+        self.last_episode_info: Dict[str, Any] = {"episode_count": 0}
 
         self._render_mode = render_mode
         self._original_cfg = cfg
         self.active_cfg = self._resolve_original_cfg()
 
-        logger.debug("MettaGridEnv.init!")
-
         self.initialize_episode()
         super().__init__(buf)
 
-    def _insert_stats_into_cfg(self, cfg: Union[DictConfig, ListConfig]) -> Union[DictConfig, ListConfig]:
+    def _insert_progress_into_cfg(self, cfg: Union[DictConfig, ListConfig]) -> Union[DictConfig, ListConfig]:
         """
         Insert statistics into the provided configuration.
         This method ensures that the stats section exists and populates it with current data.
@@ -68,74 +67,20 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Returns:
             The updated configuration with stats inserted
         """
+
         # Create cfg with stats data
-        stats_cfg = OmegaConf.create({})
-        stats_cfg.stats = OmegaConf.create({})
-        stats_cfg.stats.episodes = self._stats["episodes"]
-        stats_cfg.stats.steps = self._stats["steps"]
-        stats_cfg.stats.total_steps = self._stats["total_steps"]
+        progress_cfg = OmegaConf.create({})
+        progress_cfg.progress = OmegaConf.create({})
 
-        # Create nested structures first
-        stats_cfg.stats.rewards = OmegaConf.create({})
-        stats_cfg.stats.total_rewards = OmegaConf.create({})
+        episode_count = self.last_episode_info.get("episode_count", 0)
+        progress_cfg.progress.episode_count = int(episode_count)  # Ensure int type
 
-        # Add rewards stats
-        rewards = self._stats["rewards"]
-
-        # Handle different types of rewards
-        if isinstance(rewards, np.ndarray):
-            stats_cfg.stats.rewards.count = int(rewards.size)
-
-            if rewards.size > 0:
-                # Convert numpy types to Python native types
-                stats_cfg.stats.rewards.sum = float(np.sum(rewards))
-                stats_cfg.stats.rewards.max = float(np.max(rewards))
-                stats_cfg.stats.rewards.min = float(np.min(rewards))
-            else:
-                stats_cfg.stats.rewards.sum = 0.0
-                stats_cfg.stats.rewards.max = 0.0
-                stats_cfg.stats.rewards.min = 0.0
-        else:
-            stats_cfg.stats.rewards.count = len(rewards)
-            if rewards:
-                stats_cfg.stats.rewards.sum = float(sum(rewards))
-                stats_cfg.stats.rewards.max = float(max(rewards))
-                stats_cfg.stats.rewards.min = float(min(rewards))
-            else:
-                stats_cfg.stats.rewards.sum = 0.0
-                stats_cfg.stats.rewards.max = 0.0
-                stats_cfg.stats.rewards.min = 0.0
-
-        # Add total_rewards stats
-        total_rewards = self._stats["total_rewards"]
-
-        # Handle different types of total_rewards
-        if isinstance(total_rewards, np.ndarray):
-            stats_cfg.stats.total_rewards.count = int(total_rewards.size)
-
-            if total_rewards.size > 0:
-                # Convert numpy types to Python native types
-                stats_cfg.stats.total_rewards.sum = float(np.sum(total_rewards))
-                stats_cfg.stats.total_rewards.max = float(np.max(total_rewards))
-                stats_cfg.stats.total_rewards.min = float(np.min(total_rewards))
-            else:
-                stats_cfg.stats.total_rewards.sum = 0.0
-                stats_cfg.stats.total_rewards.max = 0.0
-                stats_cfg.stats.total_rewards.min = 0.0
-        else:
-            stats_cfg.stats.total_rewards.count = len(total_rewards)
-            if total_rewards:
-                stats_cfg.stats.total_rewards.sum = float(sum(total_rewards))
-                stats_cfg.stats.total_rewards.max = float(max(total_rewards))
-                stats_cfg.stats.total_rewards.min = float(min(total_rewards))
-            else:
-                stats_cfg.stats.total_rewards.sum = 0.0
-                stats_cfg.stats.total_rewards.max = 0.0
-                stats_cfg.stats.total_rewards.min = 0.0
+        mean_reward = self.last_episode_info.get("episode/reward.mean", 0.0)
+        progress_cfg.progress.mean_reward = float(mean_reward)  # Convert to Python float
 
         # Set struct flag to False to allow accessing undefined fields
         OmegaConf.set_struct(cfg, False)
-        cfg = OmegaConf.merge(cfg, stats_cfg)
+        cfg = OmegaConf.merge(cfg, progress_cfg)
         OmegaConf.set_struct(cfg, True)
 
         return cfg
@@ -154,16 +99,18 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Returns:
             The resolved configuration object with all references replaced by concrete values
         """
+
         cfg = OmegaConf.create(copy.deepcopy(self._original_cfg))
 
         # Insert stats into the configuration
-        cfg = self._insert_stats_into_cfg(cfg)
+        cfg = self._insert_progress_into_cfg(cfg)
 
         OmegaConf.resolve(cfg)
         return cfg
 
     def initialize_episode(self):
         """Initialize a new episode."""
+
         # Instantiate map builder
         self._map_builder = hydra.utils.instantiate(
             self.active_cfg.game.map_builder,
@@ -185,25 +132,41 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self._num_agents = self._c_env.num_agents()
         self._env = self._grid_env
 
-        # Update stats for next episode
-        total_steps = self._stats.get("total_steps", 0) + self._stats.get("steps", 0)
+    def finalize_episode(self):
+        """
+        Process statistics and update progress tracking at the end of each episode.
+        """
 
-        total_rewards = self._stats.get("total_rewards", [])
-        current_rewards = self._stats.get("rewards", [])
-        if isinstance(total_rewards, list) and isinstance(current_rewards, list):
-            total_rewards = total_rewards + current_rewards
-        else:
-            # Handle case where one might be a numpy array
-            total_rewards = list(total_rewards) + list(current_rewards)
+        rewards = self._c_env.get_episode_rewards()
+        stats = self._c_env.get_episode_stats()
+        rewards_sum = rewards.sum()
+        rewards_mean = rewards_sum / self._num_agents
 
-        # Reset the infos dict
-        self.infos.clear()
+        # Calculate agent statistics
+        agent_stats = {}
+        for agent_stat in stats["agent"]:
+            for name, value in agent_stat.items():
+                agent_stats[name] = agent_stats.get(name, 0) + value
 
-        # Update stats dict
-        self._stats["episodes"] += 1
-        self._stats["steps"] = 0
-        self._stats["total_steps"] = total_steps
-        self._stats["rewards"] = []
+        # Calculate per-agent averages
+        for name, value in agent_stats.items():
+            agent_stats[name] = value / self._num_agents
+
+        # Update everything in one operation
+        self.last_episode_info.update(
+            {
+                "episode/reward.sum": rewards_sum,
+                "episode/reward.mean": rewards_mean,
+                "episode/reward.min": rewards.min(),
+                "episode/reward.max": rewards.max(),
+                "episode_length": self._c_env.current_timestep(),
+                "episode_rewards": rewards,
+                "agent_raw": stats["agent"],
+                "game": stats["game"],
+                "agent": agent_stats,
+                "episode_count": self.last_episode_info["episode_count"] + 1,
+            }
+        )
 
     def reset(self, seed=None, options=None):
         """
@@ -216,6 +179,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Returns:
             Tuple of (observations, info)
         """
+
         # Configure random seed if provided
         if seed is not None:
             np.random.seed(seed)
@@ -223,14 +187,21 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # resolve a new map
         self.active_cfg = self._resolve_original_cfg()
 
+        logger.debug(
+            f"[{self.instance_id}] - resolved cfg: "
+            f"episode_count = {self.active_cfg.progress.episode_count}, "
+            f"mean_reward = {self.active_cfg.progress.mean_reward} "
+            f"game.max_size = {self.active_cfg.game.max_size} "
+            f"game.size = {self.active_cfg.game.size}"
+        )
+
         self.initialize_episode()
         self._c_env.set_buffers(self.observations, self.terminals, self.truncations, self.rewards)
 
-        # log
-        logger.debug(f"{self.active_cfg.stats}")
-
         # Reset the environment and return initial (observations, infos)
-        return self._c_env.reset()
+        obs, infos = self._c_env.reset()
+
+        return obs, infos
 
     def step(self, actions):
         """
@@ -249,10 +220,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         if len(actions) != self._num_agents:
             raise ValueError(f"Expected {self._num_agents} actions, got {len(actions)}")
 
-        # Update stats
-        self._stats["steps"] += 1
-        self._stats["rewards"] = self._c_env.get_episode_rewards()
-
         # Execute step in environment
         self.actions[:] = np.array(actions).astype(np.uint32)
         self._c_env.step(self.actions)
@@ -260,48 +227,11 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         if self.active_cfg.normalize_rewards:
             self.rewards -= self.rewards.mean()
 
-        # log
-        logger.debug(f"{self._stats}")
-
         # if this step completes the episode, compute the stats
         if self.done:
-            self.process_episode_stats()
+            self.finalize_episode()
 
-        return self.observations, self.rewards, self.terminals, self.truncations, self.infos
-
-    def process_episode_stats(self):
-        """
-        Process statistics at the end of an episode.
-        """
-        episode_rewards = self._c_env.get_episode_rewards()
-        episode_rewards_sum = episode_rewards.sum()
-        episode_rewards_mean = episode_rewards_sum / self._num_agents
-
-        self.infos.update(
-            {
-                "episode/reward.sum": episode_rewards_sum,
-                "episode/reward.mean": episode_rewards_mean,
-                "episode/reward.min": episode_rewards.min(),
-                "episode/reward.max": episode_rewards.max(),
-                "episode_length": self._c_env.current_timestep(),
-            }
-        )
-
-        stats = self._c_env.get_episode_stats()
-
-        self.infos["episode_rewards"] = episode_rewards
-        self.infos["agent_raw"] = stats["agent"]
-        self.infos["game"] = stats["game"]
-        self.infos["agent"] = {}
-
-        # Aggregate agent statistics
-        for agent_stats in stats["agent"]:
-            for name, value in agent_stats.items():
-                self.infos["agent"][name] = self.infos["agent"].get(name, 0) + value
-
-        # Calculate per-agent averages
-        for name, value in self.infos["agent"].items():
-            self.infos["agent"][name] = value / self._num_agents
+        return self.observations, self.rewards, self.terminals, self.truncations, self.last_episode_info
 
     @property
     def _max_steps(self):
@@ -485,7 +415,7 @@ class MettaGridEnvSet(MettaGridEnv):
         cfg = OmegaConf.create(cfg)
 
         # Insert stats into the configuration
-        cfg = self._insert_stats_into_cfg(cfg)
+        cfg = self._insert_progress_into_cfg(cfg)
 
         OmegaConf.resolve(cfg)
         return cfg
