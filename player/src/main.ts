@@ -63,7 +63,7 @@ const MIN_ZOOM_LEVEL = 0.1;
 const MAX_ZOOM_LEVEL = 2.0;
 const SPLIT_DRAG_THRESHOLD = 10;  // pixels to detect split dragging
 const SCROLL_ZOOM_FACTOR = 1000;  // divisor for scroll delta to zoom conversion
-const DEFAULT_TRACE_SPLIT = 0.50;  // default horizontal split ratio
+const DEFAULT_TRACE_SPLIT = 0.80;  // default horizontal split ratio
 const DEFAULT_INFO_SPLIT = 0.25;   // default vertical split ratio
 const SCRUBBER_MARGIN = 64;        // margin for scrubber width
 const PANEL_BOTTOM_MARGIN = 60;    // bottom margin for panels
@@ -141,15 +141,20 @@ function onResize() {
 
   scrubber.style.width = (mapWidth - SCRUBBER_MARGIN) + 'px';
 
+  // Make sure traceSplit and infoSplit are not too small or too large.
+  const a = 0.025;
+  traceSplit = Math.max(a, Math.min(traceSplit, 1 - a));
+  infoSplit = Math.max(a, Math.min(infoSplit, 1 - a));
+
   mapPanel.x = 0;
   mapPanel.y = 0;
   mapPanel.width = mapWidth * traceSplit;
   mapPanel.height = mapHeight - PANEL_BOTTOM_MARGIN;
 
   tracePanel.x = mapWidth * traceSplit;
-  tracePanel.y = mapHeight * infoSplit - PANEL_BOTTOM_MARGIN;
+  tracePanel.y = mapHeight * infoSplit;
   tracePanel.width = mapWidth * (1 - traceSplit);
-  tracePanel.height = mapHeight * (1 - infoSplit);
+  tracePanel.height = mapHeight * (1 - infoSplit) - PANEL_BOTTOM_MARGIN;
 
   infoPanel.x = mapWidth * traceSplit;
   infoPanel.y = 0;
@@ -699,67 +704,65 @@ function drawTrace(panel: PanelInfo) {
               rgbaColor
             );
           } else {
-            // drawer.drawSolidRect(
-            //   panel.x + 32 + j * 4, panel.y + 40 + i * 64 - 2,
-            //   2, 4,
-            //   [0.12, 0.12, 0.12, 1.0] // Dark gray
-            // );
+            drawer.drawSolidRect(
+              panel.x + 32 + j * 4, panel.y + 40 + i * 64 - 2,
+              2, 4,
+              [0.12, 0.12, 0.12, 1.0] // Dark gray
+            );
           }
 
           const reward = getAttr(gridObject, "reward", j);
           // If there is reward, draw a sharp bar
           if (reward > 0) {
             const importance = 10;
-            // drawer.drawSolidRect(
-            //   panel.x + 32 + j * 4, panel.y + 40 + i * 64 - 2 * importance,
-            //   2, 4 * importance,
-            //   0, 0, 0, 0,
-            //   [0.97, 0.89, 0.47, 1.0] // Gold color approximating HSL(46, 100%, 76.7%)
-            // );
+            drawer.drawSolidRect(
+              panel.x + 32 + j * 4, panel.y + 40 + i * 64 - 2 * importance,
+              2, 4 * importance,
+              [0.97, 0.89, 0.47, 1.0] // Gold color approximating HSL(46, 100%, 76.7%)
+            );
           }
         }
       }
     }
   }
 
-  // // Draw rectangle around the selected agent
-  // if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
-  //   const agentId = selectedGridObject.agent_id;
+  // Draw rectangle around the selected agent
+  if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
+    const agentId = selectedGridObject.agent_id;
 
-  //   // Draw selection rectangle (just the border, no fill)
-  //   // Since WebGPU doesn't have built-in stroke rect, we create it with 4 thin rectangles
-  //   const top = panel.y + 40 + agentId * 64 - 32;
-  //   const left = panel.x;
-  //   const width = panel.width;
-  //   const height = 64;
-  //   const borderWidth = 1;
+    // Draw selection rectangle (just the border, no fill)
+    // Since WebGPU doesn't have built-in stroke rect, we create it with 4 thin rectangles
+    const top = panel.y + 40 + agentId * 64 - 32;
+    const left = panel.x;
+    const width = panel.width;
+    const height = 64;
+    const borderWidth = 1;
 
-  //   // Top border
-  //   drawer.drawRect(left, top, width, borderWidth, 0, 0, 0, 0, [1, 1, 1, 1]);
-  //   // Bottom border
-  //   drawer.drawRect(left, top + height - borderWidth, width, borderWidth, 0, 0, 0, 0, [1, 1, 1, 1]);
-  //   // Left border
-  //   drawer.drawRect(left, top, borderWidth, height, 0, 0, 0, 0, [1, 1, 1, 1]);
-  //   // Right border
-  //   drawer.drawRect(left + width - borderWidth, top, borderWidth, height, 0, 0, 0, 0, [1, 1, 1, 1]);
+    // Top border
+    drawer.drawSolidRect(left, top, width, borderWidth, [1, 1, 1, 1]);
+    // Bottom border
+    drawer.drawSolidRect(left, top + height - borderWidth, width, borderWidth, [1, 1, 1, 1]);
+    // Left border
+    drawer.drawSolidRect(left, top, borderWidth, height, [1, 1, 1, 1]);
+    // Right border
+    drawer.drawSolidRect(left + width - borderWidth, top, borderWidth, height, [1, 1, 1, 1]);
 
-  //   // Draw the action name above the selected action trace bar (using a visual marker for now)
-  //   const action = getAttr(selectedGridObject, "action", step);
-  //   if (action != null) {
-  //     const actionName = replay.action_names[action[0]] as string;
+    // Draw the action name above the selected action trace bar (using a visual marker for now)
+    const action = getAttr(selectedGridObject, "action", step);
+    if (action != null) {
+      const actionName = replay.action_names[action[0]] as string;
 
-  //     // Since we can't draw text directly with WebGPU, draw a colored marker
-  //     const color = ACTION_COLORS[actionName as keyof typeof ACTION_COLORS];
-  //     const rgbaColor = hexToRgba(color);
+      // Since we can't draw text directly with WebGPU, draw a colored marker
+      const color = ACTION_COLORS[actionName as keyof typeof ACTION_COLORS];
+      const rgbaColor = hexToRgba(color);
 
-  //     drawer.drawRect(
-  //       panel.x + 32 + step * 4 - 5, panel.y + 20 + agentId * 64 - 5,
-  //       10, 10,
-  //       0, 0, 0, 0,
-  //       rgbaColor
-  //     );
-  //   }
-  // }
+      drawer.drawSolidRect(
+        panel.x + 32 + step * 4 - 5, panel.y + 20 + agentId * 64 - 5,
+        10, 10,
+        rgbaColor
+      );
+    }
+  }
 
   drawer.restore();
 }
@@ -839,7 +842,9 @@ function onFrame() {
   drawTrace(tracePanel);
 
   // /Users/me/p/mettagrid/player/data/meta_grid_icon.png
-  drawer.drawSprite('meta_grid_icon.png', 100, 100);
+  //drawer.drawSprite('meta_grid_icon.png', 100, 100);
+  drawer.drawSolidRect(100, 100, 100, 100, [1, 1, 1, 1]);
+
 
   drawer.flushMesh();
   drawer.flush();

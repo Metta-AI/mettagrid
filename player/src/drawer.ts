@@ -834,8 +834,8 @@ class Drawer {
     }
     // Get the middle of the white texture.
     const [sx, sy, sw, sh] = this.atlasData[imageName];
-    const uvx = sx + sw / 2;
-    const uvy = sy + sh / 2;
+    const uvx = (sx + sw / 2) / this.textureSize.x();
+    const uvy = (sy + sh / 2) / this.textureSize.y();
     this.drawRect(
       x,
       y,
