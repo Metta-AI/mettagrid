@@ -43,7 +43,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
             **kwargs: Additional arguments passed to parent classes
         """
         # Setup episode stats
-        self._stats: Dict[str, Any] = {"steps": 0, "rewards": [], "total_steps": 0, "total_rewards": []}
+        self._stats: Dict[str, Any] = {"episodes": 0, "steps": 0, "rewards": [], "total_steps": 0, "total_rewards": []}
         self.infos: Dict[str, Any] = {}
 
         self._render_mode = render_mode
@@ -66,6 +66,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # Create cfg with stats data
         stats_cfg = OmegaConf.create({})
         stats_cfg.stats = OmegaConf.create({})
+        stats_cfg.stats.episodes = self._stats["episodes"]
         stats_cfg.stats.steps = self._stats["steps"]
         stats_cfg.stats.total_steps = self._stats["total_steps"]
 
@@ -154,7 +155,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self.infos.clear()
 
         # Update stats dict
-        self._stats = {"steps": 0, "rewards": [], "total_steps": total_steps, "total_rewards": total_rewards}
+        self._stats["episodes"] += 1
+        self._stats["steps"] = 0
+        self._stats["rewards"] = []
 
     def reset(self, seed=None, options=None):
         """
