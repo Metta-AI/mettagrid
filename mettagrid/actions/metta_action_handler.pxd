@@ -1,11 +1,10 @@
-
 from libc.stdio cimport printf
 from libcpp.string cimport string
 from libcpp.map cimport map
 from libcpp.vector cimport vector
 
 from mettagrid.grid_object cimport TypeId, GridObjectId
-from mettagrid.action cimport ActionHandler, ActionArg
+from mettagrid.action_handler cimport ActionHandler, ActionArg
 from mettagrid.objects.agent cimport Agent
 
 cdef struct StatNames:
@@ -30,4 +29,4 @@ cdef class MettaActionHandler(ActionHandler):
         self,
         unsigned int actor_id,
         Agent * actor,
-        ActionArg arg)
+        ActionArg arg) 
