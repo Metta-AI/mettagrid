@@ -33,7 +33,7 @@ class Random(Room):
         if isinstance(self._agents, int):
             agents = ["agent.agent"] * self._agents
         elif isinstance(self._agents, DictConfig):
-            agents = ["agent." + agent for agent, na in self._agents.items() for _ in range(na)]
+            agents = ["agent." + str(agent) for agent, na in self._agents.items() for _ in range(na)]
 
         # Check if total objects exceed room size and halve counts if needed
         total_objects = sum(count for count in self._objects.values()) + len(agents)
