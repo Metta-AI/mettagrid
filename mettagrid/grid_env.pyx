@@ -195,7 +195,7 @@ cdef class GridEnv:
         self._truncations[:] = 0
         self._episode_rewards[:] = 0
         self._observations[:, :, :, :] = 0
-        # Maybe not needed, but left over from when reward was on the grid.        
+        # Maybe not needed, but left over from when reward was on the grid.
         for agent in self._agents:
             agent.reward = 0
 
