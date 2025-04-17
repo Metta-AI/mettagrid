@@ -21,6 +21,8 @@ cdef extern from "agent.hpp":
         unsigned char color
         unsigned char agent_id
         StatsTracker stats
+        # This should reference the reward buffer in the GridEnv, which
+        # accumulates rewards for all agents on a per-step basis.
         float *reward
 
         Agent(GridCoord r, GridCoord c,

@@ -24,7 +24,6 @@ public:
     unsigned char agent_id;
     StatsTracker stats;
     float current_resource_reward;
-    // Accumulated reward for the agent.
     float *reward;
 
     Agent(
