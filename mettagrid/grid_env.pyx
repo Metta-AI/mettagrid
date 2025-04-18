@@ -225,9 +225,6 @@ cdef class GridEnv:
         for i in range(self._agents.size()):
             self._agents[i].init(&self._rewards[i])
 
-        for i in range(self._agents.size()):
-            self._agents[i].init(&self._rewards[i])
-
     cpdef grid(self):
         return []
 
