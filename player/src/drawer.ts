@@ -7,6 +7,193 @@ interface AtlasData {
   [key: string]: [number, number, number, number]; // [x, y, width, height]
 }
 
+/**
+ * Mesh class responsible for managing vertex data
+ */
+class Mesh {
+  private device: GPUDevice;
+  private vertexBuffer: GPUBuffer | null = null;
+  private indexBuffer: GPUBuffer | null = null;
+
+  // Buffer management
+  private maxQuads: number;
+  private vertexCapacity: number;
+  private indexCapacity: number;
+  private vertexData: Float32Array;
+  private indexData: Uint32Array;
+  private currentQuad: number = 0;
+  private currentVertex: number = 0;
+
+  constructor(device: GPUDevice, maxQuads: number = 65536) {
+    this.device = device;
+    this.maxQuads = maxQuads;
+
+    // Pre-allocated buffers for better performance
+    this.vertexCapacity = this.maxQuads * 4; // 4 vertices per quad
+    this.indexCapacity = this.maxQuads * 6; // 6 indices per quad (2 triangles)
+
+    // Pre-allocated CPU-side buffers
+    this.vertexData = new Float32Array(this.vertexCapacity * 8); // 8 floats per vertex (pos*2, uv*2, color*4)
+    this.indexData = new Uint32Array(this.indexCapacity);
+
+    // Create the index pattern once (it's always the same for quads)
+    this.setupIndexPattern();
+  }
+
+  // Set up the index buffer pattern once
+  setupIndexPattern(): void {
+    // For each quad: triangles are formed by indices
+    // 0-1-2 (top-left, bottom-left, top-right)
+    // 2-1-3 (top-right, bottom-left, bottom-right)
+    for (let i = 0; i < this.maxQuads; i++) {
+      const baseVertex = i * 4;
+      const baseIndex = i * 6;
+
+      this.indexData[baseIndex + 0] = baseVertex + 0; // Top-left
+      this.indexData[baseIndex + 1] = baseVertex + 1; // Bottom-left
+      this.indexData[baseIndex + 2] = baseVertex + 2; // Top-right
+
+      this.indexData[baseIndex + 3] = baseVertex + 2; // Top-right
+      this.indexData[baseIndex + 4] = baseVertex + 1; // Bottom-left
+      this.indexData[baseIndex + 5] = baseVertex + 3; // Bottom-right
+    }
+  }
+
+  // Create GPU buffers
+  createBuffers(): void {
+    if (!this.device) return;
+
+    // Create vertex buffer
+    this.vertexBuffer = this.device.createBuffer({
+      label: 'vertex buffer',
+      size: this.vertexCapacity * 8 * Float32Array.BYTES_PER_ELEMENT,
+      // x, y, u, v, r, g, b, a
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    });
+
+    // Create index buffer
+    this.indexBuffer = this.device.createBuffer({
+      label: 'index buffer',
+      size: this.indexCapacity * Uint32Array.BYTES_PER_ELEMENT,
+      // Using 32-bit indices
+      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+    });
+
+    // Write the index pattern to the GPU immediately (it never changes)
+    this.device.queue.writeBuffer(
+      this.indexBuffer,
+      0,
+      this.indexData,
+      0,
+      this.indexData.length
+    );
+  }
+
+  // Clear the mesh for a new frame
+  clear(): void {
+    // Reset counters instead of recreating arrays
+    this.currentQuad = 0;
+    this.currentVertex = 0;
+  }
+
+  // Draws a pre-transformed textured rectangle
+  drawRectWithTransform(
+    topLeft: Vec2f,
+    bottomLeft: Vec2f,
+    topRight: Vec2f,
+    bottomRight: Vec2f,
+    u0: number,
+    v0: number,
+    u1: number,
+    v1: number,
+    color: number[] = [1, 1, 1, 1]
+  ): void {
+    // Check if we need to flush before adding more vertices
+    if (this.currentQuad >= this.maxQuads) {
+      throw new Error("Max quads reached");
+    }
+
+    // Calculate base offset for this quad in the vertex data array
+    const baseVertex = this.currentVertex;
+    const baseOffset = baseVertex * 8; // Each vertex has 8 floats
+
+    // Top-left vertex
+    this.vertexData[baseOffset + 0] = topLeft.x();
+    this.vertexData[baseOffset + 1] = topLeft.y();
+    this.vertexData[baseOffset + 2] = u0;
+    this.vertexData[baseOffset + 3] = v0;
+    this.vertexData[baseOffset + 4] = color[0];
+    this.vertexData[baseOffset + 5] = color[1];
+    this.vertexData[baseOffset + 6] = color[2];
+    this.vertexData[baseOffset + 7] = color[3];
+
+    // Bottom-left vertex
+    this.vertexData[baseOffset + 8] = bottomLeft.x();
+    this.vertexData[baseOffset + 9] = bottomLeft.y();
+    this.vertexData[baseOffset + 10] = u0;
+    this.vertexData[baseOffset + 11] = v1;
+    this.vertexData[baseOffset + 12] = color[0];
+    this.vertexData[baseOffset + 13] = color[1];
+    this.vertexData[baseOffset + 14] = color[2];
+    this.vertexData[baseOffset + 15] = color[3];
+
+    // Top-right vertex
+    this.vertexData[baseOffset + 16] = topRight.x();
+    this.vertexData[baseOffset + 17] = topRight.y();
+    this.vertexData[baseOffset + 18] = u1;
+    this.vertexData[baseOffset + 19] = v0;
+    this.vertexData[baseOffset + 20] = color[0];
+    this.vertexData[baseOffset + 21] = color[1];
+    this.vertexData[baseOffset + 22] = color[2];
+    this.vertexData[baseOffset + 23] = color[3];
+
+    // Bottom-right vertex
+    this.vertexData[baseOffset + 24] = bottomRight.x();
+    this.vertexData[baseOffset + 25] = bottomRight.y();
+    this.vertexData[baseOffset + 26] = u1;
+    this.vertexData[baseOffset + 27] = v1;
+    this.vertexData[baseOffset + 28] = color[0];
+    this.vertexData[baseOffset + 29] = color[1];
+    this.vertexData[baseOffset + 30] = color[2];
+    this.vertexData[baseOffset + 31] = color[3];
+
+    // Update counters
+    this.currentVertex += 4;
+    this.currentQuad += 1;
+  }
+
+  // Get the current number of quads
+  getQuadCount(): number {
+    return this.currentQuad;
+  }
+
+  // Get the vertex data for upload to GPU
+  getVertexData(): Float32Array {
+    return this.vertexData;
+  }
+
+  // Get the number of vertices currently in use
+  getCurrentVertexCount(): number {
+    return this.currentVertex;
+  }
+
+  // Get the vertex buffer
+  getVertexBuffer(): GPUBuffer | null {
+    return this.vertexBuffer;
+  }
+
+  // Get the index buffer
+  getIndexBuffer(): GPUBuffer | null {
+    return this.indexBuffer;
+  }
+
+  // Reset counters after rendering
+  resetCounters(): void {
+    this.currentQuad = 0;
+    this.currentVertex = 0;
+  }
+}
+
 class Drawer {
   // Canvas and WebGPU state
   public canvas: HTMLCanvasElement;
@@ -17,26 +204,18 @@ class Drawer {
   private atlasTexture: GPUTexture | null;
   private textureSize: Vec2f;
   public atlasData: AtlasData | null;
-  private vertexBuffer: GPUBuffer | null;
-  private indexBuffer: GPUBuffer | null;
   private bindGroup: GPUBindGroup | null;
   private renderPassDescriptor: GPURenderPassDescriptor | null;
   private canvasSizeUniformBuffer: GPUBuffer | null;
   private canvasSize: Vec2f;
   private atlasMargin: number;
 
+  // Mesh instance
+  private mesh: Mesh | null = null;
+
   // Transformation state
   private currentTransform: Mat3f;
-  private transformStack: Mat3f[];
-
-  // Buffer management
-  private maxQuads: number;
-  private vertexCapacity: number;
-  private indexCapacity: number;
-  private vertexData: Float32Array;
-  private indexData: Uint32Array;
-  private currentQuad: number;
-  private currentVertex: number;
+  private transformStack: Mat3f[] = [];
 
   // State tracking
   public ready: boolean;
@@ -50,57 +229,19 @@ class Drawer {
     this.atlasTexture = null;
     this.textureSize = new Vec2f(0, 0);
     this.atlasData = null;
-    this.vertexBuffer = null;
-    this.indexBuffer = null;
     this.bindGroup = null;
     this.renderPassDescriptor = null;
     this.canvasSizeUniformBuffer = null;
     this.canvasSize = new Vec2f(0, 0);
     this.atlasMargin = 4; // Default margin for texture sampling.
 
-    // Transformation matrix and stack for Canvas 2D API-like interface.
+    // Initialize transformation matrix
     this.currentTransform = Mat3f.identity();
-    this.transformStack = [];
-
-    // Pre-allocated buffers for better performance.
-    this.maxQuads = 65536; // Maximum number of quads we can render at once.
-    this.vertexCapacity = this.maxQuads * 4; // 4 vertices per quad.
-    this.indexCapacity = this.maxQuads * 6; // 6 indices per quad (2 triangles).
-
-    // Pre-allocated CPU-side buffers.
-    this.vertexData = new Float32Array(this.vertexCapacity * 8); // 8 floats per vertex (pos*2, uv*2, color*4).
-    this.indexData = new Uint32Array(this.indexCapacity);
-
-    // Counters to track buffer usage.
-    this.currentQuad = 0;
-    this.currentVertex = 0;
-
-    // Create the index pattern once (it's always the same for quads).
-    this.setupIndexPattern();
 
     this.ready = false;
   }
 
-  // Set up the index buffer pattern once.
-  setupIndexPattern(): void {
-    // For each quad: triangles are formed by indices
-    // 0-1-2 (top-left, bottom-left, top-right)
-    // 2-1-3 (top-right, bottom-left, bottom-right).
-    for (let i = 0; i < this.maxQuads; i++) {
-      const baseVertex = i * 4;
-      const baseIndex = i * 6;
-
-      this.indexData[baseIndex + 0] = baseVertex + 0; // Top-left.
-      this.indexData[baseIndex + 1] = baseVertex + 1; // Bottom-left.
-      this.indexData[baseIndex + 2] = baseVertex + 2; // Top-right.
-
-      this.indexData[baseIndex + 3] = baseVertex + 2; // Top-right.
-      this.indexData[baseIndex + 4] = baseVertex + 1; // Bottom-left.
-      this.indexData[baseIndex + 5] = baseVertex + 3; // Bottom-right.
-    }
-  }
-
-  // Canvas 2D API-like methods for transform manipulation
+  // Transform manipulation methods
   save(): void {
     // Push a copy of the current transform onto the stack
     this.transformStack.push(new Mat3f(
@@ -150,6 +291,10 @@ class Drawer {
       this.fail('Need a browser that supports WebGPU');
       return false;
     }
+
+    // Create mesh now that we have a device
+    this.mesh = new Mesh(this.device);
+    this.mesh.createBuffers();
 
     // Load Atlas and Texture.
     const [atlasData, source] = await Promise.all([
@@ -205,29 +350,6 @@ class Drawer {
       minFilter: 'linear', // Normal smooth style (was 'nearest').
       mipmapFilter: 'linear', // Linear filtering between mipmap levels.
     });
-
-    // Create fixed-size GPU buffers.
-    this.vertexBuffer = this.device.createBuffer({
-      label: 'vertex buffer',
-      size: this.vertexCapacity * 8 * Float32Array.BYTES_PER_ELEMENT,
-      // x, y, u, v, r, g, b, a.
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-    });
-    this.indexBuffer = this.device.createBuffer({
-      label: 'index buffer',
-      size: this.indexCapacity * Uint32Array.BYTES_PER_ELEMENT,
-      // Using 32-bit indices.
-      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-    });
-
-    // Write the index pattern to the GPU immediately (it never changes)
-    this.device.queue.writeBuffer(
-      this.indexBuffer,
-      0,
-      this.indexData,
-      0,
-      this.indexData.length
-    );
 
     this.canvasSizeUniformBuffer = this.device.createBuffer({
       label: 'canvas size uniform buffer',
@@ -392,13 +514,10 @@ class Drawer {
 
   // Clears the buffer for the new frame.
   clear(): void {
-    if (!this.ready) return;
+    if (!this.ready || !this.mesh) return;
+    this.mesh.clear();
 
-    // Reset counters instead of recreating arrays.
-    this.currentQuad = 0;
-    this.currentVertex = 0;
-
-    // Reset transform for new frame.
+    // Reset transform for new frame
     this.resetTransform();
     this.transformStack = [];
   }
@@ -415,77 +534,30 @@ class Drawer {
     v1: number,
     color: number[] = [1, 1, 1, 1]
   ): void {
-    if (!this.ready) {
+    if (!this.ready || !this.mesh) {
       return;
-    }
-
-    // Check if we need to flush before adding more vertices.
-    if (this.currentQuad >= this.maxQuads) {
-      throw new Error("Max quads reached");
     }
 
     const pos = new Vec2f(x, y);
 
-    // Calculate vertex positions (screen pixels, origin top-left).
-    // We'll make 4 vertices for a quad.
+    // Calculate vertex positions (screen pixels, origin top-left)
+    // We'll make 4 vertices for a quad
     const untransformedTopLeft = pos;
     const untransformedBottomLeft = new Vec2f(pos.x(), pos.y() + height);
     const untransformedTopRight = new Vec2f(pos.x() + width, pos.y());
     const untransformedBottomRight = new Vec2f(pos.x() + width, pos.y() + height);
 
-    // Apply current transformation to each vertex.
+    // Apply current transformation to each vertex
     const topLeft = this.currentTransform.transform(untransformedTopLeft);
     const bottomLeft = this.currentTransform.transform(untransformedBottomLeft);
     const topRight = this.currentTransform.transform(untransformedTopRight);
     const bottomRight = this.currentTransform.transform(untransformedBottomRight);
 
-    // Calculate base offset for this quad in the vertex data array.
-    const baseVertex = this.currentVertex;
-    const baseOffset = baseVertex * 8; // Each vertex has 8 floats.
-
-    // Top-left vertex.
-    this.vertexData[baseOffset + 0] = topLeft.x();
-    this.vertexData[baseOffset + 1] = topLeft.y();
-    this.vertexData[baseOffset + 2] = u0;
-    this.vertexData[baseOffset + 3] = v0;
-    this.vertexData[baseOffset + 4] = color[0];
-    this.vertexData[baseOffset + 5] = color[1];
-    this.vertexData[baseOffset + 6] = color[2];
-    this.vertexData[baseOffset + 7] = color[3];
-
-    // Bottom-left vertex.
-    this.vertexData[baseOffset + 8] = bottomLeft.x();
-    this.vertexData[baseOffset + 9] = bottomLeft.y();
-    this.vertexData[baseOffset + 10] = u0;
-    this.vertexData[baseOffset + 11] = v1;
-    this.vertexData[baseOffset + 12] = color[0];
-    this.vertexData[baseOffset + 13] = color[1];
-    this.vertexData[baseOffset + 14] = color[2];
-    this.vertexData[baseOffset + 15] = color[3];
-
-    // Top-right vertex.
-    this.vertexData[baseOffset + 16] = topRight.x();
-    this.vertexData[baseOffset + 17] = topRight.y();
-    this.vertexData[baseOffset + 18] = u1;
-    this.vertexData[baseOffset + 19] = v0;
-    this.vertexData[baseOffset + 20] = color[0];
-    this.vertexData[baseOffset + 21] = color[1];
-    this.vertexData[baseOffset + 22] = color[2];
-    this.vertexData[baseOffset + 23] = color[3];
-
-    // Bottom-right vertex.
-    this.vertexData[baseOffset + 24] = bottomRight.x();
-    this.vertexData[baseOffset + 25] = bottomRight.y();
-    this.vertexData[baseOffset + 26] = u1;
-    this.vertexData[baseOffset + 27] = v1;
-    this.vertexData[baseOffset + 28] = color[0];
-    this.vertexData[baseOffset + 29] = color[1];
-    this.vertexData[baseOffset + 30] = color[2];
-    this.vertexData[baseOffset + 31] = color[3];
-
-    // Update counters.
-    this.currentVertex += 4;
-    this.currentQuad += 1;
+    // Send pre-transformed vertices to the mesh
+    this.mesh.drawRectWithTransform(
+      topLeft, bottomLeft, topRight, bottomRight,
+      u0, v0, u1, v1, color
+    );
   }
 
   // Draws an image from the atlas with its top-right corner at (x, y).
@@ -581,16 +653,22 @@ class Drawer {
 
   // Flushes the mesh to the offscreen texture
   flushMesh(): void {
-    if (!this.ready || this.currentQuad === 0 || !this.device) {
+    if (!this.ready || !this.mesh || !this.device || this.mesh.getQuadCount() === 0) {
       // Don't submit empty command buffers.
       return;
     }
 
     const device = this.device;
+    const vertexBuffer = this.mesh.getVertexBuffer();
+    const indexBuffer = this.mesh.getIndexBuffer();
+
+    if (!vertexBuffer || !indexBuffer) {
+      return;
+    }
 
     // Calculate data sizes based on current usage.
-    const vertexDataCount = this.currentVertex * 8; // 8 floats per vertex.
-    const indexDataCount = this.currentQuad * 6; // 6 indices per quad.
+    const vertexDataCount = this.mesh.getCurrentVertexCount() * 8; // 8 floats per vertex.
+    const indexDataCount = this.mesh.getQuadCount() * 6; // 6 indices per quad.
 
     // Write Data to Buffers.
     this.canvasSize = new Vec2f(this.canvas.width, this.canvas.height);
@@ -602,9 +680,9 @@ class Drawer {
 
     // Only write the portion of vertex data that we're actually using.
     device.queue.writeBuffer(
-      this.vertexBuffer!,
+      vertexBuffer,
       0, // Buffer offset.
-      this.vertexData, // Data.
+      this.mesh.getVertexData(), // Data.
       0, // Data offset.
       vertexDataCount // Size - only write what we need.
     );
@@ -627,8 +705,8 @@ class Drawer {
       const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
       passEncoder.setPipeline(this.pipeline!);
       passEncoder.setBindGroup(0, this.bindGroup!);
-      passEncoder.setVertexBuffer(0, this.vertexBuffer!);
-      passEncoder.setIndexBuffer(this.indexBuffer!, 'uint32'); // Use 32-bit indices.
+      passEncoder.setVertexBuffer(0, vertexBuffer);
+      passEncoder.setIndexBuffer(indexBuffer, 'uint32'); // Use 32-bit indices.
       passEncoder.drawIndexed(indexDataCount); // Draw only the indices we need.
       passEncoder.end();
     }
@@ -636,10 +714,8 @@ class Drawer {
     const commandBuffer = commandEncoder.finish();
     device.queue.submit([commandBuffer]);
 
-    // Reset counters after rendering so we can start fresh.
-    // This matches the behavior in the auto-flush mechanism.
-    this.currentQuad = 0;
-    this.currentVertex = 0;
+    // Reset counters after rendering
+    this.mesh.resetCounters();
   }
 
   flush() {
