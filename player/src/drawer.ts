@@ -24,6 +24,10 @@ class Mesh {
   private currentQuad: number = 0;
   private currentVertex: number = 0;
 
+  // Scissor properties
+  public scissorEnabled: boolean = false;
+  public scissorRect: [number, number, number, number] = [0, 0, 0, 0]; // x, y, width, height
+
   constructor(device: GPUDevice, maxQuads: number = 65536) {
     this.device = device;
     this.maxQuads = maxQuads;
@@ -94,6 +98,10 @@ class Mesh {
     // Reset counters instead of recreating arrays
     this.currentQuad = 0;
     this.currentVertex = 0;
+
+    // Reset scissor settings
+    this.scissorEnabled = false;
+    this.scissorRect = [0, 0, 0, 0];
   }
 
   // Draws a pre-transformed textured rectangle
@@ -262,6 +270,20 @@ class Drawer {
     this.meshes.set(name, newMesh);
     this.currentMesh = newMesh;
     this.currentMeshName = name;
+  }
+
+  // Sets the scissor rect for the current mesh
+  setScissorRect(x: number, y: number, width: number, height: number): void {
+    this.ensureMeshSelected();
+
+    this.currentMesh!.scissorEnabled = true;
+    this.currentMesh!.scissorRect = [x, y, width, height];
+  }
+
+  // Disable scissoring for the current mesh
+  disableScissor(): void {
+    this.ensureMeshSelected();
+    this.currentMesh!.scissorEnabled = false;
   }
 
   // Helper method to ensure a mesh is selected before drawing
@@ -751,9 +773,20 @@ class Drawer {
           vertexDataCount
         );
 
-        // Set buffers and draw
+        // Set buffers
         passEncoder.setVertexBuffer(0, vertexBuffer);
         passEncoder.setIndexBuffer(indexBuffer, 'uint32');
+
+        // Apply scissor if enabled for this mesh
+        if (mesh.scissorEnabled) {
+          const [x, y, width, height] = mesh.scissorRect;
+          passEncoder.setScissorRect(x, y, width, height);
+        } else {
+          // Reset scissor to full canvas if previously set
+          passEncoder.setScissorRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+
+        // Draw the mesh
         passEncoder.drawIndexed(indexDataCount);
       }
 

@@ -616,6 +616,7 @@ function drawMap(panel: PanelInfo) {
   }
 
   drawer.save();
+  drawer.setScissorRect(panel.x, panel.y, panel.width, panel.height);
 
   drawer.translate(panel.panPos.x(), panel.panPos.y());
   drawer.scale(panel.zoomLevel, panel.zoomLevel);
@@ -658,6 +659,7 @@ function drawTrace(panel: PanelInfo) {
   }
 
   drawer.save();
+  drawer.setScissorRect(panel.x, panel.y, panel.width, panel.height);
 
   const fullSize = new Vec2f(replay.num_agents * 64, replay.max_steps * 4);
 
