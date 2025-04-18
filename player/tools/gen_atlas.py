@@ -11,7 +11,7 @@ heights = [0] * atlas_image.width
 padding = 8
 
 
-def put_image(img, name, x=None, y=None):
+def put_image(img, name):
     """
     Place an image in the atlas at the specified coordinates or find the best position.
 
@@ -43,18 +43,6 @@ def put_image(img, name, x=None, y=None):
         padded_img.draw(bottom_line, pixie.translate(padding, h))
         padded_img.draw(left_line, pixie.translate(p, padding))
         padded_img.draw(right_line, pixie.translate(w, padding))
-
-    # If coordinates are provided, use them
-    if x is not None and y is not None:
-        atlas_image.draw(padded_img, pixie.translate(x, y))
-        images[name] = (x, y, padded_img.width, padded_img.height)
-
-        # Update the heights array
-        for i in range(img.width):
-            if x + i < len(heights):
-                heights[x + i] = y + img.height
-
-        return images[name]
 
     # Find the lowest value in the heights array
     min_height = atlas_image.height
@@ -92,7 +80,7 @@ def put_image(img, name, x=None, y=None):
 # This image is used to draw solid colors.
 white_image = pixie.Image(64, 64)
 white_image.fill(pixie.Color(1, 1, 1, 1))
-put_image(white_image, "white.png", 0, 0)
+put_image(white_image, "white.png")
 
 for file in os.listdir("data"):
     if file.endswith(".png"):

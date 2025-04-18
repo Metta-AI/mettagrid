@@ -277,7 +277,7 @@ class Drawer {
     this.ensureMeshSelected();
 
     this.currentMesh!.scissorEnabled = true;
-    this.currentMesh!.scissorRect = [x, y, width, height];
+    this.currentMesh!.scissorRect = [x, y, Math.max(width, 0), Math.max(height, 0)];
   }
 
   // Disable scissoring for the current mesh

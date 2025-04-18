@@ -32,7 +32,9 @@ export class PanelInfo {
 
   // Transform a point from the canvas to the map coordinate system.
   transformPoint(point: Vec2f): Vec2f {
-    this.transform = Mat3f.translate(this.panPos.x(), this.panPos.y()).mul(Mat3f.scale(this.zoomLevel, this.zoomLevel));
+    this.transform = Mat3f.translate(
+      this.panPos.x() + this.x, this.panPos.y() + this.y
+    ).mul(Mat3f.scale(this.zoomLevel, this.zoomLevel));
     return this.transform.inverse().transform(point);
   }
 
@@ -550,15 +552,14 @@ function drawObjects(replay: any) {
   }
 }
 
-function drawSelection(ctx: CanvasRenderingContext2D, selectedObject: any | null, step: number) {
+function drawSelection(selectedObject: any | null, step: number) {
   if (selectedObject === null) {
     return;
   }
 
   const x = getAttr(selectedObject, "c")
   const y = getAttr(selectedObject, "r")
-  // ctx.strokeStyle = "white";
-  // ctx.strokeRect(x * 64, y * 64, 64, 64);
+  drawer.drawSprite("agent_selection.png", x * 64, y * 64);
 
   // // If object has a trajectory, draw the path it took through the map.
   // if (selectedObject.c.length > 0 || selectedObject.r.length > 0) {
@@ -600,13 +601,14 @@ function drawMap(panel: PanelInfo) {
     const localMousePos = panel.transformPoint(mousePos);
     if (localMousePos != null) {
       const gridMousePos = new Vec2f(
-        Math.floor(localMousePos.x() / 64),
-        Math.floor(localMousePos.y() / 64)
+        Math.round(localMousePos.x() / 64),
+        Math.round(localMousePos.y() / 64)
       );
+      console.log("gridMousePos: ", gridMousePos.x(), gridMousePos.y());
       const gridObject = replay.grid_objects.find((obj: any) => {
-        const x = getAttr(obj, "c");
-        const y = getAttr(obj, "r");
-        return x === gridMousePos.x && y === gridMousePos.y;
+        const x: number = getAttr(obj, "c");
+        const y: number = getAttr(obj, "r");
+        return x === gridMousePos.x() && y === gridMousePos.y();
       });
       if (gridObject !== undefined) {
         selectedGridObject = gridObject;
@@ -624,7 +626,7 @@ function drawMap(panel: PanelInfo) {
   drawFloor(replay.map_size);
   drawWalls(replay);
   drawObjects(replay);
-  // drawSelection(panel.ctx, selectedGridObject, step);
+  drawSelection(selectedGridObject, step);
 
   drawer.restore();
 }
@@ -634,8 +636,8 @@ function drawTrace(panel: PanelInfo) {
     return;
   }
 
-  const panelMousePos = new Vec2f(mousePos.x() - panel.x, mousePos.y() - panel.y);
-  const localMousePos = panel.transformPoint(panelMousePos);
+  //const panelMousePos = new Vec2f(mousePos.x() - panel.x, mousePos.y() - panel.y);
+  const localMousePos = panel.transformPoint(mousePos);
 
   if (panel.inside(mousePos)) {
     if (localMousePos != null) {
@@ -661,7 +663,7 @@ function drawTrace(panel: PanelInfo) {
   drawer.save();
   drawer.setScissorRect(panel.x, panel.y, panel.width, panel.height);
 
-  const fullSize = new Vec2f(replay.num_agents * 64, replay.max_steps * 4);
+  const fullSize = new Vec2f(replay.max_steps * 4, replay.num_agents * 64);
 
   // Draw background
   drawer.drawSolidRect(
