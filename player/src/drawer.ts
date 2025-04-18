@@ -652,7 +652,7 @@ class Drawer {
   }
 
   // Flushes the mesh to the offscreen texture
-  flushMesh(): void {
+  flush(): void {
     if (!this.ready || !this.mesh || !this.device || this.mesh.getQuadCount() === 0) {
       // Don't submit empty command buffers.
       return;
@@ -716,10 +716,6 @@ class Drawer {
 
     // Reset counters after rendering
     this.mesh.resetCounters();
-  }
-
-  flush() {
-    // TODO: Implement flush.
   }
 
   // Helper method to generate mipmaps for a texture.

@@ -815,8 +815,6 @@ function onFrame() {
   //drawer.drawSprite('meta_grid_icon.png', 100, 100);
   drawer.drawSolidRect(100, 100, 100, 100, [1, 1, 1, 1]);
 
-
-  drawer.flushMesh();
   drawer.flush();
   console.log("Flushed drawer.");
 }
