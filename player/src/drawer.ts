@@ -25,12 +25,6 @@ class Drawer {
   private canvasSize: Vec2f;
   private atlasMargin: number;
 
-  // Offscreen rendering
-  private offscreenTexture: GPUTexture | null;
-  private offscreenTextureSize: Vec2f;
-  private offscreenView: GPUTextureView | null;
-  private offscreenRenderPassDescriptor: GPURenderPassDescriptor | null;
-
   // Texture rendering pipeline and resources
   private texturePipeline: GPURenderPipeline | null;
   private textureBindGroup: GPUBindGroup | null;
@@ -72,12 +66,6 @@ class Drawer {
     this.canvasSizeUniformBuffer = null;
     this.canvasSize = new Vec2f(0, 0);
     this.atlasMargin = 4; // Default margin for texture sampling.
-
-    // Initialize offscreen rendering properties
-    this.offscreenTexture = null;
-    this.offscreenTextureSize = new Vec2f(4096, 4096); // 4K x 4K texture
-    this.offscreenView = null;
-    this.offscreenRenderPassDescriptor = null;
 
     // Initialize texture rendering pipeline properties
     this.texturePipeline = null;
@@ -236,30 +224,6 @@ class Drawer {
       mipmapFilter: 'linear', // Linear filtering between mipmap levels.
     });
 
-    // Create the offscreen texture (4K x 4K)
-    this.offscreenTexture = this.device.createTexture({
-      label: 'Offscreen Render Target',
-      format: presentationFormat,
-      size: [this.offscreenTextureSize.x(), this.offscreenTextureSize.y()],
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-    });
-
-    // Create the offscreen texture view
-    this.offscreenView = this.offscreenTexture.createView();
-
-    // Create render pass descriptor for offscreen rendering
-    this.offscreenRenderPassDescriptor = {
-      label: 'Offscreen Render Pass',
-      colorAttachments: [
-        {
-          view: this.offscreenView,
-          clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }, // Clear to transparent
-          loadOp: 'clear',
-          storeOp: 'store',
-        },
-      ] as GPURenderPassColorAttachment[],
-    } as GPURenderPassDescriptor;
-
     // Create fixed-size GPU buffers.
     this.vertexBuffer = this.device.createBuffer({
       label: 'vertex buffer',
@@ -288,15 +252,6 @@ class Drawer {
       size: 2 * Float32Array.BYTES_PER_ELEMENT, // vec2f (width, height).
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-
-    // Initialize with offscreen texture size for mesh rendering
-    this.device.queue.writeBuffer(
-      this.canvasSizeUniformBuffer,
-      0,
-      this.offscreenTextureSize.data
-    );
-
-    // Create resources for rendering the offscreen texture to canvas
 
     // Create a buffer for the transformation matrix
     this.transformUniformBuffer = this.device.createBuffer({
@@ -480,18 +435,6 @@ class Drawer {
       },
     });
 
-    // Create the bind group for the texture pipeline
-    this.textureBindGroup = this.device.createBindGroup({
-      label: 'Texture Render Bind Group',
-      layout: textureBindGroupLayout, // Use our explicit layout
-      entries: [
-        { binding: 0, resource: { buffer: this.transformUniformBuffer } },
-        { binding: 1, resource: { buffer: this.canvasSizeUniformBuffer } },
-        { binding: 2, resource: this.textureSampler },
-        { binding: 3, resource: this.offscreenView },
-      ],
-    });
-
     // Shader Module.
     const shaderModule = this.device.createShaderModule({
       label: 'Sprite Shader Module',
@@ -659,18 +602,6 @@ class Drawer {
     // Reset transform for new frame.
     this.resetTransform();
     this.transformStack = [];
-
-    // Clear the offscreen texture
-    if (this.device && this.offscreenRenderPassDescriptor) {
-      try {
-        const commandEncoder = this.device.createCommandEncoder({ label: 'Clear Command Encoder' });
-        const passEncoder = commandEncoder.beginRenderPass(this.offscreenRenderPassDescriptor);
-        passEncoder.end();
-        this.device.queue.submit([commandEncoder.finish()]);
-      } catch (error) {
-        console.warn("Error clearing offscreen texture:", error);
-      }
-    }
   }
 
   // Draws a textured rectangle with the given coordinates and UV mapping.
