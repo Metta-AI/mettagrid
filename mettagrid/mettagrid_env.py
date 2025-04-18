@@ -187,14 +187,15 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # resolve a new map
         self.active_cfg = self._resolve_original_cfg()
 
-        logger.debug(
-            f"[{self.instance_id}] - resolved cfg: "
-            f"episode_count = {self.active_cfg.progress.episode_count}, "
-            f"episode_count/10 = {self.active_cfg.game.scaled_count}, "
-            f"mean_reward = {self.active_cfg.progress.mean_reward} "
-            f"game.max_size = {self.active_cfg.game.max_size} "
-            f"game.size = {self.active_cfg.game.size}"
-        )
+        if self.active_cfg.progress.episode_count % 100 == 0:
+            logger.debug(
+                f"[{self.instance_id}] - resolved cfg: "
+                f"episode_count = {self.active_cfg.progress.episode_count}, "
+                f"episode_count/10 = {self.active_cfg.game.scaled_count}, "
+                f"mean_reward = {self.active_cfg.progress.mean_reward} "
+                f"game.max_size = {self.active_cfg.game.max_size} "
+                f"game.size = {self.active_cfg.game.size}"
+            )
 
         self.initialize_episode()
         self._c_env.set_buffers(self.observations, self.terminals, self.truncations, self.rewards)
