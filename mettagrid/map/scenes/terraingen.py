@@ -54,7 +54,7 @@ def fn5(x,y, width, height, M, **args):
 
     return (xi, yi)
 
-def fn6(x,y, width, height, lx:float = 0.1, ly:float = 0.1, t:float = 0.25, x_pow:int = 2, y_pow:int = 2, **args):
+def fn6(x,y, width, height, lx:float = 0.1, ly:float = 0.1, t:float = 0.25, x_pow:int = 2, y_pow:int = 2, flip:int = 1, **args):
     octave = [lx,ly]
     alpha = 2*math.pi*t
     cs = math.cos(alpha)
@@ -64,8 +64,7 @@ def fn6(x,y, width, height, lx:float = 0.1, ly:float = 0.1, t:float = 0.25, x_po
 
     xi, yi = 8 * xi**x_pow /x_pow**x_pow, 8 * yi**y_pow /y_pow**y_pow
 
-    xi, yi = (cs*(xi-0.5*width) - sn*(yi-0.5*height)), (sn*(xi-0.5*width) + cs*(yi-0.5*height))
-    xi, yi = xi * octave[0], yi * octave[1]
+    xi, yi = (xi+0.5*width) * octave[0], (yi+0.5*height) * octave[1]
  
     return (xi, yi)
 
@@ -146,7 +145,8 @@ class TerrainGen(Scene):
                                                                                                               # the faster noise is sampled: fn(x,y) ~ fn(x+1,y) in some region the less changes will be in this region per pixel, noise will look zoomed in
                                                                                                               # the slower noise is sampled: fn(x,y) !=fn(x+1,y) in some region the more changes will be in this region per pixel, noise will look zoomed out
         terrain = (terrain + 1)/2 # changes range from [-1,1] to [0,1]
-        terrain = terrain.reshape((self._width,self._height))
+        terrain = terrain.reshape((self._height,self._width))
+        terrain = terrain.transpose()
         terrain = terrain**layer.saturation # saturates pattern with walls. Helpful since base noise is balanced to be 50/50. Saturation 0 makes neutral terrain with 0 walls, saturation >100 fills everything with walls.
 
         return terrain
