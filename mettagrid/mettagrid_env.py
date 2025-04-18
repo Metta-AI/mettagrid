@@ -190,6 +190,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         logger.debug(
             f"[{self.instance_id}] - resolved cfg: "
             f"episode_count = {self.active_cfg.progress.episode_count}, "
+            f"episode_count/10 = {self.active_cfg.game.scaled_count}, "
             f"mean_reward = {self.active_cfg.progress.mean_reward} "
             f"game.max_size = {self.active_cfg.game.max_size} "
             f"game.size = {self.active_cfg.game.size}"
