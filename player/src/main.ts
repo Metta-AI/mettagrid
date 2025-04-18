@@ -550,6 +550,28 @@ function drawObjects(replay: any) {
       drawer.drawSprite(typeName + suffix + ".mouth." + style.mouthId + ".png", x * 64, y * 64);
       drawer.drawSprite(typeName + suffix + ".horns." + style.hornsId + ".png", x * 64, y * 64);
       drawer.drawSprite(typeName + suffix + ".eyes." + style.eyesId + ".png", x * 64, y * 64);
+
+      // Draw the agent's action:
+      const action = getAttr(gridObject, "action");
+      const action_success = getAttr(gridObject, "action_success");
+      const action_name = replay.action_names[action[0]];
+      if (action_name == "attack") {
+        console.log("drawing attack action", action[1]);
+        drawer.save()
+        drawer.translate(x * 64, y * 64);
+        if (orientation == 0) {
+          drawer.rotate(Math.PI / 2);
+        } else if (orientation == 1) {
+          drawer.rotate(-Math.PI / 2);
+        } else if (orientation == 2) {
+          drawer.rotate(Math.PI);
+        } else if (orientation == 3) {
+          drawer.rotate(0);
+        }
+        drawer.drawSprite("attack" + (action[1] + 1) + ".png", 0, 0);
+        drawer.restore()
+      }
+
     } else {
       drawer.drawSprite(typeName + ".png", x * 64, y * 64);
     }
@@ -577,7 +599,6 @@ function drawSelection(selectedObject: any | null, step: number) {
       if (cx0 !== cx1 || cy0 !== cy1) {
         const a = 1 - Math.abs(i - step) / 200;
         if (a > 0) {
-          console.log("a", a)
           let color = [0, 0, 0, a];
           if (step >= i) {
             // Past trajectory is black.
@@ -927,7 +948,6 @@ window.addEventListener('dragover', preventDefaults, false);
 window.addEventListener('drop', handleDrop, false);
 
 window.addEventListener('load', async () => {
-  //await loadAtlas("dist/atlas.json");
 
   drawer = new Drawer(globalCanvas);
 
@@ -958,8 +978,6 @@ window.addEventListener('load', async () => {
       "Welcome to MettaScope",
       "Please drop a replay file here to see the replay."
     );
-    // Load a default replay.
-    // await fetchReplay("replay.json");
   }
   onFrame();
 });
