@@ -10,6 +10,9 @@ from mettagrid.map.utils.random import MaybeSeed
 
 import math
 
+def fn0(x,y, width, height, lx:float = 0.1, ly:float = 0.1, **args):
+    return (x*lx, y*ly)
+
 def fn1(x,y, width, height, **args):
     octave = [0.1,0.1]
     xi = abs(x-0.5*y)*(x-0.5*width)*(y-0.5*height) * octave[0]
@@ -51,15 +54,15 @@ def fn5(x,y, width, height, M, **args):
 
     return (xi, yi)
 
-def fn6(x,y, width, height, t:float = 0.25, x_pow:int = 2, y_pow:int = 2, **args):
-    octave = [0.15,0.15]
+def fn6(x,y, width, height, lx:float = 0.1, ly:float = 0.1, t:float = 0.25, x_pow:int = 2, y_pow:int = 2, **args):
+    octave = [lx,ly]
     alpha = 2*math.pi*t
     cs = math.cos(alpha)
     sn = math.sin(alpha)
 
     xi, yi = (cs*(x-0.5*width) + sn*(y-0.5*height)), (-sn*(x-0.5*width) + cs*(y-0.5*height))
 
-    xi, yi = 2 * xi**x_pow, 2 * yi**y_pow
+    xi, yi = 8 * xi**x_pow /x_pow**x_pow, 8 * yi**y_pow /y_pow**y_pow
 
     xi, yi = (cs*(xi-0.5*width) - sn*(yi-0.5*height)), (sn*(xi-0.5*width) + cs*(yi-0.5*height))
     xi, yi = xi * octave[0], yi * octave[1]
@@ -87,7 +90,7 @@ def fn7(x,y, width, height, lx:float = 0.1, ly:float = 0.1, t:float = 0.25, symm
 class Layer(NamedTuple):
     fn: 'function'
     saturation: float
-    params: dict[str,Any] = {}
+    params: dict[str,Any]
 
 class TerrainGen(Scene):
     EMPTY, WALL = "empty", "wall"

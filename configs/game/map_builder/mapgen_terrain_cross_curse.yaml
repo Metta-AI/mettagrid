@@ -1,0 +1,30 @@
+_target_: mettagrid.map.mapgen.MapGen
+
+width: ${uniform:20,80,40}
+height: ${uniform:20,80,40}
+
+root:
+  _target_: mettagrid.map.scenes.room_grid.RoomGrid
+  rows: 3
+  columns: 3
+
+  children:
+  - scene:
+      _target_: mettagrid.map.scenes.terraingen.TerrainGen
+      layers:
+      - fn : mettagrid.map.scenes.terraingen.fn6  # randomly rotated cross with random curse
+        saturation: ${choose:2,3}
+        params:
+          lx: ${uniform:0.0015,0.002}             # scaling along x
+          ly: ${uniform:0.0015,0.002}             # scaling along y
+          t: ${uniform:0,1}                       # additional rotation in 2*pi radians
+          x_pow: ${choose:0,2,3,4,5}              # x power
+          y_pow: ${choose:1,2,3,4,5}              # y power
+      - fn : mettagrid.map.scenes.terraingen.fn0  # random noise
+        saturation: ${uniform:0.0,0.3}
+        params:
+          lx: ${uniform:0.01,0.5}                 # scaling along x
+          ly: ${uniform:0.01,0.5}                 # scaling along y
+
+      cutoff: ${uniform:30,90}                    # global cutoff treshold
+

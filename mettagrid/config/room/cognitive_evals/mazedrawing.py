@@ -26,7 +26,7 @@ sym = {
     "lasery": "L\033[0m",
 }
 register_resolvers()
-config = OmegaConf.load('/home/catnee/mettagrid/configs/game/map_builder/mapgen_terrain.yaml')
+config = OmegaConf.load('/home/catnee/mettagrid/configs/game/map_builder/mapgen_terrain_cross_curse.yaml')
 
 if OmegaConf.select(config, "root") is not None:
     root = config.root
@@ -37,6 +37,7 @@ world_map = MapGen(w,h,root = root).build()
 
 # for y in range(world_map.shape[0]):
 #     print(" ".join([sym[s] for s in world_map[y]]))
+
 Image.fromarray((world_map == 'empty')).resize((400, 400)).save('maze.png')
 '''
 This code generates a gif from the set of generated maps
