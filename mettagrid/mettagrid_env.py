@@ -4,6 +4,7 @@ This module provides environment classes for Metta Grid simulations.
 """
 
 import copy
+import time
 import uuid
 from typing import Any, Dict, List, Optional, Union
 
@@ -48,7 +49,8 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         """
 
         self.instance_id = str(uuid.uuid4())
-        self.last_episode_info: Dict[str, Any] = {"episode_count": 0}
+        self.last_episode_info: Dict[str, Any] = {}
+        self.start_time = None
 
         self._render_mode = render_mode
         self._original_cfg = cfg
@@ -59,8 +61,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
     def _insert_progress_into_cfg(self, cfg: Union[DictConfig, ListConfig]) -> Union[DictConfig, ListConfig]:
         """
-        Insert statistics into the provided configuration.
-        This method ensures that the stats section exists and populates it with current data.
+        Insert values from last_episode_info into the configuration used to resolve the environment.
 
         Args:
             cfg: The configuration to update
@@ -72,11 +73,17 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         progress_cfg = OmegaConf.create({})
         progress_cfg.progress = OmegaConf.create({})
 
-        episode_count = self.last_episode_info.get("episode_count", 0)
+        episode_count = self.last_episode_info.get("episode/count", 0)
         progress_cfg.progress.episode_count = int(episode_count)  # Ensure int type
 
         mean_reward = self.last_episode_info.get("episode/reward.mean", 0.0)
         progress_cfg.progress.mean_reward = float(mean_reward)  # Convert to Python float
+
+        filtered_mean_reward = self.last_episode_info.get("episode/reward.filtered_mean", 0.0)
+        progress_cfg.progress.filtered_mean_reward = float(filtered_mean_reward)  # Convert to Python float
+
+        last_difficulty = self.last_episode_info.get("game/difficulty", 0.0)
+        progress_cfg.progress.last_difficulty = float(last_difficulty)  # Convert to Python float
 
         # Set struct flag to False to allow accessing undefined fields
         OmegaConf.set_struct(cfg, False)
@@ -101,10 +108,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         """
 
         cfg = OmegaConf.create(copy.deepcopy(self._original_cfg))
-
-        # Insert stats into the configuration
         cfg = self._insert_progress_into_cfg(cfg)
-
         OmegaConf.resolve(cfg)
         return cfg
 
@@ -142,29 +146,49 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         rewards_sum = rewards.sum()
         rewards_mean = rewards_sum / self._num_agents
 
-        # Calculate agent statistics
-        agent_stats = {}
-        for agent_stat in stats["agent"]:
-            for name, value in agent_stat.items():
-                agent_stats[name] = agent_stats.get(name, 0) + value
+        # iir filter rewards mean
+        filter_constant = 0.1  # ~10 episode moving average
+        filtered_rewards_mean = self.last_episode_info.get("episode/reward.filtered_mean", 0.0)
+        filtered_rewards_mean = filter_constant * rewards_mean + (1 - filter_constant) * filtered_rewards_mean
 
-        # Calculate per-agent averages
-        for name, value in agent_stats.items():
-            agent_stats[name] = value / self._num_agents
+        # calculate the average performance for all agent stats (counters)
+        agent_stats = {}
+        for agent_entry in stats["agent"]:
+            for name, count in agent_entry.items():
+                agent_stats[name] = agent_stats.get(name, 0) + count
+        for name, cumulative_count in agent_stats.items():
+            agent_stats[name] = cumulative_count / self._num_agents
+
+        # Get current timestamp and calculate duration
+        current_time = time.time()
+        episode_duration = current_time - self.start_time if self.start_time is not None else 0.0
 
         # Update everything in one operation
+        episode_count = self.last_episode_info.get("episode/count", 0)
+
         self.last_episode_info.update(
             {
                 "episode/reward.sum": rewards_sum,
                 "episode/reward.mean": rewards_mean,
                 "episode/reward.min": rewards.min(),
                 "episode/reward.max": rewards.max(),
-                "episode_length": self._c_env.current_timestep(),
-                "episode_rewards": rewards,
-                "agent_raw": stats["agent"],
+                "episode/totals_steps": self._c_env.current_timestep(),
+                "episode/duration_sec": episode_duration,
+                "episode/timestamp": current_time,
+                "episode/reward.filtered_mean": filtered_rewards_mean,
+                "episode/count": episode_count + 1,  # increment episode!
                 "game": stats["game"],
+                "game/difficulty": self.active_cfg.game.difficulty,
+                "game/min_size": self.active_cfg.game.min_size,
+                "game/max_size": self.active_cfg.game.max_size,
+                "game/width": self.active_cfg.game.map_builder["width"],
+                "game/height": self.active_cfg.game.map_builder["height"],
+                # log cfg progress
+                "progress/episode_count": self.active_cfg.progress.episode_count,
+                "progress/mean_reward": self.active_cfg.progress.mean_reward,
+                "progress/filtered_mean_reward": self.active_cfg.progress.filtered_mean_reward,
+                "progress/last_difficulty": self.active_cfg.progress.last_difficulty,
                 "agent": agent_stats,
-                "episode_count": self.last_episode_info["episode_count"] + 1,
             }
         )
 
@@ -187,7 +211,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # resolve a new map
         self.active_cfg = self._resolve_original_cfg()
 
-        if self.active_cfg.progress.episode_count % 100 == 0:
+        if self.active_cfg.progress.episode_count and self.active_cfg.progress.episode_count % 100 == 0:
             logger.debug(
                 f"[{self.instance_id}] - resolved cfg: "
                 f"episode_count = {self.active_cfg.progress.episode_count}, "

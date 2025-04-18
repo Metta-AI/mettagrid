@@ -63,6 +63,86 @@ def oc_equals(a: Any, b: Any) -> bool:
     return a == b
 
 
+def oc_greater_than(a: Any, b: Any) -> bool:
+    return a > b
+
+
+def oc_less_than(a: Any, b: Any) -> bool:
+    return a < b
+
+
+def oc_greater_than_or_equal(a: Any, b: Any) -> bool:
+    return a >= b
+
+
+def oc_less_than_or_equal(a: Any, b: Any) -> bool:
+    return a <= b
+
+
+def oc_scale(
+    value: Numeric, in_min: Numeric, in_max: Numeric, out_min: Numeric, out_max: Numeric, scale_type: str = "linear"
+) -> Numeric:
+    """
+    Scale a value from one range to another using different scaling methods.
+
+    Parameters:
+    -----------
+    value : Numeric
+        The input value to scale
+    in_min : Numeric
+        The minimum input value
+    in_max : Numeric
+        The maximum input value
+    out_min : Numeric
+        The minimum output value
+    out_max : Numeric
+        The maximum output value
+    scale_type : str
+        The type of scaling to apply. Options:
+        - "linear" (default): Linear mapping
+        - "log": Logarithmic scaling (faster growth at low values)
+        - "exp": Exponential scaling (faster growth at high values)
+        - "sigmoid": Sigmoid scaling (slower growth at extremes, faster in middle)
+
+    Returns:
+    --------
+    Numeric
+        The scaled value in the output range
+    """
+    # Clamp value to input range
+    value = oc_clamp(value, in_min, in_max)
+
+    # Normalize to 0-1 range
+    normalized = (value - in_min) / (in_max - in_min) if in_max > in_min else 0
+
+    # Apply scaling based on type
+    if scale_type == "linear":
+        scaled = normalized
+    elif scale_type == "log":
+        # Avoid log(0)
+        if normalized == 0:
+            scaled = 0
+        else:
+            # Log scaling factor (log10(1 + 9x) / log10(10))
+            scaled = np.log10(1 + 9 * normalized) / np.log10(10)
+    elif scale_type == "exp":
+        # Exponential scaling (opposite of log)
+        scaled = (np.power(10, normalized) - 1) / 9
+    elif scale_type == "sigmoid":
+        # Sigmoid scaling (slower at extremes, faster in middle)
+        scaled = 1 / (1 + np.exp(-12 * (normalized - 0.5)))
+    else:
+        raise ValueError(f"Unknown scale_type: {scale_type}")
+
+    # Map to output range
+    result = out_min + scaled * (out_max - out_min)
+
+    # Return as integer if both output bounds are integers
+    if isinstance(out_min, int) and isinstance(out_max, int):
+        return int(round(result))
+    return result
+
+
 def oc_scaled_range(
     lower_limit: Numeric, upper_limit: Numeric, center: Numeric, *, root: Optional[Dict[str, Numeric]] = None
 ) -> Numeric:
@@ -129,3 +209,8 @@ def register_resolvers() -> None:
     OmegaConf.register_new_resolver("equals", oc_equals, replace=True)
     OmegaConf.register_new_resolver("eq", oc_equals, replace=True)
     OmegaConf.register_new_resolver("sampling", oc_scaled_range, replace=True)
+    OmegaConf.register_new_resolver("gt", oc_greater_than, replace=True)
+    OmegaConf.register_new_resolver("lt", oc_less_than, replace=True)
+    OmegaConf.register_new_resolver("gte", oc_greater_than_or_equal, replace=True)
+    OmegaConf.register_new_resolver("lte", oc_less_than_or_equal, replace=True)
+    OmegaConf.register_new_resolver("scale", oc_scale, replace=True)
