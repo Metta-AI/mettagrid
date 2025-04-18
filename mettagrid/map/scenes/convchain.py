@@ -29,7 +29,7 @@ import numpy as np
 
 from mettagrid.map.node import Node
 from mettagrid.map.scene import Scene
-from mettagrid.map.utils.pattern import Pattern, ascii_to_weights_of_all_patterns
+from mettagrid.map.utils.pattern import Pattern, Symmetry, ascii_to_weights_of_all_patterns
 from mettagrid.map.utils.random import MaybeSeed
 
 
@@ -49,6 +49,8 @@ class ConvChain(Scene):
         pattern_size: int,
         iterations: int,
         temperature: float,
+        periodic_input: bool = True,
+        symmetry: Symmetry = "all",
         seed: MaybeSeed = None,
         children: Optional[List[Any]] = None,
     ):
@@ -60,9 +62,8 @@ class ConvChain(Scene):
         self._weights = ascii_to_weights_of_all_patterns(
             self._pattern,
             self._pattern_size,
-            # TODO: make these configurable
-            periodic=False,
-            symmetry="none",
+            periodic=periodic_input,
+            symmetry=symmetry,
         )
         # Ensure all weights are positive
         self._weights = np.maximum(self._weights, 0.1)
@@ -147,6 +148,8 @@ class ConvChainSlow(Scene):
         pattern_size: int,
         iterations: int,
         temperature: float,
+        periodic_input: bool = True,
+        symmetry: Symmetry = "all",
         seed: MaybeSeed = None,
         children: Optional[List[Any]] = None,
     ):
@@ -158,9 +161,8 @@ class ConvChainSlow(Scene):
         self._weights = ascii_to_weights_of_all_patterns(
             self._pattern,
             self._pattern_size,
-            # TODO: make these configurable
-            periodic=False,
-            symmetry="none",
+            periodic=periodic_input,
+            symmetry=symmetry,
         )
         # Ensure all weights are positive
         self._weights = np.maximum(self._weights, 0.1)
