@@ -210,8 +210,10 @@ class Drawer {
   private canvasSize: Vec2f;
   private atlasMargin: number;
 
-  // Mesh instance
-  private mesh: Mesh | null = null;
+  // Mesh management
+  private meshes: Map<string, Mesh> = new Map();
+  private currentMesh: Mesh | null = null;
+  private currentMeshName: string = "";
 
   // Transformation state
   private currentTransform: Mat3f;
@@ -239,6 +241,28 @@ class Drawer {
     this.currentTransform = Mat3f.identity();
 
     this.ready = false;
+  }
+
+  // Create or switch to a mesh with the given name
+  useMesh(name: string): void {
+    if (!this.device || !this.ready) {
+      console.warn("Cannot use mesh before initialization");
+      return;
+    }
+
+    // If we already have this mesh, set it as current
+    if (this.meshes.has(name)) {
+      this.currentMesh = this.meshes.get(name)!;
+      this.currentMeshName = name;
+      return;
+    }
+
+    // Otherwise, create a new mesh
+    const newMesh = new Mesh(this.device);
+    newMesh.createBuffers();
+    this.meshes.set(name, newMesh);
+    this.currentMesh = newMesh;
+    this.currentMeshName = name;
   }
 
   // Transform manipulation methods
@@ -291,10 +315,6 @@ class Drawer {
       this.fail('Need a browser that supports WebGPU');
       return false;
     }
-
-    // Create mesh now that we have a device
-    this.mesh = new Mesh(this.device);
-    this.mesh.createBuffers();
 
     // Load Atlas and Texture.
     const [atlasData, source] = await Promise.all([
@@ -512,10 +532,14 @@ class Drawer {
     }
   }
 
-  // Clears the buffer for the new frame.
+  // Clears all meshes for a new frame
   clear(): void {
-    if (!this.ready || !this.mesh) return;
-    this.mesh.clear();
+    if (!this.ready) return;
+
+    // Clear all meshes in the map
+    for (const mesh of this.meshes.values()) {
+      mesh.clear();
+    }
 
     // Reset transform for new frame
     this.resetTransform();
@@ -534,7 +558,7 @@ class Drawer {
     v1: number,
     color: number[] = [1, 1, 1, 1]
   ): void {
-    if (!this.ready || !this.mesh) {
+    if (!this.ready || !this.currentMesh) {
       return;
     }
 
@@ -554,7 +578,7 @@ class Drawer {
     const bottomRight = this.currentTransform.transform(untransformedBottomRight);
 
     // Send pre-transformed vertices to the mesh
-    this.mesh.drawRectWithTransform(
+    this.currentMesh.drawRectWithTransform(
       topLeft, bottomLeft, topRight, bottomRight,
       u0, v0, u1, v1, color
     );
@@ -651,26 +675,15 @@ class Drawer {
     )
   }
 
-  // Flushes the mesh to the offscreen texture
+  // Flushes all non-empty meshes to the screen
   flush(): void {
-    if (!this.ready || !this.mesh || !this.device || this.mesh.getQuadCount() === 0) {
+    if (!this.ready || !this.device) {
       // Don't submit empty command buffers.
       return;
     }
 
+    // Setup for rendering
     const device = this.device;
-    const vertexBuffer = this.mesh.getVertexBuffer();
-    const indexBuffer = this.mesh.getIndexBuffer();
-
-    if (!vertexBuffer || !indexBuffer) {
-      return;
-    }
-
-    // Calculate data sizes based on current usage.
-    const vertexDataCount = this.mesh.getCurrentVertexCount() * 8; // 8 floats per vertex.
-    const indexDataCount = this.mesh.getQuadCount() * 6; // 6 indices per quad.
-
-    // Write Data to Buffers.
     this.canvasSize = new Vec2f(this.canvas.width, this.canvas.height);
     device.queue.writeBuffer(
       this.canvasSizeUniformBuffer!,
@@ -678,44 +691,65 @@ class Drawer {
       this.canvasSize.data // Use Vec2f data directly.
     );
 
-    // Only write the portion of vertex data that we're actually using.
-    device.queue.writeBuffer(
-      vertexBuffer,
-      0, // Buffer offset.
-      this.mesh.getVertexData(), // Data.
-      0, // Data offset.
-      vertexDataCount // Size - only write what we need.
-    );
-
-    // Note: We don't need to write the index buffer again since it never changes.
-
-    // Render.
+    // Prepare command encoder
     const commandEncoder = device.createCommandEncoder({ label: 'Frame Command Encoder' });
 
-    // Acquire the canvas texture view *just before* the render pass.
+    // Acquire the canvas texture view for the render pass
     if (this.renderPassDescriptor && this.context) {
-      // Cast the descriptor to help TypeScript understand the structure
       const descriptor = this.renderPassDescriptor as {
         colorAttachments: GPURenderPassColorAttachment[];
       };
 
-      // Update the view
       descriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
 
       const passEncoder = commandEncoder.beginRenderPass(this.renderPassDescriptor);
       passEncoder.setPipeline(this.pipeline!);
       passEncoder.setBindGroup(0, this.bindGroup!);
-      passEncoder.setVertexBuffer(0, vertexBuffer);
-      passEncoder.setIndexBuffer(indexBuffer, 'uint32'); // Use 32-bit indices.
-      passEncoder.drawIndexed(indexDataCount); // Draw only the indices we need.
+
+      // Draw each mesh that has quads
+      for (const mesh of this.meshes.values()) {
+        const quadCount = mesh.getQuadCount();
+        if (quadCount === 0) continue;
+
+        const vertexBuffer = mesh.getVertexBuffer();
+        const indexBuffer = mesh.getIndexBuffer();
+
+        if (!vertexBuffer || !indexBuffer) continue;
+
+        // Calculate data sizes
+        const vertexDataCount = mesh.getCurrentVertexCount() * 8; // 8 floats per vertex
+        const indexDataCount = quadCount * 6; // 6 indices per quad
+
+        // Write vertex data to the GPU
+        device.queue.writeBuffer(
+          vertexBuffer,
+          0,
+          mesh.getVertexData(),
+          0,
+          vertexDataCount
+        );
+
+        // Set buffers and draw
+        passEncoder.setVertexBuffer(0, vertexBuffer);
+        passEncoder.setIndexBuffer(indexBuffer, 'uint32');
+        passEncoder.drawIndexed(indexDataCount);
+      }
+
       passEncoder.end();
     }
 
     const commandBuffer = commandEncoder.finish();
     device.queue.submit([commandBuffer]);
 
-    // Reset counters after rendering
-    this.mesh.resetCounters();
+    // Reset all mesh counters after rendering
+    for (const mesh of this.meshes.values()) {
+      mesh.resetCounters();
+    }
+  }
+
+  // Alias for flush (for backward compatibility)
+  flushMesh(): void {
+    this.flush();
   }
 
   // Helper method to generate mipmaps for a texture.

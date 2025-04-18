@@ -808,7 +808,9 @@ function onFrame() {
   }
 
   updateReadout();
+  drawer.useMesh("map");
   drawMap(mapPanel);
+  drawer.useMesh("trace");
   drawTrace(tracePanel);
 
   // /Users/me/p/mettagrid/player/data/meta_grid_icon.png
