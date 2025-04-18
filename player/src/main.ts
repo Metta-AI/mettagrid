@@ -569,9 +569,38 @@ function drawObjects(replay: any) {
         }
         drawer.drawSprite("attack" + (action[1] + 1) + ".png", 0, 0);
         drawer.restore()
+      } else if (action_name == "put_recipe_items") {
+        drawer.save()
+        drawer.translate(x * 64, y * 64);
+        if (orientation == 0) {
+          drawer.rotate(Math.PI / 2);
+        } else if (orientation == 1) {
+          drawer.rotate(-Math.PI / 2);
+        } else if (orientation == 2) {
+          drawer.rotate(Math.PI);
+        } else if (orientation == 3) {
+          drawer.rotate(0);
+        }
+        drawer.drawSprite("put_recipe_items.png", 0, 0);
+        drawer.restore()
+      } else if (action_name == "get_output") {
+        drawer.save()
+        drawer.translate(x * 64, y * 64);
+        if (orientation == 0) {
+          drawer.rotate(Math.PI / 2);
+        } else if (orientation == 1) {
+          drawer.rotate(-Math.PI / 2);
+        } else if (orientation == 2) {
+          drawer.rotate(Math.PI);
+        } else if (orientation == 3) {
+          drawer.rotate(0);
+        }
+        drawer.drawSprite("get_output.png", 0, 0);
+        drawer.restore()
       }
 
     } else {
+      // Draw other objects.
       drawer.drawSprite(typeName + ".png", x * 64, y * 64);
     }
   }
