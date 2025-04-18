@@ -633,12 +633,13 @@ function drawTrace(panel: PanelInfo) {
     return;
   }
 
-  const localMousePos = panel.transformPoint(mousePos);
+  const panelMousePos = new Vec2f(mousePos.x() - panel.x, mousePos.y() - panel.y);
+  const localMousePos = panel.transformPoint(panelMousePos);
 
   if (panel.inside(mousePos)) {
     if (localMousePos != null) {
       if (mouseDown) {
-        const mapX = localMousePos.x() - 32;
+        const mapX = localMousePos.x();
         if (mapX > 0 && mapX < replay.max_steps * 4 &&
           localMousePos.y() > 0 && localMousePos.y() < replay.num_agents * 64) {
           const agentId = Math.floor(localMousePos.y() / 64);
@@ -657,7 +658,8 @@ function drawTrace(panel: PanelInfo) {
   }
 
   drawer.save();
-  drawer.resetTransform();
+
+  const fullSize = new Vec2f(replay.num_agents * 64, replay.max_steps * 4);
 
   // Draw background
   drawer.drawSolidRect(
@@ -665,23 +667,30 @@ function drawTrace(panel: PanelInfo) {
     [0.08, 0.08, 0.08, 1.0] // Dark background
   );
 
+  drawer.translate(panel.x, panel.y);
+  drawer.translate(panel.panPos.x(), panel.panPos.y());
+  drawer.scale(panel.zoomLevel, panel.zoomLevel);
+
+  // Draw rectangle around the selected agent
+  if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
+    const agentId = selectedGridObject.agent_id;
+
+    // Draw selection rectangle
+    drawer.drawSolidRect(
+      0, agentId * 64, fullSize.x(), 64,
+      [.3, .3, .3, 1]
+    );
+  }
+
   // Draw current step line that goes through all of the traces
   drawer.drawSolidRect(
-    panel.x + 32 + step * 4, panel.y,
-    2, panel.height,
+    step * 4, 0,
+    2, fullSize.y(),
     [1.0, 1.0, 1.0, 0.5] // White with 50% opacity
   );
 
   // Draw agent traces
   for (let i = 0; i < replay.num_agents; i++) {
-    // Use a small font sprite for the agent ID
-    // Since we don't have a direct text drawing capability in WebGPU,
-    // we'll draw a small colored square instead of text for the agent ID
-    drawer.drawSolidRect(
-      panel.x + 10, panel.y + 35 + i * 64,
-      16, 16,
-      [1.0, 1.0, 1.0, 1.0] // White
-    );
 
     // Draw the agent's actions
     for (const gridObject of replay.grid_objects) {
@@ -698,13 +707,13 @@ function drawTrace(panel: PanelInfo) {
             // Convert hex color to RGBA array
             const rgbaColor = hexToRgba(color);
             drawer.drawSolidRect(
-              panel.x + 32 + j * 4, panel.y + 40 + i * 64 - 2 * importance,
+              j * 4, i * 64 + 32 - 2 * importance,
               2, 4 * importance,
               rgbaColor
             );
           } else {
             drawer.drawSolidRect(
-              panel.x + 32 + j * 4, panel.y + 40 + i * 64 - 2,
+              j * 4, i * 64 + 32 - 2,
               2, 4,
               [0.12, 0.12, 0.12, 1.0] // Dark gray
             );
@@ -715,51 +724,13 @@ function drawTrace(panel: PanelInfo) {
           if (reward > 0) {
             const importance = 10;
             drawer.drawSolidRect(
-              panel.x + 32 + j * 4, panel.y + 40 + i * 64 - 2 * importance,
+              j * 4, i * 64 - 2 * importance,
               2, 4 * importance,
               [0.97, 0.89, 0.47, 1.0] // Gold color approximating HSL(46, 100%, 76.7%)
             );
           }
         }
       }
-    }
-  }
-
-  // Draw rectangle around the selected agent
-  if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
-    const agentId = selectedGridObject.agent_id;
-
-    // Draw selection rectangle (just the border, no fill)
-    // Since WebGPU doesn't have built-in stroke rect, we create it with 4 thin rectangles
-    const top = panel.y + 40 + agentId * 64 - 32;
-    const left = panel.x;
-    const width = panel.width;
-    const height = 64;
-    const borderWidth = 1;
-
-    // Top border
-    drawer.drawSolidRect(left, top, width, borderWidth, [1, 1, 1, 1]);
-    // Bottom border
-    drawer.drawSolidRect(left, top + height - borderWidth, width, borderWidth, [1, 1, 1, 1]);
-    // Left border
-    drawer.drawSolidRect(left, top, borderWidth, height, [1, 1, 1, 1]);
-    // Right border
-    drawer.drawSolidRect(left + width - borderWidth, top, borderWidth, height, [1, 1, 1, 1]);
-
-    // Draw the action name above the selected action trace bar (using a visual marker for now)
-    const action = getAttr(selectedGridObject, "action", step);
-    if (action != null) {
-      const actionName = replay.action_names[action[0]] as string;
-
-      // Since we can't draw text directly with WebGPU, draw a colored marker
-      const color = ACTION_COLORS[actionName as keyof typeof ACTION_COLORS];
-      const rgbaColor = hexToRgba(color);
-
-      drawer.drawSolidRect(
-        panel.x + 32 + step * 4 - 5, panel.y + 20 + agentId * 64 - 5,
-        10, 10,
-        rgbaColor
-      );
     }
   }
 
