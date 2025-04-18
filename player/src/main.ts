@@ -615,7 +615,6 @@ function drawMap(panel: PanelInfo) {
     }
   }
 
-
   drawer.save();
 
   drawer.translate(panel.panPos.x(), panel.panPos.y());
