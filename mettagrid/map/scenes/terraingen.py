@@ -53,7 +53,7 @@ def fn5(x,y, width, height, M, **args):
     return (xi, yi)
 
 def fn6(x,y, width, height, t:float = 0.25, x_pow:int = 2, y_pow:int = 2, **args):
-    octave = [0.05,0.05]
+    octave = [0.15,0.15]
     alpha = 2*math.pi*t
     cs = math.cos(alpha)
     sn = math.sin(alpha)
@@ -87,7 +87,7 @@ def fn7(x,y, width, height, lx:float = 0.1, ly:float = 0.1, t:float = 0.25, symm
 
 class Layer(NamedTuple):
     fn: 'function'
-    satur: float
+    saturation: float
 
 layers = [Layer(fn3, 0),Layer(fn7, 3)]
 
@@ -110,7 +110,7 @@ class TerrainGen(Scene):
         self.sampling_params = sampling_params
         self.cutoff = cutoff
         self._rng = np.random.default_rng(seed)
-        self.layers = [Layer(hydra.utils.get_method(x.fn),x.satur) for x in layers if isinstance(x.fn, str)]
+        self.layers = [Layer(hydra.utils.get_method(x.fn),x.saturation) for x in layers if isinstance(x.fn, str)]
         
 
 
@@ -121,7 +121,7 @@ class TerrainGen(Scene):
         
         terrain = np.ones(shape=(self._width,self._height)) # template neutral terrain of ones to prevent errors
         for layer in self.layers:
-            if abs(layer.satur) > 0.00001: terrain *= self.terrain_map(layer) # terrains layered on top of each other via multiplication,
+            if abs(layer.saturation) > 0.00001: terrain *= self.terrain_map(layer) # terrains layered on top of each other via multiplication,
                                                                               # terrains with ~0 saturation are skipped from calculation
         terrain = self.normalize_array(terrain) # sets min value as 0, max as 1 via appropriate rescaling
         terrain = (terrain * 255).astype('uint8')
@@ -146,7 +146,7 @@ class TerrainGen(Scene):
                                                                                                               # the slower noise is sampled: fn(x,y) !=fn(x+1,y) in some region the more changes will be in this region per pixel, noise will look zoomed out
         terrain = (terrain + 1)/2 # changes range from [-1,1] to [0,1]
         terrain = terrain.reshape((self._width,self._height))
-        terrain = terrain**layer.satur # saturates pattern with walls. Helpful since base noise is balanced to be 50/50. Saturation 0 makes neutral terrain with 0 walls, saturation >100 fills everything with walls.
+        terrain = terrain**layer.saturation # saturates pattern with walls. Helpful since base noise is balanced to be 50/50. Saturation 0 makes neutral terrain with 0 walls, saturation >100 fills everything with walls.
 
         return terrain
     

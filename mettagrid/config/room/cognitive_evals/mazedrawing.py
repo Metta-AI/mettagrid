@@ -3,13 +3,15 @@ from mettagrid.map.mapgen import MapGen
 from omegaconf import DictConfig, OmegaConf
 import math
 import numpy as np
+import hydra
+from mettagrid.resolvers import register_resolvers
 
 from PIL import Image
 import glob
 import os
 
-w = 160
-h = 160
+w = 180
+h = 180
 sym = {
     "agent.agent": "\033[92m@\033[0m", # draws in green
     "agent.prey": "\033[0;33mp\033[0m", # draws in brown
@@ -23,7 +25,7 @@ sym = {
     "block": "b\033[0m",
     "lasery": "L\033[0m",
 }
-
+register_resolvers()
 config = OmegaConf.load('/home/catnee/mettagrid/configs/game/map_builder/mapgen_terrain.yaml')
 
 if OmegaConf.select(config, "root") is not None:
@@ -33,9 +35,9 @@ else:
     
 world_map = MapGen(w,h,root = root).build()
 
-for y in range(world_map.shape[0]):
-    print(" ".join([sym[s] for s in world_map[y]]))
-
+# for y in range(world_map.shape[0]):
+#     print(" ".join([sym[s] for s in world_map[y]]))
+Image.fromarray((world_map == 'empty')).resize((400, 400)).save('maze.png')
 '''
 This code generates a gif from the set of generated maps
 additional requirements: pip install pillow
