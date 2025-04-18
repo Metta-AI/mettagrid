@@ -14,12 +14,9 @@ import numpy as np
 import pufferlib
 from omegaconf import DictConfig, ListConfig, OmegaConf
 
-from metta.util.logging import rich_logger
-
 # Import with explicit comment about the pylint disable
 from mettagrid.mettagrid_c import MettaGrid  # C extension module
-
-logger = rich_logger(__name__)
+from mettagrid.utils import safe_get
 
 
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
@@ -69,18 +66,18 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
             The updated configuration with stats inserted
         """
 
-        # Create cfg with stats data
         progress_cfg = OmegaConf.create({})
         progress_cfg.progress = OmegaConf.create({})
 
         episode_count = self.last_episode_info.get("episode/count", 0)
         progress_cfg.progress.episode_count = int(episode_count)  # Ensure int type
 
+        # store the last mean_reward before we overwrite it
+        last_mean_reward = self.last_episode_info.get("progress/mean_reward", 0.0)
+        progress_cfg.progress.last_mean_reward = float(last_mean_reward)  # Convert to Python float
+
         mean_reward = self.last_episode_info.get("episode/reward.mean", 0.0)
         progress_cfg.progress.mean_reward = float(mean_reward)  # Convert to Python float
-
-        filtered_mean_reward = self.last_episode_info.get("episode/reward.filtered_mean", 0.0)
-        progress_cfg.progress.filtered_mean_reward = float(filtered_mean_reward)  # Convert to Python float
 
         last_difficulty = self.last_episode_info.get("game/difficulty", 0.0)
         progress_cfg.progress.last_difficulty = float(last_difficulty)  # Convert to Python float
@@ -124,11 +121,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # Build map and verify agent count
         env_map = self._map_builder.build()
         map_agents = np.count_nonzero(np.char.startswith(env_map, "agent"))
-        if self.active_cfg.game.num_agents != map_agents:
-            raise ValueError(
-                f"Number of agents {self.active_cfg.game.num_agents} "
-                f"does not match number of agents in map {map_agents}"
-            )
+        num_agents = safe_get(self.active_cfg.game.num_agents, 0)
+        if num_agents != map_agents:
+            raise ValueError(f"Number of agents {num_agents} does not match number of agents in map {map_agents}")
 
         # Create C++ environment
         self._c_env = MettaGrid(self.active_cfg, env_map)
@@ -146,11 +141,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         rewards_sum = rewards.sum()
         rewards_mean = rewards_sum / self._num_agents
 
-        # iir filter rewards mean
-        filter_constant = 0.1  # ~10 episode moving average
-        filtered_rewards_mean = self.last_episode_info.get("episode/reward.filtered_mean", 0.0)
-        filtered_rewards_mean = filter_constant * rewards_mean + (1 - filter_constant) * filtered_rewards_mean
-
         # calculate the average performance for all agent stats (counters)
         agent_stats = {}
         for agent_entry in stats["agent"]:
@@ -163,31 +153,31 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         current_time = time.time()
         episode_duration = current_time - self.start_time if self.start_time is not None else 0.0
 
-        # Update everything in one operation
-        episode_count = self.last_episode_info.get("episode/count", 0)
+        # Increment episode count
+        next_episode_count = self.last_episode_info.get("episode/count", 0) + 1
 
+        # N.B. most of these are just for plots, but we are also using this as our memory space
+        # for progress tracking. Please do not remove fields that are marked for this purpose!
         self.last_episode_info.update(
             {
                 "episode/reward.sum": rewards_sum,
-                "episode/reward.mean": rewards_mean,
+                "episode/reward.mean": rewards_mean,  # [progress tracking]
                 "episode/reward.min": rewards.min(),
                 "episode/reward.max": rewards.max(),
                 "episode/totals_steps": self._c_env.current_timestep(),
                 "episode/duration_sec": episode_duration,
                 "episode/timestamp": current_time,
-                "episode/reward.filtered_mean": filtered_rewards_mean,
-                "episode/count": episode_count + 1,  # increment episode!
+                "episode/count": next_episode_count,  # [progress tracking]
                 "game": stats["game"],
-                "game/difficulty": self.active_cfg.game.difficulty,
-                "game/min_size": self.active_cfg.game.min_size,
-                "game/max_size": self.active_cfg.game.max_size,
-                "game/width": self.active_cfg.game.map_builder["width"],
-                "game/height": self.active_cfg.game.map_builder["height"],
-                # log cfg progress
-                "progress/episode_count": self.active_cfg.progress.episode_count,
-                "progress/mean_reward": self.active_cfg.progress.mean_reward,
-                "progress/filtered_mean_reward": self.active_cfg.progress.filtered_mean_reward,
-                "progress/last_difficulty": self.active_cfg.progress.last_difficulty,
+                "game/difficulty": safe_get(self.active_cfg.game.difficulty, 0),  # [progress tracking]
+                "game/min_size": safe_get(self.active_cfg.game.min_size, 0),
+                "game/max_size": safe_get(self.active_cfg.game.max_size, 0),
+                "game/width": safe_get(self.active_cfg.game.map_builder["width"], 0),
+                "game/height": safe_get(self.active_cfg.game.map_builder["height"], 0),
+                "progress/episode_count": safe_get(self.active_cfg.progress.episode_count, 0),
+                "progress/mean_reward": safe_get(self.active_cfg.progress.mean_reward, 0),  # [progress tracking]
+                "progress/last_mean_reward": safe_get(self.active_cfg.progress.last_mean_reward, 0),
+                "progress/last_difficulty": safe_get(self.active_cfg.progress.last_difficulty, 0),
                 "agent": agent_stats,
             }
         )
@@ -210,16 +200,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         # resolve a new map
         self.active_cfg = self._resolve_original_cfg()
-
-        if self.active_cfg.progress.episode_count and self.active_cfg.progress.episode_count % 100 == 0:
-            logger.debug(
-                f"[{self.instance_id}] - resolved cfg: "
-                f"episode_count = {self.active_cfg.progress.episode_count}, "
-                f"episode_count/10 = {self.active_cfg.game.scaled_count}, "
-                f"mean_reward = {self.active_cfg.progress.mean_reward} "
-                f"game.max_size = {self.active_cfg.game.max_size} "
-                f"game.size = {self.active_cfg.game.size}"
-            )
 
         self.initialize_episode()
         self._c_env.set_buffers(self.observations, self.terminals, self.truncations, self.rewards)
@@ -250,7 +230,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self.actions[:] = np.array(actions).astype(np.uint32)
         self._c_env.step(self.actions)
 
-        if self.active_cfg.normalize_rewards:
+        if safe_get(self.active_cfg.normalize_rewards, False):
             self.rewards -= self.rewards.mean()
 
         # if this step completes the episode, compute the stats

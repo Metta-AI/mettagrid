@@ -188,6 +188,39 @@ def oc_scaled_range(
     return int(round(val)) if isinstance(center, int) else val
 
 
+def oc_iir(alpha: Numeric, current_value: Numeric, last_value: Numeric) -> Numeric:
+    """
+    Apply an IIR (Infinite Impulse Response) filter.
+
+    This is a first-order low-pass filter that computes:
+    y[n] = alpha * x[n] + (1-alpha) * y[n-1]
+
+    Parameters:
+    -----------`
+    alpha : Numeric
+        Filter coefficient (0 < alpha < 1). Lower values create more smoothing.
+    current_value : Numeric
+        The current input value x[n]
+    last_value : Numeric
+        The previous filtered output y[n-1]
+
+    Returns:
+    --------
+    Numeric
+        The filtered output y[n]
+    """
+    # Ensure alpha is in valid range
+    alpha = oc_clamp(alpha, 0, 1)
+
+    # Apply IIR filter formula
+    result = alpha * current_value + (1 - alpha) * last_value
+
+    # Return integer if both inputs are integers
+    if isinstance(current_value, int) and isinstance(last_value, int):
+        return int(round(result))
+    return result
+
+
 def register_resolvers() -> None:
     """
     Register all OmegaConf resolvers defined in this module.
@@ -214,3 +247,4 @@ def register_resolvers() -> None:
     OmegaConf.register_new_resolver("gte", oc_greater_than_or_equal, replace=True)
     OmegaConf.register_new_resolver("lte", oc_less_than_or_equal, replace=True)
     OmegaConf.register_new_resolver("scale", oc_scale, replace=True)
+    OmegaConf.register_new_resolver("iir", oc_iir, replace=True)
