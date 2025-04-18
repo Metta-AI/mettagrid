@@ -25,14 +25,6 @@ class Drawer {
   private canvasSize: Vec2f;
   private atlasMargin: number;
 
-  // Texture rendering pipeline and resources
-  private texturePipeline: GPURenderPipeline | null;
-  private textureBindGroup: GPUBindGroup | null;
-  private textureSampler: GPUSampler | null;
-  private transformUniformBuffer: GPUBuffer | null;
-  private quadVertexBuffer: GPUBuffer | null;
-  private quadIndexBuffer: GPUBuffer | null;
-
   // Transformation state
   private currentTransform: Mat3f;
   private transformStack: Mat3f[];
@@ -45,7 +37,6 @@ class Drawer {
   private indexData: Uint32Array;
   private currentQuad: number;
   private currentVertex: number;
-  private currentIndex: number;
 
   // State tracking
   public ready: boolean;
@@ -67,14 +58,6 @@ class Drawer {
     this.canvasSize = new Vec2f(0, 0);
     this.atlasMargin = 4; // Default margin for texture sampling.
 
-    // Initialize texture rendering pipeline properties
-    this.texturePipeline = null;
-    this.textureBindGroup = null;
-    this.textureSampler = null;
-    this.transformUniformBuffer = null;
-    this.quadVertexBuffer = null;
-    this.quadIndexBuffer = null;
-
     // Transformation matrix and stack for Canvas 2D API-like interface.
     this.currentTransform = Mat3f.identity();
     this.transformStack = [];
@@ -91,7 +74,6 @@ class Drawer {
     // Counters to track buffer usage.
     this.currentQuad = 0;
     this.currentVertex = 0;
-    this.currentIndex = 0;
 
     // Create the index pattern once (it's always the same for quads).
     this.setupIndexPattern();
@@ -251,188 +233,6 @@ class Drawer {
       label: 'canvas size uniform buffer',
       size: 2 * Float32Array.BYTES_PER_ELEMENT, // vec2f (width, height).
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-
-    // Create a buffer for the transformation matrix
-    this.transformUniformBuffer = this.device.createBuffer({
-      label: 'transform uniform buffer',
-      size: 9 * Float32Array.BYTES_PER_ELEMENT, // 3x3 matrix
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-
-    // Create a sampler for the offscreen texture
-    this.textureSampler = this.device.createSampler({
-      addressModeU: 'clamp-to-edge',
-      addressModeV: 'clamp-to-edge',
-      magFilter: 'linear',
-      minFilter: 'linear',
-    });
-
-    // Create a quad mesh for rendering the texture
-    const quadVertices = new Float32Array([
-      // x, y, u, v
-      -1.0, -1.0, 0.0, 1.0, // bottom-left
-      1.0, -1.0, 1.0, 1.0,  // bottom-right
-      -1.0, 1.0, 0.0, 0.0,  // top-left
-      1.0, 1.0, 1.0, 0.0,   // top-right
-    ]);
-
-    this.quadVertexBuffer = this.device.createBuffer({
-      label: 'quad vertex buffer',
-      size: quadVertices.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(this.quadVertexBuffer, 0, quadVertices);
-
-    const quadIndices = new Uint32Array([0, 1, 2, 2, 1, 3]);
-    this.quadIndexBuffer = this.device.createBuffer({
-      label: 'quad index buffer',
-      size: quadIndices.byteLength,
-      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(this.quadIndexBuffer, 0, quadIndices);
-
-    // Create a shader for rendering the texture
-    const textureShaderModule = this.device.createShaderModule({
-      label: 'Texture Render Shader',
-      code: `
-        struct VertexInput {
-          @location(0) position: vec2f,
-          @location(1) texcoord: vec2f,
-        };
-
-        struct VertexOutput {
-          @builtin(position) position: vec4f,
-          @location(0) texcoord: vec2f,
-        };
-
-        struct TransformInfo {
-          matrix: mat3x3f,
-        };
-        @group(0) @binding(0) var<uniform> transform: TransformInfo;
-
-        struct CanvasInfo {
-          resolution: vec2f,
-        };
-        @group(0) @binding(1) var<uniform> canvas: CanvasInfo;
-
-        @vertex fn vs(vert: VertexInput) -> VertexOutput {
-          var out: VertexOutput;
-
-          // The quad vertices are in clip space (-1 to 1)
-          // We need to convert them to match our transformation space
-
-          // First convert from clip space [-1,1] to normalized [0,1]
-          let normalizedPos = (vert.position + 1.0) * 0.5;
-
-          // Apply the transformation matrix (includes scaling, translation, etc.)
-          let transformed = transform.matrix * vec3f(normalizedPos, 1.0);
-
-          // Convert back to clip space [-1,1] for rendering
-          let clipSpacePos = vec2f(transformed.xy * 2.0 - 1.0);
-
-          out.position = vec4f(clipSpacePos, 0.0, 1.0);
-          out.texcoord = vert.texcoord;
-          return out;
-        }
-
-        @group(0) @binding(2) var texSampler: sampler;
-        @group(0) @binding(3) var texture: texture_2d<f32>;
-
-        @fragment fn fs(in: VertexOutput) -> @location(0) vec4f {
-          return textureSample(texture, texSampler, in.texcoord);
-        }
-      `,
-    });
-
-    // Create an explicit bind group layout
-    const textureBindGroupLayout = this.device.createBindGroupLayout({
-      label: 'Texture Bind Group Layout',
-      entries: [
-        {
-          // Transform matrix - used in vertex shader
-          binding: 0,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-            type: 'uniform',
-            hasDynamicOffset: false,
-            minBindingSize: 9 * Float32Array.BYTES_PER_ELEMENT // 3x3 matrix
-          }
-        },
-        {
-          // Canvas resolution - used in vertex shader
-          binding: 1,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: {
-            type: 'uniform',
-            hasDynamicOffset: false,
-            minBindingSize: 2 * Float32Array.BYTES_PER_ELEMENT // vec2f
-          }
-        },
-        {
-          // Texture sampler - used in fragment shader
-          binding: 2,
-          visibility: GPUShaderStage.FRAGMENT,
-          sampler: { type: 'filtering' }
-        },
-        {
-          // Texture view - used in fragment shader
-          binding: 3,
-          visibility: GPUShaderStage.FRAGMENT,
-          texture: {
-            sampleType: 'float',
-            viewDimension: '2d'
-          }
-        }
-      ]
-    });
-
-    // Create a pipeline layout using our bind group layout
-    const texturePipelineLayout = this.device.createPipelineLayout({
-      label: 'Texture Pipeline Layout',
-      bindGroupLayouts: [textureBindGroupLayout]
-    });
-
-    // Create the pipeline for rendering the texture
-    this.texturePipeline = this.device.createRenderPipeline({
-      label: 'Texture Render Pipeline',
-      layout: texturePipelineLayout, // Use our explicit layout
-      vertex: {
-        module: textureShaderModule,
-        entryPoint: 'vs',
-        buffers: [
-          {
-            // Vertex buffer layout for the quad
-            arrayStride: 4 * Float32Array.BYTES_PER_ELEMENT, // 2 pos, 2 uv
-            attributes: [
-              { shaderLocation: 0, offset: 0, format: 'float32x2' }, // Position
-              { shaderLocation: 1, offset: 2 * Float32Array.BYTES_PER_ELEMENT, format: 'float32x2' }, // Texcoord
-            ],
-          },
-        ],
-      },
-      fragment: {
-        module: textureShaderModule,
-        entryPoint: 'fs',
-        targets: [{
-          format: presentationFormat,
-          blend: {
-            color: {
-              srcFactor: 'one',
-              dstFactor: 'one-minus-src-alpha',
-              operation: 'add'
-            },
-            alpha: {
-              srcFactor: 'one',
-              dstFactor: 'one-minus-src-alpha',
-              operation: 'add'
-            }
-          }
-        }],
-      },
-      primitive: {
-        topology: 'triangle-list',
-      },
     });
 
     // Shader Module.
@@ -597,7 +397,6 @@ class Drawer {
     // Reset counters instead of recreating arrays.
     this.currentQuad = 0;
     this.currentVertex = 0;
-    this.currentIndex = 0;
 
     // Reset transform for new frame.
     this.resetTransform();
@@ -841,7 +640,6 @@ class Drawer {
     // This matches the behavior in the auto-flush mechanism.
     this.currentQuad = 0;
     this.currentVertex = 0;
-    this.currentIndex = 0;
   }
 
   flush() {
