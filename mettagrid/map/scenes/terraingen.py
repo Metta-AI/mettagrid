@@ -1,7 +1,6 @@
 from typing import Any, NamedTuple
 import hydra
 from opensimplex import OpenSimplex
-from omegaconf import DictConfig
 
 import numpy as np
 
@@ -88,8 +87,7 @@ def fn7(x,y, width, height, lx:float = 0.1, ly:float = 0.1, t:float = 0.25, symm
 class Layer(NamedTuple):
     fn: 'function'
     saturation: float
-
-layers = [Layer(fn3, 0),Layer(fn7, 3)]
+    params: dict[str,Any] = {}
 
 class TerrainGen(Scene):
     EMPTY, WALL = "empty", "wall"
@@ -99,7 +97,7 @@ class TerrainGen(Scene):
         wall_size: int = 1,
         seed: MaybeSeed = None,
         children: list[Any] = [],
-        layers: list[Layer] = layers, # layers dictate how generated noise is sampled and how the end result will look
+        layers: list[Layer] = [], # layers dictate how generated noise is sampled and how the end result will look
         sampling_params: dict = {}, # additional optional non-necessary helping params, can help with creating interpolated sets of rooms
         cutoff: int = 70,
     ):
@@ -110,7 +108,7 @@ class TerrainGen(Scene):
         self.sampling_params = sampling_params
         self.cutoff = cutoff
         self._rng = np.random.default_rng(seed)
-        self.layers = [Layer(hydra.utils.get_method(x.fn),x.saturation) for x in layers if isinstance(x.fn, str)]
+        self.layers = [Layer(hydra.utils.get_method(x.fn), x.saturation, x.params) for x in layers if isinstance(x.fn, str)]
         
 
 
@@ -137,11 +135,11 @@ class TerrainGen(Scene):
         return norm_arr
     
     def terrain_map(self, layer: Layer) -> np.ndarray:
-        simplex = OpenSimplex(self._rng.integers(0, 2**31-1))
+        simplex = OpenSimplex(self._rng.integers(0, 2**15-1))
 
         xa = np.array(range(self._width))
         ya = np.array(range(self._height))
-        terrain = np.array([simplex.noise2(*layer.fn(x, y, self._width, self._height, **self.sampling_params)) for y in ya for x in xa]) # fn function dictates where and how fast noise will be sampled for each pixel in a room, absolute value is less important than derivative of this function
+        terrain = np.array([simplex.noise2(*layer.fn(x, y, self._width, self._height, **layer.params)) for y in ya for x in xa]) # fn function dictates where and how fast noise will be sampled for each pixel in a room, absolute value is less important than derivative of this function
                                                                                                               # the faster noise is sampled: fn(x,y) ~ fn(x+1,y) in some region the less changes will be in this region per pixel, noise will look zoomed in
                                                                                                               # the slower noise is sampled: fn(x,y) !=fn(x+1,y) in some region the more changes will be in this region per pixel, noise will look zoomed out
         terrain = (terrain + 1)/2 # changes range from [-1,1] to [0,1]
