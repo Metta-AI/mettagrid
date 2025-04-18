@@ -67,7 +67,6 @@ const SPLIT_DRAG_THRESHOLD = 10;  // pixels to detect split dragging
 const SCROLL_ZOOM_FACTOR = 1000;  // divisor for scroll delta to zoom conversion
 const DEFAULT_TRACE_SPLIT = 0.80;  // default horizontal split ratio
 const DEFAULT_INFO_SPLIT = 0.25;   // default vertical split ratio
-const SCRUBBER_MARGIN = 64;        // margin for scrubber width
 const PANEL_BOTTOM_MARGIN = 60;    // bottom margin for panels
 
 let drawer: Drawer;
@@ -118,6 +117,18 @@ const ACTION_IMPORTANCE = {
   "swap": 6,
   "change_color": 3
 }
+
+const INVENTORY = [
+  "armor",
+  "battery",
+  "blueprint",
+  "heart",
+  "laser",
+  "ore.blue",
+  "ore.green",
+  "ore.red",
+]
+
 
 // Interaction state.
 let mouseDown = false;
@@ -597,6 +608,20 @@ function drawObjects(replay: any) {
         }
         drawer.drawSprite("get_output.png", 0, 0);
         drawer.restore()
+      }
+
+      // Draw the agent's inventory.
+      let inventoryX = 0;
+      for (const item of INVENTORY) {
+        const num = getAttr(gridObject, "agent:inv:" + item);
+        for (let i = 0; i < num; i++) {
+          drawer.save()
+          drawer.translate(x * 64 + inventoryX * 8 - 32, y * 64 - 32);
+          drawer.scale(0.25, 0.25);
+          drawer.drawSprite(item + ".png", 0, 0);
+          drawer.restore()
+          inventoryX++;
+        }
       }
 
     } else {
