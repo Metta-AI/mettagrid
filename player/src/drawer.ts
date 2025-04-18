@@ -246,8 +246,7 @@ class Drawer {
   // Create or switch to a mesh with the given name
   useMesh(name: string): void {
     if (!this.device || !this.ready) {
-      console.warn("Cannot use mesh before initialization");
-      return;
+      throw new Error("Cannot use mesh before initialization");
     }
 
     // If we already have this mesh, set it as current
@@ -263,6 +262,13 @@ class Drawer {
     this.meshes.set(name, newMesh);
     this.currentMesh = newMesh;
     this.currentMeshName = name;
+  }
+
+  // Helper method to ensure a mesh is selected before drawing
+  private ensureMeshSelected(): void {
+    if (!this.currentMesh) {
+      throw new Error("No mesh selected. Call useMesh() before drawing.");
+    }
   }
 
   // Transform manipulation methods
@@ -558,9 +564,11 @@ class Drawer {
     v1: number,
     color: number[] = [1, 1, 1, 1]
   ): void {
-    if (!this.ready || !this.currentMesh) {
-      return;
+    if (!this.ready) {
+      throw new Error("Drawer not initialized");
     }
+
+    this.ensureMeshSelected();
 
     const pos = new Vec2f(x, y);
 
@@ -578,7 +586,7 @@ class Drawer {
     const bottomRight = this.currentTransform.transform(untransformedBottomRight);
 
     // Send pre-transformed vertices to the mesh
-    this.currentMesh.drawRectWithTransform(
+    this.currentMesh!.drawRectWithTransform(
       topLeft, bottomLeft, topRight, bottomRight,
       u0, v0, u1, v1, color
     );
@@ -586,11 +594,14 @@ class Drawer {
 
   // Draws an image from the atlas with its top-right corner at (x, y).
   drawImage(imageName: string, x: number, y: number, color: number[] = [1, 1, 1, 1]): void {
-    if (!this.ready || !this.atlasData?.[imageName]) {
-      console.warn(
-        `Image "${imageName}" not found in atlas or drawer not ready.`
-      );
-      return;
+    if (!this.ready) {
+      throw new Error("Drawer not initialized");
+    }
+
+    this.ensureMeshSelected();
+
+    if (!this.atlasData?.[imageName]) {
+      throw new Error(`Image "${imageName}" not found in atlas`);
     }
 
     const [sx, sy, sw, sh] = this.atlasData[imageName];
@@ -616,11 +627,14 @@ class Drawer {
 
   // Draws an image from the atlas centered at (x, y).
   drawSprite(imageName: string, x: number, y: number, color: number[] = [1, 1, 1, 1]): void {
-    if (!this.ready || !this.atlasData?.[imageName]) {
-      console.warn(
-        `Image "${imageName}" not found in atlas or drawer not ready.`
-      );
-      return;
+    if (!this.ready) {
+      throw new Error("Drawer not initialized");
+    }
+
+    this.ensureMeshSelected();
+
+    if (!this.atlasData?.[imageName]) {
+      throw new Error(`Image "${imageName}" not found in atlas`);
     }
 
     const [sx, sy, sw, sh] = this.atlasData[imageName]; // Source x, y, width, height from atlas.
@@ -651,13 +665,17 @@ class Drawer {
     height: number,
     color: number[]
   ) {
-    const imageName = "white.png";
-    if (!this.ready || !this.atlasData?.[imageName]) {
-      console.warn(
-        `Image "${imageName}" not found in atlas or drawer not ready.`
-      );
-      return;
+    if (!this.ready) {
+      throw new Error("Drawer not initialized");
     }
+
+    this.ensureMeshSelected();
+
+    const imageName = "white.png";
+    if (!this.atlasData?.[imageName]) {
+      throw new Error(`Image "${imageName}" not found in atlas`);
+    }
+
     // Get the middle of the white texture.
     const [sx, sy, sw, sh] = this.atlasData[imageName];
     const uvx = (sx + sw / 2) / this.textureSize.x();
@@ -678,7 +696,11 @@ class Drawer {
   // Flushes all non-empty meshes to the screen
   flush(): void {
     if (!this.ready || !this.device) {
-      // Don't submit empty command buffers.
+      return;
+    }
+
+    // If no meshes have been created, nothing to do
+    if (this.meshes.size === 0) {
       return;
     }
 
