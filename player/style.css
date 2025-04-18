@@ -45,12 +45,47 @@ body {
   right: 0px;
   height: 64px;
   background-color: rgba(0.2, 0.2, 0.2, 1.0);
+  display: flex;
+  align-items: center;
+}
+
+.play-button {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  margin-left: 20px;
+  background-color: #ff0000;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.2s, transform 0.1s;
+  z-index: 2;
+}
+
+.play-button:hover {
+  background-color: #cc0000;
+  transform: scale(1.05);
+}
+
+.play-button:active {
+  transform: scale(0.95);
+}
+
+.play-button.paused::before {
+  content: "❚❚";
+  font-size: 12px;
+  letter-spacing: -2px;
 }
 
 .scrubber {
   position: absolute;
-  top: 20px;
-  left: 20px;
+  top: 29px;
+  left: 70px;
   right: 20px;
   height: 5px;
   /* Track height */

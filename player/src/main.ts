@@ -74,6 +74,7 @@ let drawer: Drawer;
 
 // Get the html elements we will use.
 const scrubber = document.getElementById('main-scrubber') as HTMLInputElement;
+const playButton = document.getElementById('play-button') as HTMLButtonElement;
 
 // Get the canvas element.
 const globalCanvas = document.getElementById('global-canvas') as HTMLCanvasElement;
@@ -133,6 +134,11 @@ let replay: any = null;
 let step = 0;
 let selectedGridObject: any = null;
 
+// Playback state
+let isPlaying = false;
+let playbackInterval: number | null = null;
+const PLAYBACK_SPEED = 5; // frames per playback step
+
 // Handle resize events.
 function onResize() {
   // Adjust for high DPI displays.
@@ -140,8 +146,6 @@ function onResize() {
 
   const mapWidth = window.innerWidth;
   const mapHeight = window.innerHeight;
-
-  scrubber.style.width = (mapWidth - SCRUBBER_MARGIN) + 'px';
 
   // Make sure traceSplit and infoSplit are not too small or too large.
   const a = 0.025;
@@ -878,6 +882,31 @@ function closeModal() {
   }
 }
 
+// Handle play button click
+function onPlayButtonClick() {
+  isPlaying = !isPlaying;
+
+  if (isPlaying) {
+    playButton.classList.add('paused');
+
+    playbackInterval = window.setInterval(() => {
+      if (replay === null) return;
+
+      // Advance step and wrap around if reached the end
+      step = (step + 1) % replay.max_steps;
+      scrubber.value = step.toString();
+      onScrubberChange();
+
+    }, 1000 / PLAYBACK_SPEED);
+  } else {
+    playButton.classList.remove('paused');
+    if (playbackInterval !== null) {
+      window.clearInterval(playbackInterval);
+      playbackInterval = null;
+    }
+  }
+}
+
 // Initial resize.
 onResize();
 
@@ -890,6 +919,7 @@ window.addEventListener('mousemove', onMouseMove);
 window.addEventListener('wheel', onScroll);
 
 scrubber.addEventListener('input', onScrubberChange);
+playButton.addEventListener('click', onPlayButtonClick);
 
 window.addEventListener('dragenter', preventDefaults, false);
 window.addEventListener('dragleave', preventDefaults, false);
