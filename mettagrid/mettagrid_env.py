@@ -178,6 +178,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
                 "episode/count": next_episode_count,  # [progress tracking]
                 "game": stats["game"],
                 "game/difficulty": get_or_0(lambda: self.active_cfg.game.difficulty),  # [progress tracking]
+                "game/max_steps": get_or_0(lambda: self.active_cfg.game.max_steps),
                 "game/min_size": get_or_0(lambda: self.active_cfg.game.min_size),
                 "game/max_size": get_or_0(lambda: self.active_cfg.game.max_size),
                 "game/width": get_or_0(lambda: self.active_cfg.game.map_builder["width"]),
