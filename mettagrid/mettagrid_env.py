@@ -16,7 +16,13 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 
 # Import with explicit comment about the pylint disable
 from mettagrid.mettagrid_c import MettaGrid  # C extension module
-from mettagrid.utils import safe_get
+
+
+def get_or_0(accessor_fn):
+    try:
+        return accessor_fn()
+    except (AttributeError, KeyError, TypeError, IndexError):
+        return 0
 
 
 class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
@@ -121,9 +127,11 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # Build map and verify agent count
         env_map = self._map_builder.build()
         map_agents = np.count_nonzero(np.char.startswith(env_map, "agent"))
-        num_agents = safe_get(self.active_cfg.game.num_agents, 0)
-        if num_agents != map_agents:
-            raise ValueError(f"Number of agents {num_agents} does not match number of agents in map {map_agents}")
+        game_agents = get_or_0(lambda: self.active_cfg.game.num_agents)
+        if game_agents != map_agents:
+            raise ValueError(
+                f"Number of agents in game ({game_agents}) does not match number of agents in map {map_agents}"
+            )
 
         # Create C++ environment
         self._c_env = MettaGrid(self.active_cfg, env_map)
@@ -169,15 +177,15 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
                 "episode/timestamp": current_time,
                 "episode/count": next_episode_count,  # [progress tracking]
                 "game": stats["game"],
-                "game/difficulty": safe_get(self.active_cfg.game.difficulty, 0),  # [progress tracking]
-                "game/min_size": safe_get(self.active_cfg.game.min_size, 0),
-                "game/max_size": safe_get(self.active_cfg.game.max_size, 0),
-                "game/width": safe_get(self.active_cfg.game.map_builder["width"], 0),
-                "game/height": safe_get(self.active_cfg.game.map_builder["height"], 0),
-                "progress/episode_count": safe_get(self.active_cfg.progress.episode_count, 0),
-                "progress/mean_reward": safe_get(self.active_cfg.progress.mean_reward, 0),  # [progress tracking]
-                "progress/last_mean_reward": safe_get(self.active_cfg.progress.last_mean_reward, 0),
-                "progress/last_difficulty": safe_get(self.active_cfg.progress.last_difficulty, 0),
+                "game/difficulty": get_or_0(lambda: self.active_cfg.game.difficulty),  # [progress tracking]
+                "game/min_size": get_or_0(lambda: self.active_cfg.game.min_size),
+                "game/max_size": get_or_0(lambda: self.active_cfg.game.max_size),
+                "game/width": get_or_0(lambda: self.active_cfg.game.map_builder["width"]),
+                "game/height": get_or_0(lambda: self.active_cfg.game.map_builder["height"]),
+                "progress/episode_count": get_or_0(lambda: self.active_cfg.progress.episode_count),
+                "progress/mean_reward": get_or_0(lambda: self.active_cfg.progress.mean_reward),  # [progress tracking]
+                "progress/last_mean_reward": get_or_0(lambda: self.active_cfg.progress.last_mean_reward),
+                "progress/last_difficulty": get_or_0(lambda: self.active_cfg.progress.last_difficulty),
                 "agent": agent_stats,
             }
         )
@@ -230,7 +238,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self.actions[:] = np.array(actions).astype(np.uint32)
         self._c_env.step(self.actions)
 
-        if safe_get(self.active_cfg.normalize_rewards, False):
+        if get_or_0(lambda: self.active_cfg.normalize_rewards):
             self.rewards -= self.rewards.mean()
 
         # if this step completes the episode, compute the stats
