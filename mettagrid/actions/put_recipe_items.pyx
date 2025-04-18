@@ -2,12 +2,13 @@
 from omegaconf import OmegaConf
 
 from mettagrid.grid_object cimport GridLocation, Orientation
-from mettagrid.action cimport ActionArg
+from mettagrid.action_handler cimport ActionArg
 from mettagrid.objects.agent cimport Agent
 from mettagrid.objects.metta_object cimport MettaObject
 from mettagrid.objects.constants cimport Events, GridLayer, InventoryItem, InventoryItemNames
 from mettagrid.objects.converter cimport Converter
-from mettagrid.actions.actions cimport MettaActionHandler
+from mettagrid.actions.metta_action_handler cimport MettaActionHandler
+
 
 # Puts one recipe worth of resources into a Converter. Noop if not enough resources.
 cdef class PutRecipeItems(MettaActionHandler):
@@ -40,8 +41,8 @@ cdef class PutRecipeItems(MettaActionHandler):
                 return False
 
         for i in range(converter.recipe_input.size()):
-            actor.update_inventory(<InventoryItem>i, -converter.recipe_input[i], &self.env._rewards[actor_id])
-            converter.update_inventory(<InventoryItem>i, converter.recipe_input[i], NULL)
+            actor.update_inventory(<InventoryItem>i, -converter.recipe_input[i])
+            converter.update_inventory(<InventoryItem>i, converter.recipe_input[i])
             actor.stats.add(InventoryItemNames[i], b"put", converter.recipe_input[i]);
 
         return True

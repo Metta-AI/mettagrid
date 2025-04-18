@@ -2,12 +2,13 @@
 from omegaconf import OmegaConf
 
 from mettagrid.grid_object cimport GridLocation, Orientation
-from mettagrid.action cimport ActionArg
+from mettagrid.action_handler cimport ActionArg
 from mettagrid.objects.agent cimport Agent
 from mettagrid.objects.metta_object cimport MettaObject
 from mettagrid.objects.constants cimport Events, GridLayer, InventoryItem, InventoryItemNames
 from mettagrid.objects.converter cimport Converter
-from mettagrid.actions.actions cimport MettaActionHandler
+from mettagrid.actions.metta_action_handler cimport MettaActionHandler
+
 
 cdef class GetOutput(MettaActionHandler):
     def __init__(self, cfg: OmegaConf):
@@ -49,7 +50,7 @@ cdef class GetOutput(MettaActionHandler):
             # The actor will destroy anything it can't hold. That's not intentional, so feel free
             # to fix it.
             actor.stats.add(InventoryItemNames[i], b"get", converter.inventory[i])
-            actor.update_inventory(<InventoryItem>i, converter.inventory[i], &self.env._rewards[actor_id])
-            converter.update_inventory(<InventoryItem>i, -converter.inventory[i], NULL)
+            actor.update_inventory(<InventoryItem>i, converter.inventory[i])
+            converter.update_inventory(<InventoryItem>i, -converter.inventory[i])
 
         return True

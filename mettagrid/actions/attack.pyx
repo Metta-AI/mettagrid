@@ -2,8 +2,9 @@ from libc.stdio cimport printf
 
 from omegaconf import OmegaConf
 
-from mettagrid.action cimport ActionArg
-from mettagrid.actions.actions cimport MettaActionHandler
+from mettagrid.action_handler cimport ActionArg
+from mettagrid.actions.metta_action_handler cimport MettaActionHandler
+
 from mettagrid.grid_object cimport GridLocation, Orientation
 from mettagrid.objects.agent cimport Agent
 from mettagrid.objects.constants cimport (
@@ -34,7 +35,7 @@ cdef class Attack(MettaActionHandler):
         if actor.inventory[InventoryItem.laser] == 0:
             return False
 
-        actor.update_inventory(InventoryItem.laser, -1, &self.env._rewards[actor_id])
+        actor.update_inventory(InventoryItem.laser, -1)
 
         cdef short distance = 0
         cdef short offset = 0
@@ -72,7 +73,7 @@ cdef class Attack(MettaActionHandler):
             was_frozen = agent_target.frozen > 0
 
             if agent_target.inventory[InventoryItem.armor] > 0:
-                agent_target.update_inventory(InventoryItem.armor, -1, &self.env._rewards[agent_target.agent_id])
+                agent_target.update_inventory(InventoryItem.armor, -1)
                 actor.stats.incr(b"attack.blocked", agent_target.group_name)
                 actor.stats.incr(b"attack.blocked", agent_target.group_name, actor.group_name)
             else:
@@ -91,8 +92,8 @@ cdef class Attack(MettaActionHandler):
 
                     for item in range(InventoryItem.InventoryCount):
                         actor.stats.add(InventoryItemNames[item], b"stolen", actor.group_name, agent_target.inventory[item])
-                        actor.update_inventory(item, agent_target.inventory[item], &self.env._rewards[actor.agent_id])
-                        agent_target.update_inventory(item, -agent_target.inventory[item], &self.env._rewards[agent_target.agent_id])
+                        actor.update_inventory(item, agent_target.inventory[item])
+                        agent_target.update_inventory(item, -agent_target.inventory[item])
 
             return True
 

@@ -2,7 +2,7 @@ from libc.stdio cimport printf
 
 from omegaconf import OmegaConf
 
-from mettagrid.action cimport ActionArg
+from mettagrid.action_handler cimport ActionArg
 from mettagrid.actions.attack cimport Attack
 from mettagrid.grid_object cimport GridLocation, Orientation
 from mettagrid.objects.agent cimport Agent, InventoryItem
@@ -29,7 +29,7 @@ cdef class AttackNearest(Attack):
         if actor.inventory[InventoryItem.laser] == 0:
             return False
 
-        actor.update_inventory(InventoryItem.laser, -1, &self.env._rewards[actor_id])
+        actor.update_inventory(InventoryItem.laser, -1)
 
         # Scan the space to find the nearest agent. Prefer the middle (offset 0) before the edges (offset -1, 1).
         for distance in range(1, 4):

@@ -3,7 +3,7 @@ from libcpp.string cimport string
 
 from omegaconf import OmegaConf
 
-from mettagrid.action cimport ActionHandler, ActionArg
+from mettagrid.action_handler cimport ActionHandler, ActionArg
 from mettagrid.grid_object cimport GridObjectId
 from mettagrid.objects.agent cimport Agent
 from mettagrid.objects.constants cimport ObjectTypeNames
@@ -44,7 +44,7 @@ cdef class MettaActionHandler(ActionHandler):
         else:
             actor.stats.incr(self._stats.failure)
             actor.stats.incr(b"action.failure_penalty")
-            self.env._rewards[actor_id] -= actor.action_failure_penalty
+            actor.reward[0] -= actor.action_failure_penalty
             actor.stats.set_once(self._stats.first_use, self.env._current_timestep)
 
         return result
@@ -54,4 +54,4 @@ cdef class MettaActionHandler(ActionHandler):
         unsigned int actor_id,
         Agent * actor,
         ActionArg arg):
-        return False
+        return False 

@@ -21,14 +21,14 @@ def build_ext(srcs, module_name=None):
 
 
 ext_modules = [
-    build_ext(["mettagrid/action.pyx"]),
+    build_ext(["mettagrid/action_handler.pyx"]),
     build_ext(["mettagrid/event.pyx"]),
     build_ext(["mettagrid/grid.cpp"]),
     build_ext(["mettagrid/grid_env.pyx"]),
     build_ext(["mettagrid/grid_object.pyx"]),
     build_ext(["mettagrid/stats_tracker.cpp"]),
     build_ext(["mettagrid/observation_encoder.pyx"]),
-    build_ext(["mettagrid/actions/actions.pyx"]),
+    build_ext(["mettagrid/actions/metta_action_handler.pyx"]),
     build_ext(["mettagrid/actions/attack.pyx"]),
     build_ext(["mettagrid/actions/attack_nearest.pyx"]),
     build_ext(["mettagrid/actions/change_color.pyx"]),
