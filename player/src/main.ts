@@ -561,35 +561,40 @@ function drawSelection(selectedObject: any | null, step: number) {
   const y = getAttr(selectedObject, "r")
   drawer.drawSprite("agent_selection.png", x * 64, y * 64);
 
-  // // If object has a trajectory, draw the path it took through the map.
-  // if (selectedObject.c.length > 0 || selectedObject.r.length > 0) {
+  // If object has a trajectory, draw the path it took through the map.
+  if (selectedObject.c.length > 0 || selectedObject.r.length > 0) {
 
-  //   ctx.lineWidth = 2;
-  //   // Draw both past and future trajectories.
-  //   for (let i = 1; i < replay.max_steps; i++) {
-  //     const cx0 = getAttr(selectedObject, "c", i - 1);
-  //     const cy0 = getAttr(selectedObject, "r", i - 1);
-  //     const cx1 = getAttr(selectedObject, "c", i);
-  //     const cy1 = getAttr(selectedObject, "r", i);
-  //     if (cx0 !== cx1 || cy0 !== cy1) {
-  //       const a = 1 - Math.abs(i - step) / 200;
-  //       if (a > 0) {
-  //         if (step >= i) {
-  //           // Past trajectory is black.
-  //           ctx.strokeStyle = "black";
-  //         } else {
-  //           // Future trajectory is white.
-  //           ctx.strokeStyle = "white";
-  //         }
-  //         ctx.globalAlpha = a;
-  //         ctx.beginPath();
-  //         ctx.moveTo(cx0 * 64 + 32, cy0 * 64 + 32);
-  //         ctx.lineTo(cx1 * 64 + 32, cy1 * 64 + 32);
-  //         ctx.stroke();
-  //       }
-  //     }
-  //   }
-  // }
+    // Draw both past and future trajectories.
+    for (let i = 1; i < replay.max_steps; i++) {
+      const cx0 = getAttr(selectedObject, "c", i - 1);
+      const cy0 = getAttr(selectedObject, "r", i - 1);
+      const cx1 = getAttr(selectedObject, "c", i);
+      const cy1 = getAttr(selectedObject, "r", i);
+      if (cx0 !== cx1 || cy0 !== cy1) {
+        const a = 1 - Math.abs(i - step) / 200;
+        if (a > 0) {
+          let color = [0, 0, 0, a];
+          if (step >= i) {
+            // Past trajectory is black.
+            color = [0, 0, 0, a];
+          } else {
+            // Future trajectory is white.
+            color = [1, 1, 1, a];
+          }
+
+          if (cx1 > cx0) { // right
+            drawer.drawSolidRect(cx0 * 64, cy0 * 64, 64, 2, color);
+          } else if (cx1 < cx0) { // left
+            drawer.drawSolidRect(cx1 * 64, cy1 * 64, 64, 2, color);
+          } else if (cy1 > cy0) { // down
+            drawer.drawSolidRect(cx0 * 64, cy0 * 64, 2, 64, color);
+          } else if (cy1 < cy0) {
+            drawer.drawSolidRect(cx0 * 64, cy1 * 64, 2, 64, color);
+          }
+        }
+      }
+    }
+  }
 }
 
 function drawMap(panel: PanelInfo) {
@@ -726,10 +731,10 @@ function drawTrace(panel: PanelInfo) {
           const reward = getAttr(gridObject, "reward", j);
           // If there is reward, draw a sharp bar
           if (reward > 0) {
-            const importance = 10;
+            const importance = 16;
             drawer.drawSolidRect(
-              j * 4, i * 64 - 2 * importance,
-              2, 4 * importance,
+              j * 4 - 1, i * 64 + 32 - 2 * importance,
+              4, 4 * importance,
               [0.97, 0.89, 0.47, 1.0] // Gold color approximating HSL(46, 100%, 76.7%)
             );
           }
