@@ -556,7 +556,6 @@ function drawObjects(replay: any) {
       const action_success = getAttr(gridObject, "action_success");
       const action_name = replay.action_names[action[0]];
       if (action_name == "attack") {
-        console.log("drawing attack action", action[1]);
         drawer.save()
         drawer.translate(x * 64, y * 64);
         if (orientation == 0) {
@@ -635,7 +634,6 @@ function drawMap(panel: PanelInfo) {
         Math.round(localMousePos.x() / 64),
         Math.round(localMousePos.y() / 64)
       );
-      console.log("gridMousePos: ", gridMousePos.x(), gridMousePos.y());
       const gridObject = replay.grid_objects.find((obj: any) => {
         const x: number = getAttr(obj, "c");
         const y: number = getAttr(obj, "r");
