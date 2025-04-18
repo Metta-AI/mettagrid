@@ -14,7 +14,8 @@ cdef class ActionHandler:
         self,
         unsigned int actor_id,
         GridObjectId actor_object_id,
-        ActionArg arg):
+        ActionArg arg,
+        unsigned int current_timestep):
         return False
 
     cdef unsigned char max_arg(self):

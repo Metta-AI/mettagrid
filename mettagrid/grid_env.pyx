@@ -174,7 +174,7 @@ cdef class GridEnv:
                     continue
                 if arg > self._max_action_args[action]:
                     continue
-                self._action_success[idx] = handler.handle_action(idx, agent.id, arg)
+                self._action_success[idx] = handler.handle_action(idx, agent.id, arg, self._current_timestep)
 
         self._compute_observations(actions)
 
