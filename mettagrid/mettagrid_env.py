@@ -139,6 +139,8 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self._num_agents = self._c_env.num_agents()
         self._env = self._grid_env
 
+        self.start_time = time.perf_counter()
+
     def finalize_episode(self):
         """
         Process statistics and update progress tracking at the end of each episode.
@@ -158,7 +160,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
             agent_stats[name] = cumulative_count / self._num_agents
 
         # Get current timestamp and calculate duration
-        current_time = time.time()
+        current_time = time.perf_counter()
         episode_duration = current_time - self.start_time if self.start_time is not None else 0.0
 
         # Increment episode count
