@@ -573,13 +573,14 @@ function drawSelection(selectedObject: any | null, step: number) {
       if (cx0 !== cx1 || cy0 !== cy1) {
         const a = 1 - Math.abs(i - step) / 200;
         if (a > 0) {
+          console.log("a", a)
           let color = [0, 0, 0, a];
           if (step >= i) {
             // Past trajectory is black.
             color = [0, 0, 0, a];
           } else {
             // Future trajectory is white.
-            color = [1, 1, 1, a];
+            color = [a, a, a, a];
           }
 
           if (cx1 > cx0) { // right
