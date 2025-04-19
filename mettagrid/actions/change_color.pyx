@@ -9,7 +9,7 @@ from mettagrid.objects.agent cimport Agent
 
 cdef class ChangeColorAction(MettaActionHandler):
     def __init__(self, cfg: OmegaConf):
-        MettaActionHandler.__init__(self, cfg, "change_color")
+        MettaActionHandler.__init__(self, "change_color")
 
     cdef unsigned char max_arg(self):
         return 3

@@ -5,22 +5,13 @@ from omegaconf import OmegaConf
 from mettagrid.action_handler cimport ActionHandler, ActionArg
 from mettagrid.grid_object cimport GridObjectId
 from mettagrid.objects.agent cimport Agent
-from mettagrid.objects.constants cimport ObjectTypeNames
 
 cdef extern from "<string>" namespace "std":
     string to_string(int val)
 
 cdef class MettaActionHandler(ActionHandler):
-    def __init__(self, cfg: OmegaConf, action_name: str):
+    def __init__(self, action_name: str):
         ActionHandler.__init__(self, action_name)
-
-        self._stats.success = "action." + action_name
-        self._stats.failure = "action." + action_name + ".failed"
-        self._stats.first_use = "action." + action_name + ".first_use"
-
-        for t, n in enumerate(ObjectTypeNames):
-            self._stats.target[t] = self._stats.success + "." + n
-            self._stats.target_first_use[t] = self._stats.first_use + "." + n
 
     cdef bint handle_action(
         self,

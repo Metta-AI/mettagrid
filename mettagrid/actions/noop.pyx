@@ -9,7 +9,7 @@ from mettagrid.objects.agent cimport Agent
 
 cdef class Noop(MettaActionHandler):
     def __init__(self, cfg: OmegaConf):
-        MettaActionHandler.__init__(self, cfg, "noop")
+        MettaActionHandler.__init__(self, "noop")
 
     cdef unsigned char max_arg(self):
         return 0

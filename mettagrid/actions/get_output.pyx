@@ -12,7 +12,7 @@ from mettagrid.actions.metta_action_handler cimport MettaActionHandler
 
 cdef class GetOutput(MettaActionHandler):
     def __init__(self, cfg: OmegaConf):
-        MettaActionHandler.__init__(self, cfg, "get_output")
+        MettaActionHandler.__init__(self, "get_output")
 
     cdef unsigned char max_arg(self):
         return 0

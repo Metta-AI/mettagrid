@@ -14,7 +14,7 @@ from mettagrid.objects.constants cimport GridLayer
 
 cdef class Swap(MettaActionHandler):
     def __init__(self, cfg: OmegaConf):
-        MettaActionHandler.__init__(self, cfg, "swap")
+        MettaActionHandler.__init__(self, "swap")
 
     cdef unsigned char max_arg(self):
         return 0

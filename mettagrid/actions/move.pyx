@@ -15,7 +15,7 @@ from mettagrid.objects.agent cimport Agent
 
 cdef class Move(MettaActionHandler):
     def __init__(self, cfg: OmegaConf):
-        MettaActionHandler.__init__(self, cfg, "move")
+        MettaActionHandler.__init__(self, "move")
 
     cdef unsigned char max_arg(self):
         return 1

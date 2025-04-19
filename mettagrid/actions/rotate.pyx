@@ -9,7 +9,7 @@ from mettagrid.objects.agent cimport Agent
 
 cdef class Rotate(MettaActionHandler):
     def __init__(self, cfg: OmegaConf):
-        MettaActionHandler.__init__(self, cfg, "rotate")
+        MettaActionHandler.__init__(self, "rotate")
 
     cdef unsigned char max_arg(self):
         return 3
