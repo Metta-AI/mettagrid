@@ -52,6 +52,32 @@ cdef class ActionHandler:
         unsigned int actor_id,
         Agent * actor,
         ActionArg arg):
+
+        cdef Agent *actor = <Agent*>self.env._grid.object(actor_object_id)
+
+        if actor.frozen > 0:
+            actor.stats.incr(b"status.frozen.ticks")
+            actor.stats.incr(b"status.frozen.ticks", actor.group_name)
+            actor.frozen -= 1
+            return False
+
+        cdef bint result = self._handle_action(actor_id, actor, arg)
+
+        if result:
+            actor.stats.incr(self._stats.success)
+        else:
+            actor.stats.incr(self._stats.failure)
+            actor.stats.incr(b"action.failure_penalty")
+            actor.reward[0] -= actor.action_failure_penalty
+            actor.stats.set_once(self._stats.first_use, self.env._current_timestep)
+
+        return result
+    
+    cdef bint _handle_action(
+        self,
+        unsigned int actor_id,
+        Agent * actor,
+        ActionArg arg):
         return False
 
     cdef unsigned char max_arg(self):
