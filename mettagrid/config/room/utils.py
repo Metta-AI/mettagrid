@@ -3,7 +3,9 @@
 from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
-
+import math
+import random
+from queue import Queue
 
 def create_grid(height: int, width: int, fill_value: str = "empty", dtype: str = "<U50") -> np.ndarray:
     """
@@ -124,3 +126,51 @@ def set_position(x, upper_bound):
     if x >= upper_bound:
         return upper_bound - 1 if x % 2 == 0 else upper_bound - 2
     return x
+
+def furthest(x: int, y: int, grid: np.ndarray, forbidden_tile: str = "wall") -> tuple:
+    '''
+    Finds the furthest point in a grid from initial point (x,y), returns (-1,-1) if initial point is forbidden to traverse
+    '''
+    if grid[x,y] == forbidden_tile: return (-1,-1)
+
+    open_tiles = Queue()
+    open_tiles.put((x, y))
+    explored = set()
+    directions = [(-1,0),(1,0),(0,-1),(0,1)]
+
+    def outside(x: int,y: int, grid: np.ndarray) -> bool:
+        if x<0 or y<0 or x>=grid.shape[0] or y>=grid.shape[1]: return True
+        return False
+    
+    furthest_point = (-1, -1)
+    while not open_tiles.empty():
+        current = open_tiles.get()
+        if current in explored:
+            continue
+        explored.add(current)
+        furthest_point = current
+
+        for dx, dy in directions:
+            nx, ny = current[0] + dx, current[1] + dy
+            if outside(nx, ny, grid) or (nx, ny) in explored:
+                continue
+            if grid[nx, ny] != forbidden_tile:
+                open_tiles.put((nx, ny))
+                
+
+    return furthest_point
+
+def vacant_neighbors(points: List[Tuple[int,int]], grid: np.ndarray) -> Set[Tuple[int, int]]:
+    """
+    Returns a list of neighboring coordinates (up, down, left, right) for the given (x, y) position in the grid.
+    """
+    neighbors = set()
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    for x, y in points:
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < grid.shape[0] and 0 <= ny < grid.shape[1]:
+                if grid[nx, ny] == "empty":
+                    neighbors.add((nx, ny))
+    return neighbors
+    

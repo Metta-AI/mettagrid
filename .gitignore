@@ -17,3 +17,5 @@ player/dist
 player/node_modules
 /multirun
 .coverage
+poetry.lock
+/giffactory

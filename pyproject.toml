@@ -34,6 +34,7 @@ include = [
 python = ">=3.10,<4.0"
 numpy = "^1.21.0"
 cython = "^3.0.11"
+opensimplex = "^0.4.5.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"
