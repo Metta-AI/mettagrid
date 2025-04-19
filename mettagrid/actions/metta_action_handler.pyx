@@ -1,4 +1,3 @@
-from libc.stdio cimport printf
 from libcpp.string cimport string
 
 from omegaconf import OmegaConf
