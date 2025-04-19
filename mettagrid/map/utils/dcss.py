@@ -1,8 +1,17 @@
+import logging
 import urllib.request
+from pathlib import Path
 
 from omegaconf import OmegaConf
 
+from mettagrid.map.utils.make_scene_config import (
+    make_convchain_config_from_pattern,
+    make_wfc_config_from_pattern,
+)
+
 # This script extracts maps from Dungeon Crawl Stone Soup into individual yaml scene files.
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_simple():
@@ -67,17 +76,25 @@ def get_maps():
 
 def generate_scenes_from_dcss_maps():
     maps = get_maps()
+    dir = Path("configs/scenes/dcss")
     for map_entry in maps:
-        config = OmegaConf.create(
-            {
-                "_target_": "mettagrid.map.scenes.convchain.ConvChain",
-                "pattern_size": 3,
-                "iterations": 10,
-                "temperature": 1,
-                "pattern": "\n".join([f"|{line}|" for line in map_entry["map"].split("\n")]),
-            }
-        )
-        OmegaConf.save(config, f"configs/scenes/dcss/convchain-{map_entry['name']}.yaml")
+        name = map_entry["name"]
+        pattern = map_entry["map"]
+        logger.info(f"Processing map: {map_entry['name']}")
+
+        convchain_config = make_convchain_config_from_pattern(pattern)
+        convchain_dir = dir / "convchain"
+        convchain_dir.mkdir(parents=True, exist_ok=True)
+        OmegaConf.save(convchain_config, convchain_dir / f"{name}.yaml")
+
+        wfc_config = make_wfc_config_from_pattern(pattern)
+        if wfc_config is None:
+            logger.warning(f"Invalid pattern for WFC: {name}")
+            continue
+
+        wfc_dir = dir / "wfc"
+        wfc_dir.mkdir(parents=True, exist_ok=True)
+        OmegaConf.save(wfc_config, wfc_dir / f"{name}.yaml")
 
 
 if __name__ == "__main__":
