@@ -62,6 +62,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self.initialize_episode()
         super().__init__(buf)
 
+        # cache for use in step()
+        self._normalize_rewards = get_or_0(lambda: self.active_cfg.normalize_rewards)
+
     def _insert_progress_into_cfg(self, cfg: Union[DictConfig, ListConfig]) -> Union[DictConfig, ListConfig]:
         """
         Insert values from last_episode_info into the configuration used to resolve the environment.
@@ -230,18 +233,26 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Returns:
             Tuple of (observations, rewards, terminals, truncations, infos)
         """
-        # Validate actions
-        if not isinstance(actions, (list, np.ndarray)):
-            raise TypeError(f"Actions must be a list or numpy array, got {type(actions)}")
-
+        # Quick length check without type conversion
         if len(actions) != self._num_agents:
             raise ValueError(f"Expected {self._num_agents} actions, got {len(actions)}")
 
+        # Only convert type if necessary
+        if not isinstance(actions, np.ndarray) or actions.dtype != np.uint32:
+            # Pre-allocate if not already the right type
+            if isinstance(actions, list):
+                np.copyto(self.actions, np.array(actions, dtype=np.uint32))
+            else:
+                np.copyto(self.actions, actions.astype(np.uint32))
+        else:
+            # Fast path - direct copy without conversion
+            np.copyto(self.actions, actions)
+
         # Execute step in environment
-        self.actions[:] = np.array(actions).astype(np.uint32)
         self._c_env.step(self.actions)
 
-        if get_or_0(lambda: self.active_cfg.normalize_rewards):
+        # Normalize rewards if needed (cache the configuration check)
+        if self._normalize_rewards:
             self.rewards -= self.rewards.mean()
 
         # if this step completes the episode, compute the stats
