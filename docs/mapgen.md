@@ -36,7 +36,7 @@ python -m tools.index_s3_maps index_s3_maps.dir=... index_s3_maps.target=...
 
 By now, all your maps are stored in S3. You can load a random map by using `mettagrid.map.load_random.LoadRandom` as a map builder.
 
-Check out `configs/game/map_builder/load_random.yaml` for an example config.
+Check out `configs/game/map_builder/load_random.yaml` for an example config and for how to tune the number of agents in the map.
 
 Preview a random map:
 
