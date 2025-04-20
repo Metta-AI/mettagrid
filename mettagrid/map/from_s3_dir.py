@@ -14,6 +14,9 @@ class FromS3Dir(FromUri):
 
     The directory must contain a file `index.txt` that lists all the maps in the
     directory. (Listing S3 objects would be too slow because of pagination.)
+
+    The index file can be produced with the following command:
+        python -m tools.index_s3_maps index_s3_maps.dir=s3://...
     """
 
     def __init__(self, s3_dir: str, extra_root: SceneCfg | None = None):
