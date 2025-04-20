@@ -144,8 +144,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self.start_time = time.perf_counter()
         self.episode_finished = False
 
-        # cache for use in step()
+        # optimizations for use in step()
         self._normalize_rewards = get_or_0(lambda: self.active_cfg.normalize_rewards)
+        self._actions = np.zeros((self.num_agents, 2), dtype=np.int32)
 
     def finalize_episode(self):
         """
@@ -243,8 +244,8 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
             Tuple of (observations, rewards, terminals, truncations, infos)
         """
 
-        actions_int32 = np.array(actions, dtype=np.int32)
-        self._c_env.step(actions_int32)
+        np.copyto(self._actions, actions, casting="unsafe")
+        self._c_env.step(self._actions)
 
         # Normalize rewards if needed (cache the configuration check)
         if self._normalize_rewards:
