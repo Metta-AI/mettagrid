@@ -5,7 +5,6 @@ This module provides environment classes for Metta Grid simulations.
 
 import copy
 import time
-import uuid
 from typing import Any, Dict, List, Optional, Union
 
 import gymnasium as gym
@@ -52,7 +51,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
             **kwargs: Additional arguments passed to parent classes
         """
 
-        self.instance_id = str(uuid.uuid4())
         self.last_episode_info: Dict[str, Any] = {}
         self.start_time = None
 
@@ -147,6 +145,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # optimizations for use in step()
         self._normalize_rewards = get_or_0(lambda: self.active_cfg.normalize_rewards)
         self._actions = np.zeros((self.num_agents, 2), dtype=np.int32)
+        self._min_report_steps_interval: int = get_or_0(lambda: self.active_cfg.min_steps_per_info)
 
     def finalize_episode(self):
         """
@@ -260,6 +259,16 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         if self.terminals.all() or self.truncations.all():
             self.finalize_episode()
             send_last_episode_info = True
+
+        self.steps_since_episode_report: int = getattr(self, "steps_since_episode_report", 0) + 1
+
+        # check against OmegaConf config param env.min_steps_per_info
+        if self.steps_since_episode_report < self._min_report_steps_interval:
+            send_last_episode_info = False
+
+        # Only reset if we're actually sending info
+        if send_last_episode_info:
+            self.steps_since_episode_report = 0
 
         # passing arguments here significantly slows down performance so throttle reporting
         return (
