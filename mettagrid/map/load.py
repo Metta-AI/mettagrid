@@ -1,5 +1,3 @@
-# Root map generator, based on nodes.
-
 from mettagrid.config.room.room import Room
 from mettagrid.map.utils.serialization import StorableMap
 
@@ -7,7 +5,7 @@ from .scene import SceneCfg, make_scene
 
 
 # Note that this class can't be a scene, because the width and height come from the stored data.
-class FromUri(Room):
+class Load(Room):
     """
     Load a pregenerated map from a URI (file or S3 object).
 

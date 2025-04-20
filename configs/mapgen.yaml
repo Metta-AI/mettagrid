@@ -1,6 +1,7 @@
 defaults:
   - mettagrid
   - mapgen: show
+  - s3: softmax
   - game/map_builder: ???
   - _self_
 

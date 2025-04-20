@@ -1,6 +1,6 @@
-_target_: mettagrid.map.from_s3_dir.FromS3Dir
+_target_: mettagrid.map.load_random.LoadRandom
 
-s3_dir: ???
+index_uri: ???
 
 # Optional scene to render on top of the loaded map.
 # The following example shows how to patch the map if its agent count doesn't match `game.num_agents`.

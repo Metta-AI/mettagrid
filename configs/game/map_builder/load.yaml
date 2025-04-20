@@ -1,4 +1,4 @@
-_target_: mettagrid.map.from_uri.FromUri
+_target_: mettagrid.map.load.Load
 
 uri: ???
 

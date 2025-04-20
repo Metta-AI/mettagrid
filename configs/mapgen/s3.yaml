@@ -4,4 +4,4 @@ show: none
 s3_dir: ???
 
 target:
-  dir: s3://softmax-public/maps/${..s3_dir}
+  dir: ${...s3.maps_root}/${..s3_dir}

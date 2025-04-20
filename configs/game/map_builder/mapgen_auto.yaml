@@ -11,7 +11,7 @@ root:
 
   config:
     # How many agents to generate? These are placed randomly over the map.
-    num_agents: 10
+    num_agents: 0
 
     # These will be placed anywhere, randomly distributed over the entire map.
     # Values are absolute counts. (TODO: make them percentages?)
