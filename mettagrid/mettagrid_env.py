@@ -158,7 +158,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         rewards_sum = rewards.sum()
         rewards_mean = rewards_sum / self._num_agents
 
-        calculate the average performance for all agent stats (counters)
+        # calculate the average performance for all agent stats (counters)
         agent_stats = {}
         for agent_entry in stats["agent"]:
             for name, count in agent_entry.items():
