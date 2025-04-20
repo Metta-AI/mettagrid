@@ -256,7 +256,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
             self.rewards -= self.rewards.mean()
 
         # send info only occasionally
-        send_last_episode_info = self._step % 1000 == 0
+        send_last_episode_info = (self._step & 0x7F) == 0  # i.e. mod 128
 
         # if this step completes the episode, compute the stats
         if self.terminals.all() or self.truncations.all():
