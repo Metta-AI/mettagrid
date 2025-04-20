@@ -155,26 +155,26 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         rewards = self._c_env.get_episode_rewards()
         stats = self._c_env.get_episode_stats()
-        # rewards_sum = rewards.sum()
-        # rewards_mean = rewards_sum / self._num_agents
+        rewards_sum = rewards.sum()
+        rewards_mean = rewards_sum / self._num_agents
 
-        # calculate the average performance for all agent stats (counters)
-        # agent_stats = {}
-        # for agent_entry in stats["agent"]:
-        #     for name, count in agent_entry.items():
-        #         agent_stats[name] = agent_stats.get(name, 0) + count
-        # for name, cumulative_count in agent_stats.items():
-        #     agent_stats[name] = cumulative_count / self._num_agents
+        calculate the average performance for all agent stats (counters)
+        agent_stats = {}
+        for agent_entry in stats["agent"]:
+            for name, count in agent_entry.items():
+                agent_stats[name] = agent_stats.get(name, 0) + count
+        for name, cumulative_count in agent_stats.items():
+            agent_stats[name] = cumulative_count / self._num_agents
 
-        # # Get current timestamp and calculate duration
-        # current_time = time.perf_counter()
-        # episode_duration = current_time - self.start_time if self.start_time is not None else 0.0
+        # Get current timestamp and calculate duration
+        current_time = time.perf_counter()
+        episode_duration = current_time - self.start_time if self.start_time is not None else 0.0
 
-        # # Increment episode count
-        # next_episode_count = self.last_episode_info.get("episode/count", 0) + 1
+        # Increment episode count
+        next_episode_count = self.last_episode_info.get("episode/count", 0) + 1
 
-        # # N.B. most of these are just for plots, but we are also using this as our memory space
-        # # for progress tracking. Please do not remove fields that are marked for this purpose!
+        # N.B. most of these are just for plots, but we are also using this as our memory space
+        # for progress tracking. Please do not remove fields that are marked for this purpose!
         # self.last_episode_info.update(
         #     {
         #         "episode/reward.sum": rewards_sum,
@@ -239,6 +239,8 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         Args:
             actions: Array of actions for each agent
+
+            Actions have an action id and arg. So "move left" could be 1,1 while "move right" could be 1,2
 
         Returns:
             Tuple of (observations, rewards, terminals, truncations, infos)
