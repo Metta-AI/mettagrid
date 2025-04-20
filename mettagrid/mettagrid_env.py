@@ -175,30 +175,30 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         # N.B. most of these are just for plots, but we are also using this as our memory space
         # for progress tracking. Please do not remove fields that are marked for this purpose!
-        # self.last_episode_info.update(
-        #     {
-        #         "episode/reward.sum": rewards_sum,
-        #         "episode/reward.mean": rewards_mean,  # [progress tracking]
-        #         "episode/reward.min": rewards.min(),
-        #         "episode/reward.max": rewards.max(),
-        #         "episode/totals_steps": self._c_env.current_timestep(),
-        #         "episode/duration_sec": episode_duration,
-        #         "episode/timestamp": current_time,
-        #         "episode/count": next_episode_count,  # [progress tracking]
-        #         "game": stats["game"],
-        #         "game/difficulty": get_or_0(lambda: self.active_cfg.game.difficulty),  # [progress tracking]
-        #         "game/max_steps": get_or_0(lambda: self.active_cfg.game.max_steps),
-        #         "game/min_size": get_or_0(lambda: self.active_cfg.game.min_size),
-        #         "game/max_size": get_or_0(lambda: self.active_cfg.game.max_size),
-        #         "game/width": get_or_0(lambda: self.active_cfg.game.map_builder["width"]),
-        #         "game/height": get_or_0(lambda: self.active_cfg.game.map_builder["height"]),
-        #         "progress/episode_count": get_or_0(lambda: self.active_cfg.progress.episode_count),
-        #         "progress/mean_reward": get_or_0(lambda: self.active_cfg.progress.mean_reward),  # [progress tracking]
-        #         "progress/last_mean_reward": get_or_0(lambda: self.active_cfg.progress.last_mean_reward),
-        #         "progress/last_difficulty": get_or_0(lambda: self.active_cfg.progress.last_difficulty),
-        #         "agent": agent_stats,
-        #     }
-        # )
+        self.last_episode_info.update(
+            {
+                "episode/reward.sum": rewards_sum,
+                "episode/reward.mean": rewards_mean,  # [progress tracking]
+                "episode/reward.min": rewards.min(),
+                "episode/reward.max": rewards.max(),
+                "episode/totals_steps": self._c_env.current_timestep(),
+                "episode/duration_sec": episode_duration,
+                "episode/timestamp": current_time,
+                "episode/count": next_episode_count,  # [progress tracking]
+                "game": stats["game"],
+                "game/difficulty": get_or_0(lambda: self.active_cfg.game.difficulty),  # [progress tracking]
+                "game/max_steps": get_or_0(lambda: self.active_cfg.game.max_steps),
+                "game/min_size": get_or_0(lambda: self.active_cfg.game.min_size),
+                "game/max_size": get_or_0(lambda: self.active_cfg.game.max_size),
+                "game/width": get_or_0(lambda: self.active_cfg.game.map_builder["width"]),
+                "game/height": get_or_0(lambda: self.active_cfg.game.map_builder["height"]),
+                "progress/episode_count": get_or_0(lambda: self.active_cfg.progress.episode_count),
+                "progress/mean_reward": get_or_0(lambda: self.active_cfg.progress.mean_reward),  # [progress tracking]
+                "progress/last_mean_reward": get_or_0(lambda: self.active_cfg.progress.last_mean_reward),
+                "progress/last_difficulty": get_or_0(lambda: self.active_cfg.progress.last_difficulty),
+                "agent": agent_stats,
+            }
+        )
 
         # we back the property self.done with this value because
         # it is accessed thousands of times per step!
@@ -256,8 +256,10 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # if this step completes the episode, compute the stats
         if self.terminals.all() or self.truncations.all():
             self.finalize_episode()
+            return self.observations, self.rewards, self.terminals, self.truncations, self.last_episode_info
 
-        return self.observations, self.rewards, self.terminals, self.truncations, self.last_episode_info
+        # passing arguments here significantly slows down performance so throttle reporting
+        return self.observations, self.rewards, self.terminals, self.truncations, {}
 
     @property
     def _max_steps(self):
