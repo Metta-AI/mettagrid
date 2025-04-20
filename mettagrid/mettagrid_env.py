@@ -263,7 +263,7 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self.steps_since_episode_report: int = getattr(self, "steps_since_episode_report", 0) + 1
 
         # check against OmegaConf config param env.min_steps_per_info
-        if self.steps_since_episode_report < self._min_report_steps_interval:
+        if send_last_episode_info and self.steps_since_episode_report < self._min_report_steps_interval:
             send_last_episode_info = False
 
         # Only reset if we're actually sending info
