@@ -23,12 +23,12 @@ cdef class GetOutput(MettaActionHandler):
         Agent * actor,
         ActionArg arg):
 
-        cdef GridLocation target_loc = self.env._grid.relative_location(
+        cdef GridLocation target_loc = self._grid.relative_location(
             actor.location,
             <Orientation>actor.orientation
         )
         target_loc.layer = GridLayer.Object_Layer
-        cdef MettaObject *target = <MettaObject*>self.env._grid.object_at(target_loc)
+        cdef MettaObject *target = <MettaObject*>self._grid.object_at(target_loc)
         if target == NULL or not target.has_inventory():
             return False
 
@@ -50,7 +50,7 @@ cdef class GetOutput(MettaActionHandler):
             # The actor will destroy anything it can't hold. That's not intentional, so feel free
             # to fix it.
             actor.stats.add(InventoryItemNames[i], b"get", converter.inventory[i])
-            actor.update_inventory(<InventoryItem>i, converter.inventory[i], &self.env._rewards[actor_id])
-            converter.update_inventory(<InventoryItem>i, -converter.inventory[i], NULL)
+            actor.update_inventory(<InventoryItem>i, converter.inventory[i])
+            converter.update_inventory(<InventoryItem>i, -converter.inventory[i])
 
         return True
