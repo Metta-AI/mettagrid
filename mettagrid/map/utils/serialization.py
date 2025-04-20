@@ -3,9 +3,11 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 
+import numpy as np
 from omegaconf import OmegaConf
 
 from mettagrid.mettagrid_env import MettaGridEnv
+from mettagrid.objects.constants import get_object_type_ascii, get_object_type_names
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,11 @@ def env_to_ascii(env: MettaGridEnv, border: bool = False) -> list[str]:
 
 
 @dataclass
-class AsciiMap:
+class StorableMap:
+    """
+    Serialized map that can be saved to a file or S3.
+    """
+
     metadata: dict
     lines: list[str]
     config: dict  # config that was used to generate the map; can contain unresolved OmegaConf resolvers
@@ -44,8 +50,14 @@ class AsciiMap:
         content = frontmatter + "\n---\n" + "\n".join(self.lines) + "\n"
         return content
 
+    def width(self) -> int:
+        return len(self.lines[0])
+
+    def height(self) -> int:
+        return len(self.lines)
+
     @staticmethod
-    def from_env(env: MettaGridEnv, gen_time: float) -> "AsciiMap":
+    def from_env(env: MettaGridEnv, gen_time: float) -> "StorableMap":
         ascii_lines = env_to_ascii(env)
 
         resolved_config = env._env_cfg.game.map_builder
@@ -55,25 +67,44 @@ class AsciiMap:
             "gen_time": gen_time,
             "timestamp": datetime.now().isoformat(),
         }
-        return AsciiMap(metadata, ascii_lines, config, resolved_config)
+        return StorableMap(metadata, ascii_lines, config, resolved_config)
 
     @staticmethod
-    def from_uri(uri: str) -> "AsciiMap":
+    def from_uri(uri: str) -> "StorableMap":
+        logger.info(f"Loading map from {uri}")
         content = load_from_uri(uri)
 
         # TODO - validate content in a more principled way
         (frontmatter, content) = content.split("---\n", 1)
 
-        frontmatter = OmegaConf.load(frontmatter)
+        frontmatter = OmegaConf.create(frontmatter)
         metadata = frontmatter.metadata
         config = frontmatter.config
         resolved_config = frontmatter.resolved_config
         lines = content.split("\n")
 
-        return AsciiMap(metadata, lines, config, resolved_config)
+        return StorableMap(metadata, lines, config, resolved_config)
 
     def save(self, uri: str):
         save_to_uri(str(self), uri)
+        logger.info(f"Saved map to {uri}")
+
+    def to_grid(self) -> np.ndarray:
+        grid = np.full((self.height(), self.width()), "empty", dtype="<U50")
+        ascii_to_name = {
+            ascii: name for ascii, name in zip(get_object_type_ascii(), get_object_type_names(), strict=True)
+        }
+        ascii_to_name[" "] = "empty"
+
+        # can be optimized with numpy
+        for i, line in enumerate(self.lines):
+            for j, char in enumerate(line):
+                if char in ascii_to_name:
+                    grid[i, j] = ascii_to_name[char]
+                else:
+                    raise ValueError(f"Unknown character: {char}")
+
+        return grid
 
 
 # The following functions are pretty generic, they can save or load any text to local filesystem or S3.
