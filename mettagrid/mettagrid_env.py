@@ -147,7 +147,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # optimizations for use in step()
         self._normalize_rewards = get_or_0(lambda: self.active_cfg.normalize_rewards)
         self._actions = np.zeros((self.num_agents, 2), dtype=np.int32)
-        self._step = 0
 
     def finalize_episode(self):
         """
@@ -246,7 +245,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Returns:
             Tuple of (observations, rewards, terminals, truncations, infos)
         """
-        self._step += 1
 
         np.copyto(self._actions, actions, casting="unsafe")
         self._c_env.step(self._actions)
@@ -255,8 +253,8 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         if self._normalize_rewards:
             self.rewards -= self.rewards.mean()
 
-        # send info only occasionally
-        send_last_episode_info = (self._step & 0x7F) == 0  # i.e. mod 128
+        # send info only at the end of each episode
+        send_last_episode_info = False
 
         # if this step completes the episode, compute the stats
         if self.terminals.all() or self.truncations.all():
