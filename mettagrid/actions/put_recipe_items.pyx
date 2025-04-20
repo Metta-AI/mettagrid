@@ -7,13 +7,13 @@ from mettagrid.objects.agent cimport Agent
 from mettagrid.objects.metta_object cimport MettaObject
 from mettagrid.objects.constants cimport Events, GridLayer, InventoryItem, InventoryItemNames
 from mettagrid.objects.converter cimport Converter
-from mettagrid.actions.metta_action_handler cimport MettaActionHandler
+from mettagrid.action_handler cimport ActionHandler
 
 
 # Puts one recipe worth of resources into a Converter. Noop if not enough resources.
-cdef class PutRecipeItems(MettaActionHandler):
+cdef class PutRecipeItems(ActionHandler):
     def __init__(self, cfg: OmegaConf):
-        MettaActionHandler.__init__(self, cfg, "put_recipe_items")
+        ActionHandler.__init__(self, "put_recipe_items")
 
     cdef unsigned char max_arg(self):
         return 0
@@ -24,12 +24,12 @@ cdef class PutRecipeItems(MettaActionHandler):
         Agent * actor,
         ActionArg arg):
 
-        cdef GridLocation target_loc = self.env._grid.relative_location(
+        cdef GridLocation target_loc = self._grid.relative_location(
             actor.location,
             <Orientation>actor.orientation
         )
         target_loc.layer = GridLayer.Object_Layer
-        cdef MettaObject *target = <MettaObject*>self.env._grid.object_at(target_loc)
+        cdef MettaObject *target = <MettaObject*>self._grid.object_at(target_loc)
         if target == NULL or not target.has_inventory():
             return False
 
@@ -41,8 +41,8 @@ cdef class PutRecipeItems(MettaActionHandler):
                 return False
 
         for i in range(converter.recipe_input.size()):
-            actor.update_inventory(<InventoryItem>i, -converter.recipe_input[i], &self.env._rewards[actor_id])
-            converter.update_inventory(<InventoryItem>i, converter.recipe_input[i], NULL)
+            actor.update_inventory(<InventoryItem>i, -converter.recipe_input[i])
+            converter.update_inventory(<InventoryItem>i, converter.recipe_input[i])
             actor.stats.add(InventoryItemNames[i], b"put", converter.recipe_input[i]);
 
         return True
