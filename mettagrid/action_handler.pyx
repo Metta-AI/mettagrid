@@ -7,6 +7,14 @@ cdef class ActionHandler:
         self._action_name = action_name
         self._priority = 0
 
+        self._stats.success = "action." + action_name
+        self._stats.failure = "action." + action_name + ".failed"
+        self._stats.first_use = "action." + action_name + ".first_use"
+
+        for t, n in enumerate(ObjectTypeNames):
+            self._stats.target[t] = self._stats.success + "." + n
+            self._stats.target_first_use[t] = self._stats.first_use + "." + n
+
     cdef void init(self, Grid *grid):
         self._grid = grid
 
