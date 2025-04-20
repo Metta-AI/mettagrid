@@ -155,50 +155,50 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         rewards = self._c_env.get_episode_rewards()
         stats = self._c_env.get_episode_stats()
-        rewards_sum = rewards.sum()
-        rewards_mean = rewards_sum / self._num_agents
+        # rewards_sum = rewards.sum()
+        # rewards_mean = rewards_sum / self._num_agents
 
         # calculate the average performance for all agent stats (counters)
-        agent_stats = {}
-        for agent_entry in stats["agent"]:
-            for name, count in agent_entry.items():
-                agent_stats[name] = agent_stats.get(name, 0) + count
-        for name, cumulative_count in agent_stats.items():
-            agent_stats[name] = cumulative_count / self._num_agents
+        # agent_stats = {}
+        # for agent_entry in stats["agent"]:
+        #     for name, count in agent_entry.items():
+        #         agent_stats[name] = agent_stats.get(name, 0) + count
+        # for name, cumulative_count in agent_stats.items():
+        #     agent_stats[name] = cumulative_count / self._num_agents
 
-        # Get current timestamp and calculate duration
-        current_time = time.perf_counter()
-        episode_duration = current_time - self.start_time if self.start_time is not None else 0.0
+        # # Get current timestamp and calculate duration
+        # current_time = time.perf_counter()
+        # episode_duration = current_time - self.start_time if self.start_time is not None else 0.0
 
-        # Increment episode count
-        next_episode_count = self.last_episode_info.get("episode/count", 0) + 1
+        # # Increment episode count
+        # next_episode_count = self.last_episode_info.get("episode/count", 0) + 1
 
-        # N.B. most of these are just for plots, but we are also using this as our memory space
-        # for progress tracking. Please do not remove fields that are marked for this purpose!
-        self.last_episode_info.update(
-            {
-                "episode/reward.sum": rewards_sum,
-                "episode/reward.mean": rewards_mean,  # [progress tracking]
-                "episode/reward.min": rewards.min(),
-                "episode/reward.max": rewards.max(),
-                "episode/totals_steps": self._c_env.current_timestep(),
-                "episode/duration_sec": episode_duration,
-                "episode/timestamp": current_time,
-                "episode/count": next_episode_count,  # [progress tracking]
-                "game": stats["game"],
-                "game/difficulty": get_or_0(lambda: self.active_cfg.game.difficulty),  # [progress tracking]
-                "game/max_steps": get_or_0(lambda: self.active_cfg.game.max_steps),
-                "game/min_size": get_or_0(lambda: self.active_cfg.game.min_size),
-                "game/max_size": get_or_0(lambda: self.active_cfg.game.max_size),
-                "game/width": get_or_0(lambda: self.active_cfg.game.map_builder["width"]),
-                "game/height": get_or_0(lambda: self.active_cfg.game.map_builder["height"]),
-                "progress/episode_count": get_or_0(lambda: self.active_cfg.progress.episode_count),
-                "progress/mean_reward": get_or_0(lambda: self.active_cfg.progress.mean_reward),  # [progress tracking]
-                "progress/last_mean_reward": get_or_0(lambda: self.active_cfg.progress.last_mean_reward),
-                "progress/last_difficulty": get_or_0(lambda: self.active_cfg.progress.last_difficulty),
-                "agent": agent_stats,
-            }
-        )
+        # # N.B. most of these are just for plots, but we are also using this as our memory space
+        # # for progress tracking. Please do not remove fields that are marked for this purpose!
+        # self.last_episode_info.update(
+        #     {
+        #         "episode/reward.sum": rewards_sum,
+        #         "episode/reward.mean": rewards_mean,  # [progress tracking]
+        #         "episode/reward.min": rewards.min(),
+        #         "episode/reward.max": rewards.max(),
+        #         "episode/totals_steps": self._c_env.current_timestep(),
+        #         "episode/duration_sec": episode_duration,
+        #         "episode/timestamp": current_time,
+        #         "episode/count": next_episode_count,  # [progress tracking]
+        #         "game": stats["game"],
+        #         "game/difficulty": get_or_0(lambda: self.active_cfg.game.difficulty),  # [progress tracking]
+        #         "game/max_steps": get_or_0(lambda: self.active_cfg.game.max_steps),
+        #         "game/min_size": get_or_0(lambda: self.active_cfg.game.min_size),
+        #         "game/max_size": get_or_0(lambda: self.active_cfg.game.max_size),
+        #         "game/width": get_or_0(lambda: self.active_cfg.game.map_builder["width"]),
+        #         "game/height": get_or_0(lambda: self.active_cfg.game.map_builder["height"]),
+        #         "progress/episode_count": get_or_0(lambda: self.active_cfg.progress.episode_count),
+        #         "progress/mean_reward": get_or_0(lambda: self.active_cfg.progress.mean_reward),  # [progress tracking]
+        #         "progress/last_mean_reward": get_or_0(lambda: self.active_cfg.progress.last_mean_reward),
+        #         "progress/last_difficulty": get_or_0(lambda: self.active_cfg.progress.last_difficulty),
+        #         "agent": agent_stats,
+        #     }
+        # )
 
         # we back the property self.done with this value because
         # it is accessed thousands of times per step!
