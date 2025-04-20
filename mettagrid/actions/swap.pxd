@@ -1,5 +1,5 @@
-from mettagrid.action_handler cimport ActionHandler
+from mettagrid.actions.metta_action_handler cimport MettaActionHandler
 
 
-cdef class Swap(ActionHandler):
+cdef class Swap(MettaActionHandler):
     pass
