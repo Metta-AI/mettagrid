@@ -198,6 +198,10 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
             }
         )
 
+        # we back the property self.done with this value because
+        # it is accessed thousands of times per step!
+        self.episode_finished = True
+
     def reset(self, seed=None, options=None):
         """
         Reset the environment for a new episode.
@@ -259,10 +263,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         # if this step completes the episode, compute the stats
         if self.terminals.all() or self.truncations.all():
-            # we back the property self.done with this value because
-            # it is accessed thousands of times per step!
-            self.episode_finished = True
-
             self.finalize_episode()
 
         return self.observations, self.rewards, self.terminals, self.truncations, self.last_episode_info
