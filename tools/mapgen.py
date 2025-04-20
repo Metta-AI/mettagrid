@@ -8,7 +8,7 @@ from typing import Literal
 
 import hydra
 
-from mettagrid.map.utils.serialization import AsciiMap, env_to_ascii
+from mettagrid.map.utils.serialization import StorableMap, env_to_ascii
 from mettagrid.mettagrid_env import MettaGridEnv
 
 signal.signal(signal.SIGINT, lambda sig, frame: os._exit(0))
@@ -58,7 +58,7 @@ def main(cfg):
             target_name = f"map_{random_suffix}.yaml"
 
         target_uri = os.path.join(cfg.mapgen.target.dir, target_name)
-        ascii_map = AsciiMap.from_env(env, gen_time=gen_time)
+        ascii_map = StorableMap.from_env(env, gen_time=gen_time)
         ascii_map.save(target_uri)
 
     # Show the map if requested
