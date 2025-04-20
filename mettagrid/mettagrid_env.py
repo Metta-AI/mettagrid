@@ -142,7 +142,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         self._num_agents = self._c_env.num_agents()
         self._env = self._grid_env
 
+        # reset episode tracking
         self.start_time = time.perf_counter()
+        self.episode_finished = False
 
     def finalize_episode(self):
         """
@@ -256,7 +258,11 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
             self.rewards -= self.rewards.mean()
 
         # if this step completes the episode, compute the stats
-        if self.done:
+        if self.terminals.all() or self.truncations.all():
+            # we back the property self.done with this value because
+            # it is accessed thousands of times per step!
+            self.episode_finished = True
+
             self.finalize_episode()
 
         return self.observations, self.rewards, self.terminals, self.truncations, self.last_episode_info
@@ -292,7 +298,8 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
     @property
     def done(self):
-        return self.terminals.all() or self.truncations.all()
+        # cache this property value because it is accessed many times per step
+        return self.episode_finished
 
     @property
     def grid_features(self):
