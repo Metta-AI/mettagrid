@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Union
 import gymnasium as gym
 import hydra
 import numpy as np
+import numpy.typing as npt
 import pufferlib
 from omegaconf import DictConfig, ListConfig, OmegaConf
 
@@ -61,9 +62,6 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         self.initialize_episode()
         super().__init__(buf)
-
-        # cache for use in step()
-        self._normalize_rewards = get_or_0(lambda: self.active_cfg.normalize_rewards)
 
     def _insert_progress_into_cfg(self, cfg: Union[DictConfig, ListConfig]) -> Union[DictConfig, ListConfig]:
         """
@@ -145,6 +143,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         # reset episode tracking
         self.start_time = time.perf_counter()
         self.episode_finished = False
+
+        # cache for use in step()
+        self._normalize_rewards = get_or_0(lambda: self.active_cfg.normalize_rewards)
 
     def finalize_episode(self):
         """
@@ -229,9 +230,11 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
 
         return obs, infos
 
-    def step(self, actions):
+    def step(self, actions: npt.NDArray[np.uint8]):  # Shape: (num_agents, 2)
         """
         Take a step in the environment.
+
+        BE VERY CAREFUL NOT TO SLOW THIS FUNCTION DOWN!
 
         Args:
             actions: Array of actions for each agent
@@ -239,23 +242,9 @@ class MettaGridEnv(pufferlib.PufferEnv, gym.Env):
         Returns:
             Tuple of (observations, rewards, terminals, truncations, infos)
         """
-        # Quick length check without type conversion
-        if len(actions) != self._num_agents:
-            raise ValueError(f"Expected {self._num_agents} actions, got {len(actions)}")
 
-        # Only convert type if necessary
-        if not isinstance(actions, np.ndarray) or actions.dtype != np.uint32:
-            # Pre-allocate if not already the right type
-            if isinstance(actions, list):
-                np.copyto(self.actions, np.array(actions, dtype=np.uint32))
-            else:
-                np.copyto(self.actions, actions.astype(np.uint32))
-        else:
-            # Fast path - direct copy without conversion
-            np.copyto(self.actions, actions)
-
-        # Execute step in environment
-        self._c_env.step(self.actions)
+        actions_int32 = np.array(actions, dtype=np.int32)
+        self._c_env.step(actions_int32)
 
         # Normalize rewards if needed (cache the configuration check)
         if self._normalize_rewards:
