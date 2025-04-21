@@ -386,10 +386,12 @@ function onKeyDown(event: KeyboardEvent) {
   if (event.key == "[") {
     step = Math.max(step - 1, 0);
     scrubber.value = step.toString();
+    tracePanel.panPos.setX(tracePanel.panPos.x() + 32);
   }
   if (event.key == "]") {
     step = Math.min(step + 1, replay.max_steps - 1);
     scrubber.value = step.toString();
+    tracePanel.panPos.setX(tracePanel.panPos.x() - 32);
   }
   // '<' and '>' control the playback speed.
   if (event.key == ",") {

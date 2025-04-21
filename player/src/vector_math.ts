@@ -14,6 +14,8 @@ class Vec2f {
   // Accessors
   x(): number { return this.data[0]; }
   y(): number { return this.data[1]; }
+  setX(x: number) { this.data[0] = x; }
+  setY(y: number) { this.data[1] = y; }
 
   // Returns a new vector that is the sum of this vector and v.
   add(v: Vec2f): Vec2f {
