@@ -79,12 +79,6 @@ jobs:
       # Install Bencher CLI using the GitHub Action
       - uses: bencherdev/bencher@main
 
-      - name: Test Bencher Connection
-        run: bencher project --token '${{ secrets.BENCHER_API_TOKEN }}'
-
-      - name: List Bencher Branches
-        run: bencher branch list --project mettagrid --token '${{ secrets.BENCHER_API_TOKEN }}'
-
       # For pushes to main branch
       - name: Upload to Bencher (main branch)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
