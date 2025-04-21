@@ -1,0 +1,42 @@
+name: Benchmark
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-benchmark
+          pip install -e .
+      
+      - name: Install Bencher CLI
+        run: |
+          curl -fsSL https://bencher.dev/install.sh | sh
+      
+      - name: Run benchmarks
+        run: |
+          pytest tests --benchmark-json=./benchmark_results.json
+      
+      - name: Upload to Bencher
+        env:
+          BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+          BENCHER_PROJECT: mettagrid
+        run: |
+          bencher run \
+            --project $BENCHER_PROJECT \
+            --adapter json-export \
+            --file ./benchmark_results.json
+            
