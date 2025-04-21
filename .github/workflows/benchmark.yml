@@ -11,6 +11,9 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     timeout-minutes: 30 # Prevent hung jobs from consuming resources
+    permissions:
+      checks: write # For GitHub Checks comments
+      pull-requests: write # For PR comments
     steps:
       - uses: actions/checkout@v4
 
@@ -73,15 +76,39 @@ jobs:
           source venv/bin/activate
           pytest tests --benchmark-json=./benchmark_results.json
 
-      # Install and Upload to Bencher (combined step)
-      - name: Install and Upload to Bencher
+      # Install Bencher CLI using the GitHub Action
+      - uses: bencherdev/bencher@main
+
+      # For pushes to main branch
+      - name: Upload to Bencher (main branch)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
-          BENCHER_PROJECT: mettagrid
         run: |
-          curl -fsSL https://bencher.dev/install.sh | sh
-          export PATH="$HOME/.bencher/bin:$PATH"
           bencher run \
-            --project $BENCHER_PROJECT \
+            --project mettagrid \
+            --token '${{ secrets.BENCHER_API_TOKEN }}' \
+            --branch main \
+            --testbed ubuntu-latest \
             --adapter json-export \
+            --github-actions '${{ secrets.GITHUB_TOKEN }}' \
+            --file ./benchmark_results.json
+
+      # For pull requests
+      - name: Upload to Bencher (PR branch)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
+        run: |
+          bencher run \
+            --project mettagrid \
+            --token '${{ secrets.BENCHER_API_TOKEN }}' \
+            --branch "$GITHUB_HEAD_REF" \
+            --start-point "$GITHUB_BASE_REF" \
+            --start-point-hash '${{ github.event.pull_request.base.sha }}' \
+            --start-point-clone-thresholds \
+            --start-point-reset \
+            --testbed ubuntu-latest \
+            --adapter json-export \
+            --github-actions '${{ secrets.GITHUB_TOKEN }}' \
             --file ./benchmark_results.json
