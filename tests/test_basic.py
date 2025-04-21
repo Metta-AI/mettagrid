@@ -1,5 +1,5 @@
 import pytest
-from hydra import compose, initialize
+from hydra import compose, initialize, utils
 
 from mettagrid.resolvers import register_resolvers
 
@@ -16,10 +16,8 @@ def hydra_setup():
 @pytest.fixture
 def environment(hydra_setup):
     """Create and initialize the environment."""
-    import hydra.utils
-
     register_resolvers()
-    env = hydra.utils.instantiate(hydra_setup, hydra_setup, render_mode=None, recursive=False)
+    env = utils.instantiate(hydra_setup, hydra_setup, render_mode=None, recursive=False)
     env.reset()
     yield env
     # Cleanup after test
