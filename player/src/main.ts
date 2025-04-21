@@ -648,11 +648,31 @@ function drawObjects(replay: any) {
       const num = getAttr(gridObject, "agent:inv:" + item);
       for (let i = 0; i < num; i++) {
         drawer.save()
-        drawer.translate(x * 64 + inventoryX * 8 - 32, y * 64 - 32);
+        drawer.translate(x * 64 + inventoryX * 8 - 32, y * 64 - 28);
         drawer.scale(0.25, 0.25);
         drawer.drawSprite(item + ".png", 0, 0);
         drawer.restore()
         inventoryX++;
+      }
+    }
+  }
+
+  // Draw the reward on the bottom of the object.
+  for (const gridObject of replay.grid_objects) {
+    const type = gridObject.type;
+    const typeName = replay.object_types[type]
+    const x = getAttr(gridObject, "c")
+    const y = getAttr(gridObject, "r")
+    if (gridObject["total_reward"] !== undefined) {
+      const totalReward = getAttr(gridObject, "total_reward");
+      let rewardX = 0;
+      for (let i = 0; i < totalReward; i++) {
+        drawer.save()
+        drawer.translate(x * 64 + rewardX * 8 - 32, y * 64 + 28);
+        drawer.scale(0.25, 0.25);
+        drawer.drawSprite("reward.png", 0, 0);
+        drawer.restore()
+        rewardX++;
       }
     }
   }
