@@ -22,7 +22,7 @@ from mettagrid.objects.constants cimport ObjectTypeNames, ObjectTypeAscii
 obs_np_type = np.uint8
 
 cdef class GridEnv:
-    cdef __cinit__(
+    def __init__(
             self,
             unsigned int max_agents,
             unsigned int map_width,
@@ -32,7 +32,7 @@ cdef class GridEnv:
             unsigned short obs_width,
             unsigned short obs_height,
             ObservationEncoder observation_encoder,
-            vector[ActionHandler] action_handlers,
+            list[ActionHandler] action_handlers,
             bint track_last_action=False
         ):
         self._obs_width = obs_width
@@ -53,21 +53,16 @@ cdef class GridEnv:
             self._grid_features.push_back(b"last_action_argument")
 
         self._action_handlers = action_handlers
-        self._num_action_handlers = action_handlers.size()
+        self._num_action_handlers = len(action_handlers)
         self._max_action_priority = 0
         self._max_action_arg = 0
-        self._max_action_args.resize(self._num_action_handlers)
-        cdef:
-            vector[ActionHandler].iterator it
-            ActionHandler* handler_ptr
-        it = self._action_handlers.begin()
-        for i in range(self._num_action_handlers):
-            handler_ptr = <ActionHandler*>it[0]
-            handler_ptr.init(self._grid)
-            max_arg = handler_ptr.max_arg()
+        self._max_action_args.resize(len(action_handlers))
+        for i, handler in enumerate(action_handlers):
+            (<ActionHandler>handler).init(self._grid)
+            max_arg = (<ActionHandler>handler).max_arg()
             self._max_action_args[i] = max_arg
             self._max_action_arg = max(self._max_action_arg, max_arg)
-            self._max_action_priority = max(self._max_action_priority, handler_ptr.priority)
+            self._max_action_priority = max(self._max_action_priority, (<ActionHandler>handler).priority)
 
         self._event_manager.init(self._grid, &self._stats)
         # The order of this needs to match the order in the Events enum
@@ -156,6 +151,7 @@ cdef class GridEnv:
             short action
             ActionArg arg
             Agent *agent
+            ActionHandler handler
 
         self._rewards[:] = 0
         self._observations[:, :, :, :] = 0
@@ -173,11 +169,12 @@ cdef class GridEnv:
 
                 arg = actions[idx][1]
                 agent = self._agents[idx]
-                if (self._action_handlers[action]).priority != self._max_action_priority - p:
+                handler = <ActionHandler>self._action_handlers[action]
+                if handler.priority != self._max_action_priority - p:
                     continue
                 if arg > self._max_action_args[action]:
                     continue
-                self._action_success[idx] = (self._action_handlers[action]).handle_action(idx, agent.id, arg, self._current_timestep)
+                self._action_success[idx] = handler.handle_action(idx, agent.id, arg, self._current_timestep)
 
         self._compute_observations(actions)
 
@@ -232,15 +229,7 @@ cdef class GridEnv:
         return []
 
     cpdef list[str] action_names(self):
-        cdef vector[ActionHandler].iterator it
-        cdef ActionHandler* handler_ptr 
-        it = self._action_handlers.begin()
-        result = []
-        while it != self._action_handlers.end():
-            handler_ptr = <ActionHandler*>it[0]
-            result.append(handler_ptr.action_name())
-            it += 1
-        return result
+        return [handler.action_name() for handler in self._action_handlers]
 
     cpdef unsigned int current_timestep(self):
         return self._current_timestep

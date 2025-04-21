@@ -19,7 +19,6 @@ cdef extern from "action_handler.hpp":
 
     cdef cppclass ActionHandler:
         unsigned char priority
-        ActionHandler(string action_name)
         void init(Grid* grid)
         bint handle_action(
             unsigned int actor_id,

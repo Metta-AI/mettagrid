@@ -27,7 +27,6 @@ from mettagrid.objects.converter cimport Converter
 from mettagrid.objects.constants cimport ObjectLayers, InventoryItemNames, ObjectType, ObjectTypeAscii
 
 # Action imports
-from mettagrid.action_handler cimport ActionHandler
 from mettagrid.actions.move import Move
 from mettagrid.actions.rotate import Rotate
 from mettagrid.actions.get_output import GetOutput
@@ -53,26 +52,26 @@ cdef class MettaGrid(GridEnv):
         obs_encoder = ObservationEncoder()
         if env_cfg.semi_compact_obs:
             obs_encoder = SemiCompactObservationEncoder()
-        actions = vector[ActionHandler]()
+        actions = []
         if cfg.actions.put_items.enabled:
-            actions.push_back(PutRecipeItems(cfg.actions.put_items))
+            actions.append(PutRecipeItems(cfg.actions.put_items))
         if cfg.actions.get_items.enabled:
-            actions.push_back(GetOutput(cfg.actions.get_items))
+            actions.append(GetOutput(cfg.actions.get_items))
         if cfg.actions.noop.enabled:
-            actions.push_back(Noop(cfg.actions.noop))
+            actions.append(Noop(cfg.actions.noop))
         if cfg.actions.move.enabled:
-            actions.push_back(Move(cfg.actions.move))
+            actions.append(Move(cfg.actions.move))
         if cfg.actions.rotate.enabled:
-            actions.push_back(Rotate(cfg.actions.rotate))
+            actions.append(Rotate(cfg.actions.rotate))
         if cfg.actions.attack.enabled:
-            actions.push_back(Attack(cfg.actions.attack))
-            actions.push_back(AttackNearest(cfg.actions.attack))
+            actions.append(Attack(cfg.actions.attack))
+            actions.append(AttackNearest(cfg.actions.attack))
         if cfg.actions.swap.enabled:
-            actions.push_back(Swap(cfg.actions.swap))
+            actions.append(Swap(cfg.actions.swap))
         if cfg.actions.change_color.enabled:
             actions.append(ChangeColorAction(cfg.actions.change_color))
 
-        GridEnv.__cinit__(
+        GridEnv.__init__(
             self,
             cfg.num_agents,
             map.shape[1],

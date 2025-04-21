@@ -24,24 +24,13 @@ typedef unsigned char ActionArg;
 class ActionHandler {
 public:
     unsigned char priority;
+    Grid* _grid;
     
-    ActionHandler(const std::string& action_name) 
+    ActionHandler(const std::string& action_name="undefined_action")
         : priority(0), _action_name(action_name) {
         _stats.success = "action." + action_name;
         _stats.failure = "action." + action_name + ".failed";
         _stats.first_use = "action." + action_name + ".first_use";
-
-        for (TypeId t = 0; t < ObjectType::Count; t++) {
-            _stats.target[t] = _stats.success + "." + ObjectTypeNames[t];
-            _stats.target_first_use[t] = _stats.first_use + "." + ObjectTypeNames[t];
-        }
-    }
-
-    ActionHandler()
-        : priority(0), _action_name("undefined_action") {
-        _stats.success = "action." + _action_name;
-        _stats.failure = "action." + _action_name + ".failed";
-        _stats.first_use = "action." + _action_name + ".first_use";
 
         for (TypeId t = 0; t < ObjectType::Count; t++) {
             _stats.target[t] = _stats.success + "." + ObjectTypeNames[t];
@@ -100,7 +89,6 @@ protected:
     };
 
     StatNames _stats;
-    Grid* _grid;
     std::string _action_name;
 };
 
