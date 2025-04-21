@@ -41,7 +41,9 @@ class TerrainFromNumpy(Room):
     These maps each have 10 agents in them .
     """
 
-    def __init__(self, dir, border_width: int = 0, border_object: str = "wall", num_agents: int = 10):
+    def __init__(
+        self, dir, border_width: int = 0, border_object: str = "wall", num_agents: int = 10, generators: bool = False
+    ):
         zipped_dir = dir + ".zip"
         if not os.path.exists(dir) and not os.path.exists(zipped_dir):
             s3_path = f"s3://softmax-public/maps/{zipped_dir}"
@@ -52,22 +54,10 @@ class TerrainFromNumpy(Room):
         self.files = os.listdir(dir)
         self.dir = dir
         self.num_agents = num_agents
+        self.generators = generators
         super().__init__(border_width=border_width, border_object=border_object)
 
-    def _build(self):
-        uri = np.random.choice(self.files)
-        level = np.load(f"{self.dir}/{uri}", allow_pickle=True)
-        # Count number of agents in the map
-
-        # try again once if wrong number of agents
-        if not np.count_nonzero(level == "agent.agent") == self.num_agents:
-            uri = np.random.choice(self.files)
-            level = np.load(f"{self.dir}/{uri}", allow_pickle=True)
-
-        area = level.shape[0] * level.shape[1]
-        num_hearts = area // random.randint(66, 180)
-
-        # Find valid empty spaces surrounded by empty
+    def get_valid_positions(self, level):
         valid_positions = []
         for i in range(1, level.shape[0] - 1):
             for j in range(1, level.shape[1] - 1):
@@ -80,10 +70,29 @@ class TerrainFromNumpy(Room):
                         or level[i, j + 1] == "empty"
                     ):
                         valid_positions.append((i, j))
+        return valid_positions
+
+    def _build(self):
+        # TODO: add some way of sampling
+        uri = np.random.choice(self.files)
+        level = np.load(f"{self.dir}/{uri}", allow_pickle=True)
+
+        area = level.shape[0] * level.shape[1]
+        num_hearts = area // random.randint(66, 180)
+
+        # Find valid empty spaces surrounded by empty
+        valid_positions = self.get_valid_positions(level)
 
         # Randomly place hearts in valid positions
         positions = random.sample(valid_positions, min(num_hearts, len(valid_positions)))
         for pos in positions:
             level[pos] = "altar"
+
+        if self.generators:
+            num_mines = area // random.randint(66, 180)
+            valid_positions = self.get_valid_positions(level)
+            positions = random.sample(valid_positions, min(num_mines, len(valid_positions)))
+            for pos in positions:
+                level[pos] = "generator"
         self._level = level
         return self._level
