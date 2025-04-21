@@ -18,6 +18,7 @@ cdef extern from "action_handler.hpp":
         vector[string] group
 
     cdef cppclass ActionHandler:
+        unsigned char priority
         ActionHandler(string action_name)
         void init(Grid* grid)
         bint handle_action(

@@ -23,11 +23,25 @@ typedef unsigned char ActionArg;
 
 class ActionHandler {
 public:
+    unsigned char priority;
+    
     ActionHandler(const std::string& action_name) 
-        : _action_name(action_name), _priority(0) {
+        : priority(0), _action_name(action_name) {
         _stats.success = "action." + action_name;
         _stats.failure = "action." + action_name + ".failed";
         _stats.first_use = "action." + action_name + ".first_use";
+
+        for (TypeId t = 0; t < ObjectType::Count; t++) {
+            _stats.target[t] = _stats.success + "." + ObjectTypeNames[t];
+            _stats.target_first_use[t] = _stats.first_use + "." + ObjectTypeNames[t];
+        }
+    }
+
+    ActionHandler()
+        : priority(0), _action_name("undefined_action") {
+        _stats.success = "action." + _action_name;
+        _stats.failure = "action." + _action_name + ".failed";
+        _stats.first_use = "action." + _action_name + ".first_use";
 
         for (TypeId t = 0; t < ObjectType::Count; t++) {
             _stats.target[t] = _stats.success + "." + ObjectTypeNames[t];
@@ -68,7 +82,7 @@ public:
         return result;
     }
 
-    unsigned char max_arg() const {
+    virtual unsigned char max_arg() const {
         return 0;
     }
 
@@ -77,16 +91,17 @@ public:
     }
 
 protected:
+    // This should be unimplemented, but makes us allocate ActionHandler objects.
     virtual bool _handle_action(
         unsigned int actor_id,
         Agent* actor,
-        ActionArg arg) = 0;
+        ActionArg arg) {
+        return false;
+    };
 
-private:
     StatNames _stats;
     Grid* _grid;
     std::string _action_name;
-    unsigned char _priority;
 };
 
 #endif // ACTION_HANDLER_HPP
