@@ -13,12 +13,12 @@ jobs:
     timeout-minutes: 30 # Prevent hung jobs from consuming resources
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11.7"
-      
+
       # Cache pip packages
       - name: Cache pip packages
         uses: actions/cache@v4
@@ -30,7 +30,7 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/setup.py') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-      
+
       # Install dependencies (only if cache miss)
       - name: Install dependencies
         run: |
@@ -39,7 +39,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest-benchmark
-      
+
       # Cache PufferLib dependency
       - name: Cache PufferLib
         uses: actions/cache@v4
@@ -47,7 +47,7 @@ jobs:
         with:
           path: ../pufferlib
           key: ${{ runner.os }}-pufferlib-metta-${{ hashFiles('.github/workflows/benchmark.yml') }}
-      
+
       # Install PufferLib (only if cache miss)
       - name: Install PufferLib
         if: steps.cache-pufferlib.outputs.cache-hit != 'true'
@@ -57,19 +57,13 @@ jobs:
           git clone --depth=1 --branch=metta https://github.com/Metta-AI/pufferlib.git
           cd pufferlib
           pip install -e .
-      
+
       # Always run build_ext since it's quick and needs to be done after checkout
       - name: Run setup.py build_ext
         run: |
           source venv/bin/activate
           python setup.py build_ext --inplace
-      
-      # Install Bencher CLI
-      - name: Install Bencher CLI
-        run: |
-          curl -fsSL https://bencher.dev/install.sh | sh
-          echo "$HOME/.bencher/bin" >> $GITHUB_PATH
-      
+
       # Run benchmarks
       - name: Run benchmarks
         env:
@@ -78,13 +72,15 @@ jobs:
         run: |
           source venv/bin/activate
           pytest tests --benchmark-json=./benchmark_results.json
-      
-      # Upload to Bencher
-      - name: Upload to Bencher
+
+      # Install and Upload to Bencher (combined step)
+      - name: Install and Upload to Bencher
         env:
           BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
-          BENCHER_PROJECT: mettagrid # Your project name here
+          BENCHER_PROJECT: mettagrid
         run: |
+          curl -fsSL https://bencher.dev/install.sh | sh
+          export PATH="$HOME/.bencher/bin:$PATH"
           bencher run \
             --project $BENCHER_PROJECT \
             --adapter json-export \
