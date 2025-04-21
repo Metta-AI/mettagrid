@@ -80,10 +80,10 @@ jobs:
       - uses: bencherdev/bencher@main
 
       - name: Test Bencher Connection
-        run: bencher projects --token '${{ secrets.BENCHER_API_TOKEN }}'
+        run: bencher project --token '${{ secrets.BENCHER_API_TOKEN }}'
 
       - name: List Bencher Branches
-        run: bencher branches list --project mettagrid --token '${{ secrets.BENCHER_API_TOKEN }}'
+        run: bencher branch list --project mettagrid --token '${{ secrets.BENCHER_API_TOKEN }}'
 
       # For pushes to main branch
       - name: Upload to Bencher (main branch)
