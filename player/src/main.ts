@@ -129,7 +129,6 @@ const INVENTORY = [
   "ore.red",
 ]
 
-
 // Interaction state.
 let mouseDown = false;
 let mousePos = new Vec2f(0, 0);
@@ -148,7 +147,7 @@ let selectedGridObject: any = null;
 // Playback state
 let isPlaying = false;
 let playbackInterval: number | null = null;
-const PLAYBACK_SPEED = 5; // frames per playback step
+let playbackSpeed = 5; // frames per playback step
 
 // Handle resize events.
 function onResize() {
@@ -236,11 +235,9 @@ function onMouseMove(event: MouseEvent) {
   }
 
   if (traceDragging) {
-    console.log("traceDragging...");
     traceSplit = mousePos.x() / window.innerWidth
     onResize();
   } else if (infoDragging) {
-    console.log("infoDragging...")
     infoSplit = mousePos.y() / window.innerHeight
     onResize()
   } else if (mouseDown) {
@@ -379,19 +376,30 @@ function onScrubberChange() {
 function onKeyDown(event: KeyboardEvent) {
   if (event.key == "Escape") {
     selectedGridObject = null;
-    onFrame();
   }
-  // Left and right arrows to scrub forward and backward.
-  if (event.key == "ArrowLeft") {
+  // '[' and ']' to scrub forward and backward.
+  if (event.key == "[") {
     step = Math.max(step - 1, 0);
     scrubber.value = step.toString();
-    onFrame();
   }
-  if (event.key == "ArrowRight") {
+  if (event.key == "]") {
     step = Math.min(step + 1, replay.max_steps);
     scrubber.value = step.toString();
-    onFrame();
   }
+  // '<' and '>' control the playback speed.
+  if (event.key == ",") {
+    playbackSpeed = Math.max(playbackSpeed - 1, 1);
+    console.log("playbackSpeed: ", playbackSpeed);
+  }
+  if (event.key == ".") {
+    playbackSpeed = Math.min(playbackSpeed + 1, 1000);
+    console.log("playbackSpeed: ", playbackSpeed);
+  }
+  // If space make it press the play button.
+  if (event.key == " ") {
+    onPlayButtonClick();
+  }
+  onFrame();
 }
 
 // Gets an attribute from a grid object respecting the current step.
@@ -562,10 +570,25 @@ function drawObjects(replay: any) {
       drawer.drawSprite(typeName + suffix + ".horns." + style.hornsId + ".png", x * 64, y * 64);
       drawer.drawSprite(typeName + suffix + ".eyes." + style.eyesId + ".png", x * 64, y * 64);
 
-      // Draw the agent's action:
+    } else {
+      // Draw other objects.
+      drawer.drawSprite(typeName + ".png", x * 64, y * 64);
+    }
+  }
+
+  // Draw actions above the objects.
+  for (const gridObject of replay.grid_objects) {
+    const type = gridObject.type;
+    const typeName = replay.object_types[type]
+    const x = getAttr(gridObject, "c")
+    const y = getAttr(gridObject, "r")
+
+    if (gridObject["action"] !== undefined) {
+      // Draw the action:
       const action = getAttr(gridObject, "action");
       const action_success = getAttr(gridObject, "action_success");
       const action_name = replay.action_names[action[0]];
+      const orientation = getAttr(gridObject, "agent:orientation");
       if (action_name == "attack") {
         drawer.save()
         drawer.translate(x * 64, y * 64);
@@ -609,24 +632,28 @@ function drawObjects(replay: any) {
         drawer.drawSprite("get_output.png", 0, 0);
         drawer.restore()
       }
+    }
+  }
 
-      // Draw the agent's inventory.
-      let inventoryX = 0;
-      for (const item of INVENTORY) {
-        const num = getAttr(gridObject, "agent:inv:" + item);
-        for (let i = 0; i < num; i++) {
-          drawer.save()
-          drawer.translate(x * 64 + inventoryX * 8 - 32, y * 64 - 32);
-          drawer.scale(0.25, 0.25);
-          drawer.drawSprite(item + ".png", 0, 0);
-          drawer.restore()
-          inventoryX++;
-        }
+  // Draw the object's inventory.
+  for (const gridObject of replay.grid_objects) {
+    const type = gridObject.type;
+    const typeName = replay.object_types[type]
+    const x = getAttr(gridObject, "c")
+    const y = getAttr(gridObject, "r")
+
+    // Draw the agent's inventory.
+    let inventoryX = 0;
+    for (const item of INVENTORY) {
+      const num = getAttr(gridObject, "agent:inv:" + item);
+      for (let i = 0; i < num; i++) {
+        drawer.save()
+        drawer.translate(x * 64 + inventoryX * 8 - 32, y * 64 - 32);
+        drawer.scale(0.25, 0.25);
+        drawer.drawSprite(item + ".png", 0, 0);
+        drawer.restore()
+        inventoryX++;
       }
-
-    } else {
-      // Draw other objects.
-      drawer.drawSprite(typeName + ".png", x * 64, y * 64);
     }
   }
 }
@@ -970,7 +997,7 @@ function onPlayButtonClick() {
       scrubber.value = step.toString();
       onScrubberChange();
 
-    }, 1000 / PLAYBACK_SPEED);
+    }, 1000 / playbackSpeed);
   } else {
     playButton.classList.remove('paused');
     if (playbackInterval !== null) {
