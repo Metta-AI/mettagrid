@@ -129,6 +129,9 @@ class Mat3f {
     const det = this.get(0, 0) * (this.get(1, 1) * this.get(2, 2) - this.get(1, 2) * this.get(2, 1)) -
       this.get(0, 1) * (this.get(1, 0) * this.get(2, 2) - this.get(1, 2) * this.get(2, 0)) +
       this.get(0, 2) * (this.get(1, 0) * this.get(2, 1) - this.get(1, 1) * this.get(2, 0));
+    if (det == 0) {
+      throw new Error("Matrix is not invertible");
+    }
     return new Mat3f(
       (this.get(1, 1) * this.get(2, 2) - this.get(1, 2) * this.get(2, 1)) / det,
       (this.get(0, 2) * this.get(2, 1) - this.get(0, 1) * this.get(2, 2)) / det,
