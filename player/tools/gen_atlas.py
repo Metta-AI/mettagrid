@@ -54,7 +54,6 @@ def put_image(img, name):
                 if this_x + j >= len(heights) or heights[this_x + j] > this_height:
                     break
             else:
-                print("found", name, this_x, this_height)
                 min_height = this_height
                 min_x = this_x
 
@@ -73,16 +72,13 @@ def put_image(img, name):
     return images[name]
 
 
-# Create an 64x64 white image and put it first at 0,0.
-# This image is used to draw solid colors.
-white_image = pixie.Image(64, 64)
-white_image.fill(pixie.Color(1, 1, 1, 1))
-put_image(white_image, "white.png")
-
-for file in os.listdir("data"):
-    if file.endswith(".png"):
-        img = pixie.read_image("data/" + file)
-        put_image(img, file)
+# Walk the data dir:
+for root, dirs, files in os.walk("data"):
+    for file in files:
+        if file.endswith(".png"):
+            print("Processing", root + "/" + file)
+            img = pixie.read_image(root + "/" + file)
+            put_image(img, (root + "/" + file).replace("data/", ""))
 
 # Write the atlas image and the atlas json file.
 with open("dist/atlas.json", "w") as f:

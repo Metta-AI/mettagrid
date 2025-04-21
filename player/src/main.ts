@@ -59,7 +59,7 @@ export class PanelInfo {
 }
 
 // Constants
-const MIN_ZOOM_LEVEL = 0.1;
+const MIN_ZOOM_LEVEL = 0.05;
 const MAX_ZOOM_LEVEL = 2.0;
 const SPLIT_DRAG_THRESHOLD = 10;  // pixels to detect split dragging
 const SCROLL_ZOOM_FACTOR = 1000;  // divisor for scroll delta to zoom conversion
@@ -90,30 +90,6 @@ const AGENT_STYLES = {
   "horns": 4,
   "hair": 4,
   "mouth": 4,
-}
-
-const ACTION_COLORS = {
-  "put_recipe_items": "#3498DB", // blueish
-  "get_output": "#2980B9", // blueish
-  "noop": "#95A5A6", // grayish
-  "move": "#2ECC71", // greenish
-  "rotate": "#27AE60", // greenish
-  "attack": "#E74C3C", // reddish
-  "attack_nearest": "#C0392B", // reddish
-  "swap": "#E74C3C", // reddish
-  "change_color": "#F39C12" // orange ish
-}
-
-const ACTION_IMPORTANCE = {
-  "put_recipe_items": 3,
-  "get_output": 3,
-  "noop": 1,
-  "move": 1,
-  "rotate": 1,
-  "attack": 10,
-  "attack_nearest": 10,
-  "swap": 6,
-  "change_color": 3
 }
 
 const INVENTORY = [
@@ -359,6 +335,21 @@ function expandSequence(sequence: any[], numSteps: number): any[] {
 // Load the replay text.
 async function loadReplayText(replayData: any) {
   replay = JSON.parse(replayData);
+
+  replay.object_types = [
+    "agent",
+    "wall",
+    "mine",
+    "generator",
+    "altar",
+    "armory",
+    "lasery",
+    "lab",
+    "factory",
+    "temple",
+    "converter"
+  ]
+
   console.log("replay: ", replay);
 
   // Go through each grid object and expand its key sequence.
@@ -805,27 +796,27 @@ function drawTrace(panel: PanelInfo) {
     return;
   }
 
+  const TRACE_HEIGHT = 256
+  const TRACE_WIDTH = 32
+
   const localMousePos = panel.transformPoint(mousePos);
 
   if (panel.inside(mousePos)) {
     if (localMousePos != null) {
       if (mouseDown) {
         const mapX = localMousePos.x();
-        if (mapX > 0 && mapX < replay.max_steps * 4 &&
-          localMousePos.y() > 0 && localMousePos.y() < replay.num_agents * 64) {
-          const agentId = Math.floor(localMousePos.y() / 64);
+        if (mapX > 0 && mapX < replay.max_steps * TRACE_WIDTH &&
+          localMousePos.y() > 0 && localMousePos.y() < replay.num_agents * TRACE_HEIGHT) {
+          const agentId = Math.floor(localMousePos.y() / TRACE_HEIGHT);
           for (const gridObject of replay.grid_objects) {
             if (gridObject["agent_id"] == agentId) {
-              // If selecting a new object from the trace panel, stop following the previous selection
-              if (gridObject !== selectedGridObject) {
-                followSelection = false;
-              }
+              followSelection = true;
               selectedGridObject = gridObject;
               console.log("selectedGridObject: ", selectedGridObject);
               focusMapOn(mapPanel, getAttr(selectedGridObject, "c"), getAttr(selectedGridObject, "r"));
             }
           }
-          step = Math.floor(mapX / 4);
+          step = Math.floor(mapX / TRACE_WIDTH);
           scrubber.value = step.toString();
         }
       }
@@ -835,7 +826,7 @@ function drawTrace(panel: PanelInfo) {
   drawer.save();
   drawer.setScissorRect(panel.x, panel.y, panel.width, panel.height);
 
-  const fullSize = new Vec2f(replay.max_steps * 4, replay.num_agents * 64);
+  const fullSize = new Vec2f(replay.max_steps * TRACE_WIDTH, replay.num_agents * TRACE_HEIGHT);
 
   // Draw background
   drawer.drawSolidRect(
@@ -853,15 +844,15 @@ function drawTrace(panel: PanelInfo) {
 
     // Draw selection rectangle
     drawer.drawSolidRect(
-      0, agentId * 64, fullSize.x(), 64,
+      0, agentId * TRACE_HEIGHT, fullSize.x(), TRACE_HEIGHT,
       [.3, .3, .3, 1]
     );
   }
 
   // Draw current step line that goes through all of the traces
   drawer.drawSolidRect(
-    step * 4, 0,
-    2, fullSize.y(),
+    step * TRACE_WIDTH, 0,
+    TRACE_WIDTH, fullSize.y(),
     [1.0, 1.0, 1.0, 0.5] // White with 50% opacity
   );
 
@@ -875,35 +866,32 @@ function drawTrace(panel: PanelInfo) {
           const action = getAttr(gridObject, "action", j);
           const action_success = getAttr(gridObject, "action_success", j);
 
+          const actionName = replay.action_names[action[0]] as string;
           if (action_success) {
-            const actionName = replay.action_names[action[0]] as string;
-            const color = ACTION_COLORS[actionName as keyof typeof ACTION_COLORS];
-            const importance = ACTION_IMPORTANCE[actionName as keyof typeof ACTION_IMPORTANCE];
-
             // Convert hex color to RGBA array
-            const rgbaColor = hexToRgba(color);
-            drawer.drawSolidRect(
-              j * 4, i * 64 + 32 - 2 * importance,
-              2, 4 * importance,
-              rgbaColor
+            drawer.drawImage(
+              "trace/" + actionName + ".png",
+              j * TRACE_WIDTH, i * TRACE_HEIGHT,
             );
           } else {
-            drawer.drawSolidRect(
-              j * 4, i * 64 + 32 - 2,
-              2, 4,
-              [0.12, 0.12, 0.12, 1.0] // Dark gray
+            drawer.drawImage(
+              "trace/" + actionName + ".png",
+              j * TRACE_WIDTH, i * TRACE_HEIGHT,
+              [0.5, 0.5, 0.5, 0.05]
             );
           }
 
           const reward = getAttr(gridObject, "reward", j);
           // If there is reward, draw a sharp bar
           if (reward > 0) {
-            const importance = 16;
-            drawer.drawSolidRect(
-              j * 4 - 1, i * 64 + 32 - 2 * importance,
-              4, 4 * importance,
-              [0.97, 0.89, 0.47, 1.0] // Gold color approximating HSL(46, 100%, 76.7%)
+            drawer.save()
+            drawer.translate(j * TRACE_WIDTH - 32, i * TRACE_HEIGHT + 256 - 32)
+            drawer.scale(0.5, 0.5)
+            drawer.drawImage(
+              "reward.png",
+              0, 0,
             );
+            drawer.restore()
           }
         }
       }
@@ -936,7 +924,7 @@ function updateReadout() {
     for (const key in selectedGridObject) {
       var value = getAttr(selectedGridObject, key);
       if (key == "type") {
-        value = replay.object_types[value];
+        value = replay.object_types[value] + " (" + value + ")";
       }
       readout += key + ": " + value + "\n";
     }
