@@ -1,12 +1,25 @@
 import os
 import random
+import time
 import zipfile
 
 import boto3
 import numpy as np
 from botocore.exceptions import NoCredentialsError
+from filelock import FileLock
 
 from mettagrid.config.room.room import Room
+
+
+def safe_load(path, retries=5, delay=1.0):
+    for attempt in range(retries):
+        try:
+            return np.load(path, allow_pickle=True)
+        except ValueError:
+            if attempt < retries - 1:
+                time.sleep(delay)
+                continue
+            raise
 
 
 def download_from_s3(s3_path: str, save_path: str, location: str = "us-east-1"):
@@ -45,12 +58,22 @@ class TerrainFromNumpy(Room):
         self, dir, border_width: int = 0, border_object: str = "wall", num_agents: int = 10, generators: bool = False
     ):
         zipped_dir = dir + ".zip"
-        if not os.path.exists(dir) and not os.path.exists(zipped_dir):
-            s3_path = f"s3://softmax-public/maps/{zipped_dir}"
-            download_from_s3(s3_path, zipped_dir)
-        if not os.path.exists(dir) and os.path.exists(zipped_dir):
-            with zipfile.ZipFile(zipped_dir, "r") as zip_ref:
-                zip_ref.extractall(os.path.dirname(dir))
+        lock_path = zipped_dir + ".lock"
+        # Only one process can hold this lock at a time:
+        with FileLock(lock_path):
+            if not os.path.exists(dir) and not os.path.exists(zipped_dir):
+                s3_path = f"s3://softmax-public/maps/{zipped_dir}"
+                download_from_s3(s3_path, zipped_dir)
+            if not os.path.exists(dir) and os.path.exists(zipped_dir):
+                with zipfile.ZipFile(zipped_dir, "r") as zip_ref:
+                    zip_ref.extractall(os.path.dirname(dir))
+
+        # if not os.path.exists(dir) and not os.path.exists(zipped_dir):
+        #     s3_path = f"s3://softmax-public/maps/{zipped_dir}"
+        #     download_from_s3(s3_path, zipped_dir)
+        # if not os.path.exists(dir) and os.path.exists(zipped_dir):
+        #     with zipfile.ZipFile(zipped_dir, "r") as zip_ref:
+        #         zip_ref.extractall(os.path.dirname(dir))
         self.files = os.listdir(dir)
         self.dir = dir
         self.num_agents = num_agents
@@ -75,7 +98,7 @@ class TerrainFromNumpy(Room):
     def _build(self):
         # TODO: add some way of sampling
         uri = np.random.choice(self.files)
-        level = np.load(f"{self.dir}/{uri}", allow_pickle=True)
+        level = safe_load(f"{self.dir}/{uri}")
 
         # remove agents to then repopulate
         agents = level == "agent.agent"
