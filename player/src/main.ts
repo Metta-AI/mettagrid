@@ -644,15 +644,21 @@ function drawObjects(replay: any) {
 
     // Draw the agent's inventory.
     let inventoryX = 0;
+    let numItems = 0;
+    for (const item of INVENTORY) {
+      const num = getAttr(gridObject, "agent:inv:" + item);
+      numItems += num;
+    }
+    let advanceX = Math.min(8, 64 / numItems);
     for (const item of INVENTORY) {
       const num = getAttr(gridObject, "agent:inv:" + item);
       for (let i = 0; i < num; i++) {
         drawer.save()
-        drawer.translate(x * 64 + inventoryX * 8 - 32, y * 64 - 28);
+        drawer.translate(x * 64 + inventoryX - 32, y * 64 - 28);
         drawer.scale(0.25, 0.25);
         drawer.drawSprite(item + ".png", 0, 0);
         drawer.restore()
-        inventoryX++;
+        inventoryX += advanceX;
       }
     }
   }
@@ -666,13 +672,14 @@ function drawObjects(replay: any) {
     if (gridObject["total_reward"] !== undefined) {
       const totalReward = getAttr(gridObject, "total_reward");
       let rewardX = 0;
+      let advanceX = Math.min(8, 64 / rewardX);
       for (let i = 0; i < totalReward; i++) {
         drawer.save()
-        drawer.translate(x * 64 + rewardX * 8 - 32, y * 64 + 28);
+        drawer.translate(x * 64 + rewardX - 32, y * 64 + 28);
         drawer.scale(0.25, 0.25);
         drawer.drawSprite("reward.png", 0, 0);
         drawer.restore()
-        rewardX++;
+        rewardX += advanceX;
       }
     }
   }
