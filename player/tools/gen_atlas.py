@@ -15,13 +15,9 @@ padding = 8
 def put_image(img, name):
     """
     Place an image in the atlas at the specified coordinates or find the best position.
-
     Args:
         img: The pixie Image to place in the atlas
         name: The name/key to use in the images dictionary
-        x: Optional x coordinate to place the image at
-        y: Optional y coordinate to place the image at
-
     Returns:
         Tuple of (x, y, width, height) indicating the image position
     """
