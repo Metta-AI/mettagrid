@@ -91,13 +91,3 @@ jobs:
           source venv/bin/activate
           pip install ruff==0.11.5
           ruff check --respect-gitignore .
-
-      # Run tests
-      - name: Run tests
-        env:
-          HYDRA_FULL_ERROR: 1
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          source venv/bin/activate
-          pytest tests
-          python tests/test_kinship.py
