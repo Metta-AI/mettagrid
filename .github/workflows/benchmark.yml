@@ -68,6 +68,7 @@ jobs:
       - name: Install Bencher CLI
         run: |
           curl -fsSL https://bencher.dev/install.sh | sh
+          echo "$HOME/.bencher/bin" >> $GITHUB_PATH
       
       # Run benchmarks
       - name: Run benchmarks
