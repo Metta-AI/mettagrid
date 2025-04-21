@@ -42,6 +42,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # Cache PufferLib dependency
+      - name: Cache PufferLib
+        uses: actions/cache@v4
+        id: cache-pufferlib
+        with:
+          path: ../pufferlib
+          key: ${{ runner.os }}-pufferlib-metta-${{ hashFiles('.github/workflows/benchmark.yml') }}
+
+      # Install PufferLib (only if cache miss)
+      - name: Install PufferLib
+        if: steps.cache-pufferlib.outputs.cache-hit != 'true'
+        run: |
+          source venv/bin/activate
+          cd ..
+          git clone --depth=1 --branch=metta https://github.com/Metta-AI/pufferlib.git
+          cd pufferlib
+          pip install -e .
+
+      # Always run build_ext since it's quick and needs to be done after checkout
+      - name: Run setup.py build_ext
+        run: |
+          source venv/bin/activate
+          python setup.py build_ext --inplace
+
       # Run benchmarks
       - name: Run benchmarks
         env:
@@ -53,13 +77,6 @@ jobs:
 
       # Install Bencher CLI using the GitHub Action
       - uses: bencherdev/bencher@main
-
-      - name: Debug info
-        run: |
-          echo "GitHub Head Ref: $GITHUB_HEAD_REF"
-          echo "GitHub Base Ref: $GITHUB_BASE_REF"
-          echo "GitHub Ref: ${{ github.ref }}"
-          bencher version
 
       # For pushes to main branch
       - name: Upload to Bencher (main branch)
