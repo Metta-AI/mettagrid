@@ -11,7 +11,6 @@ export class PanelInfo {
   public panPos: Vec2f = new Vec2f(0, 0);
   public zoomLevel: number = 1;
   public canvas: HTMLCanvasElement;
-  //public ctx: CanvasRenderingContext2D | null;
   public div: HTMLDivElement | null;
   public transform: Mat3f;
 
@@ -19,7 +18,6 @@ export class PanelInfo {
     this.name = name;
     this.canvas = document.createElement('canvas');
     this.canvas.setAttribute('id', name + '-canvas');
-    //this.ctx = this.canvas.getContext('2d');
     this.div = null;
     this.transform = Mat3f.identity();
   }
@@ -411,7 +409,6 @@ function getAttr(obj: any, attr: string, atStep = -1): any {
   if (obj[attr] === undefined) {
     return 0;
   } else if (obj[attr] instanceof Array) {
-    //return findInSeries(obj[attr], atStep);
     return obj[attr][atStep];
   } else {
     // Must be a constant that does not change over time.
@@ -773,7 +770,6 @@ function drawTrace(panel: PanelInfo) {
     return;
   }
 
-  //const panelMousePos = new Vec2f(mousePos.x() - panel.x, mousePos.y() - panel.y);
   const localMousePos = panel.transformPoint(mousePos);
 
   if (panel.inside(mousePos)) {
@@ -953,10 +949,6 @@ function onFrame() {
   drawMap(mapPanel);
   drawer.useMesh("trace");
   drawTrace(tracePanel);
-
-  // /Users/me/p/mettagrid/player/data/meta_grid_icon.png
-  //drawer.drawSprite('meta_grid_icon.png', 100, 100);
-  drawer.drawSolidRect(100, 100, 100, 100, [1, 1, 1, 1]);
 
   drawer.flush();
   console.log("Flushed drawer.");
