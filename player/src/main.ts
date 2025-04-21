@@ -132,6 +132,8 @@ let mouseDown = false;
 let mousePos = new Vec2f(0, 0);
 let lastMousePos = new Vec2f(0, 0);
 let scrollDelta = 0;
+let lastClickTime = 0; // For double-click detection
+let followSelection = false; // Flag to follow selected entity
 
 let traceSplit = DEFAULT_TRACE_SPLIT;
 let traceDragging = false;
@@ -196,6 +198,10 @@ function onResize() {
 function onMouseDown() {
   lastMousePos = mousePos;
 
+  const currentTime = new Date().getTime();
+  const isDoubleClick = currentTime - lastClickTime < 300; // 300ms threshold for double-click
+  lastClickTime = currentTime;
+
   if (Math.abs(mousePos.x() - mapPanel.width) < SPLIT_DRAG_THRESHOLD) {
     traceDragging = true
     console.log("Started trace dragging")
@@ -204,6 +210,17 @@ function onMouseDown() {
     console.log("Started info dragging")
   } else {
     mouseDown = true;
+
+    // If it's a double click in the map panel and we have a selected object
+    if (isDoubleClick && mapPanel.inside(mousePos) && selectedGridObject !== null) {
+      // Toggle followSelection on double-click
+      followSelection = !followSelection;
+
+      if (followSelection) {
+        // Set the zoom level to 1 as requested when following
+        mapPanel.zoomLevel = 1;
+      }
+    }
   }
 
   onFrame();
@@ -374,6 +391,7 @@ function onScrubberChange() {
 function onKeyDown(event: KeyboardEvent) {
   if (event.key == "Escape") {
     selectedGridObject = null;
+    followSelection = false; // Also stop following when selection is cleared
   }
   // '[' and ']' to scrub forward and backward.
   if (event.key == "[") {
@@ -732,6 +750,17 @@ function drawMap(panel: PanelInfo) {
     return;
   }
 
+  // If we're following a selection, center the map on it
+  if (followSelection && selectedGridObject !== null) {
+    const x = getAttr(selectedGridObject, "c");
+    const y = getAttr(selectedGridObject, "r");
+    panel.panPos = new Vec2f(
+      -x * 64 + panel.width / 2,
+      -y * 64 + panel.height / 2
+    )
+    panel.zoomLevel = 1;
+  }
+
   if (mouseDown) {
     const localMousePos = panel.transformPoint(mousePos);
     if (localMousePos != null) {
@@ -745,6 +774,11 @@ function drawMap(panel: PanelInfo) {
         return x === gridMousePos.x() && y === gridMousePos.y();
       });
       if (gridObject !== undefined) {
+        // If this is a single click (not a double-click) and we're selecting a new object,
+        // stop following the previous selection
+        if (gridObject !== selectedGridObject) {
+          followSelection = false;
+        }
         selectedGridObject = gridObject;
         console.log("selectedGridObject: ", selectedGridObject);
       }
@@ -781,6 +815,10 @@ function drawTrace(panel: PanelInfo) {
           const agentId = Math.floor(localMousePos.y() / 64);
           for (const gridObject of replay.grid_objects) {
             if (gridObject["agent_id"] == agentId) {
+              // If selecting a new object from the trace panel, stop following the previous selection
+              if (gridObject !== selectedGridObject) {
+                followSelection = false;
+              }
               selectedGridObject = gridObject;
               console.log("selectedGridObject: ", selectedGridObject);
               focusMapOn(mapPanel, getAttr(selectedGridObject, "c"), getAttr(selectedGridObject, "r"));
@@ -891,6 +929,9 @@ function hexToRgba(hex: string): number[] {
 function updateReadout() {
   var readout = ""
   if (selectedGridObject !== null) {
+    if (followSelection) {
+      readout += "FOLLOWING SELECTION (double-click to unfollow)\n\n";
+    }
     for (const key in selectedGridObject) {
       var value = getAttr(selectedGridObject, key);
       if (key == "type") {
