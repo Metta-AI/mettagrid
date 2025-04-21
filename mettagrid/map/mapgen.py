@@ -1,12 +1,17 @@
-# Root map generator, based on nodes.
 import numpy as np
+import numpy.typing as npt
 
 from mettagrid.config.room.room import Room
 
 from .scene import SceneCfg, make_scene
 
+MapGrid = npt.NDArray[np.str_]
 
+
+# Root map generator, based on nodes.
 class MapGen(Room):
+    _grid: MapGrid
+
     def __init__(self, width: int, height: int, root: SceneCfg, border_width: int = 1):
         super().__init__()
         self._width = width

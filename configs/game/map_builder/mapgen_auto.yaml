@@ -66,14 +66,14 @@ root:
     # Which content to use? You can list any scenes here. The list will be passed to a RandomScene.
     # Weights affect the probability of each scene being chosen. Default weight is 1.
     content:
-      - scene: /scenes/wfc/blob
-      - scene: /scenes/wfc/blob2
-      - scene: /scenes/wfc/blob3
-      - scene: /scenes/wfc/blocks
-      - scene: /scenes/wfc/dungeons
-      - scene: /scenes/wfc/mazelike1
-      - scene: /scenes/wfc/mazelike2
-      - scene: /scenes/wfc/simple
+      - scene: ./configs/scenes/wfc/blob.yaml
+      - scene: ./configs/scenes/wfc/blob2.yaml
+      - scene: ./configs/scenes/wfc/blob3.yaml
+      - scene: ./configs/scenes/wfc/blocks.yaml
+      - scene: ./configs/scenes/wfc/dungeons.yaml
+      - scene: ./configs/scenes/wfc/mazelike1.yaml
+      - scene: ./configs/scenes/wfc/mazelike2.yaml
+      - scene: ./configs/scenes/wfc/simple.yaml
       - scene:
           _target_: mettagrid.map.scenes.maze.MazeKruskal
           room_size: ["uniform", 1, 3]
