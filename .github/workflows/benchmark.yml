@@ -109,6 +109,6 @@ jobs:
             --start-point-clone-thresholds \
             --start-point-reset \
             --testbed ubuntu-latest \
-            --adapter json \
+            --adapter python_pytest \
             --github-actions '${{ secrets.GITHUB_TOKEN }}' \
             --file ./benchmark_results.json
