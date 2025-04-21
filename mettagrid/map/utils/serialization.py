@@ -1,5 +1,4 @@
 import logging
-import os
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -8,6 +7,8 @@ from omegaconf import OmegaConf
 
 from mettagrid.mettagrid_env import MettaGridEnv
 from mettagrid.objects.constants import get_object_type_ascii, get_object_type_names
+
+from . import s3utils
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class StorableMap:
     @staticmethod
     def from_uri(uri: str) -> "StorableMap":
         logger.info(f"Loading map from {uri}")
-        content = load_from_uri(uri)
+        content = s3utils.load_from_uri(uri)
 
         # TODO - validate content in a more principled way
         (frontmatter, content) = content.split("---\n", 1)
@@ -86,7 +87,7 @@ class StorableMap:
         return StorableMap(metadata, lines, config, resolved_config)
 
     def save(self, uri: str):
-        save_to_uri(str(self), uri)
+        s3utils.save_to_uri(str(self), uri)
         logger.info(f"Saved map to {uri}")
 
     def to_grid(self) -> np.ndarray:
@@ -105,50 +106,3 @@ class StorableMap:
                     raise ValueError(f"Unknown character: {char}")
 
         return grid
-
-
-# The following functions are pretty generic, they can save or load any text to local filesystem or S3.
-
-
-def is_s3_uri(uri: str) -> bool:
-    return uri.startswith("s3://")
-
-
-def parse_s3_uri(uri: str) -> tuple[str, str]:
-    if not uri.startswith("s3://"):
-        raise ValueError(f"URI {uri} is not an S3 URI")
-
-    s3_parts = uri[5:].split("/", 1)
-    bucket = s3_parts[0]
-    key = s3_parts[1]
-    return bucket, key
-
-
-def get_s3_client():
-    import boto3
-
-    # AWS_PROFILE won't be neceesary for most people, but some envirnoments can have multiple profiles
-    # (Boto3 doesn't pick up the env variable automatically)
-    session = boto3.Session(profile_name=os.environ.get("AWS_PROFILE", None))
-    return session.client("s3")
-
-
-def save_to_uri(text: str, uri: str):
-    if is_s3_uri(uri):
-        bucket, key = parse_s3_uri(uri)
-        s3 = get_s3_client()
-        s3.put_object(Bucket=bucket, Key=key, Body=text)
-    else:
-        with open(uri, "w") as f:
-            f.write(text)
-
-
-def load_from_uri(uri: str) -> str:
-    if is_s3_uri(uri):
-        bucket, key = parse_s3_uri(uri)
-        s3 = get_s3_client()
-        response = s3.get_object(Bucket=bucket, Key=key)
-        return response["Body"].read().decode("utf-8")
-    else:
-        with open(uri, "r") as f:
-            return f.read()

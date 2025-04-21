@@ -1,9 +1,5 @@
-defaults:
-  - s3: softmax
-
 index_s3_maps:
-  # S3 directory.
-  # Can be a full URI, `s3://.../dir/`, or a relative path, `dir/`. Relative paths are relative to the `s3.maps_root` config value.
+  # S3 directory, `s3://.../dir/`
   dir: ???
   # By default the index will be saved on S3 to `dir/index.txt`.
   # But you can provide a local filename instead.

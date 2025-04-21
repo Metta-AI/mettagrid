@@ -1,7 +1,5 @@
 save: true
 show: none
 
-s3_dir: ???
-
 target:
-  dir: ${...s3.maps_root}/${..s3_dir}
+  dir: ???

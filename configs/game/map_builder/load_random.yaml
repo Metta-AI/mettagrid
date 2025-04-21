@@ -1,6 +1,6 @@
 _target_: mettagrid.map.load_random.LoadRandom
 
-index_uri: ???
+dir: ???
 
 # Optional scene to render on top of the loaded map.
 # The following example shows how to patch the map if its agent count doesn't match `game.num_agents`.
