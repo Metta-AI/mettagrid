@@ -17,13 +17,14 @@ placement failures, which means the map is essentially full.
 from typing import List, Optional, Tuple
 
 import numpy as np
+
 from mettagrid.config.room.room import Room
 
 
 class LabyrinthWorld(Room):
     STYLE_PARAMETERS = {
         "labyrinth_world": {
-            "hearts_count": 0,          # altars live inside labyrinths
+            "hearts_count": 0,  # altars live inside labyrinths
             "labyrinths": {"count": 999},
         },
     }
@@ -61,7 +62,7 @@ class LabyrinthWorld(Room):
         grid = np.full((self._height, self._width), "empty", dtype=object)
 
         consecutive_failures = 0
-        while consecutive_failures < 10:                       # pack the map
+        while consecutive_failures < 10:  # pack the map
             if self._place_labyrinth(grid, clearance=1):
                 consecutive_failures = 0
             else:
@@ -78,19 +79,19 @@ class LabyrinthWorld(Room):
 
     def _generate_labyrinth(self) -> np.ndarray:
         # --- choose elongated size (smaller) -------------------------- #
-        short = int(self._rng.integers(4, 8))                 # 4–7
+        short = int(self._rng.integers(4, 8))  # 4–7
         long = int(self._rng.integers(short + 3, short + 8))  # +3–7
-        if self._rng.random() < 0.5:                          # horizontal
+        if self._rng.random() < 0.5:  # horizontal
             h, w, entrance = short, long, (1, 0)
-        else:                                                 # vertical
+        else:  # vertical
             h, w, entrance = long, short, (0, 1)
         altar = (h - 2, w - 2)
 
         # keep dimensions odd for maze carving
-        h += (h % 2 == 0)
-        w += (w % 2 == 0)
+        h += h % 2 == 0
+        w += w % 2 == 0
 
-        wind = float(self._rng.random())                      # 0 = straight, 1 = twisty
+        wind = float(self._rng.random())  # 0 = straight, 1 = twisty
         pat = np.full((h, w), "wall", dtype=object)
         dirs = [(0, 1), (1, 0), (0, -1), (-1, 0)]
 
@@ -104,9 +105,7 @@ class LabyrinthWorld(Room):
             options = [
                 (dr, dc)
                 for dr, dc in dirs
-                if 0 < r + dr * 2 < h - 1
-                and 0 < c + dc * 2 < w - 1
-                and pat[r + dr * 2, c + dc * 2] == "wall"
+                if 0 < r + dr * 2 < h - 1 and 0 < c + dc * 2 < w - 1 and pat[r + dr * 2, c + dc * 2] == "wall"
             ]
             if options:
                 if last_dir in options and self._rng.random() > wind:
@@ -149,11 +148,9 @@ class LabyrinthWorld(Room):
         ph, pw = pattern.shape
         for r, c in self._free_windows((ph + 2 * clearance, pw + 2 * clearance)):
             # stamp the pattern
-            grid[r + clearance : r + clearance + ph,
-                 c + clearance : c + clearance + pw] = pattern
+            grid[r + clearance : r + clearance + ph, c + clearance : c + clearance + pw] = pattern
             # mark the *entire rectangle* as occupied so agents stay outside
-            self._occ[r : r + ph + 2 * clearance,
-                      c : c + pw + 2 * clearance] = True
+            self._occ[r : r + ph + 2 * clearance, c : c + pw + 2 * clearance] = True
             return True
         return False
 
@@ -163,9 +160,7 @@ class LabyrinthWorld(Room):
         if h > H or w > W:
             return []
         view_shape = (H - h + 1, W - w + 1, h, w)
-        sub = np.lib.stride_tricks.as_strided(
-            self._occ, view_shape, self._occ.strides * 2
-        )
+        sub = np.lib.stride_tricks.as_strided(self._occ, view_shape, self._occ.strides * 2)
         coords = np.argwhere(sub.sum(axis=(2, 3)) == 0)
         self._rng.shuffle(coords)
         return [tuple(t) for t in coords]
