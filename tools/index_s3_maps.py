@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dir", type=str)
+    parser.add_argument("--dir", type=str, required=True, help="S3 directory, e.g. s3://.../dir")
     parser.add_argument("--target", type=str, default=None)
     args = parser.parse_args()
 

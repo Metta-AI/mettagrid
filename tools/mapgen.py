@@ -79,12 +79,12 @@ def make_map(cfg_path: str, overrides: DictConfig | None = None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output-dir", type=str)
-    parser.add_argument("--output-uri", type=str)
-    parser.add_argument("--show", choices=get_args(ShowMode))
-    parser.add_argument("--count", type=int, default=1)
-    parser.add_argument("--overrides", type=str, default="")
-    parser.add_argument("cfg_path", type=str)
+    parser.add_argument("--output-dir", type=str, help="Output directory, e.g. ./maps or s3://.../dir")
+    parser.add_argument("--output-uri", type=str, help="Output URI if you're generating a single map")
+    parser.add_argument("--show", choices=get_args(ShowMode), help="Show the map in the specified mode")
+    parser.add_argument("--count", type=int, default=1, help="Number of maps to generate")
+    parser.add_argument("--overrides", type=str, default="", help="OmniConf overrides for the map config")
+    parser.add_argument("cfg_path", type=str, help="Path to the map config file")
     args = parser.parse_args()
 
     show_mode = args.show
