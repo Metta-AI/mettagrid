@@ -1,5 +1,5 @@
 import copy
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import gymnasium as gym
 import hydra
@@ -180,7 +180,6 @@ class MettaGridEnvSet(MettaGridEnv):
     def __init__(
         self,
         env_cfg: DictConfig,
-        probabilities: List[float] | None,
         render_mode: str,
         buf=None,
         **kwargs,
