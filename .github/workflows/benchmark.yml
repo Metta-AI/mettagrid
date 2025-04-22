@@ -61,6 +61,7 @@ jobs:
 
       - name: Validate Bencher Token
         run: |
+          echo "Token prefix: $(echo ${{ secrets.BENCHER_API_TOKEN }} | cut -c1-10)***"
           bencher project list --token ${{ secrets.BENCHER_API_TOKEN }}
 
       # For pushes to main branch
