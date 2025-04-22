@@ -40,7 +40,7 @@ jobs:
           source venv/bin/activate
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
+          
       # Always run build_ext since it's quick and needs to be done after checkout
       - name: Run setup.py build_ext
         run: |
@@ -70,6 +70,7 @@ jobs:
             --testbed ubuntu-latest \
             --adapter python_pytest \
             --github-actions '${{ secrets.GITHUB_TOKEN }}' \
+            --file ./benchmark_results.json > /dev/null
 
       # For pull requests
       - name: Upload to Bencher (PR branch)
@@ -86,3 +87,4 @@ jobs:
             --testbed ubuntu-latest \
             --adapter python_pytest \
             --github-actions '${{ secrets.GITHUB_TOKEN }}' \
+            --file ./benchmark_results.json > /dev/null
