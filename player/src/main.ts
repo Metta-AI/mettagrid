@@ -123,8 +123,8 @@ let selectedGridObject: any = null;
 
 // Playback state
 let isPlaying = false;
-let playbackInterval: number | null = null;
-let playbackSpeed = 5; // frames per playback step
+let partialStep = 0
+let playbackSpeed = 0.1;
 
 // Handle resize events.
 function onResize() {
@@ -414,11 +414,11 @@ function onKeyDown(event: KeyboardEvent) {
   }
   // '<' and '>' control the playback speed.
   if (event.key == ",") {
-    playbackSpeed = Math.max(playbackSpeed - 1, 1);
+    playbackSpeed = Math.max(playbackSpeed * 0.9, 0.01);
     console.log("playbackSpeed: ", playbackSpeed);
   }
   if (event.key == ".") {
-    playbackSpeed = Math.min(playbackSpeed + 1, 1000);
+    playbackSpeed = Math.min(playbackSpeed * 1.1, 1000);
     console.log("playbackSpeed: ", playbackSpeed);
   }
   // If space make it press the play button.
@@ -993,6 +993,17 @@ function onFrame() {
 
   drawer.flush();
   console.log("Flushed drawer.");
+
+  if (isPlaying) {
+    partialStep += playbackSpeed;
+    console.log("partialStep: ", partialStep);
+    if (partialStep >= 1) {
+      step = (step + Math.floor(partialStep)) % replay.max_steps;
+      partialStep -= Math.floor(partialStep);
+      scrubber.value = step.toString();
+    }
+    requestAnimationFrame(onFrame);
+  }
 }
 
 function preventDefaults(event: Event) {
@@ -1049,22 +1060,12 @@ function onPlayButtonClick() {
   if (isPlaying) {
     playButton.classList.add('paused');
 
-    playbackInterval = window.setInterval(() => {
-      if (replay === null) return;
 
-      // Advance step and wrap around if reached the end
-      step = (step + 1) % replay.max_steps;
-      scrubber.value = step.toString();
-      onScrubberChange();
-
-    }, 1000 / playbackSpeed);
   } else {
     playButton.classList.remove('paused');
-    if (playbackInterval !== null) {
-      window.clearInterval(playbackInterval);
-      playbackInterval = null;
-    }
+
   }
+  requestAnimationFrame(onFrame);
 }
 
 // Initial resize.
