@@ -16,6 +16,7 @@ def parse_s3_uri(uri: str) -> tuple[str, str]:
 
 
 def get_s3_client():
+    # no strict dependency on boto3 in mettagrid, install if you need it
     import boto3
 
     # AWS_PROFILE won't be neceesary for most people, but some envirnoments can have multiple profiles
