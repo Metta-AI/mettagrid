@@ -60,9 +60,13 @@ jobs:
       - uses: bencherdev/bencher@main
 
       - name: Validate Bencher Token
+        env:
+          BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
         run: |
-          echo "Token prefix: $(echo ${{ secrets.BENCHER_API_TOKEN }} | cut -c1-10)***"
-          bencher project list --token ${{ secrets.BENCHER_API_TOKEN }}
+          echo "Via ENV var: ${BENCHER_API_TOKEN:0:10} ..."
+          echo "Via secrets directly: ${SECRET_FROM_SECRETS:0:10} ..."
+          bencher project list --token "$BENCHER_API_TOKEN"
+        shell: bash
 
       # For pushes to main branch
       - name: Upload to Bencher (main branch)
