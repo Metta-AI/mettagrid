@@ -6,7 +6,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from mettagrid.map.mapgen import MapGrid
 
-from . import s3utils
+from . import storage
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ class StorableMap:
     @staticmethod
     def from_uri(uri: str) -> "StorableMap":
         logger.info(f"Loading map from {uri}")
-        content = s3utils.load_from_uri(uri)
+        content = storage.load_from_uri(uri)
 
         # TODO - validate content in a more principled way
         (frontmatter, content) = content.split("---\n", 1)
@@ -124,5 +124,5 @@ class StorableMap:
         return StorableMap(ascii_to_grid(lines), metadata=metadata, config=config)
 
     def save(self, uri: str):
-        s3utils.save_to_uri(str(self), uri)
+        storage.save_to_uri(str(self), uri)
         logger.info(f"Saved map to {uri}")

@@ -3,7 +3,7 @@ import logging
 import os
 import signal  # Aggressively exit on ctrl+c
 
-from mettagrid.map.utils import s3utils
+from mettagrid.map.utils import s3utils, storage
 
 signal.signal(signal.SIGINT, lambda sig, frame: os._exit(0))
 
@@ -22,7 +22,7 @@ def main():
 
     uri_list = s3utils.list_objects(s3_dir)
 
-    s3utils.save_to_uri(text="\n".join(uri_list), uri=target)
+    storage.save_to_uri(text="\n".join(uri_list), uri=target)
     logger.info(f"Index with {len(uri_list)} maps saved to {target}")
 
 

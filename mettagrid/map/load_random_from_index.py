@@ -1,7 +1,7 @@
 import random
 
 from mettagrid.map.load import Load
-from mettagrid.map.utils import s3utils
+from mettagrid.map.utils import storage
 
 from .scene import SceneCfg
 
@@ -21,7 +21,7 @@ class LoadRandomFromIndex(Load):
 
         # For 10k maps in a directory we'd have to fetch 100Kb of index data.
         # (Can we optimize this further by caching?)
-        index = s3utils.load_from_uri(self._index_uri)
+        index = storage.load_from_uri(self._index_uri)
         index = index.split("\n")
         random_map_uri = random.choice(index)
 
