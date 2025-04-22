@@ -85,6 +85,14 @@ jobs:
             --github-actions "$GITHUB_TOKEN" \
             --file ./benchmark_results.json > /dev/null
 
+      # NOTE: --start-point flags disabled until main has a baseline benchmark.
+      # Re-enable after this PR is merged and a run completes on main.
+      #
+      # --start-point "$GITHUB_BASE_REF" \
+      # --start-point-hash ${{ github.event.pull_request.base.sha }} \
+      # --start-point-clone-thresholds \
+      # --start-point-reset \
+
       # For pull requests
       - name: Upload to Bencher (PR branch)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
@@ -96,10 +104,6 @@ jobs:
             --project mettagrid-sv3f5i2k \
             --token "$BENCHER_API_TOKEN" \
             --branch "$GITHUB_HEAD_REF" \
-            --start-point "$GITHUB_BASE_REF" \
-            --start-point-hash ${{ github.event.pull_request.base.sha }} \
-            --start-point-clone-thresholds \
-            --start-point-reset \
             --testbed ubuntu-latest \
             --adapter python_pytest \
             --github-actions "$GITHUB_TOKEN" \
