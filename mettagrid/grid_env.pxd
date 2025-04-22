@@ -3,12 +3,12 @@ import numpy as np
 
 from libcpp.string cimport string
 from libcpp.vector cimport vector
-from mettagrid.action_handler cimport ActionHandler
+from mettagrid.cpp_action_handler cimport CppActionHandler
 from mettagrid.event cimport EventManager
 
 from mettagrid.cpp_grid_object cimport cpp_GridObjectId, cpp_ObsType
 
-from mettagrid.grid cimport Grid
+from mettagrid.cpp_grid cimport CppGrid
 from mettagrid.observation_encoder cimport ObservationEncoder
 from mettagrid.stats_tracker cimport StatsTracker
 from mettagrid.objects.agent cimport Agent
@@ -17,12 +17,12 @@ ctypedef unsigned int ActionType
 
 cdef class GridEnv:
     cdef:
-        Grid *_grid
+        CppGrid *_grid
         EventManager _event_manager
         unsigned int _current_timestep
         unsigned int _max_timestep
 
-        vector[ActionHandler*] _action_handlers
+        vector[CppActionHandler*] _action_handlers
         int _num_action_handlers
         vector[unsigned char] _max_action_args
         unsigned char _max_action_arg
@@ -57,7 +57,7 @@ cdef class GridEnv:
         vector[bint] _action_success
 
     cdef void add_agent(self, Agent* agent)
-    cdef void init_action_handlers(self, vector[ActionHandler*] action_handlers)
+    cdef void init_action_handlers(self, vector[CppActionHandler*] action_handlers)
     cdef void _compute_observations(self, int[:,:] actions)
     cdef void _step(self, int[:,:] actions)
 

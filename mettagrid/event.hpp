@@ -6,8 +6,8 @@
 #include <vector>
 using namespace std;
 
+#include "cpp_grid.hpp"
 #include "cpp_grid_object.hpp"
-#include "grid.hpp"
 #include "stats_tracker.hpp"
 typedef unsigned short EventId;
 typedef int EventArg;
@@ -46,7 +46,7 @@ private:
     unsigned int _current_timestep;
 
 public:
-    Grid* grid;
+    CppGrid* grid;
     StatsTracker* stats;
     vector<EventHandler*> event_handlers;
 
@@ -56,7 +56,7 @@ public:
         this->stats = nullptr;
     }
 
-    void init(Grid* grid, StatsTracker* stats)
+    void init(CppGrid* grid, StatsTracker* stats)
     {
         this->grid = grid;
         this->stats = stats;

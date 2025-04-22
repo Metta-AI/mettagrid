@@ -3,26 +3,26 @@
 
 #include <string>
 
-#include "action_handler.hpp"
+#include "cpp_action_handler.hpp"
 #include "cpp_grid_object.hpp"
 #include "objects/agent.hpp"
 #include "objects/constants.hpp"
 #include "objects/metta_object.hpp"
 
-class Attack : public ActionHandler {
+class Attack : public CppActionHandler {
 public:
-    Attack(const ActionConfig& cfg, const std::string& action_name = "attack") : ActionHandler(cfg, action_name)
+    Attack(const cpp_ActionConfig& cfg, const std::string& action_name = "attack") : CppActionHandler(cfg, action_name)
     {
         priority = 1;
     }
 
-    unsigned char max_arg() const override
+    unsigned char cpp_max_arg() const override
     {
         return 9;
     }
 
 protected:
-    bool _handle_action(unsigned int actor_id, Agent* actor, ActionArg arg) override
+    bool cpp_handle_action(unsigned int actor_id, Agent* actor, cpp_ActionArg arg) override
     {
         if (arg > 9 || arg < 1) {
             return false;

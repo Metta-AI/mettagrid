@@ -1,4 +1,3 @@
-#distutils : language = c++
 """
 Cython definitions for C++ grid object classes.
 This file provides the interface between C++ and Python.

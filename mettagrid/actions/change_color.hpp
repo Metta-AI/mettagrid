@@ -3,20 +3,20 @@
 
 #include <string>
 
-#include "action_handler.hpp"
+#include "cpp_action_handler.hpp"
 #include "objects/agent.hpp"
 
-class ChangeColorAction : public ActionHandler {
+class ChangeColorAction : public CppActionHandler {
 public:
-    ChangeColorAction(const ActionConfig& cfg) : ActionHandler(cfg, "change_color") {}
+    ChangeColorAction(const cpp_ActionConfig& cfg) : CppActionHandler(cfg, "change_color") {}
 
-    unsigned char max_arg() const override
+    unsigned char cpp_max_arg() const override
     {
         return 3;
     }
 
 protected:
-    bool _handle_action(unsigned int actor_id, Agent* actor, ActionArg arg) override
+    bool cpp_handle_action(unsigned int actor_id, Agent* actor, cpp_ActionArg arg) override
     {
         if (arg == 0) {  // Increment
             if (actor->color < 255) {

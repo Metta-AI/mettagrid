@@ -1,7 +1,7 @@
 from libcpp.map cimport map
 from libcpp.vector cimport vector
 from libcpp.string cimport string
-from mettagrid.grid_object cimport cpp_GridCoord
+from mettagrid.cpp_grid_object cimport cpp_GridCoord
 from mettagrid.stats_tracker cimport StatsTracker
 from .constants cimport InventoryItem
 from .metta_object cimport MettaObject, ObjectConfig

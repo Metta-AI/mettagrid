@@ -1,6 +1,6 @@
 from libcpp.queue cimport priority_queue
 from libcpp.vector cimport vector
-from mettagrid.grid cimport Grid
+from mettagrid.cpp_grid cimport CppGrid
 from mettagrid.stats_tracker cimport StatsTracker
 
 from mettagrid.cpp_grid_object cimport cpp_GridObjectId
@@ -16,7 +16,7 @@ cdef extern from "event.hpp":
         EventArg arg
 
     cdef cppclass EventManager:
-        Grid *grid
+        CppGrid *grid
         StatsTracker *stats
         priority_queue[Event] event_queue
         unsigned int current_timestep
@@ -24,7 +24,7 @@ cdef extern from "event.hpp":
 
         EventManager()
 
-        void init(Grid *grid, StatsTracker *stats)
+        void init(CppGrid *grid, StatsTracker *stats)
 
         void schedule_event(
             EventId event_id,

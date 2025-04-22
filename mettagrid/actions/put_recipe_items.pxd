@@ -1,5 +1,5 @@
-from mettagrid.action_handler cimport ActionHandler, ActionConfig
+from mettagrid.cpp_action_handler cimport CppActionHandler, cpp_ActionConfig
 
 cdef extern from "put_recipe_items.hpp":
-    cdef cppclass PutRecipeItems(ActionHandler):
-        PutRecipeItems(const ActionConfig& cfg)
+    cdef cppclass PutRecipeItems(CppActionHandler):
+        PutRecipeItems(const cpp_ActionConfig& cfg)

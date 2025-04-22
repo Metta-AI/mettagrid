@@ -26,7 +26,7 @@ from mettagrid.objects.converter cimport Converter
 from mettagrid.objects.constants cimport ObjectLayers, InventoryItemNames, ObjectType, ObjectTypeAscii
 
 # Action imports
-from mettagrid.action_handler cimport ActionHandler
+from mettagrid.cpp_action_handler cimport CppActionHandler
 from mettagrid.actions.move cimport Move
 from mettagrid.actions.rotate cimport Rotate
 from mettagrid.actions.get_output cimport GetOutput
@@ -52,7 +52,7 @@ cdef class MettaGrid(GridEnv):
         obs_encoder = ObservationEncoder()
         if env_cfg.semi_compact_obs:
             obs_encoder = SemiCompactObservationEncoder()
-        cdef vector[ActionHandler*] actions
+        cdef vector[CppActionHandler*] actions
         if cfg.actions.put_items.enabled:
             actions.push_back(new PutRecipeItems(cfg.actions.put_items))
         if cfg.actions.get_items.enabled:

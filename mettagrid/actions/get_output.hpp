@@ -3,23 +3,23 @@
 
 #include <string>
 
-#include "action_handler.hpp"
+#include "cpp_action_handler.hpp"
+#include "cpp_grid.hpp"
 #include "cpp_grid_object.hpp"
-#include "grid.hpp"
 #include "objects/agent.hpp"
 #include "objects/converter.hpp"
 
-class GetOutput : public ActionHandler {
+class GetOutput : public CppActionHandler {
 public:
-    GetOutput(const ActionConfig& cfg) : ActionHandler(cfg, "get_output") {}
+    GetOutput(const cpp_ActionConfig& cfg) : CppActionHandler(cfg, "get_output") {}
 
-    unsigned char max_arg() const override
+    unsigned char cpp_max_arg() const override
     {
         return 0;
     }
 
 protected:
-    bool _handle_action(unsigned int actor_id, Agent* actor, ActionArg arg) override
+    bool cpp_handle_action(unsigned int actor_id, Agent* actor, cpp_ActionArg arg) override
     {
         CppGridLocation target_loc =
             _grid->relative_location(actor->location, static_cast<cpp_Orientation>(actor->orientation));

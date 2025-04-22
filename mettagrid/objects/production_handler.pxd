@@ -1,5 +1,5 @@
 from mettagrid.event cimport EventHandler, EventArg, EventManager
-from mettagrid.grid_object cimport cpp_GridObjectId
+from mettagrid.cpp_grid_object cimport cpp_GridObjectId
 
 cdef extern from "production_handler.hpp":
     cdef cppclass ProductionHandler(EventHandler):

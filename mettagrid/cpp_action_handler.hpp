@@ -1,16 +1,16 @@
-#ifndef ACTION_HANDLER_HPP
-#define ACTION_HANDLER_HPP
+#ifndef CPP_ACTION_HANDLER_HPP
+#define CPP_ACTION_HANDLER_HPP
 
 #include <map>
 #include <string>
 #include <vector>
 
+#include "cpp_grid.hpp"
 #include "cpp_grid_object.hpp"
-#include "grid.hpp"
 #include "objects/agent.hpp"
 #include "objects/constants.hpp"
 
-struct StatNames {
+struct CppStatNames {
     std::string success;
     std::string first_use;
     std::string failure;
@@ -20,15 +20,16 @@ struct StatNames {
     std::vector<std::string> group;
 };
 
-typedef unsigned char ActionArg;
-typedef std::map<std::string, int> ActionConfig;
+typedef unsigned char cpp_ActionArg;
+typedef std::map<std::string, int> cpp_ActionConfig;
 
-class ActionHandler {
+class CppActionHandler {
 public:
     unsigned char priority;
-    Grid* _grid;
+    CppGrid* _grid;
 
-    ActionHandler(const ActionConfig& cfg, const std::string& action_name) : priority(0), _action_name(action_name)
+    CppActionHandler(const cpp_ActionConfig& cfg, const std::string& action_name)
+        : priority(0), _action_name(action_name)
     {
         _stats.success = "action." + action_name;
         _stats.failure = "action." + action_name + ".failed";
@@ -40,13 +41,15 @@ public:
         }
     }
 
-    void init(Grid* grid)
+    virtual ~CppActionHandler() = default;
+
+    void cpp_init(CppGrid* grid)
     {
-        this->_grid = grid;
+        _grid = grid;
     }
 
-    bool handle_action(unsigned int actor_id, cpp_GridObjectId actor_object_id, ActionArg arg,
-                       unsigned int current_timestep)
+    bool cpp_handle_action(unsigned int actor_id, cpp_GridObjectId actor_object_id, cpp_ActionArg arg,
+                           unsigned int current_timestep)
     {
         Agent* actor = static_cast<Agent*>(_grid->object(actor_object_id));
 
@@ -57,7 +60,7 @@ public:
             return false;
         }
 
-        bool result = _handle_action(actor_id, actor, arg);
+        bool result = cpp_handle_action(actor_id, actor, arg);
 
         if (result) {
             actor->stats.incr(_stats.success);
@@ -72,21 +75,36 @@ public:
         return result;
     }
 
-    virtual unsigned char max_arg() const
+    virtual unsigned char cpp_max_arg() const
     {
         return 0;
     }
 
-    std::string action_name() const
+    std::string cpp_action_name() const
     {
         return _action_name;
     }
 
 protected:
-    virtual bool _handle_action(unsigned int actor_id, Agent* actor, ActionArg arg) = 0;
+    virtual bool cpp_handle_action(unsigned int actor_id, Agent* actor, cpp_ActionArg arg) = 0;
 
-    StatNames _stats;
+    CppStatNames _stats;
     std::string _action_name;
 };
 
-#endif  // ACTION_HANDLER_HPP
+class CppDefaultActionHandler : public CppActionHandler {
+public:
+    CppDefaultActionHandler(const cpp_ActionConfig& cfg, const std::string& action_name)
+        : CppActionHandler(cfg, action_name)
+    {
+    }
+
+    // Implement the required pure virtual method
+    virtual bool cpp_handle_action(unsigned int actor_id, Agent* actor, cpp_ActionArg arg) override
+    {
+        // Default implementation - modify according to your needs
+        return false;  // Or whatever default behavior makes sense
+    }
+};
+
+#endif  // CPP_ACTION_HANDLER_HPP

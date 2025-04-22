@@ -3,21 +3,21 @@
 
 #include <string>
 
-#include "action_handler.hpp"
+#include "cpp_action_handler.hpp"
 #include "cpp_grid_object.hpp"
 #include "objects/agent.hpp"
 
-class Move : public ActionHandler {
+class Move : public CppActionHandler {
 public:
-    Move(const ActionConfig& cfg) : ActionHandler(cfg, "move") {}
+    Move(const cpp_ActionConfig& cfg) : CppActionHandler(cfg, "move") {}
 
-    unsigned char max_arg() const override
+    unsigned char cpp_max_arg() const override
     {
         return 1;
     }
 
 protected:
-    bool _handle_action(unsigned int actor_id, Agent* actor, ActionArg arg) override
+    bool cpp_handle_action(unsigned int actor_id, Agent* actor, cpp_ActionArg arg) override
     {
         unsigned short direction = arg;
 

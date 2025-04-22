@@ -3,22 +3,22 @@
 
 #include <string>
 
-#include "action_handler.hpp"
+#include "cpp_action_handler.hpp"
+#include "cpp_grid.hpp"
 #include "cpp_grid_object.hpp"
-#include "grid.hpp"
 #include "objects/agent.hpp"
 
-class Swap : public ActionHandler {
+class Swap : public CppActionHandler {
 public:
-    Swap(const ActionConfig& cfg) : ActionHandler(cfg, "swap") {}
+    Swap(const cpp_ActionConfig& cfg) : CppActionHandler(cfg, "swap") {}
 
-    unsigned char max_arg() const override
+    unsigned char cpp_max_arg() const override
     {
         return 0;
     }
 
 protected:
-    bool _handle_action(unsigned int actor_id, Agent* actor, ActionArg arg) override
+    bool cpp_handle_action(unsigned int actor_id, Agent* actor, cpp_ActionArg arg) override
     {
         CppGridLocation target_loc =
             _grid->relative_location(actor->location, static_cast<cpp_Orientation>(actor->orientation));

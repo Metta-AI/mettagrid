@@ -5,9 +5,8 @@ import numpy as np
 cimport numpy as cnp
 import gymnasium as gym
 
-from mettagrid.action_handler cimport ActionArg, ActionHandler
-from mettagrid.grid cimport Grid
-
+from mettagrid.cpp_action_handler cimport cpp_ActionArg, CppActionHandler
+from mettagrid.cpp_grid cimport CppGrid
 from mettagrid.cpp_grid_object cimport CppGridObject, cpp_GridObjectId, cpp_Layer, CppGridLocation, cpp_ObsType
 
 from mettagrid.objects.agent cimport Agent
@@ -37,7 +36,7 @@ cdef class GridEnv:
         self._middle_y = obs_height // 2
         self._max_timestep = max_timestep
         self._current_timestep = 0
-        self._grid = new Grid(map_width, map_height, layer_for_type_id)
+        self._grid = new CppGrid(map_width, map_height, layer_for_type_id)
         self._obs_encoder = observation_encoder
         self._obs_encoder.init(self._obs_width, self._obs_height)
         self._grid_features = observation_encoder.feature_names()
@@ -75,7 +74,7 @@ cdef class GridEnv:
     def __dealloc__(self):
         del self._grid
 
-    cdef void init_action_handlers(self, vector[ActionHandler*] action_handlers):
+    cdef void init_action_handlers(self, vector[CppActionHandler*] action_handlers):
         """Initializes action_handlers.
 
         This lives separate from __init__ since
@@ -87,12 +86,12 @@ cdef class GridEnv:
         self._max_action_priority = 0
         self._max_action_arg = 0
         self._max_action_args.resize(action_handlers.size())
-        cdef ActionHandler *handler
+        cdef CppActionHandler *handler
         cdef unsigned int i
         for i in range(action_handlers.size()):
             handler = action_handlers[i]
-            handler.init(self._grid)
-            max_arg = handler.max_arg()
+            handler.cpp_init(self._grid)
+            max_arg = handler.cpp_max_arg()
             self._max_action_args[i] = max_arg
             self._max_action_arg = max(self._max_action_arg, max_arg)
             self._max_action_priority = max(self._max_action_priority, handler.priority)
@@ -157,9 +156,9 @@ cdef class GridEnv:
         cdef:
             unsigned int idx
             short action
-            ActionArg arg
+            cpp_ActionArg arg
             Agent *agent
-            ActionHandler *handler
+            CppActionHandler *handler
 
         self._rewards[:] = 0
         self._observations[:, :, :, :] = 0
@@ -182,7 +181,7 @@ cdef class GridEnv:
                     continue
                 if arg > self._max_action_args[action]:
                     continue
-                self._action_success[idx] = handler.handle_action(idx, agent.id, arg, self._current_timestep)
+                self._action_success[idx] = handler.cpp_handle_action(idx, agent.id, arg, self._current_timestep)
 
         self._compute_observations(actions)
 
@@ -238,7 +237,7 @@ cdef class GridEnv:
         return []
 
     cpdef list[str] action_names(self):
-        return [handler.action_name() for handler in self._action_handlers]
+        return [handler.cpp_action_name() for handler in self._action_handlers]
 
     cpdef unsigned int current_timestep(self):
         return self._current_timestep

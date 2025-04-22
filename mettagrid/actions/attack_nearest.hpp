@@ -10,15 +10,15 @@
 
 class AttackNearest : public Attack {
 public:
-    AttackNearest(const ActionConfig& cfg) : Attack(cfg, "attack_nearest") {}
+    AttackNearest(const cpp_ActionConfig& cfg) : Attack(cfg, "attack_nearest") {}
 
-    unsigned char max_arg() const override
+    unsigned char cpp_max_arg() const override
     {
         return 0;
     }
 
 protected:
-    bool _handle_action(unsigned int actor_id, Agent* actor, ActionArg arg) override
+    bool cpp_handle_action(unsigned int actor_id, Agent* actor, cpp_ActionArg arg) override
     {
         if (actor->inventory[InventoryItem::laser] == 0) {
             return false;

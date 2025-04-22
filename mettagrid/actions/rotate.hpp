@@ -3,20 +3,20 @@
 
 #include <string>
 
-#include "action_handler.hpp"
+#include "cpp_action_handler.hpp"
 #include "objects/agent.hpp"
 
-class Rotate : public ActionHandler {
+class Rotate : public CppActionHandler {
 public:
-    Rotate(const ActionConfig& cfg) : ActionHandler(cfg, "rotate") {}
+    Rotate(const cpp_ActionConfig& cfg) : CppActionHandler(cfg, "rotate") {}
 
-    unsigned char max_arg() const override
+    unsigned char cpp_max_arg() const override
     {
         return 3;
     }
 
 protected:
-    bool _handle_action(unsigned int actor_id, Agent* actor, ActionArg arg) override
+    bool cpp_handle_action(unsigned int actor_id, Agent* actor, cpp_ActionArg arg) override
     {
         unsigned short orientation = arg;
         actor->orientation = orientation;

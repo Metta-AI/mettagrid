@@ -1,5 +1,5 @@
-from mettagrid.action_handler cimport ActionHandler, ActionConfig
+from mettagrid.cpp_action_handler cimport CppActionHandler, cpp_ActionConfig
 
 cdef extern from "attack.hpp":
-    cdef cppclass Attack(ActionHandler):
-        Attack(const ActionConfig& cfg)
+    cdef cppclass Attack(CppActionHandler):
+        Attack(const cpp_ActionConfig& cfg)

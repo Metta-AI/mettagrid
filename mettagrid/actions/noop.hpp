@@ -3,20 +3,20 @@
 
 #include <string>
 
-#include "action_handler.hpp"
+#include "cpp_action_handler.hpp"
 #include "objects/agent.hpp"
 
-class Noop : public ActionHandler {
+class Noop : public CppActionHandler {
 public:
-    Noop(const ActionConfig& cfg) : ActionHandler(cfg, "noop") {}
+    Noop(const cpp_ActionConfig& cfg) : CppActionHandler(cfg, "noop") {}
 
-    unsigned char max_arg() const override
+    unsigned char cpp_max_arg() const override
     {
         return 0;
     }
 
 protected:
-    bool _handle_action(unsigned int actor_id, Agent* actor, ActionArg arg) override
+    bool cpp_handle_action(unsigned int actor_id, Agent* actor, cpp_ActionArg arg) override
     {
         return true;
     }

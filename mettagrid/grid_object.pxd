@@ -1,28 +1,39 @@
-#distutils : language = c++
-"""
-Cython definitions for Python wrapper classes of the grid object system.
-This file declares the Python-accessible classes that wrap the C++ implementation.
-"""
 from libcpp.vector cimport vector
 import numpy as np
 cimport numpy as np
 
-#Import from our cpp_grid_object.pxd file(note the syntax)
-from mettagrid.cpp_grid_object cimport CppGridLocation, CppGridObject, CppTestGridObject
-from mettagrid.cpp_grid_object cimport cpp_TypeId, cpp_GridObjectId, cpp_GridCoord, cpp_Layer, cpp_ObsType, cpp_Orientation
+from mettagrid.cpp_grid_object cimport (
+    CppGridLocation,
+    CppGridObject,
+    CppTestGridObject,
+    cpp_TypeId,
+    cpp_GridObjectId,
+    cpp_GridCoord,
+    cpp_Layer,
+    cpp_ObsType,
+    cpp_Orientation
+)
 
-#Python wrapper for C++ GridLocation
 cdef class GridLocation:
-    #The wrapped C++ object
     cdef CppGridLocation _cpp_loc
+    cpdef unsigned int row(self)
+    cpdef void set_row(self, unsigned int value)
+    cpdef unsigned int col(self)
+    cpdef void set_col(self, unsigned int value)
+    cpdef unsigned short layer(self)
+    cpdef void set_layer(self, unsigned short value)
 
-#Abstract base class for grid objects in Python
 cdef class GridObject:
-    #The wrapped C++ object and ownership flag
     cdef CppGridObject* _cpp_obj
-    cdef bint _owns_ptr  # True if this Python object owns the C++ pointer
+    cdef bint _owns_ptr
 
-#Concrete implementation for testing
+    cpdef void init(self, unsigned short type_id, object location_or_row, object col=?, object layer=?)
+    cpdef unsigned int id(self)
+    cpdef void set_id(self, unsigned int value)
+    cpdef cpp_TypeId type_id(self)
+    cpdef GridLocation location(self)
+    cpdef void set_location(self, GridLocation loc)
+    cpdef void obs(self, np.ndarray[unsigned char, ndim=1] obs_array, list offsets)
+
 cdef class TestGridObject(GridObject):
-    #Inherits members from GridObject
-    pass
+    cpdef void obs(self, np.ndarray[unsigned char, ndim=1] obs_array, list offsets)

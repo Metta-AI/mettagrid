@@ -1,8 +1,8 @@
 #ifndef PRODUCTION_HANDLER_HPP
 #define PRODUCTION_HANDLER_HPP
 
+#include "../cpp_grid.hpp"
 #include "../event.hpp"
-#include "../grid.hpp"
 #include "../stats_tracker.hpp"
 #include "constants.hpp"
 #include "converter.hpp"
