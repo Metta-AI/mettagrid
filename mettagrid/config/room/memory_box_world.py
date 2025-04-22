@@ -10,6 +10,7 @@ MemoryBoxWorld (random sizes)
   opposite the gap.  
 • Boxes are stamped until 10 consecutive placement failures; agents spawn
   outside the boxes.
+• Exactly 20 agents are spawned in every episode.
 """
 
 from typing import List, Optional, Tuple
@@ -25,7 +26,7 @@ class MemoryBoxWorld(Room):
         self,
         width: int = 120,
         height: int = 120,
-        agents: int | dict = 0,
+        agents: int | dict = 20,
         size_range: Tuple[int, int] = (9, 14),     # interior side length
         corridor_range: Tuple[int, int] = (6, 10), # sampled per box
         seed: Optional[int] = None,
@@ -36,11 +37,18 @@ class MemoryBoxWorld(Room):
         self._rng = np.random.default_rng(seed)
         width, height = np.random.randint(80,120), np.random.randint(80,120)
         self._width, self._height = width, height
+        # Always spawn exactly 20 agents, ignoring caller‑supplied values
         self._agents = agents
         self._occ = np.zeros((height, width), dtype=bool)
 
         self.smin, self.smax = size_range
         self.cmin, self.cmax = corridor_range
+
+    # ------------------------------------------------------------------ #
+    @property
+    def agents(self) -> int:
+        """Always returns 20 — the fixed number of agents in MemoryBoxWorld."""
+        return 20
 
     # -------------------- build world -------------------- #
     def _build(self):
@@ -112,16 +120,39 @@ class MemoryBoxWorld(Room):
 
     # ---------------- agent placement -------------- #
     def _place_agents(self, grid):
-        tags = (
-            ["agent.agent"] * self._agents
-            if isinstance(self._agents, int)
-            else ["agent." + n for n, k in self._agents.items() for _ in range(k)]
-        )
-        for t in tags:
-            pos = self._rand_empty()
-            if pos:
-                grid[pos] = t
-                self._occ[pos] = True
+        """Place agents so they are roughly uniformly spread out.
+
+        A greedy Poisson‑disk sampler is used: each new agent spawn
+        must be at least *min_dist* Manhattan units away from every
+        already‑placed agent.  If the constraint cannot be satisfied
+        after scanning all empties once, any remaining agents are
+        placed randomly.
+        """
+        min_dist = 10
+        empties = np.flatnonzero(~self._occ)
+        self._rng.shuffle(empties)
+
+        chosen: List[Tuple[int, int]] = []
+        H, W = self._occ.shape
+        for idx in empties.tolist():
+            if len(chosen) == self._agents:
+                break
+            r, c = divmod(idx, W)
+            if all(abs(r - rr) + abs(c - cc) >= min_dist for rr, cc in chosen):
+                chosen.append((r, c))
+
+        # Fallback: fill any remaining agents without the distance constraint
+        if len(chosen) < self._agents:
+            remaining = [divmod(i, W) for i in empties.tolist()
+                         if divmod(i, W) not in chosen]
+            for pos in remaining[: self._agents - len(chosen)]:
+                chosen.append(pos)
+
+        # Stamp agents into the grid / occupancy mask
+        for pos in chosen:
+            grid[pos] = "agent.agent"
+            self._occ[pos] = True
+
         return grid
 
     # -------------- generic helpers --------------- #
