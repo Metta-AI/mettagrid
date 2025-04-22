@@ -36,9 +36,8 @@ class GiantMazeWorld(Room):
         super().__init__(border_width=border_width, border_object=border_object)
         self._rng = np.random.default_rng(seed)
 
-        width = np.random.rand(width-75,width+15)
-        height = np.random.rand(height-75,height+15)
-
+        width = np.random.randint(width-75,width+15)
+        height = np.random.randint(height-75,height+15)
 
         # force odd dims (good for maze generation)
         self.base_w = width | 1
