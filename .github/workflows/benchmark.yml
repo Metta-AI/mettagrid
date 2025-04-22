@@ -61,23 +61,12 @@ jobs:
 
       - name: Validate Bencher Token
         run: |
-          if bencher project list --token ${{ secrets.BENCHER_API_TOKEN }} > /dev/null; then
-            echo "Bencher token is valid"
-          else
-            echo "Bencher token validation failed"
-            exit 1
-          fi
+          bencher project list --token ${{ secrets.BENCHER_API_TOKEN }}
 
       # For pushes to main branch
       - name: Upload to Bencher (main branch)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          # Try initializing the branch first if it doesn't exist
-          bencher project branch create \
-            --project mettagrid-sv3f5i2k \
-            --token '${{ secrets.BENCHER_API_TOKEN }}' \
-            --name main || true
-
           bencher run \
             --project mettagrid-sv3f5i2k \
             --token '${{ secrets.BENCHER_API_TOKEN }}' \
@@ -91,12 +80,6 @@ jobs:
       - name: Upload to Bencher (PR branch)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         run: |
-          # Try initializing the branch first if it doesn't exist
-          bencher project branch create \
-            --project mettagrid-sv3f5i2k \
-            --token '${{ secrets.BENCHER_API_TOKEN }}' \
-            --name "$GITHUB_HEAD_REF" || true
-
           bencher run \
             --project mettagrid-sv3f5i2k \
             --token '${{ secrets.BENCHER_API_TOKEN }}' \
