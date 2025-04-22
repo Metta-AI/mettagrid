@@ -101,7 +101,6 @@ class LatticeWorld(Room):
     # Door carving with connectivity guarantee
     # ------------------------------------------------------------------
     def _carve_doors_connected(self) -> None:
-        logger = logging.getLogger(__name__)
         n = self.rooms_per_dim
         dsu = _DSU(n * n)
 
@@ -139,7 +138,6 @@ class LatticeWorld(Room):
                 i1, j1 = divmod(a, n)
                 i2, j2 = divmod(b, n)
                 _open(i1, j1, i2, j2)
-        logger.debug("Spanning tree carved – all rooms connected")
 
     # ------------------------------------------------------------------
     # Empty‑cell helpers
@@ -163,8 +161,6 @@ class LatticeWorld(Room):
     # Object placement
     # ------------------------------------------------------------------
     def _place_objects(self) -> None:
-        logger = logging.getLogger(__name__)
-
         n = self.rooms_per_dim
         all_rooms = [(i, j) for i in range(n) for j in range(n)]
 
@@ -172,7 +168,6 @@ class LatticeWorld(Room):
         # Heart altars (per‑room Bernoulli)
         # ----------------------------------
         heart_rooms: List[Tuple[int, int]] = [room for room in all_rooms if self.rng.random() < self.heart_altar_rate]
-        logger.info("Placing %d heart altars", len(heart_rooms))
         for i, j in heart_rooms:
             r, c = self._random_empty_in_room(i, j)
             self.grid[r, c] = "altar"
@@ -184,7 +179,6 @@ class LatticeWorld(Room):
             if self.num_agents > len(all_rooms):
                 raise ValueError("More agents than rooms available")
             agent_rooms = self.rng.choice(all_rooms, size=self.num_agents, replace=False)
-            logger.info("Placing %d agents", self.num_agents)
             for idx, (i, j) in enumerate(agent_rooms):
                 r, c = self._random_empty_in_room(i, j)
                 self.grid[r, c] = "agent.agent"
