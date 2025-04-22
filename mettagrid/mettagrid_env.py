@@ -189,7 +189,8 @@ class MettaGridEnvSet(MettaGridEnv):
         epsilon: float = 0.01,  # Small constant to avoid zero priority
         **kwargs,
     ):
-        self._env_cfgs = env_cfg.envs
+        self._envs = list(env_cfg.envs.keys())
+        self._probabilities = list(env_cfg.envs.values())
         self._num_agents_global = env_cfg.num_agents
         self._num_envs = len(self._env_cfgs)
 

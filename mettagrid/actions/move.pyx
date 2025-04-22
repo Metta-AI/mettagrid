@@ -3,7 +3,7 @@ from libc.stdio cimport printf
 from omegaconf import OmegaConf
 
 from mettagrid.action_handler cimport ActionArg
-from mettagrid.actions.metta_action_handler cimport MettaActionHandler
+from mettagrid.action_handler cimport ActionHandler
 
 from mettagrid.grid_object cimport (
     GridLocation,
@@ -13,9 +13,9 @@ from mettagrid.grid_object cimport (
 )
 from mettagrid.objects.agent cimport Agent
 
-cdef class Move(MettaActionHandler):
+cdef class Move(ActionHandler):
     def __init__(self, cfg: OmegaConf):
-        MettaActionHandler.__init__(self, cfg, "move")
+        ActionHandler.__init__(self, "move")
 
     cdef unsigned char max_arg(self):
         return 1
@@ -40,7 +40,7 @@ cdef class Move(MettaActionHandler):
                 orientation = Orientation.Left
 
         cdef GridLocation old_loc = actor.location
-        cdef GridLocation new_loc = self.env._grid.relative_location(old_loc, orientation)
-        if not self.env._grid.is_empty(new_loc.r, new_loc.c):
+        cdef GridLocation new_loc = self._grid.relative_location(old_loc, orientation)
+        if not self._grid.is_empty(new_loc.r, new_loc.c):
             return 0
-        return self.env._grid.move_object(actor.id, new_loc)
+        return self._grid.move_object(actor.id, new_loc)
