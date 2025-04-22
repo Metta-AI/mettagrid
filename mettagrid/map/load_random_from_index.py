@@ -11,7 +11,7 @@ class LoadRandomFromIndex(Load):
     Load a random map from a list of pregenerated maps.
 
     The index file can be produced with the following command:
-        python -m tools.index_s3_maps index_s3_maps.dir=s3://...
+        python -m tools.index_s3_maps --dir=s3://...
 
     See also: `LoadRandom` for a version that loads a random map from an S3 directory.
     """
