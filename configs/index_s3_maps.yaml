@@ -1,7 +1,0 @@
-index_s3_maps:
-  # S3 directory, `s3://.../dir/`
-  dir: ???
-  # By default the index will be saved on S3 to `dir/index.txt`.
-  # But you can provide a local filename instead.
-  # If you want to save the index to a custom S3 destination, you'll need to provide the full URI, `s3://.../index_name.txt`.
-  target: null

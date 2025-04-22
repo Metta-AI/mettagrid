@@ -1,9 +1,0 @@
-defaults:
-  - mettagrid
-  - mapgen: show
-  - game/map_builder: ???
-  - _self_
-
-game:
-  num_agents: 0
-  recursive_map_builder: false

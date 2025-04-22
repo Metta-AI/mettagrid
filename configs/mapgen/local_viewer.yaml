@@ -1,7 +1,0 @@
-save: true
-show: none
-
-target:
-  # this is specific to my dir layout -- Slava
-  # (this config will go away when we fully move to s3)
-  dir: ../../../mettamap/viewer/public/maps
