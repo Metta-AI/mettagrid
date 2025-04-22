@@ -59,6 +59,15 @@ jobs:
       # Install Bencher CLI using the GitHub Action
       - uses: bencherdev/bencher@main
 
+      - name: Validate Bencher Token
+        run: |
+          if bencher project list --token ${{ secrets.BENCHER_API_TOKEN }} > /dev/null; then
+            echo "Bencher token is valid"
+          else
+            echo "Bencher token validation failed"
+            exit 1
+          fi
+
       # For pushes to main branch
       - name: Upload to Bencher (main branch)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
