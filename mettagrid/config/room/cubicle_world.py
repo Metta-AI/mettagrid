@@ -1,8 +1,8 @@
 """
 CubicleWorld
-============
+=============
 
-Creates a lattice of full‑length walls: vertical lines from top‑to‑bottom and
+Creates a cubicle of full‑length walls: vertical lines from top‑to‑bottom and
 horizontal lines from left‑to‑right.  Interior rectangles of empty space are the
 “cubicles.”  Door‑sized openings are carved in each interior wall.
 
@@ -30,15 +30,19 @@ class CubicleWorld(Room):
 
     def __init__(
         self,
-        width_range: Sequence[int] = (60, 140),
-        height_range: Sequence[int] = (60, 140),
+        width_range: Sequence[int] = (120, 320),
+        height_range: Sequence[int] = (120, 320),
         gap_range: Sequence[int] = (4, 14),
         altars_count: int = 50,
         agents: int | dict = 20,
         seed: int | None = 42,
         border_object: str = "wall",
+        border_width: int = 6
     ):
-        super().__init__(border_object=border_object)
+        """
+        Initialize a CubicleWorld environment.
+        """
+        super().__init__(border_width = border_width, border_object=border_object)
         rng = np.random.default_rng(seed)
 
         self.width = np.random.randint(width_range[0], width_range[1])
