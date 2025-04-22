@@ -350,7 +350,7 @@ async function loadReplayText(replayData: any) {
     "converter"
   ]
 
-  console.log("replay: ", replay);
+  console.log("pre replay: ", replay);
 
   // Go through each grid object and expand its key sequence.
   for (const gridObject of replay.grid_objects) {
@@ -360,6 +360,25 @@ async function loadReplayText(replayData: any) {
       }
     }
   }
+
+  // Find all agents for faster access.
+  replay.agents = [];
+  for (let i = 0; i < replay.num_agents; i++) {
+    for (const gridObject of replay.grid_objects) {
+      if (gridObject["agent_id"] == i) {
+        replay.agents.push(gridObject);
+      }
+    }
+  }
+
+  // Create all image mappings for faster access.
+  replay.action_images = [];
+  for (const actionName of replay.action_names) {
+    replay.action_images.push("trace/" + actionName + ".png");
+  }
+
+  console.log("postreplay: ", replay);
+
 
   // Set the scrubber max value to the max steps.
   scrubber.max = (replay.max_steps - 1).toString();
@@ -808,13 +827,11 @@ function drawTrace(panel: PanelInfo) {
         if (mapX > 0 && mapX < replay.max_steps * TRACE_WIDTH &&
           localMousePos.y() > 0 && localMousePos.y() < replay.num_agents * TRACE_HEIGHT) {
           const agentId = Math.floor(localMousePos.y() / TRACE_HEIGHT);
-          for (const gridObject of replay.grid_objects) {
-            if (gridObject["agent_id"] == agentId) {
-              followSelection = true;
-              selectedGridObject = gridObject;
-              console.log("selectedGridObject: ", selectedGridObject);
-              focusMapOn(mapPanel, getAttr(selectedGridObject, "c"), getAttr(selectedGridObject, "r"));
-            }
+          for (const agent of replay.agents) {
+            followSelection = true;
+            selectedGridObject = agent;
+            console.log("selectedGridObject: ", selectedGridObject);
+            focusMapOn(mapPanel, getAttr(selectedGridObject, "c"), getAttr(selectedGridObject, "r"));
           }
           step = Math.floor(mapX / TRACE_WIDTH);
           scrubber.value = step.toString();
@@ -858,44 +875,38 @@ function drawTrace(panel: PanelInfo) {
 
   // Draw agent traces
   for (let i = 0; i < replay.num_agents; i++) {
+    const agent = replay.agents[i];
+    for (let j = 0; j < replay.max_steps; j++) {
+      const action = getAttr(agent, "action", j);
+      const action_success = getAttr(agent, "action_success", j);
 
-    // Draw the agent's actions
-    for (const gridObject of replay.grid_objects) {
-      if (gridObject["agent_id"] == i) {
-        for (let j = 0; j < replay.max_steps; j++) {
-          const action = getAttr(gridObject, "action", j);
-          const action_success = getAttr(gridObject, "action_success", j);
+      if (action_success) {
+        drawer.drawImage(
+          replay.action_images[action[0]],
+          j * TRACE_WIDTH, i * TRACE_HEIGHT,
+        );
+      } else {
+        drawer.drawImage(
+          replay.action_images[action[0]],
+          j * TRACE_WIDTH, i * TRACE_HEIGHT,
+          [0.5, 0.5, 0.5, 0.05]
+        );
+      }
 
-          const actionName = replay.action_names[action[0]] as string;
-          if (action_success) {
-            // Convert hex color to RGBA array
-            drawer.drawImage(
-              "trace/" + actionName + ".png",
-              j * TRACE_WIDTH, i * TRACE_HEIGHT,
-            );
-          } else {
-            drawer.drawImage(
-              "trace/" + actionName + ".png",
-              j * TRACE_WIDTH, i * TRACE_HEIGHT,
-              [0.5, 0.5, 0.5, 0.05]
-            );
-          }
-
-          const reward = getAttr(gridObject, "reward", j);
-          // If there is reward, draw a sharp bar
-          if (reward > 0) {
-            drawer.save()
-            drawer.translate(j * TRACE_WIDTH - 32, i * TRACE_HEIGHT + 256 - 32)
-            drawer.scale(0.5, 0.5)
-            drawer.drawImage(
-              "reward.png",
-              0, 0,
-            );
-            drawer.restore()
-          }
-        }
+      const reward = getAttr(agent, "reward", j);
+      // If there is reward, draw a star.
+      if (reward > 0) {
+        drawer.save()
+        drawer.translate(j * TRACE_WIDTH - 32, i * TRACE_HEIGHT + 256 - 32)
+        drawer.scale(0.5, 0.5)
+        drawer.drawImage(
+          "reward.png",
+          0, 0,
+        );
+        drawer.restore()
       }
     }
+
   }
 
   drawer.restore();
