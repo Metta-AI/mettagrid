@@ -13,6 +13,7 @@ jobs:
     timeout-minutes: 30 # Prevent hung jobs from consuming resources
     steps:
       - uses: actions/checkout@v4
+
       # Download ruff.toml from Metta-AI/metta repository
       - name: Fetch latest ruff.toml
         run: |
@@ -23,6 +24,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11.7"
+
       # Cache pip packages
       - name: Cache pip packages
         uses: actions/cache@v4
@@ -34,6 +36,7 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/setup.py') }}
           restore-keys: |
             ${{ runner.os }}-pip-
+
       # Install dependencies (including PufferLib from requirements.txt)
       - name: Install dependencies
         run: |
@@ -41,16 +44,19 @@ jobs:
           source venv/bin/activate
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
       # Always run build_ext since it's quick and needs to be done after checkout
       - name: Run setup.py build_ext
         run: |
           source venv/bin/activate
           python setup.py build_ext --inplace
+
       # List installed packages for debugging
       - name: List installed packages
         run: |
           source venv/bin/activate
           pip list
+
       # Add Ruff cache
       - name: Cache Ruff
         uses: actions/cache@v4
@@ -58,6 +64,7 @@ jobs:
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-ruff-0.11.5
+
       # Add Ruff check
       - name: Run Ruff check
         run: |

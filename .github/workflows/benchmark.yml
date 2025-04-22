@@ -20,6 +20,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11.7"
+
       # Cache pip packages
       - name: Cache pip packages
         uses: actions/cache@v4
@@ -31,6 +32,7 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/setup.py') }}
           restore-keys: |
             ${{ runner.os }}-pip-
+
       # Install dependencies (including PufferLib from requirements.txt)
       - name: Install dependencies
         run: |
@@ -38,11 +40,13 @@ jobs:
           source venv/bin/activate
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
       # Always run build_ext since it's quick and needs to be done after checkout
       - name: Run setup.py build_ext
         run: |
           source venv/bin/activate
           python setup.py build_ext --inplace
+
       # Run benchmarks
       - name: Run benchmarks
         env:
@@ -51,8 +55,10 @@ jobs:
         run: |
           source venv/bin/activate
           pytest tests --benchmark-json=./benchmark_results.json
+
       # Install Bencher CLI using the GitHub Action
       - uses: bencherdev/bencher@main
+
       # For pushes to main branch
       - name: Upload to Bencher (main branch)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -62,9 +68,9 @@ jobs:
             --token '${{ secrets.BENCHER_API_TOKEN }}' \
             --branch main \
             --testbed ubuntu-latest \
-            --adapter json \
+            --adapter python_pytest \
             --github-actions '${{ secrets.GITHUB_TOKEN }}' \
-            --file ./benchmark_results.json
+
       # For pull requests
       - name: Upload to Bencher (PR branch)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
@@ -78,6 +84,5 @@ jobs:
             --start-point-clone-thresholds \
             --start-point-reset \
             --testbed ubuntu-latest \
-            --adapter json \
+            --adapter python_pytest \
             --github-actions '${{ secrets.GITHUB_TOKEN }}' \
-            --file ./benchmark_results.json
