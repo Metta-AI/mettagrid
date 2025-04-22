@@ -1,14 +1,15 @@
 # Makefile for code formatting and linting
 
-.PHONY: help format check-tools install-tools
+.PHONY: help format check-tools install-tools lint
 
 # Default target when just running 'make'
 help:
 	@echo "Available targets:"
-	@echo "  format      - Format all C++/C/Cython code using clang-format"
+	@echo "  format      - Format only C++/C files (skips Cython files entirely)"
 	@echo "  lint        - Lint Cython files with cython-lint"
 	@echo "  check-tools - Check if required formatting tools are installed"
 	@echo "  install-tools - Install required formatting tools (macOS only)"
+	@echo "  all         - Run format and lint"
 
 # Check if the required tools are installed
 check-tools:
@@ -35,14 +36,15 @@ install-tools:
 		echo "  - cython-lint: pip install cython-lint"; \
 	fi
 
-# Format all C/C++/Cython code
+# Format only C/C++ code and skip Cython files entirely
 format: check-tools
-	@echo "Formatting C/C++/Cython code with clang-format..."
-	@find . -type f \( -name "*.c" -o -name "*.h" -o -name "*.cpp" -o -name "*.hpp" -o -name "*.pyx" -o -name "*.pxd" \) \
+	@echo "Formatting C/C++ code only (skipping all Cython files)..."
+	@find . -type f \( -name "*.c" -o -name "*.h" -o -name "*.cpp" -o -name "*.hpp" \) \
 		-not -path "*/\.*" -not -path "*/build/*" -not -path "*/venv/*" -not -path "*/dist/*" \
 		-exec echo "Formatting {}" \; \
-		-exec clang-format -i {} \;
-	@echo "Formatting complete."
+		-exec clang-format -style=file -i {} \;
+	@echo "C/C++ formatting complete."
+	@echo "Note: Cython files (.pyx, .pxd) were intentionally skipped to preserve their syntax."
 
 # Lint Cython files
 lint: check-tools
