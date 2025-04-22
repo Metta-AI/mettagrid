@@ -12,14 +12,12 @@ export class PanelInfo {
   public zoomLevel: number = 1;
   public canvas: HTMLCanvasElement;
   public div: HTMLDivElement | null;
-  public transform: Mat3f;
 
   constructor(name: string) {
     this.name = name;
     this.canvas = document.createElement('canvas');
     this.canvas.setAttribute('id', name + '-canvas');
     this.div = null;
-    this.transform = Mat3f.identity();
   }
 
   // Check if a point is inside the panel.
@@ -30,16 +28,18 @@ export class PanelInfo {
 
   // Transform a point from the canvas to the map coordinate system.
   transformPoint(point: Vec2f): Vec2f {
-    this.transform = Mat3f.translate(
-      this.panPos.x() + this.x, this.panPos.y() + this.y
-    ).mul(Mat3f.scale(this.zoomLevel, this.zoomLevel));
-    return this.transform.inverse().transform(point);
+    const m = Mat3f.translate(this.x + this.width / 2, this.y + this.height / 2)
+      .mul(Mat3f.scale(this.zoomLevel, this.zoomLevel))
+      .mul(Mat3f.translate(this.panPos.x(), this.panPos.y()));
+    return m.inverse().transform(point);
   }
 
   // Update the pan and zoom level based on the mouse position and scroll delta.
   updatePanAndZoom(): boolean {
     if (mouseDown && mousePos.sub(lastMousePos).length() > 1) {
-      this.panPos = this.panPos.add(mousePos.sub(lastMousePos));
+      const lastMousePoint = this.transformPoint(lastMousePos);
+      const newMousePoint = this.transformPoint(mousePos);
+      this.panPos = this.panPos.add(newMousePoint.sub(lastMousePoint));
       lastMousePos = mousePos;
       return true;
     }
@@ -50,7 +50,7 @@ export class PanelInfo {
       this.zoomLevel = Math.max(Math.min(this.zoomLevel, MAX_ZOOM_LEVEL), MIN_ZOOM_LEVEL);
       const newMousePoint = this.transformPoint(mousePos);
       if (oldMousePoint != null && newMousePoint != null) {
-        this.panPos = this.panPos.add(newMousePoint.sub(oldMousePoint).mul(this.zoomLevel));
+        this.panPos = this.panPos.add(newMousePoint.sub(oldMousePoint));
       }
       scrollDelta = 0;
       return true;
@@ -69,6 +69,20 @@ const DEFAULT_INFO_SPLIT = 0.25;   // default vertical split ratio
 const PANEL_BOTTOM_MARGIN = 60;    // bottom margin for panels
 
 let drawer: Drawer;
+
+// Flag to prevent multiple calls to requestAnimationFrame
+let frameRequested = false;
+
+// Function to safely request animation frame
+function requestFrame() {
+  if (!frameRequested) {
+    frameRequested = true;
+    requestAnimationFrame((time) => {
+      frameRequested = false;
+      onFrame();
+    });
+  }
+}
 
 // Get the html elements we will use.
 const scrubber = document.getElementById('main-scrubber') as HTMLInputElement;
@@ -168,7 +182,7 @@ function onResize() {
   }
 
   // Redraw the square after resizing.
-  requestAnimationFrame(onFrame);
+  requestFrame();
 }
 
 // Handle mouse down events.
@@ -200,7 +214,7 @@ function onMouseDown() {
     }
   }
 
-  requestAnimationFrame(onFrame);
+  requestFrame();
 }
 
 // Handle mouse up events.
@@ -208,7 +222,7 @@ function onMouseUp() {
   mouseDown = false;
   traceDragging = false;
   infoDragging = false;
-  requestAnimationFrame(onFrame);
+  requestFrame();
 }
 
 // Handle mouse move events.
@@ -232,15 +246,14 @@ function onMouseMove(event: MouseEvent) {
   } else if (infoDragging) {
     infoSplit = mousePos.y() / window.innerHeight
     onResize()
-  } else if (mouseDown) {
-    requestAnimationFrame(onFrame);
   }
+  requestFrame();
 }
 
 // Handle scroll events.
 function onScroll(event: WheelEvent) {
   scrollDelta = event.deltaY;
-  requestAnimationFrame(onFrame);
+  requestFrame();
 }
 
 // Decompress a stream, used for compressed JSON from fetch or drag and drop.
@@ -377,22 +390,21 @@ async function loadReplayText(replayData: any) {
     replay.action_images.push("trace/" + actionName + ".png");
   }
 
-  console.log("postreplay: ", replay);
-
+  console.log("post replay: ", replay);
 
   // Set the scrubber max value to the max steps.
   scrubber.max = (replay.max_steps - 1).toString();
 
   closeModal();
   focusFullMap(mapPanel);
-  requestAnimationFrame(onFrame);
+  requestFrame();
 }
 
 // Handle scrubber change events.
 function onScrubberChange() {
   step = parseInt(scrubber.value);
   console.log("step: ", step);
-  requestAnimationFrame(onFrame);
+  requestFrame();
 }
 
 // Handle key down events.
@@ -405,12 +417,12 @@ function onKeyDown(event: KeyboardEvent) {
   if (event.key == "[") {
     step = Math.max(step - 1, 0);
     scrubber.value = step.toString();
-    tracePanel.panPos.setX(tracePanel.panPos.x() + 32);
+    tracePanel.panPos.setX(-step * 32);
   }
   if (event.key == "]") {
     step = Math.min(step + 1, replay.max_steps - 1);
     scrubber.value = step.toString();
-    tracePanel.panPos.setX(tracePanel.panPos.x() - 32);
+    tracePanel.panPos.setX(-step * 32);
   }
   // '<' and '>' control the playback speed.
   if (event.key == ",") {
@@ -425,7 +437,7 @@ function onKeyDown(event: KeyboardEvent) {
   if (event.key == " ") {
     onPlayButtonClick();
   }
-  requestAnimationFrame(onFrame);
+  requestFrame();
 }
 
 // Gets an attribute from a grid object respecting the current step.
@@ -760,19 +772,16 @@ function drawMap(panel: PanelInfo) {
     return;
   }
 
+  const localMousePos = panel.transformPoint(mousePos);
+
   // If we're following a selection, center the map on it
   if (followSelection && selectedGridObject !== null) {
     const x = getAttr(selectedGridObject, "c");
     const y = getAttr(selectedGridObject, "r");
-    panel.panPos = new Vec2f(
-      -x * 64 + panel.width / 2,
-      -y * 64 + panel.height / 2
-    )
-    panel.zoomLevel = 1;
+    panel.panPos = new Vec2f(-x * 64, -y * 64);
   }
 
   if (mouseDown) {
-    const localMousePos = panel.transformPoint(mousePos);
     if (localMousePos != null) {
       const gridMousePos = new Vec2f(
         Math.round(localMousePos.x() / 64),
@@ -798,9 +807,9 @@ function drawMap(panel: PanelInfo) {
   drawer.save();
   drawer.setScissorRect(panel.x, panel.y, panel.width, panel.height);
 
-  drawer.translate(panel.x, panel.y);
-  drawer.translate(panel.panPos.x(), panel.panPos.y());
+  drawer.translate(panel.x + panel.width / 2, panel.y + panel.height / 2);
   drawer.scale(panel.zoomLevel, panel.zoomLevel);
+  drawer.translate(panel.panPos.x(), panel.panPos.y());
 
   drawFloor(replay.map_size);
   drawWalls(replay);
@@ -827,14 +836,14 @@ function drawTrace(panel: PanelInfo) {
         if (mapX > 0 && mapX < replay.max_steps * TRACE_WIDTH &&
           localMousePos.y() > 0 && localMousePos.y() < replay.num_agents * TRACE_HEIGHT) {
           const agentId = Math.floor(localMousePos.y() / TRACE_HEIGHT);
-          for (const agent of replay.agents) {
+          if (agentId >= 0 && agentId < replay.num_agents) {
             followSelection = true;
-            selectedGridObject = agent;
-            console.log("selectedGridObject: ", selectedGridObject);
+            selectedGridObject = replay.agents[agentId];
+            console.log("selectedGridObject on a trace: ", selectedGridObject);
             focusMapOn(mapPanel, getAttr(selectedGridObject, "c"), getAttr(selectedGridObject, "r"));
+            step = Math.floor(mapX / TRACE_WIDTH);
+            scrubber.value = step.toString();
           }
-          step = Math.floor(mapX / TRACE_WIDTH);
-          scrubber.value = step.toString();
         }
       }
     }
@@ -851,9 +860,9 @@ function drawTrace(panel: PanelInfo) {
     [0.08, 0.08, 0.08, 1.0] // Dark background
   );
 
-  drawer.translate(panel.x, panel.y);
-  drawer.translate(panel.panPos.x(), panel.panPos.y());
+  drawer.translate(panel.x + panel.width / 2, panel.y + panel.height / 2);
   drawer.scale(panel.zoomLevel, panel.zoomLevel);
+  drawer.translate(panel.panPos.x(), panel.panPos.y());
 
   // Draw rectangle around the selected agent
   if (selectedGridObject !== null && selectedGridObject.agent_id !== undefined) {
@@ -886,11 +895,11 @@ function drawTrace(panel: PanelInfo) {
           j * TRACE_WIDTH, i * TRACE_HEIGHT,
         );
       } else {
-        drawer.drawImage(
-          replay.action_images[action[0]],
-          j * TRACE_WIDTH, i * TRACE_HEIGHT,
-          [0.5, 0.5, 0.5, 0.05]
-        );
+        // drawer.drawImage(
+        //   replay.action_images[action[0]],
+        //   j * TRACE_WIDTH, i * TRACE_HEIGHT,
+        //   [0.5, 0.5, 0.5, 0.05]
+        // );
       }
 
       const reward = getAttr(agent, "reward", j);
@@ -1002,7 +1011,7 @@ function onFrame() {
       partialStep -= Math.floor(partialStep);
       scrubber.value = step.toString();
     }
-    requestAnimationFrame(onFrame);
+    requestFrame();
   }
 }
 
@@ -1059,13 +1068,10 @@ function onPlayButtonClick() {
 
   if (isPlaying) {
     playButton.classList.add('paused');
-
-
   } else {
     playButton.classList.remove('paused');
-
   }
-  requestAnimationFrame(onFrame);
+  requestFrame();
 }
 
 // Initial resize.
@@ -1088,7 +1094,6 @@ window.addEventListener('dragover', preventDefaults, false);
 window.addEventListener('drop', handleDrop, false);
 
 window.addEventListener('load', async () => {
-
   drawer = new Drawer(globalCanvas);
 
   // Use local atlas texture.
@@ -1119,5 +1124,5 @@ window.addEventListener('load', async () => {
       "Please drop a replay file here to see the replay."
     );
   }
-  requestAnimationFrame(onFrame);
+  requestFrame();
 });
