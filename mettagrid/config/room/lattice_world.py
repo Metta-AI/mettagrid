@@ -37,7 +37,7 @@ class LatticeWorld(Room):
         self,
         rooms_per_dim: Optional[int] = None,
         room_size: Optional[int] = None,
-        heart_altar_rate: float = 0.5,
+        heart_altar_rate: float = 0.75,
         minimum_door_rate: float = 0.75,
         num_agents: int = 0,
         border_width: int = 1,
@@ -52,8 +52,8 @@ class LatticeWorld(Room):
         self.rng = np.random.default_rng(seed)
 
         # Random sampling of dimensions if unspecified
-        self.rooms_per_dim = rooms_per_dim or int(self.rng.integers(6, 14))
-        self.room_size = room_size or int(self.rng.integers(5, 15))
+        self.rooms_per_dim = rooms_per_dim or int(self.rng.integers(6, 10))
+        self.room_size = room_size or int(self.rng.integers(7, 13))
 
         self.heart_altar_rate = heart_altar_rate
         self.minimum_door_rate = minimum_door_rate
