@@ -77,10 +77,14 @@ def make_map(cfg_path: str, overrides: DictConfig | None = None):
     return storable_map
 
 
+def uri_is_file(uri: str) -> bool:
+    last_part = uri.split("/")[-1]
+    return "." in last_part and len(last_part.split(".")[-1]) <= 4
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output-dir", type=str, help="Output directory, e.g. ./maps or s3://.../dir")
-    parser.add_argument("--output-uri", type=str, help="Output URI if you're generating a single map")
+    parser.add_argument("--output-uri", type=str, help="Output URI")
     parser.add_argument("--show", choices=get_args(ShowMode), help="Show the map in the specified mode")
     parser.add_argument("--count", type=int, default=1, help="Number of maps to generate")
     parser.add_argument("--overrides", type=str, default="", help="OmniConf overrides for the map config")
@@ -88,11 +92,10 @@ def main():
     args = parser.parse_args()
 
     show_mode = args.show
-    if not show_mode and not args.output_dir and not args.output_uri:
+    if not show_mode and not args.output_uri:
         # if not asked to save, show the map
         show_mode = "raylib"
 
-    output_dir = args.output_dir
     output_uri = args.output_uri
     count = args.count
     cfg_path = args.cfg_path
@@ -100,24 +103,29 @@ def main():
 
     overrides_cfg = OmegaConf.from_cli([override for override in overrides.split(" ") if override])
 
-    if output_uri and count > 1:
-        raise ValueError("Cannot provide both output_uri and count > 1")
+    if count > 1 and not output_uri:
+        # requested multiple maps, let's check that output_uri is a directory
+        if not output_uri:
+            raise ValueError("Cannot generate more than one map without providing output_uri")
 
-    if output_dir and output_uri:
-        raise ValueError("Cannot provide both output_dir and output_uri")
+    # s3 can store things at s3://.../foo////file, so we need to remove trailing slashes
+    while output_uri and output_uri.endswith("/"):
+        output_uri = output_uri[:-1]
+
+    output_is_file = output_uri and uri_is_file(output_uri)
+
+    if count > 1 and output_is_file:
+        raise ValueError(f"{output_uri} looks like a file, cannot generate multiple maps in a single file")
 
     def make_output_uri() -> str | None:
-        if output_uri:
-            return output_uri
-
-        if not output_dir:
+        if not output_uri:
             return None  # the map won't be saved
 
-        random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
-        return f"{output_dir}/map_{random_suffix}.yaml"
+        if output_is_file:
+            return output_uri
 
-    if output_uri:
-        output_dir = os.path.dirname(output_uri)
+        random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        return f"{output_uri}/map_{random_suffix}.yaml"
 
     for i in range(count):
         if count > 1:
