@@ -18,7 +18,7 @@ class CylinderWorld(Room):
         width: int,
         height: int,
         agents: int | dict = 0,
-        seed: Optional[int] = None,
+        seed: Optional[int] = 42,
         border_width: int = 0,
         border_object: str = "wall",
     ):
