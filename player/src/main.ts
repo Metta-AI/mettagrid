@@ -52,6 +52,7 @@ export class PanelInfo {
       if (oldMousePoint != null && newMousePoint != null) {
         this.panPos = this.panPos.add(newMousePoint.sub(oldMousePoint).mul(this.zoomLevel));
       }
+      scrollDelta = 0;
       return true;
     }
     return false;
@@ -167,7 +168,7 @@ function onResize() {
   }
 
   // Redraw the square after resizing.
-  onFrame();
+  requestAnimationFrame(onFrame);
 }
 
 // Handle mouse down events.
@@ -199,7 +200,7 @@ function onMouseDown() {
     }
   }
 
-  onFrame();
+  requestAnimationFrame(onFrame);
 }
 
 // Handle mouse up events.
@@ -207,7 +208,7 @@ function onMouseUp() {
   mouseDown = false;
   traceDragging = false;
   infoDragging = false;
-  onFrame();
+  requestAnimationFrame(onFrame);
 }
 
 // Handle mouse move events.
@@ -232,15 +233,14 @@ function onMouseMove(event: MouseEvent) {
     infoSplit = mousePos.y() / window.innerHeight
     onResize()
   } else if (mouseDown) {
-    onFrame();
+    requestAnimationFrame(onFrame);
   }
 }
 
 // Handle scroll events.
 function onScroll(event: WheelEvent) {
   scrollDelta = event.deltaY;
-  onFrame();
-  scrollDelta = 0;
+  requestAnimationFrame(onFrame);
 }
 
 // Decompress a stream, used for compressed JSON from fetch or drag and drop.
@@ -385,14 +385,14 @@ async function loadReplayText(replayData: any) {
 
   closeModal();
   focusFullMap(mapPanel);
-  onFrame();
+  requestAnimationFrame(onFrame);
 }
 
 // Handle scrubber change events.
 function onScrubberChange() {
   step = parseInt(scrubber.value);
   console.log("step: ", step);
-  onFrame();
+  requestAnimationFrame(onFrame);
 }
 
 // Handle key down events.
@@ -425,7 +425,7 @@ function onKeyDown(event: KeyboardEvent) {
   if (event.key == " ") {
     onPlayButtonClick();
   }
-  onFrame();
+  requestAnimationFrame(onFrame);
 }
 
 // Gets an attribute from a grid object respecting the current step.
@@ -1118,5 +1118,5 @@ window.addEventListener('load', async () => {
       "Please drop a replay file here to see the replay."
     );
   }
-  onFrame();
+  requestAnimationFrame(onFrame);
 });
