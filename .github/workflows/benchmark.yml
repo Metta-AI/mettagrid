@@ -64,8 +64,10 @@ jobs:
           BENCHER_API_TOKEN: ${{ secrets.BENCHER_API_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Bencher token via secrets (partial): ${BENCHER_API_TOKEN:0:10}..."
-          echo "Github token via secrets (partial): ${GITHUB_TOKEN:0:10}..."
+          echo "Bencher token length: ${#BENCHER_API_TOKEN}"
+          echo "Bencher token SHA256: $(echo -n "$BENCHER_API_TOKEN" | sha256sum)"
+          echo "Bencher token length: ${#GITHUB_TOKEN}"
+          echo "Bencher token SHA256: $(echo -n "$GITHUB_TOKEN" | sha256sum)"
 
       # For pushes to main branch
       - name: Upload to Bencher (main branch)
