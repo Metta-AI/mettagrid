@@ -23,4 +23,4 @@ protected:
     }
 };
 
-#endif // NOOP_HPP 
+#endif // NOOP_HPP

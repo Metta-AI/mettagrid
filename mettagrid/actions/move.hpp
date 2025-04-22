@@ -20,7 +20,7 @@ protected:
         unsigned int actor_id,
         Agent* actor,
         ActionArg arg) override {
-        
+
         unsigned short direction = arg;
 
         Orientation orientation = static_cast<Orientation>(actor->orientation);
@@ -45,4 +45,4 @@ protected:
     }
 };
 
-#endif // MOVE_HPP 
+#endif // MOVE_HPP

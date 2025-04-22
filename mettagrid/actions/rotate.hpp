@@ -19,11 +19,11 @@ protected:
         unsigned int actor_id,
         Agent* actor,
         ActionArg arg) override {
-        
+
         unsigned short orientation = arg;
         actor->orientation = orientation;
         return true;
     }
 };
 
-#endif // ROTATE_HPP 
+#endif // ROTATE_HPP

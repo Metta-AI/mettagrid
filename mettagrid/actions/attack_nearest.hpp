@@ -52,4 +52,4 @@ protected:
     }
 };
 
-#endif // ATTACK_NEAREST_HPP 
+#endif // ATTACK_NEAREST_HPP

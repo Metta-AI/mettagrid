@@ -26,7 +26,7 @@ class ActionHandler {
 public:
     unsigned char priority;
     Grid* _grid;
-    
+
     ActionHandler(const ActionConfig& cfg, const std::string& action_name)
         : priority(0), _action_name(action_name) {
         _stats.success = "action." + action_name;
@@ -48,7 +48,7 @@ public:
         GridObjectId actor_object_id,
         ActionArg arg,
         unsigned int current_timestep) {
-        
+
         Agent* actor = static_cast<Agent*>(_grid->object(actor_object_id));
 
         if (actor->frozen > 0) {
@@ -81,13 +81,10 @@ public:
     }
 
 protected:
-    // This should be unimplemented, but makes us allocate ActionHandler objects.
     virtual bool _handle_action(
         unsigned int actor_id,
         Agent* actor,
-        ActionArg arg) {
-        return false;
-    };
+        ActionArg arg) = 0;
 
     StatNames _stats;
     std::string _action_name;

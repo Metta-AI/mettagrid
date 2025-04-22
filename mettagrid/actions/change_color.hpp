@@ -19,7 +19,7 @@ protected:
         unsigned int actor_id,
         Agent* actor,
         ActionArg arg) override {
-        
+
         if (arg == 0) {  // Increment
             if (actor->color < 255) {
                 actor->color += 1;
@@ -40,4 +40,4 @@ protected:
     }
 };
 
-#endif // CHANGE_COLOR_HPP 
+#endif // CHANGE_COLOR_HPP

@@ -21,7 +21,7 @@ protected:
         unsigned int actor_id,
         Agent* actor,
         ActionArg arg) override {
-        
+
         GridLocation target_loc = _grid->relative_location(
             actor->location,
             static_cast<Orientation>(actor->orientation)
@@ -46,4 +46,4 @@ protected:
     }
 };
 
-#endif // SWAP_HPP 
+#endif // SWAP_HPP

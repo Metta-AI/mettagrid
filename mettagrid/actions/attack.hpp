@@ -10,7 +10,7 @@
 
 class Attack : public ActionHandler {
 public:
-    Attack(const ActionConfig& cfg, const std::string& action_name = "attack") 
+    Attack(const ActionConfig& cfg, const std::string& action_name = "attack")
         : ActionHandler(cfg, action_name) {
         priority = 1;
     }
@@ -116,4 +116,4 @@ protected:
     }
 };
 
-#endif // ATTACK_HPP 
+#endif // ATTACK_HPP
