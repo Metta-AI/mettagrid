@@ -23,6 +23,8 @@ def main():
 
     if not uri_is_file(uri):
         # probably a directory
+        while uri.endswith("/"):
+            uri = uri[:-1]
         logger.info(f"Loading random map from directory {uri}")
         uri = get_random_map_uri(uri)
 
