@@ -9,12 +9,12 @@ from setuptools import Extension, find_packages, setup
 multiprocessing.freeze_support()
 
 
-def build_ext(srcs, module_name=None):
+def build_ext(sources, module_name=None):
     if module_name is None:
-        module_name = srcs[0].replace("/", ".").replace(".pyx", "").replace(".cpp", "")
+        module_name = sources[0].replace("/", ".").replace(".pyx", "").replace(".cpp", "")
     return Extension(
         module_name,
-        srcs,
+        sources,
         define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
         extra_compile_args=["-std=c++11"],  # Add C++11 flag to fix defaulted function definition error
     )
@@ -48,13 +48,11 @@ ext_modules = [
 
 debug = os.getenv("DEBUG", "0") == "1"
 annotate = os.getenv("ANNOTATE", "0") == "1"
-
 build_dir = "build"
 if debug:
     build_dir = "build_debug"
 
 os.makedirs(build_dir, exist_ok=True)
-
 num_threads = multiprocessing.cpu_count() if sys.platform == "linux" else None
 
 setup(
