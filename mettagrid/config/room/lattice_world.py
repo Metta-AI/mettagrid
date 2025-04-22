@@ -1,4 +1,3 @@
-import logging
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -32,33 +31,35 @@ class _DSU:
 
 
 class LatticeWorld(Room):
-    """A lattice of square rooms with guaranteed connectivity."""
+    """A lattice of square rooms with guaranteed connectivity and door‑density control."""
 
     def __init__(
         self,
         rooms_per_dim: Optional[int] = None,
         room_size: Optional[int] = None,
         heart_altar_rate: float = 0.5,
+        minimum_door_rate: float = 0.75,
         num_agents: int = 0,
         border_width: int = 1,
         border_object: str = "wall",
         seed: Optional[int] = None,
     ):
+        if not (0.0 <= minimum_door_rate <= 1.0):
+            raise ValueError("minimum_door_rate must be between 0 and 1")
         super().__init__(border_width=border_width, border_object=border_object)
 
         self.seed = seed
         self.rng = np.random.default_rng(seed)
 
         # Random sampling of dimensions if unspecified
-        self.rooms_per_dim = rooms_per_dim if rooms_per_dim is not None else int(self.rng.integers(6, 14))
-        self.room_size = room_size if room_size is not None else int(self.rng.integers(5, 15))
-
-        self.border_width = border_width
-        self.border_object = border_object
+        self.rooms_per_dim = rooms_per_dim or int(self.rng.integers(6, 14))
+        self.room_size = room_size or int(self.rng.integers(5, 15))
 
         self.heart_altar_rate = heart_altar_rate
+        self.minimum_door_rate = minimum_door_rate
         self.num_agents = num_agents
-
+        self.border_width = border_width
+        self.border_object = border_object
         # Book‑keeping
         self.agent_positions: dict[int, Tuple[int, int]] = {}
 
@@ -66,9 +67,7 @@ class LatticeWorld(Room):
     # Grid construction helpers
     # ---------------------------------------------------------------------
     def _build(self) -> np.ndarray:
-        """Create grid world and populate rooms, doors, and objects."""
-        # Total grid side length (no outer border – handled by Room)
-        self.grid_size: int = self.rooms_per_dim * self.room_size + (self.rooms_per_dim - 1) * self.border_width
+        self.grid_size = self.rooms_per_dim * self.room_size + (self.rooms_per_dim - 1) * self.border_width
         self.grid = np.full((self.grid_size, self.grid_size), self.border_object, dtype=object)
 
         self._carve_rooms()
@@ -80,7 +79,6 @@ class LatticeWorld(Room):
     # Room carving
     # ------------------------------------------------------------------
     def _room_bounds(self, i: int, j: int) -> Tuple[int, int, int, int]:
-        """Return (row_start, row_end_excl, col_start, col_end_excl) for room (i,j)."""
         row_start = i * (self.room_size + self.border_width)
         col_start = j * (self.room_size + self.border_width)
         return (
@@ -91,66 +89,79 @@ class LatticeWorld(Room):
         )
 
     def _carve_rooms(self) -> None:
-        """Replace room areas with \"empty\"."""
         for i in range(self.rooms_per_dim):
             for j in range(self.rooms_per_dim):
                 rs, re, cs, ce = self._room_bounds(i, j)
                 self.grid[rs:re, cs:ce] = "empty"
 
     # ------------------------------------------------------------------
-    # Door carving with connectivity guarantee
+    # Door carving with connectivity + density guarantee
     # ------------------------------------------------------------------
     def _carve_doors_connected(self) -> None:
         n = self.rooms_per_dim
+        total_edges = 2 * n * (n - 1)
         dsu = _DSU(n * n)
 
-        # Enumerate all neighbour pairs and shuffle for random spanning tree
-        edges: List[Tuple[int, int, str]] = []  # (room_a_idx, room_b_idx, direction)
+        # All potential neighbour pairs
+        edges: List[Tuple[int, int, str]] = []
         for i in range(n):
             for j in range(n):
                 idx = i * n + j
-                if j < n - 1:  # east neighbour
+                if j < n - 1:  # east
                     edges.append((idx, idx + 1, "E"))
-                if i < n - 1:  # south neighbour
+                if i < n - 1:  # south
                     edges.append((idx, idx + n, "S"))
         self.rng.shuffle(edges)
 
-        # Helper to open a doorway between two rooms
+        opened: set[Tuple[int, int]] = set()
+
         def _open(i1: int, j1: int, i2: int, j2: int) -> None:
-            if i1 == i2:  # horizontal wall between (i1,j1) and (i2,j2) where j2 == j1+1 (east)
-                rs, re, cs1, ce1 = self._room_bounds(i1, j1)
-                rs2, re2, cs2, ce2 = self._room_bounds(i2, j2)
-                # Choose random row along wall
-                row = rs + int(self.rng.integers(0, self.room_size))
-                # Open border_width columns between rooms
+            """Cut a centred doorway in the wall between (i1,j1) and (i2,j2)."""
+            if i1 == i2:  # horizontal wall (east–west neighbour)
+                rs, _, cs1, ce1 = self._room_bounds(i1, j1)
+                row = rs + self.room_size // 2
                 for b in range(self.border_width):
                     self.grid[row, ce1 + b] = "empty"
-            else:  # vertical wall where i2 == i1+1 (south)
-                rs1, re1, cs, ce = self._room_bounds(i1, j1)
-                rs2, re2, cs2, ce2 = self._room_bounds(i2, j2)
-                col = cs + int(self.rng.integers(0, self.room_size))
+            else:  # vertical wall (north–south neighbour)
+                _, re1, cs, _ = self._room_bounds(i1, j1)
+                col = cs + self.room_size // 2
                 for b in range(self.border_width):
                     self.grid[re1 + b, col] = "empty"
 
-        # 1. Build spanning tree to guarantee connectivity
-        for a, b, direction in edges:
+        # 1. Spanning tree for connectivity
+        remaining_edges = []
+        for a, b, _ in edges:
             if dsu.union(a, b):
                 i1, j1 = divmod(a, n)
                 i2, j2 = divmod(b, n)
                 _open(i1, j1, i2, j2)
+                opened.add(tuple(sorted((a, b))))
+            else:
+                remaining_edges.append((a, b))
+
+        # 2. Extra doors until density target reached
+        self.rng.shuffle(remaining_edges)
+        needed = int(np.ceil(self.minimum_door_rate * total_edges))
+        while len(opened) < needed and remaining_edges:
+            a, b = remaining_edges.pop()
+            if tuple(sorted((a, b))) in opened:
+                continue
+            i1, j1 = divmod(a, n)
+            i2, j2 = divmod(b, n)
+            _open(i1, j1, i2, j2)
+            opened.add(tuple(sorted((a, b))))
 
     # ------------------------------------------------------------------
     # Empty‑cell helpers
     # ------------------------------------------------------------------
     def _random_empty(self) -> Tuple[int, int]:
-        """Coordinates of an arbitrary empty cell anywhere."""
         empties = np.argwhere(self.grid == "empty")
         if empties.size == 0:
             raise ValueError("No empty positions available")
         return tuple(int(x) for x in empties[self.rng.integers(len(empties))])
 
     def _random_empty_in_room(self, i: int, j: int) -> Tuple[int, int]:
-        rs, re, cs, ce = self._room_bounds(i, j)
+        rs, _, cs, _ = self._room_bounds(i, j)
         while True:
             r = rs + int(self.rng.integers(0, self.room_size))
             c = cs + int(self.rng.integers(0, self.room_size))
@@ -164,17 +175,13 @@ class LatticeWorld(Room):
         n = self.rooms_per_dim
         all_rooms = [(i, j) for i in range(n) for j in range(n)]
 
-        # ----------------------------------
-        # Heart altars (per‑room Bernoulli)
-        # ----------------------------------
-        heart_rooms: List[Tuple[int, int]] = [room for room in all_rooms if self.rng.random() < self.heart_altar_rate]
+        # Heart altars
+        heart_rooms = [room for room in all_rooms if self.rng.random() < self.heart_altar_rate]
         for i, j in heart_rooms:
             r, c = self._random_empty_in_room(i, j)
             self.grid[r, c] = "altar"
 
-        # ----------------------------------
-        # Agents (unique rooms for agents)
-        # ----------------------------------
+        # Agents
         if self.num_agents > 0:
             if self.num_agents > len(all_rooms):
                 raise ValueError("More agents than rooms available")
