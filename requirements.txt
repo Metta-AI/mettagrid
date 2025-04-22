@@ -25,3 +25,4 @@ pandas>=2.2.3
 tqdm>=4.67.1
 pytest-cov>=6.1.1
 pytest-benchmark>=5.1.0
+git+https://github.com/Metta-AI/pufferlib.git@metta
