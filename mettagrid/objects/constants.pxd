@@ -4,7 +4,7 @@
 from libcpp.map cimport map
 from libcpp.vector cimport vector
 from libcpp.string cimport string
-from mettagrid.grid_object cimport TypeId
+from mettagrid.grid_object cimport cpp_TypeId
 
 cdef extern from "constants.hpp":
     cdef enum Events:
@@ -40,4 +40,4 @@ cdef extern from "constants.hpp":
     cdef vector[string] InventoryItemNames
     cdef vector[string] ObjectTypeNames
     cdef vector[string] ObjectTypeAscii
-    cdef map[TypeId, GridLayer] ObjectLayers
+    cdef map[cpp_TypeId, GridLayer] ObjectLayers

@@ -5,7 +5,7 @@ from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.map cimport map
 
-from mettagrid.grid_object cimport GridObject, ObsType
+from mettagrid.grid_object cimport CppGridObject, cpp_ObsType
 
 from mettagrid.objects.constants cimport ObjectType
 
@@ -41,11 +41,11 @@ cdef class ObservationEncoder:
                 features.append(self._type_feature_names[type_id][i])
         self._feature_names = features
 
-    cdef encode(self, GridObject *obj, ObsType[:] obs):
-        self._encode(obj, obs, self._offsets[obj._type_id])
+    cdef encode(self, CppGridObject *obj, cpp_ObsType[:] obs):
+        self._encode(obj, obs, self._offsets[obj.objectTypeId])
 
-    cdef _encode(self, GridObject *obj, ObsType[:] obs, vector[unsigned int] offsets):
-        obj.obs(&obs[0], offsets)
+    cdef _encode(self, CppGridObject *obj, cpp_ObsType[:] obs, vector[unsigned int] offsets):
+        obj.cpp_obs(&obs[0], offsets)
 
     cdef vector[string] feature_names(self):
         return self._feature_names

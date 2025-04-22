@@ -7,18 +7,15 @@ import gymnasium as gym
 
 from mettagrid.action_handler cimport ActionArg, ActionHandler
 from mettagrid.grid cimport Grid
-from mettagrid.grid_object cimport (
-    GridObject,
-    GridObjectId,
-    Layer,
-    GridLocation
-)
+
+from mettagrid.cpp_grid_object cimport CppGridObject, cpp_GridObjectId, cpp_Layer, CppGridLocation, cpp_ObsType
+
 from mettagrid.objects.agent cimport Agent
-from mettagrid.observation_encoder cimport ObservationEncoder, ObsType
+from mettagrid.observation_encoder cimport ObservationEncoder
 from mettagrid.objects.production_handler cimport ProductionHandler, CoolDownHandler
 from mettagrid.objects.constants cimport ObjectTypeNames, ObjectTypeAscii
 
-# Constants
+#Constants
 obs_np_type = np.uint8
 
 cdef class GridEnv:
@@ -28,7 +25,7 @@ cdef class GridEnv:
             unsigned int map_width,
             unsigned int map_height,
             unsigned int max_timestep,
-            vector[Layer] layer_for_type_id,
+            vector[cpp_Layer] layer_for_type_id,
             unsigned short obs_width,
             unsigned short obs_height,
             ObservationEncoder observation_encoder,
@@ -52,7 +49,8 @@ cdef class GridEnv:
             self._grid_features.push_back(b"last_action_argument")
 
         self._event_manager.init(self._grid, &self._stats)
-        # The order of this needs to match the order in the Events enum
+        
+        #The order of this needs to match the order in the Events enum
         self._event_manager.event_handlers.push_back(new ProductionHandler(&self._event_manager))
         self._event_manager.event_handlers.push_back(new CoolDownHandler(&self._event_manager))
         self._track_last_action = track_last_action
@@ -108,16 +106,16 @@ cdef class GridEnv:
         self,
         unsigned observer_r, unsigned int observer_c,
         unsigned short obs_width, unsigned short obs_height,
-        ObsType[:,:,:] observation):
+        cpp_ObsType[:,:,:] observation):
 
         cdef:
-            int r, c, layer
-            GridLocation object_loc
-            GridObject *obj
+            int r, c, cpp_Layer
+            CppGridLocation object_loc
+            CppGridObject *obj
             unsigned short obs_width_r = obs_width >> 1
             unsigned short obs_height_r = obs_height >> 1
             cdef unsigned int obs_r, obs_c
-            cdef ObsType[:] agent_ob
+            cdef cpp_ObsType[:] agent_ob
 
         cdef unsigned int r_start = max(observer_r, obs_height_r) - obs_height_r
         cdef unsigned int c_start = max(observer_c, obs_width_r) - obs_width_r
@@ -128,13 +126,13 @@ cdef class GridEnv:
                 if c < 0 or c >= self._grid.width:
                     continue
                 for layer in range(self._grid.num_layers):
-                    object_loc = GridLocation(r, c, layer)
+                    object_loc = CppGridLocation(r, c, layer)
                     obj = self._grid.object_at(object_loc)
                     if obj == NULL:
                         continue
 
-                    obs_r = object_loc.r + obs_height_r - observer_r
-                    obs_c = object_loc.c + obs_width_r - observer_c
+                    obs_r = object_loc.row + obs_height_r - observer_r
+                    obs_c = object_loc.col + obs_width_r - observer_c
                     agent_ob = observation[obs_r, obs_c, :]
                     self._obs_encoder.encode(obj, agent_ob)
 
@@ -143,8 +141,8 @@ cdef class GridEnv:
         for idx in range(self._agents.size()):
             agent = self._agents[idx]
             self._compute_observation(
-                agent.location.r,
-                agent.location.c,
+                agent.location.row,
+                agent.location.col,
                 self._obs_width,
                 self._obs_height,
                 self._observations[idx]
@@ -197,6 +195,7 @@ cdef class GridEnv:
     ###############################
     # Python API
     ###############################
+
     cpdef tuple[cnp.ndarray, dict] reset(self):
         if self._current_timestep > 0:
             raise NotImplemented("Cannot reset after stepping")
@@ -216,7 +215,7 @@ cdef class GridEnv:
 
     cpdef void set_buffers(
         self,
-        cnp.ndarray[ObsType, ndim=4] observations,
+        cnp.ndarray[cpp_ObsType, ndim=4] observations,
         cnp.ndarray[char, ndim=1] terminals,
         cnp.ndarray[char, ndim=1] truncations,
         cnp.ndarray[float, ndim=1] rewards):
@@ -261,14 +260,14 @@ cdef class GridEnv:
 
     cpdef observe(
         self,
-        GridObjectId observer_id,
+        cpp_GridObjectId observer_id,
         unsigned short obs_width,
         unsigned short obs_height,
-        ObsType[:,:,:] observation):
+        cpp_ObsType[:,:,:] observation):
 
-        cdef GridObject* observer = self._grid.object(observer_id)
+        cdef CppGridObject* observer = self._grid.object(observer_id)
         self._compute_observation(
-            observer.location.r, observer.location.c, obs_width, obs_height, observation)
+            observer.location.row, observer.location.col, obs_width, obs_height, observation)
 
     cpdef observe_at(
         self,
@@ -276,7 +275,7 @@ cdef class GridEnv:
         unsigned short col,
         unsigned short obs_width,
         unsigned short obs_height,
-        ObsType[:,:,:] observation):
+        cpp_ObsType[:,:,:] observation):
 
         self._compute_observation(
             row, col, obs_width, obs_height, observation)
@@ -293,19 +292,19 @@ cdef class GridEnv:
         return (self._observations_np, self._terminals_np, self._truncations_np, self._rewards_np)
 
     cpdef cnp.ndarray render_ascii(self):
-        cdef GridObject *obj
+        cdef CppGridObject *obj
         grid = np.full((self._grid.height, self._grid.width), " ", dtype=np.str_)
         for obj_id in range(1, self._grid.objects.size()):
             obj = self._grid.object(obj_id)
-            grid[obj.location.r, obj.location.c] = ObjectTypeAscii[obj._type_id]
+            grid[obj.location.row, obj.location.col] = ObjectTypeAscii[obj.objectTypeId]
         return grid
 
     cpdef cnp.ndarray grid_objects_types(self):
-        cdef GridObject *obj
+        cdef CppGridObject *obj
         grid = np.zeros((self._grid.height, self._grid.width), dtype=np.uint8)
         for obj_id in range(1, self._grid.objects.size()):
             obj = self._grid.object(obj_id)
-            grid[obj.location.r, obj.location.c] = obj._type_id + 1
+            grid[obj.location.row, obj.location.col] = obj.objectTypeId + 1
         return grid
 
     @property

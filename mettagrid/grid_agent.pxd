@@ -1,6 +1,6 @@
 # distutils: language=c++
 
-from mettagrid.grid_object cimport GridObject, GridObjectId
+from mettagrid.grid_object cimport CppGridObject
 
-cdef cppclass GridAgent(GridObject):
+cdef cppclass GridAgent(CppGridObject):
     pass

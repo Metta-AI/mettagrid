@@ -2,26 +2,24 @@
 #define ATTACK_NEAREST_HPP
 
 #include <string>
+
 #include "attack.hpp"
-#include "grid_object.hpp"
+#include "cpp_grid_object.hpp"
 #include "objects/agent.hpp"
 #include "objects/constants.hpp"
 
 class AttackNearest : public Attack {
 public:
-    AttackNearest(const ActionConfig& cfg)
-        : Attack(cfg, "attack_nearest") {}
+    AttackNearest(const ActionConfig& cfg) : Attack(cfg, "attack_nearest") {}
 
-    unsigned char max_arg() const override {
+    unsigned char max_arg() const override
+    {
         return 0;
     }
 
 protected:
-    bool _handle_action(
-        unsigned int actor_id,
-        Agent* actor,
-        ActionArg arg) override {
-
+    bool _handle_action(unsigned int actor_id, Agent* actor, ActionArg arg) override
+    {
         if (actor->inventory[InventoryItem::laser] == 0) {
             return false;
         }
@@ -35,10 +33,8 @@ protected:
                     // Sort of a mod 3 operation.
                     offset = -1;
                 }
-                GridLocation target_loc = _grid->relative_location(
-                    actor->location,
-                    static_cast<Orientation>(actor->orientation),
-                    distance, offset);
+                CppGridLocation target_loc = _grid->relative_location(
+                    actor->location, static_cast<cpp_Orientation>(actor->orientation), distance, offset);
 
                 target_loc.layer = GridLayer::Agent_Layer;
                 Agent* agent_target = static_cast<Agent*>(_grid->object_at(target_loc));
@@ -52,4 +48,4 @@ protected:
     }
 };
 
-#endif // ATTACK_NEAREST_HPP
+#endif  // ATTACK_NEAREST_HPP

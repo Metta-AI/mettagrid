@@ -5,9 +5,11 @@ from libcpp.string cimport string
 from libcpp.vector cimport vector
 from mettagrid.action_handler cimport ActionHandler
 from mettagrid.event cimport EventManager
-from mettagrid.grid_object cimport GridObjectId, GridObject
+
+from mettagrid.cpp_grid_object cimport cpp_GridObjectId, cpp_ObsType
+
 from mettagrid.grid cimport Grid
-from mettagrid.observation_encoder cimport ObservationEncoder, ObsType
+from mettagrid.observation_encoder cimport ObservationEncoder
 from mettagrid.stats_tracker cimport StatsTracker
 from mettagrid.objects.agent cimport Agent
 
@@ -37,7 +39,7 @@ cdef class GridEnv:
         vector[Agent*] _agents
 
         cnp.ndarray _observations_np
-        ObsType[:,:,:,:] _observations
+        cpp_ObsType[:,:,:,:] _observations
         cnp.ndarray _terminals_np
         char[:] _terminals
         cnp.ndarray _truncations_np
@@ -65,7 +67,7 @@ cdef class GridEnv:
         unsigned int observer_c,
         unsigned short obs_width,
         unsigned short obs_height,
-        ObsType[:,:,:] observation)
+        cpp_ObsType[:,:,:] observation)
 
     ############################################
     # Python API
@@ -73,7 +75,7 @@ cdef class GridEnv:
 
     cpdef void set_buffers(
         self,
-        cnp.ndarray[ObsType, ndim=4] observations,
+        cnp.ndarray[cpp_ObsType, ndim=4] observations,
         cnp.ndarray[char, ndim=1] terminals,
         cnp.ndarray[char, ndim=1] truncations,
         cnp.ndarray[float, ndim=1] rewards)
@@ -93,10 +95,10 @@ cdef class GridEnv:
 
     cpdef observe(
         self,
-        GridObjectId observer_id,
+        cpp_GridObjectId observer_id,
         unsigned short obs_width,
         unsigned short obs_height,
-        ObsType[:,:,:] observation)
+        cpp_ObsType[:,:,:] observation)
 
     cpdef observe_at(
         self,
@@ -104,7 +106,7 @@ cdef class GridEnv:
         unsigned short col,
         unsigned short obs_width,
         unsigned short obs_height,
-        ObsType[:,:,:] observation)
+        cpp_ObsType[:,:,:] observation)
 
     cpdef dict get_episode_stats(self)
     cpdef get_episode_rewards(self)

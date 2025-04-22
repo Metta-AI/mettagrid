@@ -3,23 +3,27 @@
 
 #include <map>
 #include <string>
-#include "../grid_object.hpp"
+
+#include "../cpp_grid_object.hpp"
 
 typedef std::map<std::string, int> ObjectConfig;
 
-class MettaObject : public GridObject {
+class MettaObject : public CppGridObject {
 public:
     unsigned int hp;
 
-    void init_mo(ObjectConfig cfg) {
+    void init_mo(ObjectConfig cfg)
+    {
         this->hp = cfg["hp"];
     }
 
-    virtual bool has_inventory() { // TODO: make const
+    virtual bool has_inventory()
+    {  // TODO: make const
         return false;
     }
 
-    virtual bool swappable() const {
+    virtual bool swappable() const
+    {
         return false;
     }
 };

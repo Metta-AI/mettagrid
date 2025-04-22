@@ -13,9 +13,8 @@ from libcpp.map cimport map
 
 # Core mettagrid imports
 from mettagrid.grid_env cimport GridEnv
-from mettagrid.grid_object cimport GridObject
+from mettagrid.grid_object cimport CppGridObject, cpp_ObsType
 from mettagrid.observation_encoder cimport (
-    ObsType,
     ObservationEncoder,
     SemiCompactObservationEncoder
 )
@@ -166,8 +165,8 @@ cdef class MettaGrid(GridEnv):
                 print("".join(r))
 
     cpdef grid_objects(self):
-        cdef GridObject *obj
-        cdef ObsType[:] obj_data = np.zeros(len(self.grid_features()), dtype=self._obs_encoder.obs_np_type())
+        cdef CppGridObject *obj
+        cdef cpp_ObsType[:] obj_data = np.zeros(len(self.grid_features()), dtype=self._obs_encoder.obs_np_type())
         cdef unsigned int obj_id, i
         cdef ObservationEncoder obs_encoder = self._obs_encoder
         cdef vector[unsigned int] offsets
@@ -178,16 +177,16 @@ cdef class MettaGrid(GridEnv):
                 continue
             objects[obj_id] = {
                 "id": obj_id,
-                "type": obj._type_id,
-                "r": obj.location.r,
-                "c": obj.location.c,
+                "type": obj.objectTypeId,
+                "r": obj.location.row,
+                "c": obj.location.col,
                 "layer": obj.location.layer
             }
-            offsets.resize(obs_encoder._type_feature_names[obj._type_id].size())
+            offsets.resize(obs_encoder._type_feature_names[obj.objectTypeId].size())
             for i in range(offsets.size()):
                 offsets[i] = i
             obs_encoder._encode(obj, obj_data, offsets)
-            for i, name in enumerate(obs_encoder._type_feature_names[obj._type_id]):
+            for i, name in enumerate(obs_encoder._type_feature_names[obj.objectTypeId]):
                 objects[obj_id][name] = obj_data[i]
 
         for agent_idx in range(self._agents.size()):

@@ -1,7 +1,7 @@
 from libcpp.vector cimport vector
 from libcpp.string cimport string
 from mettagrid.event cimport EventManager
-from mettagrid.grid_object cimport GridCoord, TypeId
+from mettagrid.grid_object cimport cpp_GridCoord, cpp_TypeId
 from .metta_object cimport ObjectConfig
 from .has_inventory cimport HasInventory
 
@@ -14,9 +14,9 @@ cdef extern from "converter.hpp":
         unsigned char conversion_ticks
         bint converting
 
-        Converter(GridCoord r, GridCoord c, ObjectConfig cfg, TypeId type_id)
+        Converter(cpp_GridCoord r, cpp_GridCoord c, ObjectConfig cfg, cpp_TypeId type_id)
         void finish_converting()
         void set_event_manager(EventManager *event_manager)
 
         @staticmethod
-        inline vector[string] feature_names(TypeId type_id)
+        inline vector[string] feature_names(cpp_TypeId type_id)

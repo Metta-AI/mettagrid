@@ -1,36 +1,28 @@
-# distutils: language=c++
+#distutils : language = c++
+"""
+Cython definitions for Python wrapper classes of the grid object system.
+This file declares the Python-accessible classes that wrap the C++ implementation.
+"""
 from libcpp.vector cimport vector
+import numpy as np
+cimport numpy as np
 
-cdef extern from "grid_object.hpp":
-    ctypedef unsigned short Layer
-    ctypedef unsigned short TypeId
+#Import from our cpp_grid_object.pxd file(note the syntax)
+from mettagrid.cpp_grid_object cimport CppGridLocation, CppGridObject, CppTestGridObject
+from mettagrid.cpp_grid_object cimport cpp_TypeId, cpp_GridObjectId, cpp_GridCoord, cpp_Layer, cpp_ObsType, cpp_Orientation
 
-    ctypedef unsigned int GridCoord
-    cdef cppclass GridLocation:
-        GridCoord r
-        GridCoord c
-        Layer layer
-        GridLocation()
-        GridLocation(GridCoord r, GridCoord c, Layer l)
-        GridLocation(GridCoord r, GridCoord c)
+#Python wrapper for C++ GridLocation
+cdef class GridLocation:
+    #The wrapped C++ object
+    cdef CppGridLocation _cpp_loc
 
-    ctypedef enum Orientation:
-        Up = 0
-        Down = 1
-        Left = 2
-        Right = 3
+#Abstract base class for grid objects in Python
+cdef class GridObject:
+    #The wrapped C++ object and ownership flag
+    cdef CppGridObject* _cpp_obj
+    cdef bint _owns_ptr  # True if this Python object owns the C++ pointer
 
-    ctypedef unsigned int GridObjectId
-
-    ctypedef unsigned char ObsType
-
-    cdef cppclass GridObject:
-        GridObjectId id
-        GridLocation location
-        TypeId _type_id
-
-        GridObject()
-        void __dealloc__()
-        void init(TypeId type_id, const GridLocation &loc)
-        void obs(ObsType *obs, const vector[unsigned int] &offsets)
-
+#Concrete implementation for testing
+cdef class TestGridObject(GridObject):
+    #Inherits members from GridObject
+    pass

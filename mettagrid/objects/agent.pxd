@@ -1,7 +1,7 @@
 from libcpp.map cimport map
 from libcpp.vector cimport vector
 from libcpp.string cimport string
-from mettagrid.grid_object cimport GridCoord
+from mettagrid.grid_object cimport cpp_GridCoord
 from mettagrid.stats_tracker cimport StatsTracker
 from .constants cimport InventoryItem
 from .metta_object cimport MettaObject, ObjectConfig
@@ -25,7 +25,7 @@ cdef extern from "agent.hpp":
         # accumulates rewards for all agents on a per-step basis.
         float *reward
 
-        Agent(GridCoord r, GridCoord c,
+        Agent(cpp_GridCoord r, cpp_GridCoord c,
             string group_name,
             unsigned char group_id,
             ObjectConfig cfg,

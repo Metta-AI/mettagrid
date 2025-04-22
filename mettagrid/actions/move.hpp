@@ -2,47 +2,48 @@
 #define MOVE_HPP
 
 #include <string>
+
 #include "action_handler.hpp"
-#include "grid_object.hpp"
+#include "cpp_grid_object.hpp"
 #include "objects/agent.hpp"
 
 class Move : public ActionHandler {
 public:
-    Move(const ActionConfig& cfg)
-        : ActionHandler(cfg, "move") {}
+    Move(const ActionConfig& cfg) : ActionHandler(cfg, "move") {}
 
-    unsigned char max_arg() const override {
+    unsigned char max_arg() const override
+    {
         return 1;
     }
 
 protected:
-    bool _handle_action(
-        unsigned int actor_id,
-        Agent* actor,
-        ActionArg arg) override {
-
+    bool _handle_action(unsigned int actor_id, Agent* actor, ActionArg arg) override
+    {
         unsigned short direction = arg;
 
-        Orientation orientation = static_cast<Orientation>(actor->orientation);
+        cpp_Orientation orientation = static_cast<cpp_Orientation>(actor->orientation);
         if (direction == 1) {
-            if (orientation == Orientation::Up) {
-                orientation = Orientation::Down;
-            } else if (orientation == Orientation::Down) {
-                orientation = Orientation::Up;
-            } else if (orientation == Orientation::Left) {
-                orientation = Orientation::Right;
-            } else if (orientation == Orientation::Right) {
-                orientation = Orientation::Left;
+            if (orientation == cpp_Orientation::Up) {
+                orientation = cpp_Orientation::Down;
+            }
+            else if (orientation == cpp_Orientation::Down) {
+                orientation = cpp_Orientation::Up;
+            }
+            else if (orientation == cpp_Orientation::Left) {
+                orientation = cpp_Orientation::Right;
+            }
+            else if (orientation == cpp_Orientation::Right) {
+                orientation = cpp_Orientation::Left;
             }
         }
 
-        GridLocation old_loc = actor->location;
-        GridLocation new_loc = _grid->relative_location(old_loc, orientation);
-        if (!_grid->is_empty(new_loc.r, new_loc.c)) {
+        CppGridLocation old_loc = actor->location;
+        CppGridLocation new_loc = _grid->relative_location(old_loc, orientation);
+        if (!_grid->is_empty(new_loc.row, new_loc.col)) {
             return false;
         }
         return _grid->move_object(actor->id, new_loc);
     }
 };
 
-#endif // MOVE_HPP
+#endif  // MOVE_HPP

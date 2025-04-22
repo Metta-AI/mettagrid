@@ -1,42 +1,44 @@
 # distutils: language=c++
 
 from libcpp.vector cimport vector
-from mettagrid.grid_object cimport Layer, TypeId, GridObjectId, GridObject
-from mettagrid.grid_object cimport GridLocation, Orientation, GridCoord
+
+# Import the C++ types from cpp_grid_object.pxd, not grid_object.pxd
+from mettagrid.cpp_grid_object cimport cpp_Layer, cpp_TypeId, cpp_GridObjectId
+from mettagrid.cpp_grid_object cimport CppGridObject, CppGridLocation, cpp_Orientation, cpp_GridCoord
 
 cdef extern from "grid.hpp":
     cdef cppclass Grid:
         unsigned int width
         unsigned int height
-        Layer num_layers
+        cpp_Layer num_layers
 
         vector[vector[vector[int]]] grid
-        vector[GridObject*] objects
+        vector[CppGridObject*] objects
 
-        Grid(unsigned int width, unsigned int height, vector[Layer] layer_for_type_id)
+        Grid(unsigned int width, unsigned int height, vector[cpp_Layer] layer_for_type_id)
         void __dealloc__()
 
-        const GridLocation location(GridObjectId id)
-        const GridLocation location(unsigned int r, unsigned int c, Layer layer)
-        const GridLocation relative_location(
-            const GridLocation &loc, Orientation orientation,
-            GridCoord distance, GridCoord offset)
-        const GridLocation relative_location(
-            const GridLocation &loc, Orientation orientation)
-        const GridLocation relative_location(
-            const GridLocation &loc, Orientation orientation, TypeId type_id)
-        const GridLocation relative_location(
-            const GridLocation &loc, Orientation orientation,
-            GridCoord distance, GridCoord offset, TypeId type_id)
+        const CppGridLocation location(cpp_GridObjectId id)
+        const CppGridLocation location(unsigned int r, unsigned int c, cpp_Layer layer)
+        const CppGridLocation relative_location(
+            const CppGridLocation &loc, cpp_Orientation orientation,
+            cpp_GridCoord distance, cpp_GridCoord offset)
+        const CppGridLocation relative_location(
+            const CppGridLocation &loc, cpp_Orientation orientation)
+        const CppGridLocation relative_location(
+            const CppGridLocation &loc, cpp_Orientation orientation, cpp_TypeId type_id)
+        const CppGridLocation relative_location(
+            const CppGridLocation &loc, cpp_Orientation orientation,
+            cpp_GridCoord distance, cpp_GridCoord offset, cpp_TypeId type_id)
 
         char is_empty(unsigned int r, unsigned int c)
 
-        char add_object(GridObject *obj)
-        void remove_object(GridObject *obj)
-        void remove_object(GridObjectId id)
-        bint move_object(GridObjectId id, const GridLocation &loc)
-        void swap_objects(GridObjectId id1, GridObjectId id2)
-        GridObject* object(GridObjectId obj_id)
-        GridObject* object_at(const GridLocation &loc)
-        GridObject* object_at(const GridLocation &loc, TypeId type_id)
-        GridObject* object_at(GridCoord r, GridCoord c, TypeId type_id)
+        char add_object(CppGridObject *obj)
+        void remove_object(CppGridObject *obj)
+        void remove_object(cpp_GridObjectId id)
+        bint move_object(cpp_GridObjectId id, const CppGridLocation &loc)
+        void swap_objects(cpp_GridObjectId id1, cpp_GridObjectId id2)
+        CppGridObject* object(cpp_GridObjectId obj_id)
+        CppGridObject* object_at(const CppGridLocation &loc)
+        CppGridObject* object_at(const CppGridLocation &loc, cpp_TypeId type_id)
+        CppGridObject* object_at(cpp_GridCoord r, cpp_GridCoord c, cpp_TypeId type_id)
