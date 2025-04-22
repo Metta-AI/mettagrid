@@ -1,5 +1,5 @@
-from mettagrid.action_handler cimport ActionHandler
+from mettagrid.action_handler cimport ActionHandler, ActionConfig
 
 cdef extern from "swap.hpp":
     cdef cppclass Swap(ActionHandler):
-        pass
+        Swap(const ActionConfig& cfg)

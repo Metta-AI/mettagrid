@@ -10,8 +10,8 @@
 
 class Attack : public ActionHandler {
 public:
-    Attack(const std::string& action_name = "attack") 
-        : ActionHandler(action_name) {
+    Attack(const ActionConfig& cfg, const std::string& action_name = "attack") 
+        : ActionHandler(cfg, action_name) {
         priority = 1;
     }
 

@@ -9,8 +9,8 @@
 
 class Swap : public ActionHandler {
 public:
-    Swap() 
-        : ActionHandler("swap") {}
+    Swap(const ActionConfig& cfg)
+        : ActionHandler(cfg, "swap") {}
 
     unsigned char max_arg() const override {
         return 0;

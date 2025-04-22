@@ -1,5 +1,5 @@
-from mettagrid.action_handler cimport ActionHandler
+from mettagrid.action_handler cimport ActionHandler, ActionConfig
 
 cdef extern from "rotate.hpp":
     cdef cppclass Rotate(ActionHandler):
-        pass
+        Rotate(const ActionConfig& cfg)

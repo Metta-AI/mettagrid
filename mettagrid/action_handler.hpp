@@ -20,13 +20,14 @@ struct StatNames {
 };
 
 typedef unsigned char ActionArg;
+typedef std::map<std::string, int> ActionConfig;
 
 class ActionHandler {
 public:
     unsigned char priority;
     Grid* _grid;
     
-    ActionHandler(const std::string& action_name="undefined_action")
+    ActionHandler(const ActionConfig& cfg, const std::string& action_name)
         : priority(0), _action_name(action_name) {
         _stats.success = "action." + action_name;
         _stats.failure = "action." + action_name + ".failed";

@@ -1,5 +1,5 @@
-from mettagrid.action_handler cimport ActionHandler
+from mettagrid.action_handler cimport ActionHandler, ActionConfig
 
 cdef extern from "move.hpp":
     cdef cppclass Move(ActionHandler):
-        pass
+        Move(const ActionConfig& cfg)

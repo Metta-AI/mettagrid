@@ -8,8 +8,8 @@
 
 class Move : public ActionHandler {
 public:
-    Move() 
-        : ActionHandler("move") {}
+    Move(const ActionConfig& cfg)
+        : ActionHandler(cfg, "move") {}
 
     unsigned char max_arg() const override {
         return 1;

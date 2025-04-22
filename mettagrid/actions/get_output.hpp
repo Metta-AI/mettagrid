@@ -10,8 +10,8 @@
 
 class GetOutput : public ActionHandler {
 public:
-    GetOutput() 
-        : ActionHandler("get_output") {}
+    GetOutput(const ActionConfig& cfg)
+        : ActionHandler(cfg, "get_output") {}
 
     unsigned char max_arg() const override {
         return 0;

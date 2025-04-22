@@ -7,8 +7,8 @@
 
 class Rotate : public ActionHandler {
 public:
-    Rotate() 
-        : ActionHandler("rotate") {}
+    Rotate(const ActionConfig& cfg)
+        : ActionHandler(cfg, "rotate") {}
 
     unsigned char max_arg() const override {
         return 3;

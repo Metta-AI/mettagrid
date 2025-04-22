@@ -7,8 +7,8 @@
 
 class ChangeColorAction : public ActionHandler {
 public:
-    ChangeColorAction() 
-        : ActionHandler("change_color") {}
+    ChangeColorAction(const ActionConfig& cfg)
+        : ActionHandler(cfg, "change_color") {}
 
     unsigned char max_arg() const override {
         return 3;

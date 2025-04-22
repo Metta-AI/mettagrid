@@ -1,5 +1,5 @@
-from mettagrid.action_handler cimport ActionHandler
+from mettagrid.action_handler cimport ActionHandler, ActionConfig
 
 cdef extern from "change_color.hpp":
     cdef cppclass ChangeColorAction(ActionHandler):
-        pass
+        ChangeColorAction(const ActionConfig& cfg)

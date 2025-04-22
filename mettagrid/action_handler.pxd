@@ -6,7 +6,7 @@ from mettagrid.grid_object cimport TypeId, GridObjectId
 from mettagrid.grid cimport Grid
 
 ctypedef unsigned int ActionArg
-
+ctypedef map[string, int] ActionConfig
 cdef extern from "action_handler.hpp":
     cdef cppclass StatNames:
         string success

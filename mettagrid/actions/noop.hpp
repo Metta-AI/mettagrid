@@ -7,8 +7,8 @@
 
 class Noop : public ActionHandler {
 public:
-    Noop() 
-        : ActionHandler("noop") {}
+    Noop(const ActionConfig& cfg)
+        : ActionHandler(cfg, "noop") {}
 
     unsigned char max_arg() const override {
         return 0;
