@@ -624,48 +624,22 @@ function drawObjects(replay: any) {
       const action_success = getAttr(gridObject, "action_success");
       const action_name = replay.action_names[action[0]];
       const orientation = getAttr(gridObject, "agent:orientation");
+      var rotation = 0;
+      if (orientation == 0) {
+        rotation = Math.PI / 2; // North
+      } else if (orientation == 1) {
+        rotation = -Math.PI / 2; // South
+      } else if (orientation == 2) {
+        rotation = Math.PI; // West
+      } else if (orientation == 3) {
+        rotation = 0; // East
+      }
       if (action_name == "attack") {
-        drawer.save()
-        drawer.translate(x * TILE_SIZE, y * TILE_SIZE);
-        if (orientation == 0) {
-          drawer.rotate(Math.PI / 2);
-        } else if (orientation == 1) {
-          drawer.rotate(-Math.PI / 2);
-        } else if (orientation == 2) {
-          drawer.rotate(Math.PI);
-        } else if (orientation == 3) {
-          drawer.rotate(0);
-        }
-        drawer.drawSprite("attack" + (action[1] + 1) + ".png", 0, 0);
-        drawer.restore()
+        drawer.drawSprite("actions/attack" + (action[1] + 1) + ".png", x * TILE_SIZE, y * TILE_SIZE, [1, 1, 1, 1], 1, rotation);
       } else if (action_name == "put_recipe_items") {
-        drawer.save()
-        drawer.translate(x * TILE_SIZE, y * TILE_SIZE);
-        if (orientation == 0) {
-          drawer.rotate(Math.PI / 2);
-        } else if (orientation == 1) {
-          drawer.rotate(-Math.PI / 2);
-        } else if (orientation == 2) {
-          drawer.rotate(Math.PI);
-        } else if (orientation == 3) {
-          drawer.rotate(0);
-        }
-        drawer.drawSprite("put_recipe_items.png", 0, 0);
-        drawer.restore()
+        drawer.drawSprite("actions/put_recipe_items.png", x * TILE_SIZE, y * TILE_SIZE, [1, 1, 1, 1], 1, rotation);
       } else if (action_name == "get_output") {
-        drawer.save()
-        drawer.translate(x * TILE_SIZE, y * TILE_SIZE);
-        if (orientation == 0) {
-          drawer.rotate(Math.PI / 2);
-        } else if (orientation == 1) {
-          drawer.rotate(-Math.PI / 2);
-        } else if (orientation == 2) {
-          drawer.rotate(Math.PI);
-        } else if (orientation == 3) {
-          drawer.rotate(0);
-        }
-        drawer.drawSprite("get_output.png", 0, 0);
-        drawer.restore()
+        drawer.drawSprite("actions/get_output.png", x * TILE_SIZE, y * TILE_SIZE, [1, 1, 1, 1], 1, rotation);
       }
     }
   }

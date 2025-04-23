@@ -6,7 +6,7 @@ import pixie
 # Pack all of the images into a single atlas.
 # We are using Skyline bin packing algorithm, its simple to implement, fast,
 # and works well small number of images. No fancy packing required!
-ATLAS_SIZE = 1024 * 4
+ATLAS_SIZE = 1024 * 8
 atlas_image = pixie.Image(ATLAS_SIZE, ATLAS_SIZE)
 images = {}
 heights = [0] * atlas_image.width
