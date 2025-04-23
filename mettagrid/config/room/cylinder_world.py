@@ -18,7 +18,7 @@ class CylinderWorld(Room):
         width: int,
         height: int,
         agents: int | dict = 0,
-        seed: Optional[int] = None,
+        seed: Optional[int] = 42,
         border_width: int = 0,
         border_object: str = "wall",
     ):
@@ -60,7 +60,6 @@ class CylinderWorld(Room):
                 fails = 0  # reset – we still found room
             else:
                 fails += 1  # try a different size/orientation
-            
 
         # Finally, spawn any requested agents on leftover empty cells
         grid = self._place_agents(grid)
