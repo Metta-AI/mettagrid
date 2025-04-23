@@ -669,7 +669,16 @@ function drawObjects(replay: any) {
           [1, 1, 1, 1],
           1,
           rotation
-      );
+        );
+      } else if (action_name == "swap") {
+        drawer.drawSprite(
+          "actions/swap.png",
+          x * TILE_SIZE,
+          y * TILE_SIZE,
+          [1, 1, 1, 1],
+          1,
+          rotation
+        );
       }
     }
   }
