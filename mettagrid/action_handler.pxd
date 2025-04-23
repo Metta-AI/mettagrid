@@ -1,22 +1,30 @@
-from mettagrid.grid_object cimport GridObjectId
-from mettagrid.grid_env cimport GridEnv
 from libcpp.string cimport string
+from libcpp.map cimport map
+from libcpp.vector cimport vector
+
+from mettagrid.grid_object cimport TypeId, GridObjectId
+from mettagrid.grid cimport Grid
 
 ctypedef unsigned int ActionArg
+ctypedef map[string, int] ActionConfig
+cdef extern from "action_handler.hpp":
+    cdef cppclass StatNames:
+        string success
+        string first_use
+        string failure
 
-cdef class ActionHandler:
-    cdef GridEnv env
-    cdef string _action_name
-    cdef unsigned char _priority
+        map[TypeId, string] target
+        map[TypeId, string] target_first_use
+        vector[string] group
 
-    cdef void init(self, GridEnv env)
+    cdef cppclass ActionHandler:
+        unsigned char priority
+        void init(Grid* grid)
+        bint handle_action(
+            unsigned int actor_id,
+            GridObjectId actor_object_id,
+            ActionArg arg,
+            unsigned int current_timestep)
+        unsigned char max_arg()
+        string action_name()
 
-    cdef bint handle_action(
-        self,
-        unsigned int actor_id,
-        GridObjectId actor_object_id,
-        ActionArg arg)
-
-    cdef unsigned char max_arg(self)
-
-    cpdef string action_name(self)

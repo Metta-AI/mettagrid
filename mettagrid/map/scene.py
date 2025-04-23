@@ -1,17 +1,29 @@
-from typing import Any, List, Optional, TypedDict
+from typing import Any, List, Optional, TypedDict, Union, cast
 
 import hydra
 import numpy as np
 import numpy.typing as npt
-from omegaconf import OmegaConf
+from omegaconf import DictConfig, OmegaConf
 
 from .node import Node
 
+SceneCfg = Union["Scene", DictConfig, str]
+
 
 class TypedChild(TypedDict):
-    scene: "Scene"
+    scene: SceneCfg
     where: Optional[Any]
     # TODO - more props; use dataclasses instead, or structured configs?
+
+
+def make_scene(cfg: SceneCfg) -> "Scene":
+    if isinstance(cfg, str):
+        cfg = cast(SceneCfg, OmegaConf.load(cfg))
+
+    if isinstance(cfg, Scene):
+        return cfg
+    else:
+        return hydra.utils.instantiate(cfg, _recursive_=False)
 
 
 # Base class for all map scenes.
@@ -50,8 +62,7 @@ class Scene:
             for query in subqueries:
                 areas = node.select_areas(query)
                 for area in areas:
-                    scene = query["scene"]
-                    if not isinstance(scene, Scene):
-                        scene = hydra.utils.instantiate(scene, _recursive_=False)
+                    scene = make_scene(query["scene"])
+
                     child_node = scene.make_node(area.grid)
                     child_node.render()

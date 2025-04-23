@@ -9,6 +9,7 @@ from mettagrid.grid_object cimport GridObjectId, GridObject
 from mettagrid.grid cimport Grid
 from mettagrid.observation_encoder cimport ObservationEncoder, ObsType
 from mettagrid.stats_tracker cimport StatsTracker
+from mettagrid.objects.agent cimport Agent
 
 ctypedef unsigned int ActionType
 
@@ -19,7 +20,7 @@ cdef class GridEnv:
         unsigned int _current_timestep
         unsigned int _max_timestep
 
-        list[ActionHandler] _action_handlers
+        vector[ActionHandler*] _action_handlers
         int _num_action_handlers
         vector[unsigned char] _max_action_args
         unsigned char _max_action_arg
@@ -33,7 +34,7 @@ cdef class GridEnv:
         unsigned short _middle_x
         unsigned short _middle_y
 
-        vector[GridObject*] _agents
+        vector[Agent*] _agents
 
         cnp.ndarray _observations_np
         ObsType[:,:,:,:] _observations
@@ -53,8 +54,8 @@ cdef class GridEnv:
         unsigned char _last_action_arg_obs_idx
         vector[bint] _action_success
 
-    cdef void add_agent(self, GridObject* agent)
-
+    cdef void add_agent(self, Agent* agent)
+    cdef void init_action_handlers(self, vector[ActionHandler*] action_handlers)
     cdef void _compute_observations(self, int[:,:] actions)
     cdef void _step(self, int[:,:] actions)
 

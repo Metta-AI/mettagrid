@@ -1,5 +1,5 @@
-from mettagrid.actions.metta_action_handler cimport MettaActionHandler
+from mettagrid.action_handler cimport ActionHandler, ActionConfig
 
-
-cdef class GetOutput(MettaActionHandler):
-    pass
+cdef extern from "get_output.hpp":
+    cdef cppclass GetOutput(ActionHandler):
+        GetOutput(const ActionConfig& cfg)

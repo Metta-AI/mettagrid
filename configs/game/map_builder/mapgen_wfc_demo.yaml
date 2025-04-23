@@ -12,130 +12,39 @@ root:
     - limit: 1
       lock: lock1
       order_by: first
-      scene:
-        _target_: mettagrid.map.scenes.wfc.WFC
-        pattern_size: 3
-        pattern: |
-          |####   ####|
-          |####   ####|
-          |####   ####|
-          |           |
-          |           |
-          |####   ####|
-          |####   ####|
-          |####   ####|
+      scene: ./configs/scenes/wfc/blocks.yaml
 
     - limit: 1
       lock: lock1
       order_by: first
-      scene:
-        _target_: mettagrid.map.scenes.wfc.WFC
-        pattern_size: 3
-        pattern: |
-          |####     #####|
-          |####     #####|
-          |####     #####|
-          |            ##|
-          |            ##|
-          |            ##|
-          |####     #####|
-          |####     #####|
-          |####     #####|
+      scene: ./configs/scenes/wfc/dungeons.yaml
 
     - limit: 1
       lock: lock1
       order_by: first
-      scene:
-        _target_: mettagrid.map.scenes.wfc.WFC
-        pattern_size: 2
-        pattern: |
-          | ##  |
-          | ##  |
-          | #   |
-          |     |
-          |     |
+      scene: ./configs/scenes/wfc/simple.yaml
 
     - limit: 1
       lock: lock1
       order_by: first
-      scene:
-        _target_: mettagrid.map.scenes.wfc.WFC
-        pattern_size: 3
-        pattern: |
-          |      |
-          |  ##  |
-          | #### |
-          | ###  |
-          |  ##  |
-          |      |
-          |      |
+      scene: ./configs/scenes/wfc/blob.yaml
 
     - limit: 1
       lock: lock1
       order_by: first
-      scene:
-        _target_: mettagrid.map.scenes.wfc.WFC
-        pattern_size: 3
-        pattern: |
-          |   ##  |
-          |   ### |
-          |  #####|
-          |  #####|
-          |   ##  |
-          |       |
-          |       |
+      scene: ./configs/scenes/wfc/blob2.yaml
 
     - limit: 1
       lock: lock1
       order_by: first
-      scene:
-        _target_: mettagrid.map.scenes.wfc.WFC
-        pattern_size: 3
-        pattern: |
-          |          |
-          |   ####   |
-          |  ######  |
-          | ######## |
-          | ######## |
-          |  ######  |
-          |   ####   |
-          |          |
+      scene: ./configs/scenes/wfc/blob3.yaml
 
     - limit: 1
       lock: lock1
       order_by: first
-      scene:
-        _target_: mettagrid.map.scenes.wfc.WFC
-        pattern_size: 3
-        pattern: |
-          |###   ##   |
-          |##    #### |
-          |#    ## ## |
-          |##    #    |
-          |#    ### ##|
-          |       ### |
-          |   ###     |
-          |   #     # |
-          |   ###   ##|
-          |           |
+      scene: ./configs/scenes/wfc/mazelike1.yaml
 
     - limit: 1
       lock: lock1
       order_by: first
-      scene:
-        _target_: mettagrid.map.scenes.wfc.WFC
-        pattern_size: 3
-        pattern: |
-          |##    ###     |
-          |##    ####### |
-          |#    ##    ## |
-          |##    #       |
-          |#    ####   ##|
-          |        ##### |
-          |   ###        |
-          |#    ###### ##|
-          |       ###### |
-          |  ###         |
-          |  ##          |
-          |   ###      ##|
-          |              |
+      scene: ./configs/scenes/wfc/mazelike2.yaml
