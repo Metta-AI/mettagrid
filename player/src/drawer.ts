@@ -442,8 +442,9 @@ class Drawer {
 
         @fragment fn fs(in: VertexOutput) -> @location(0) vec4f {
           let texColor = textureSample(imgTexture, imgSampler, in.texcoord);
-          // For premultiplied alpha, we multiply the RGB of the color but keep its alpha
-          return vec4f(texColor.rgb * in.color.rgb, texColor.a * in.color.a);
+          // Do the premultiplied alpha conversion.
+          let premultipliedColor = vec4f(texColor.rgb * texColor.a, texColor.a);
+          return premultipliedColor * in.color;
         }
       `,
     });
