@@ -460,15 +460,15 @@ function getAttr(obj: any, attr: string, atStep = -1): any {
   }
 }
 
-function getAgentStyle(agentId: number) {
-  const n = 4; // number of variations per trait
-  return {
-    bodyId: Math.floor(agentId * Math.PI) % AGENT_STYLES.body,
-    eyesId: Math.floor(agentId * Math.E) % AGENT_STYLES.eyes,
-    hornsId: Math.floor(agentId * Math.SQRT2) % AGENT_STYLES.horns,
-    hairId: Math.floor(agentId * 2.236) % AGENT_STYLES.hair,  // sqrt(5)
-    mouthId: Math.floor(agentId * 2.645) % AGENT_STYLES.mouth  // sqrt(7)
-  };
+// Generate a color from an agent id.
+function colorFromId(agentId: number) {
+  let n = agentId + Math.PI + Math.E + Math.SQRT2;
+  return [
+    n * Math.PI % 1.0,
+    n * Math.E % 1.0,
+    n * Math.SQRT2 % 1.0,
+    1.0
+  ]
 }
 
 // Make the panel focus on the full map, used at the start of the replay.
@@ -604,10 +604,19 @@ function drawObjects(replay: any) {
 
       const agent_id = gridObject["agent_id"];
 
-      drawer.drawSprite("agents/agent." + suffix + ".png", x * TILE_SIZE, y * TILE_SIZE);
+      drawer.drawSprite(
+        "agents/agent." + suffix + ".png",
+        x * TILE_SIZE,
+        y * TILE_SIZE,
+        colorFromId(agent_id)
+      );
     } else {
       // Draw other objects.
-      drawer.drawSprite("objects/" + typeName + ".png", x * TILE_SIZE, y * TILE_SIZE);
+      drawer.drawSprite(
+        "objects/" + typeName + ".png",
+        x * TILE_SIZE,
+        y * TILE_SIZE
+      );
     }
   }
 
@@ -635,11 +644,32 @@ function drawObjects(replay: any) {
         rotation = 0; // East
       }
       if (action_name == "attack") {
-        drawer.drawSprite("actions/attack" + (action[1] + 1) + ".png", x * TILE_SIZE, y * TILE_SIZE, [1, 1, 1, 1], 1, rotation);
+        drawer.drawSprite(
+          "actions/attack" + (action[1] + 1) + ".png",
+          x * TILE_SIZE,
+          y * TILE_SIZE,
+          [1, 1, 1, 1],
+          1,
+          rotation
+        );
       } else if (action_name == "put_recipe_items") {
-        drawer.drawSprite("actions/put_recipe_items.png", x * TILE_SIZE, y * TILE_SIZE, [1, 1, 1, 1], 1, rotation);
+        drawer.drawSprite(
+          "actions/put_recipe_items.png",
+          x * TILE_SIZE,
+          y * TILE_SIZE,
+          [1, 1, 1, 1],
+          1,
+          rotation
+        );
       } else if (action_name == "get_output") {
-        drawer.drawSprite("actions/get_output.png", x * TILE_SIZE, y * TILE_SIZE, [1, 1, 1, 1], 1, rotation);
+        drawer.drawSprite(
+          "actions/get_output.png",
+          x * TILE_SIZE,
+          y * TILE_SIZE,
+          [1, 1, 1, 1],
+          1,
+          rotation
+      );
       }
     }
   }
@@ -701,7 +731,7 @@ function drawSelection(selectedObject: any | null, step: number) {
 
   const x = getAttr(selectedObject, "c")
   const y = getAttr(selectedObject, "r")
-  drawer.drawSprite("agent_selection.png", x * TILE_SIZE, y * TILE_SIZE);
+  drawer.drawSprite("selection.png", x * TILE_SIZE, y * TILE_SIZE);
 
   // If object has a trajectory, draw the path it took through the map.
   if (selectedObject.c.length > 0 || selectedObject.r.length > 0) {
