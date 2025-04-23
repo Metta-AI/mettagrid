@@ -23,3 +23,4 @@ cdef class Grid:
 
     cpdef bint is_empty(self, unsigned int row, unsigned int col)
     cpdef bint add_object_from_ptr(self, unsigned long ptr_value)
+

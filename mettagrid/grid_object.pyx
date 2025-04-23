@@ -30,23 +30,43 @@ cdef class GridLocation:
     def __cinit__(self, unsigned int row=0, unsigned int col=0, unsigned short layer=0):
         self._cpp_loc = CppGridLocation(row, col, layer)
 
-    cpdef unsigned int row(self):
+    # C++ core methods - using cdef for efficiency
+    cdef unsigned int row(self):
         return self._cpp_loc.row
 
-    cpdef void set_row(self, unsigned int value):
+    cdef void set_row(self, unsigned int value):
         self._cpp_loc.row = value
 
-    cpdef unsigned int col(self):
+    cdef unsigned int col(self):
         return self._cpp_loc.col
 
-    cpdef void set_col(self, unsigned int value):
+    cdef void set_col(self, unsigned int value):
         self._cpp_loc.col = value
 
-    cpdef unsigned short layer(self):
+    cdef unsigned short layer(self):
         return self._cpp_loc.layer
 
-    cpdef void set_layer(self, unsigned short value):
+    cdef void set_layer(self, unsigned short value):
         self._cpp_loc.layer = value
+        
+    # Python-accessible wrapper methods
+    def py_row(self):
+        return self.row()
+        
+    def py_set_row(self, value):
+        self.set_row(value)
+        
+    def py_col(self):
+        return self.col()
+        
+    def py_set_col(self, value):
+        self.set_col(value)
+        
+    def py_layer(self):
+        return self.layer()
+        
+    def py_set_layer(self, value):
+        self.set_layer(value)
 
     def __richcmp__(self, GridLocation other, int op):
         if op == 2:  # ==
@@ -59,11 +79,7 @@ cdef class GridLocation:
             return NotImplemented
 
     def __repr__(self):
-        # Fix: Use method calls with parentheses to get the actual values
-        r = self.row()
-        c = self.col()
-        l = self.layer()
-        return f"GridLocation(row={r}, col={c}, layer={l})"
+        return f"GridLocation(row={self._cpp_loc.row}, col={self._cpp_loc.col}, layer={self._cpp_loc.layer})"
 
 # -------- GridObject Base --------
 cdef class GridObject:
@@ -100,7 +116,6 @@ cdef class GridObject:
 
     cpdef void set_id(self, unsigned int value):
         self._cpp_obj.id = value
-
 
     cpdef cpp_TypeId type_id(self):
         return self._cpp_obj.objectTypeId

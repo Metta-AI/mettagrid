@@ -16,12 +16,12 @@ from mettagrid.cpp_grid_object cimport (
 
 cdef class GridLocation:
     cdef CppGridLocation _cpp_loc
-    cpdef unsigned int row(self)
-    cpdef void set_row(self, unsigned int value)
-    cpdef unsigned int col(self)
-    cpdef void set_col(self, unsigned int value)
-    cpdef unsigned short layer(self)
-    cpdef void set_layer(self, unsigned short value)
+    cdef unsigned int row(self)
+    cdef void set_row(self, unsigned int value)
+    cdef unsigned int col(self)
+    cdef void set_col(self, unsigned int value)
+    cdef unsigned short layer(self)
+    cdef void set_layer(self, unsigned short value)
 
 cdef class GridObject:
     cdef CppGridObject* _cpp_obj
