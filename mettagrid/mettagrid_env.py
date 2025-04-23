@@ -5,7 +5,7 @@ This module provides environment classes for Metta Grid simulations.
 
 import copy
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import gymnasium as gym
 import hydra
@@ -384,7 +384,6 @@ class MettaGridEnvSet(MettaGridEnv):
     def __init__(
         self,
         cfg: Union[DictConfig, ListConfig],
-        weights: List[float] | None = None,
         render_mode: Optional[str] = None,
         buf=None,
         **kwargs,
@@ -404,7 +403,9 @@ class MettaGridEnvSet(MettaGridEnv):
             buf: Buffer for Pufferlib
             **kwargs: Additional arguments passed to parent classes
         """
-        self._original_cfg_paths = cfg.envs
+
+        self._original_cfg_paths = list(cfg.envs.keys())
+        weights = list(cfg.envs.values())
 
         # Validate that all environments have the same agent count
         first_env_cfg = config_from_path(self._original_cfg_paths[0])
