@@ -8,6 +8,7 @@ export class PanelInfo {
   public width: number = 0;
   public height: number = 0;
   public name: string = "";
+  public isPanning: boolean = false;
   public panPos: Vec2f = new Vec2f(0, 0);
   public zoomLevel: number = 1;
   public canvas: HTMLCanvasElement;
@@ -36,7 +37,15 @@ export class PanelInfo {
 
   // Update the pan and zoom level based on the mouse position and scroll delta.
   updatePanAndZoom(): boolean {
-    if (mouseDown && mousePos.sub(lastMousePos).length() > 1) {
+
+    if (mousePressed) {
+      this.isPanning = true;
+    }
+    if (!mouseDown) {
+      this.isPanning = false;
+    }
+
+    if (this.isPanning && mousePos.sub(lastMousePos).length() > 1) {
       const lastMousePoint = this.transformPoint(lastMousePos);
       const newMousePoint = this.transformPoint(mousePos);
       this.panPos = this.panPos.add(newMousePoint.sub(lastMousePoint));
@@ -124,6 +133,7 @@ const INVENTORY = [
 
 // Interaction state.
 let mouseDown = false;
+let mousePressed = false;
 let mousePos = new Vec2f(0, 0);
 let lastMousePos = new Vec2f(0, 0);
 let scrollDelta = 0;
@@ -192,7 +202,7 @@ function onResize() {
 // Handle mouse down events.
 function onMouseDown() {
   lastMousePos = mousePos;
-
+  mousePressed = true;
   const currentTime = new Date().getTime();
   const isDoubleClick = currentTime - lastClickTime < 300; // 300ms threshold for double-click
   lastClickTime = currentTime;
@@ -843,21 +853,19 @@ function drawTrace(panel: PanelInfo) {
 
   const localMousePos = panel.transformPoint(mousePos);
 
-  if (panel.inside(mousePos)) {
+  if (mousePressed &&panel.inside(mousePos)) {
     if (localMousePos != null) {
-      if (mouseDown) {
-        const mapX = localMousePos.x();
-        if (mapX > 0 && mapX < replay.max_steps * TRACE_WIDTH &&
-          localMousePos.y() > 0 && localMousePos.y() < replay.num_agents * TRACE_HEIGHT) {
-          const agentId = Math.floor(localMousePos.y() / TRACE_HEIGHT);
-          if (agentId >= 0 && agentId < replay.num_agents) {
-            followSelection = true;
-            selectedGridObject = replay.agents[agentId];
-            console.log("selectedGridObject on a trace: ", selectedGridObject);
-            focusMapOn(mapPanel, getAttr(selectedGridObject, "c"), getAttr(selectedGridObject, "r"));
-            step = Math.floor(mapX / TRACE_WIDTH);
-            scrubber.value = step.toString();
-          }
+      const mapX = localMousePos.x();
+      if (mapX > 0 && mapX < replay.max_steps * TRACE_WIDTH &&
+        localMousePos.y() > 0 && localMousePos.y() < replay.num_agents * TRACE_HEIGHT) {
+        const agentId = Math.floor(localMousePos.y() / TRACE_HEIGHT);
+        if (agentId >= 0 && agentId < replay.num_agents) {
+          followSelection = true;
+          selectedGridObject = replay.agents[agentId];
+          console.log("selectedGridObject on a trace: ", selectedGridObject);
+          focusMapOn(mapPanel, getAttr(selectedGridObject, "c"), getAttr(selectedGridObject, "r"));
+          step = Math.floor(mapX / TRACE_WIDTH);
+          scrubber.value = step.toString();
         }
       }
     }
@@ -1027,6 +1035,8 @@ function onFrame() {
     }
     requestFrame();
   }
+
+  mousePressed = false;
 }
 
 function preventDefaults(event: Event) {
