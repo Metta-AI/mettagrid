@@ -28,7 +28,7 @@ class VariedTerrain(Room):
     # These counts are intentionally moderate.
     STYLE_PARAMETERS = {
         "all-sparse": {
-            "hearts_count": 50,
+            "hearts_count": 25,
             "large_obstacles": {"size_range": [10, 25], "count": 2},
             "small_obstacles": {"size_range": [3, 6], "count": 2},
             "crosses": {"count": 0},
@@ -38,7 +38,7 @@ class VariedTerrain(Room):
             "clumpiness": 0,
         },
         "balanced": {
-            "hearts_count": 50,
+            "hearts_count": 100,
             "large_obstacles": {"size_range": [10, 25], "count": 6},
             "small_obstacles": {"size_range": [3, 6], "count": 6},
             "crosses": {"count": 4},
@@ -48,7 +48,7 @@ class VariedTerrain(Room):
             "clumpiness": 1,
         },
         "dense-altars-sparse-objects": {
-            "hearts_count": 50,
+            "hearts_count": 100,
             "large_obstacles": {"size_range": [10, 25], "count": 4},
             "small_obstacles": {"size_range": [3, 6], "count": 5},
             "crosses": {"count": 3},
@@ -58,7 +58,7 @@ class VariedTerrain(Room):
             "clumpiness": 1,
         },
         "sparse-altars-dense-objects": {
-            "hearts_count": 50,
+            "hearts_count": 25,
             "large_obstacles": {"size_range": [10, 25], "count": 10},
             "small_obstacles": {"size_range": [3, 6], "count": 15},
             "crosses": {"count": 8},
@@ -68,7 +68,7 @@ class VariedTerrain(Room):
             "clumpiness": 2,
         },
         "all-dense": {
-            "hearts_count": 50,
+            "hearts_count": 100,
             "large_obstacles": {"size_range": [10, 25], "count": 12},
             "small_obstacles": {"size_range": [3, 6], "count": 15},
             "crosses": {"count": 8},
@@ -79,7 +79,7 @@ class VariedTerrain(Room):
         },
         # New style: maze-like with predominant labyrinth features.
         "maze": {
-            "hearts_count": 50,  # Altars placed after obstacles; keeps the grid sparse for maze corridors.
+            "hearts_count": 25,  # Altars placed after obstacles; keeps the grid sparse for maze corridors.
             "large_obstacles": {"size_range": [10, 25], "count": 0},  # Disable large obstacles.
             "small_obstacles": {"size_range": [3, 6], "count": 0},  # Disable small obstacles.
             "crosses": {"count": 0},  # No cross obstacles.

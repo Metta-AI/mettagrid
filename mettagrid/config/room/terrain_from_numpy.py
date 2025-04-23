@@ -109,8 +109,8 @@ class TerrainFromNumpy(Room):
         for pos in positions:
             level[pos] = "agent.agent"
 
-        num_hearts = 50
-
+        area = level.shape[0] * level.shape[1]
+        num_hearts = area // random.randint(66, 180)
         # Find valid empty spaces surrounded by empty
         valid_positions = self.get_valid_positions(level)
 
