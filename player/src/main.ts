@@ -62,11 +62,15 @@ export class PanelInfo {
 // Constants
 const MIN_ZOOM_LEVEL = 0.05;
 const MAX_ZOOM_LEVEL = 2.0;
+
 const SPLIT_DRAG_THRESHOLD = 10;  // pixels to detect split dragging
 const SCROLL_ZOOM_FACTOR = 1000;  // divisor for scroll delta to zoom conversion
 const DEFAULT_TRACE_SPLIT = 0.80;  // default horizontal split ratio
 const DEFAULT_INFO_SPLIT = 0.25;   // default vertical split ratio
 const PANEL_BOTTOM_MARGIN = 60;    // bottom margin for panels
+
+// Map constants.
+const TILE_SIZE = 200;
 
 let drawer: Drawer;
 
@@ -472,8 +476,8 @@ function focusFullMap(panel: PanelInfo) {
   if (replay === null) {
     return;
   }
-  const mapWidth = replay.map_size[0] * 64;
-  const mapHeight = replay.map_size[1] * 64;
+  const mapWidth = replay.map_size[0] * TILE_SIZE;
+  const mapHeight = replay.map_size[1] * TILE_SIZE;
   const panelWidth = panel.width;
   const panelHeight = panel.height;
   const zoomLevel = Math.min(panelWidth / mapWidth, panelHeight / mapHeight);
@@ -487,8 +491,8 @@ function focusFullMap(panel: PanelInfo) {
 // Make the panel focus on a specific agent.
 function focusMapOn(panel: PanelInfo, x: number, y: number) {
   panel.panPos = new Vec2f(
-    -x * 64 + panel.width / 2,
-    -y * 64 + panel.height / 2
+    -x * TILE_SIZE + panel.width / 2,
+    -y * TILE_SIZE + panel.height / 2
   );
   panel.zoomLevel = 1;
 }
@@ -497,7 +501,7 @@ function focusMapOn(panel: PanelInfo, x: number, y: number) {
 function drawFloor(mapSize: [number, number]) {
   for (let x = 0; x < mapSize[0]; x++) {
     for (let y = 0; y < mapSize[1]; y++) {
-      drawer.drawSprite('floor.png', x * 64, y * 64);
+      drawer.drawSprite('objects/floor.png', x * TILE_SIZE, y * TILE_SIZE);
     }
   }
 }
@@ -543,7 +547,7 @@ function drawWalls(replay: any) {
     if (n || w || e || s) {
       suffix = (n ? "n" : "") + (w ? "w" : "") + (s ? "s" : "") + (e ? "e" : "");
     }
-    drawer.drawSprite('wall.' + suffix + '.png', x * 64, y * 64);
+    drawer.drawSprite('objects/wall.' + suffix + '.png', x * TILE_SIZE, y * TILE_SIZE);
   }
 
   // Draw the wall in-fill following the adjacency map.
@@ -567,7 +571,7 @@ function drawWalls(replay: any) {
       se = true;
     }
     if (e && s && se) {
-      drawer.drawSprite('wall.fill.png', x * 64 + 32, y * 64 + 32);
+      drawer.drawSprite('objects/wall.fill.png', x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
     }
   }
 }
@@ -589,27 +593,21 @@ function drawObjects(replay: any) {
       const orientation = getAttr(gridObject, "agent:orientation");
       var suffix = "";
       if (orientation == 0) {
-        suffix = ".n";
+        suffix = "n";
       } else if (orientation == 1) {
-        suffix = ".s";
+        suffix = "s";
       } else if (orientation == 2) {
-        suffix = ".w";
+        suffix = "w";
       } else if (orientation == 3) {
-        suffix = ".e";
+        suffix = "e";
       }
 
       const agent_id = gridObject["agent_id"];
 
-      const style = getAgentStyle(agent_id);
-      drawer.drawSprite(typeName + suffix + ".body." + style.bodyId + ".png", x * 64, y * 64);
-      drawer.drawSprite(typeName + suffix + ".hair." + style.hairId + ".png", x * 64, y * 64);
-      drawer.drawSprite(typeName + suffix + ".mouth." + style.mouthId + ".png", x * 64, y * 64);
-      drawer.drawSprite(typeName + suffix + ".horns." + style.hornsId + ".png", x * 64, y * 64);
-      drawer.drawSprite(typeName + suffix + ".eyes." + style.eyesId + ".png", x * 64, y * 64);
-
+      drawer.drawSprite("agents/agent." + suffix + ".png", x * TILE_SIZE, y * TILE_SIZE);
     } else {
       // Draw other objects.
-      drawer.drawSprite(typeName + ".png", x * 64, y * 64);
+      drawer.drawSprite("objects/" + typeName + ".png", x * TILE_SIZE, y * TILE_SIZE);
     }
   }
 
@@ -628,7 +626,7 @@ function drawObjects(replay: any) {
       const orientation = getAttr(gridObject, "agent:orientation");
       if (action_name == "attack") {
         drawer.save()
-        drawer.translate(x * 64, y * 64);
+        drawer.translate(x * TILE_SIZE, y * TILE_SIZE);
         if (orientation == 0) {
           drawer.rotate(Math.PI / 2);
         } else if (orientation == 1) {
@@ -642,7 +640,7 @@ function drawObjects(replay: any) {
         drawer.restore()
       } else if (action_name == "put_recipe_items") {
         drawer.save()
-        drawer.translate(x * 64, y * 64);
+        drawer.translate(x * TILE_SIZE, y * TILE_SIZE);
         if (orientation == 0) {
           drawer.rotate(Math.PI / 2);
         } else if (orientation == 1) {
@@ -656,7 +654,7 @@ function drawObjects(replay: any) {
         drawer.restore()
       } else if (action_name == "get_output") {
         drawer.save()
-        drawer.translate(x * 64, y * 64);
+        drawer.translate(x * TILE_SIZE, y * TILE_SIZE);
         if (orientation == 0) {
           drawer.rotate(Math.PI / 2);
         } else if (orientation == 1) {
@@ -686,14 +684,14 @@ function drawObjects(replay: any) {
       const num = getAttr(gridObject, "agent:inv:" + item);
       numItems += num;
     }
-    let advanceX = Math.min(8, 64 / numItems);
+    let advanceX = Math.min(32, TILE_SIZE / numItems);
     for (const item of INVENTORY) {
       const num = getAttr(gridObject, "agent:inv:" + item);
       for (let i = 0; i < num; i++) {
         drawer.save()
-        drawer.translate(x * 64 + inventoryX - 32, y * 64 - 28);
-        drawer.scale(0.25, 0.25);
-        drawer.drawSprite(item + ".png", 0, 0);
+        drawer.translate(x * TILE_SIZE + inventoryX - TILE_SIZE/2, y * TILE_SIZE - TILE_SIZE/2 + 16);
+        drawer.scale(1/8, 1/8);
+        drawer.drawSprite("resources/" + item + ".png", 0, 0);
         drawer.restore()
         inventoryX += advanceX;
       }
@@ -709,12 +707,12 @@ function drawObjects(replay: any) {
     if (gridObject["total_reward"] !== undefined) {
       const totalReward = getAttr(gridObject, "total_reward");
       let rewardX = 0;
-      let advanceX = Math.min(8, 64 / rewardX);
+      let advanceX = Math.min(32, TILE_SIZE / totalReward);
       for (let i = 0; i < totalReward; i++) {
         drawer.save()
-        drawer.translate(x * 64 + rewardX - 32, y * 64 + 28);
-        drawer.scale(0.25, 0.25);
-        drawer.drawSprite("reward.png", 0, 0);
+        drawer.translate(x * TILE_SIZE + rewardX - TILE_SIZE/2, y * TILE_SIZE + TILE_SIZE/2 - 16);
+        drawer.scale(1/8, 1/8);
+        drawer.drawSprite("resources/reward.png", 0, 0);
         drawer.restore()
         rewardX += advanceX;
       }
@@ -729,7 +727,7 @@ function drawSelection(selectedObject: any | null, step: number) {
 
   const x = getAttr(selectedObject, "c")
   const y = getAttr(selectedObject, "r")
-  drawer.drawSprite("agent_selection.png", x * 64, y * 64);
+  drawer.drawSprite("agent_selection.png", x * TILE_SIZE, y * TILE_SIZE);
 
   // If object has a trajectory, draw the path it took through the map.
   if (selectedObject.c.length > 0 || selectedObject.r.length > 0) {
@@ -744,22 +742,25 @@ function drawSelection(selectedObject: any | null, step: number) {
         const a = 1 - Math.abs(i - step) / 200;
         if (a > 0) {
           let color = [0, 0, 0, a];
+          let image = "";
           if (step >= i) {
             // Past trajectory is black.
             color = [0, 0, 0, a];
+            image = "agents/footprints.png";
           } else {
             // Future trajectory is white.
             color = [a, a, a, a];
+            image = "agents/path.png";
           }
 
-          if (cx1 > cx0) { // right
-            drawer.drawSolidRect(cx0 * 64, cy0 * 64, 64, 2, color);
-          } else if (cx1 < cx0) { // left
-            drawer.drawSolidRect(cx1 * 64, cy1 * 64, 64, 2, color);
-          } else if (cy1 > cy0) { // down
-            drawer.drawSolidRect(cx0 * 64, cy0 * 64, 2, 64, color);
-          } else if (cy1 < cy0) {
-            drawer.drawSolidRect(cx0 * 64, cy1 * 64, 2, 64, color);
+          if (cx1 > cx0) { // east
+            drawer.drawSprite(image, cx0 * TILE_SIZE, cy0 * TILE_SIZE + 60, color, 1, 0);
+          } else if (cx1 < cx0) { // west
+            drawer.drawSprite(image, cx0 * TILE_SIZE, cy0 * TILE_SIZE + 60, color, 1, Math.PI);
+          } else if (cy1 > cy0) { // south
+            drawer.drawSprite(image, cx0 * TILE_SIZE, cy0 * TILE_SIZE + 60, color, 1, -Math.PI / 2);
+          } else if (cy1 < cy0) { // north
+            drawer.drawSprite(image, cx0 * TILE_SIZE, cy0 * TILE_SIZE + 60, color, 1, Math.PI / 2);
           }
         }
       }
@@ -778,14 +779,14 @@ function drawMap(panel: PanelInfo) {
   if (followSelection && selectedGridObject !== null) {
     const x = getAttr(selectedGridObject, "c");
     const y = getAttr(selectedGridObject, "r");
-    panel.panPos = new Vec2f(-x * 64, -y * 64);
+    panel.panPos = new Vec2f(-x * TILE_SIZE, -y * TILE_SIZE);
   }
 
   if (mouseDown) {
     if (localMousePos != null) {
       const gridMousePos = new Vec2f(
-        Math.round(localMousePos.x() / 64),
-        Math.round(localMousePos.y() / 64)
+        Math.round(localMousePos.x() / TILE_SIZE),
+        Math.round(localMousePos.y() / TILE_SIZE)
       );
       const gridObject = replay.grid_objects.find((obj: any) => {
         const x: number = getAttr(obj, "c");

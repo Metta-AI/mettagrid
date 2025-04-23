@@ -648,7 +648,7 @@ class Drawer {
   }
 
   // Draws an image from the atlas centered at (x, y).
-  drawSprite(imageName: string, x: number, y: number, color: number[] = [1, 1, 1, 1]): void {
+  drawSprite(imageName: string, x: number, y: number, color: number[] = [1, 1, 1, 1], scale = 1, rotation = 0): void {
     if (!this.ready) {
       throw new Error("Drawer not initialized");
     }
@@ -669,15 +669,30 @@ class Drawer {
     const u1 = (sx + sw + m) / this.textureSize.x();
     const v1 = (sy + sh + m) / this.textureSize.y();
 
-    // Draw the rectangle with the image's texture coordinates.
-    // For centered drawing, we need to account for the reduced size.
-    this.drawRect(
-      x - sw / 2 - m, // Center horizontally with margin adjustment.
-      y - sh / 2 - m, // Center vertically with margin adjustment.
-      sw + 2 * m,         // Reduce width by twice the margin.
-      sh + 2 * m,         // Reduce height by twice the margin.
-      u0, v0, u1, v1, color
-    );
+    if (scale != 1 || rotation != 0) {
+      this.save();
+      this.translate(x, y);
+      this.rotate(rotation);
+      this.scale(scale, scale);
+      this.drawRect(
+        - sw / 2 - m, // Center horizontally with margin adjustment.
+        - sh / 2 - m, // Center vertically with margin adjustment.
+        sw + 2 * m,         // Reduce width by twice the margin.
+        sh + 2 * m,         // Reduce height by twice the margin.
+        u0, v0, u1, v1, color
+      );
+      this.restore();
+    } else {
+      // Draw the rectangle with the image's texture coordinates.
+      // For centered drawing, we need to account for the reduced size.
+        this.drawRect(
+        x - sw / 2 - m, // Center horizontally with margin adjustment.
+        y - sh / 2 - m, // Center vertically with margin adjustment.
+        sw + 2 * m,         // Reduce width by twice the margin.
+        sh + 2 * m,         // Reduce height by twice the margin.
+        u0, v0, u1, v1, color
+      );
+    }
   }
 
   drawSolidRect(
