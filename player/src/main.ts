@@ -814,8 +814,8 @@ function drawMap(panel: PanelInfo) {
 
   drawFloor(replay.map_size);
   drawWalls(replay);
-  drawObjects(replay);
   drawSelection(selectedGridObject, step);
+  drawObjects(replay);
 
   drawer.restore();
 }
