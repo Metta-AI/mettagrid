@@ -48,8 +48,8 @@ cdef extern from "cpp_grid_object.hpp":
         void cpp_obs(cpp_ObsType *observations, const vector[unsigned int] &offsets) const
 
     #Test implementation for the abstract class
-    cdef cppclass CppTestGridObject(CppGridObject):
-        CppTestGridObject()
+    cdef cppclass CppConcreteGridObject(CppGridObject):
+        CppConcreteGridObject()
         void cpp_obs(cpp_ObsType *observations, const vector[unsigned int] &offsets) const
         # same method with a dummy parameter to avoid ambiguity resolving
         void cpp_obs(cpp_ObsType *observations, const vector[unsigned int] &offsets, int dummy) const

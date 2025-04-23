@@ -57,3 +57,21 @@ ignore = ["E226", "E302", "E305"]
 exclude = ["build/*", "dist/*", "venv/*", ".git/*"]
 # Check these file types
 include = ["*.pyx", "*.pxd"]
+
+[tool.coverage.run]
+plugins = ["Cython.Coverage"]
+source = ["mettagrid"]
+omit = ["*/tests/*", "*/setup.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
+
+[tool.coverage.html]
+directory = "cov_html"

@@ -119,12 +119,12 @@ public:
 };
 
 /**
- * @class CppTestGridObject
+ * @class CppConcreteGridObject
  * @brief Concrete implementation of CppGridObject for testing purposes
  *
  * Provides a simple implementation that generates test observations based on location
  */
-class CppTestGridObject : public CppGridObject {
+class CppConcreteGridObject : public CppGridObject {
 public:
     /**
      * @brief Implementation of the observation method for testing

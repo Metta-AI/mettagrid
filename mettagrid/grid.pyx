@@ -8,7 +8,7 @@ from mettagrid.cpp_grid_object cimport (
 )
 from mettagrid.cpp_grid cimport CppGrid
 from mettagrid.grid cimport Grid
-from mettagrid.grid_object import GridLocation
+from mettagrid.grid_object import GridLocation, GridObject, PyGridObject
 import ctypes
 
 cdef class Grid:
@@ -132,28 +132,34 @@ cdef class Grid:
     def py_remove_object(self, object obj):
         """Python wrapper for the C++ remove_object method"""
         cdef unsigned long ptr_value = 0
-        cdef CppGridObject* cpp_obj = <CppGridObject*><void*>ptr_value
-        # We need to cast this to a pointer value first
-        ptr_value = ctypes.cast(obj._cpp_obj, ctypes.c_void_p).value
-
+        cdef CppGridObject* cpp_obj = NULL  # Initialize to NULL
+        
         if hasattr(obj, '_cpp_obj'):
-            self.remove_object(cpp_obj)
+            # We need to cast this to a pointer value first
+            ptr_value = ctypes.cast(obj._cpp_obj, ctypes.c_void_p).value
+            # Now update our pointer with the correct value
+            cpp_obj = <CppGridObject*><void*>ptr_value
+            if cpp_obj != NULL:
+              self.remove_object(cpp_obj)
         else:
             # Handle case where object doesn't have _cpp_obj
             raise AttributeError(f"Object {type(obj).__name__} doesn't have _cpp_obj attribute")
-    
-    def py_object(self, cpp_GridObjectId id):
+        
+    def py_object(self, cpp_GridObjectId id) -> PyGridObject:
         """Python wrapper for the C++ object method"""
-        # Fix: Return an object ID instead of a C++ pointer
         cdef CppGridObject* cpp_obj = self.object(id)
         if cpp_obj is NULL:
             return None
-        # Return the ID which Python code can use for other operations
-        # This assumes that Python code will use this ID with other Grid methods
-        # rather than trying to access the C++ object directly
-        return id
-    
-    def py_object_at(self, object loc):
+            
+        return PyGridObject(
+            obj_id=cpp_obj.id,
+            type_id=cpp_obj.objectTypeId,
+            row=cpp_obj.location.row,
+            col=cpp_obj.location.col,
+            layer=cpp_obj.location.layer
+        )
+
+    def py_object_at(self, object loc) -> PyGridObject:
         """Python wrapper for the C++ object_at method"""
         cdef CppGridLocation cpp_loc
         
@@ -168,14 +174,19 @@ cdef class Grid:
             cpp_loc.col = loc.py_col()
             cpp_loc.layer = loc.py_layer()
         
-        # Fix: Check for NULL and return appropriate value
         cdef CppGridObject* cpp_obj = self.object_at(cpp_loc)
         if cpp_obj is NULL:
             return None
-        # Return the object ID instead of the pointer
-        return cpp_obj.id
-    
-    def py_object_at_with_type(self, object loc, cpp_TypeId type_id):
+            
+        return PyGridObject(
+            obj_id=cpp_obj.id,
+            type_id=cpp_obj.objectTypeId,
+            row=cpp_obj.location.row,
+            col=cpp_obj.location.col,
+            layer=cpp_obj.location.layer
+        )
+
+    def py_object_at_with_type(self, object loc, cpp_TypeId type_id) -> PyGridObject:
         """Python wrapper for the C++ object_at_with_type method"""
         cdef CppGridLocation cpp_loc
         
@@ -190,21 +201,31 @@ cdef class Grid:
             cpp_loc.col = loc.py_col()
             cpp_loc.layer = loc.py_layer()
         
-        # Fix: Check for NULL and return appropriate value
         cdef CppGridObject* cpp_obj = self.object_at_with_type(cpp_loc, type_id)
         if cpp_obj is NULL:
             return None
-        # Return the object ID instead of the pointer
-        return cpp_obj.id
+
+        return PyGridObject(
+            obj_id=cpp_obj.id,
+            type_id=cpp_obj.objectTypeId,
+            row=cpp_obj.location.row,
+            col=cpp_obj.location.col,
+            layer=cpp_obj.location.layer
+        )
     
-    def py_object_at_coords(self, cpp_GridCoord r, cpp_GridCoord c, cpp_TypeId type_id):
+    def py_object_at_coords(self, cpp_GridCoord r, cpp_GridCoord c, cpp_TypeId type_id) -> PyGridObject:
         """Python wrapper for the C++ object_at_coords method"""
-        # Fix: Check for NULL and return appropriate value
         cdef CppGridObject* cpp_obj = self.object_at_coords(r, c, type_id)
         if cpp_obj is NULL:
             return None
-        # Return the object ID instead of the pointer
-        return cpp_obj.id
+
+        return PyGridObject(
+            obj_id=cpp_obj.id,
+            type_id=cpp_obj.objectTypeId,
+            row=cpp_obj.location.row,
+            col=cpp_obj.location.col,
+            layer=cpp_obj.location.layer
+        )
     
     def py_location(self, cpp_GridObjectId id):
         """Python wrapper for the C++ location method"""

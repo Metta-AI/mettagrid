@@ -5,7 +5,7 @@ cimport numpy as np
 from mettagrid.cpp_grid_object cimport (
     CppGridLocation,
     CppGridObject,
-    CppTestGridObject,
+    CppConcreteGridObject,
     cpp_TypeId,
     cpp_GridObjectId,
     cpp_GridCoord,
@@ -35,5 +35,5 @@ cdef class GridObject:
     cpdef void set_location(self, GridLocation loc)
     cpdef void obs(self, np.ndarray[unsigned char, ndim=1] obs_array, list offsets)
 
-cdef class TestGridObject(GridObject):
+cdef class ConcreteGridObject(GridObject):
     cpdef void obs(self, np.ndarray[unsigned char, ndim=1] obs_array, list offsets)

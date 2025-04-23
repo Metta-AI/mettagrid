@@ -2,7 +2,7 @@ import pytest
 
 from mettagrid.action_handler import ActionHandler
 from mettagrid.grid import Grid
-from mettagrid.grid_object import GridLocation, TestGridObject
+from mettagrid.grid_object import PyGridLocation, PyGridObject, TestGridObject
 
 
 class TestActionHandler(ActionHandler):
@@ -33,17 +33,35 @@ def test_grid():
 def test_object():
     """Create a test object to use as an actor"""
     obj = TestGridObject()
-    obj.init(1, GridLocation(1, 1))  # Type 1, position (1,1)
+    obj.init(1, PyGridLocation(1, 1))  # Type 1, position (1,1)
     return obj
+
+
+@pytest.fixture
+def py_test_object():
+    """Create a PyGridObject to use as an actor"""
+    return PyGridObject(obj_id=1, type_id=1, row=1, col=1, layer=0)
 
 
 @pytest.fixture
 def setup_grid_with_object(test_grid: Grid, test_object):
     """Setup fixture that adds the object to the grid using Python-accessible methods"""
-    # Create a Python-accessible wrapper method that can access the Cython method
-    # You'll need to add this method to your Grid class
     test_grid.py_add_object(test_object)
     return test_grid, test_object
+
+
+@pytest.fixture
+def setup_grid_with_py_object(test_grid: Grid, py_test_object):
+    """Setup fixture that adds the PyGridObject to the grid"""
+    # Since PyGridObject doesn't have a C++ pointer, we'll mock this behavior for testing
+    import os
+
+    os.environ["PYTEST_CURRENT_TEST"] = "True"
+    test_grid.py_add_object(py_test_object)
+
+    # For testing purposes, we might need to add a method to directly add
+    # a PyGridObject to the grid without C++ pointers
+    return test_grid, py_test_object
 
 
 def test_action_handler_basics():
@@ -53,10 +71,9 @@ def test_action_handler_basics():
     assert handler.max_arg() == 3
 
 
-def test_handle_action(setup_grid_with_object):
-    """Test that the action handler processes actions correctly"""
+def test_handle_action_with_testgridobject(setup_grid_with_object):
+    """Test that the action handler processes actions correctly with TestGridObject"""
     test_grid, test_object = setup_grid_with_object
-
     handler = TestActionHandler()
     # Don't forget to initialize the handler with the grid
     handler.init(test_grid)
@@ -67,4 +84,36 @@ def test_handle_action(setup_grid_with_object):
 
     # Invalid action (arg > max_arg)
     result = handler.handle_action(1, test_object.id(), 5, 100)
+    assert result is False
+
+
+def test_handle_action_with_pygridobject(setup_grid_with_py_object):
+    """Test that the action handler processes actions correctly with PyGridObject"""
+    test_grid, py_object = setup_grid_with_py_object
+    handler = TestActionHandler()
+    # Initialize the handler with the grid
+    handler.init(test_grid)
+
+    # Valid action (arg <= max_arg)
+    result = handler.handle_action(1, py_object.id(), 2, 100)
+    assert result is True
+
+    # Invalid action (arg > max_arg)
+    result = handler.handle_action(1, py_object.id(), 5, 100)
+    assert result is False
+
+
+def test_action_handler_with_py_grid_objects():
+    """Test action handler with pure Python objects without grid"""
+    handler = TestActionHandler()
+
+    # We can test the handler's logic directly without needing grid integration
+    py_object = PyGridObject(obj_id=42)
+
+    # Valid action
+    result = handler.handle_action(1, py_object.id(), 3, 100)
+    assert result is True
+
+    # Invalid action
+    result = handler.handle_action(1, py_object.id(), 4, 100)
     assert result is False

@@ -13,15 +13,6 @@ from libcpp.vector cimport vector
 
 from mettagrid.cpp_grid_object cimport *
 
-class Orientation:
-    """
-    Cardinal directions for object orientation.
-    """
-    UP = Up
-    DOWN = Down
-    LEFT = Left
-    RIGHT = Right
-
 # -------- GridLocation --------
 cdef class GridLocation:
     """
@@ -74,7 +65,9 @@ cdef class GridLocation:
                     self._cpp_loc.col == other._cpp_loc.col and
                     self._cpp_loc.layer == other._cpp_loc.layer)
         elif op == 3:  # !=
-            return not self.__richcmp__(other, 2)
+            return not (self._cpp_loc.row == other._cpp_loc.row and
+                      self._cpp_loc.col == other._cpp_loc.col and
+                      self._cpp_loc.layer == other._cpp_loc.layer)
         else:
             return NotImplemented
 
@@ -111,6 +104,7 @@ cdef class GridObject:
                              "(type_id, GridLocation), (type_id, row, col), or "
                              "(type_id, row, col, layer)")
 
+     # C++ core methods - using cpdef for efficiency but still Python-accessible
     cpdef unsigned int id(self):
         return self._cpp_obj.id
 
@@ -130,24 +124,115 @@ cdef class GridObject:
 
     cpdef void obs(self, np.ndarray[unsigned char, ndim=1] obs_array, list offsets):
         raise NotImplementedError("Subclasses must implement obs() method")
+        
+    # Python-accessible wrapper methods
+    def py_id(self):
+        return self.id()
+        
+    def py_set_id(self, value):
+        self.set_id(value)
+        
+    def py_type_id(self):
+        return self.type_id()
+        
+    def py_location(self):
+        return self.location()
+        
+    def py_set_location(self, loc):
+        self.set_location(loc)
+        
+    def py_init(self, type_id, location_or_row, col=None, layer=None):
+        self.init(type_id, location_or_row, col, layer)
+        
+    def py_obs(self, obs_array, offsets):
+        self.obs(obs_array, offsets)
 
-# -------- TestGridObject --------
-cdef class TestGridObject(GridObject):
-    """
-    A testable implementation of GridObject.
-    """
 
+cdef class ConcreteGridObject(GridObject):
+    """
+    Concrete implementation of GridObject for testing.
+    Wraps the C++ CppConcreteGridObject class.
+    """
+    
     def __cinit__(self):
-        self._cpp_obj = new CppTestGridObject()
+        # Make sure we're actually creating a valid C++ object
+        self._cpp_obj = new CppConcreteGridObject()
         self._owns_ptr = True
-
+    
     cpdef void obs(self, np.ndarray[unsigned char, ndim=1] obs_array, list offsets):
+        if self._cpp_obj is NULL:
+            raise ValueError("C++ object is NULL")
+            
         cdef vector[unsigned int] cpp_offsets
         for offset in offsets:
-            cpp_offsets.push_back(<unsigned int>offset)
+            cpp_offsets.push_back(offset)
+        
+        # use the dummy version to disambiguate
+        (<CppConcreteGridObject*>self._cpp_obj).cpp_obs(
+            <cpp_ObsType*>obs_array.data, 
+            cpp_offsets,
+            0 # ignored dummy parameter
+        )
 
-        cdef cpp_ObsType* obs_ptr = &obs_array[0]
-        (<CppTestGridObject*>self._cpp_obj).cpp_obs(obs_ptr, cpp_offsets, 0)
+# Python-accessible data classes
 
-        # Note: The C++ function modifies obs_array in place
-        # No return is needed because the test will access the modified array directly
+class PyOrientation:
+    """
+    Cardinal directions for object orientation.
+    """
+    UP = Up
+    DOWN = Down
+    LEFT = Left
+    RIGHT = Right
+
+
+class PyGridLocation:
+    """Python data class version of GridLocation for testing"""
+    def __init__(self, row=0, col=0, layer=0):
+        self.row = row
+        self.col = col
+        self.layer = layer
+        
+    def __eq__(self, other):
+        if not isinstance(other, PyGridLocation):
+            return False
+        return (self.row == other.row and 
+                self.col == other.col and 
+                self.layer == other.layer)
+                
+    def __repr__(self):
+        return f"PyGridLocation(row={self.row}, col={self.col}, layer={self.layer})"
+
+    def py_row(self):
+        return self.row
+        
+    def py_col(self):
+        return self.col
+        
+    def py_layer(self):
+        return self.layer
+
+class PyGridObject:
+    """Python data class version of GridObject for testing"""
+    def __init__(self, obj_id=0, type_id=0, row=0, col=0, layer=0):
+        self.id = obj_id
+        self.type_id = type_id
+        self.location = PyGridLocation(row, col, layer)
+        
+    def __repr__(self):
+        return f"PyGridObject(id={self.id}, type_id={self.type_id}, location={self.location})"
+
+    def id(self):
+        return self.obj_id
+        
+    def location(self):
+        return PyGridLocation(self.row, self.col, self.layer)
+        
+    def py_id(self):
+        return self.obj_id
+        
+    def py_type_id(self):
+        return self.type_id
+        
+    def py_location(self):
+        return self.location()
