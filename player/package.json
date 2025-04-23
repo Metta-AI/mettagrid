@@ -1,8 +1,7 @@
 {
-  "name": "webgpu-experiments",
+  "name": "metta-scope",
   "version": "1.0.0",
-  "description": "WebGPU experiments with TypeScript",
-  "main": "dist/exp4.js",
+  "description": "MettaScope - a tool for visualizing and analyzing Metta AI's environments",
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch"

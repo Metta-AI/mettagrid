@@ -53,13 +53,11 @@ class Mesh {
       const baseVertex = i * 4;
       const baseIndex = i * 6;
 
-      this.indexData[baseIndex + 0] = baseVertex + 0; // Top-left
-      this.indexData[baseIndex + 1] = baseVertex + 1; // Bottom-left
-      this.indexData[baseIndex + 2] = baseVertex + 2; // Top-right
-
-      this.indexData[baseIndex + 3] = baseVertex + 2; // Top-right
-      this.indexData[baseIndex + 4] = baseVertex + 1; // Bottom-left
-      this.indexData[baseIndex + 5] = baseVertex + 3; // Bottom-right
+      // [Top-left, Bottom-left, Top-right, Top-right, Bottom-left, Bottom-right]
+      const indexPattern = [0, 1, 2, 2, 1, 3];
+      for (let j = 0; j < 6; j++) {
+        this.indexData[baseIndex + j] = baseVertex + indexPattern[j];
+      }
     }
   }
 
@@ -125,45 +123,33 @@ class Mesh {
     const baseVertex = this.currentVertex;
     const baseOffset = baseVertex * 8; // Each vertex has 8 floats
 
-    // Top-left vertex
-    this.vertexData[baseOffset + 0] = topLeft.x();
-    this.vertexData[baseOffset + 1] = topLeft.y();
-    this.vertexData[baseOffset + 2] = u0;
-    this.vertexData[baseOffset + 3] = v0;
-    this.vertexData[baseOffset + 4] = color[0];
-    this.vertexData[baseOffset + 5] = color[1];
-    this.vertexData[baseOffset + 6] = color[2];
-    this.vertexData[baseOffset + 7] = color[3];
+    // Define the vertex attributes for each corner
+    const corners = [
+      { pos: topLeft, uv: [u0, v0] },      // Top-left
+      { pos: bottomLeft, uv: [u0, v1] },   // Bottom-left
+      { pos: topRight, uv: [u1, v0] },     // Top-right
+      { pos: bottomRight, uv: [u1, v1] }   // Bottom-right
+    ];
 
-    // Bottom-left vertex
-    this.vertexData[baseOffset + 8] = bottomLeft.x();
-    this.vertexData[baseOffset + 9] = bottomLeft.y();
-    this.vertexData[baseOffset + 10] = u0;
-    this.vertexData[baseOffset + 11] = v1;
-    this.vertexData[baseOffset + 12] = color[0];
-    this.vertexData[baseOffset + 13] = color[1];
-    this.vertexData[baseOffset + 14] = color[2];
-    this.vertexData[baseOffset + 15] = color[3];
+    // Loop through each corner and set its vertex data
+    for (let i = 0; i < 4; i++) {
+      const offset = baseOffset + i * 8;
+      const corner = corners[i];
 
-    // Top-right vertex
-    this.vertexData[baseOffset + 16] = topRight.x();
-    this.vertexData[baseOffset + 17] = topRight.y();
-    this.vertexData[baseOffset + 18] = u1;
-    this.vertexData[baseOffset + 19] = v0;
-    this.vertexData[baseOffset + 20] = color[0];
-    this.vertexData[baseOffset + 21] = color[1];
-    this.vertexData[baseOffset + 22] = color[2];
-    this.vertexData[baseOffset + 23] = color[3];
+      // Position
+      this.vertexData[offset + 0] = corner.pos.x();
+      this.vertexData[offset + 1] = corner.pos.y();
 
-    // Bottom-right vertex
-    this.vertexData[baseOffset + 24] = bottomRight.x();
-    this.vertexData[baseOffset + 25] = bottomRight.y();
-    this.vertexData[baseOffset + 26] = u1;
-    this.vertexData[baseOffset + 27] = v1;
-    this.vertexData[baseOffset + 28] = color[0];
-    this.vertexData[baseOffset + 29] = color[1];
-    this.vertexData[baseOffset + 30] = color[2];
-    this.vertexData[baseOffset + 31] = color[3];
+      // Texture coordinates
+      this.vertexData[offset + 2] = corner.uv[0];
+      this.vertexData[offset + 3] = corner.uv[1];
+
+      // Color (same for all vertices)
+      this.vertexData[offset + 4] = color[0];
+      this.vertexData[offset + 5] = color[1];
+      this.vertexData[offset + 6] = color[2];
+      this.vertexData[offset + 7] = color[3];
+    }
 
     // Update counters
     this.currentVertex += 4;
