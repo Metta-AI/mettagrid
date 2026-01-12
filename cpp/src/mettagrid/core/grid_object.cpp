@@ -1,6 +1,6 @@
 #include "core/grid_object.hpp"
 
-#include "actions/activation_handler.hpp"
+#include "handler/handler.hpp"
 #include "objects/agent.hpp"
 
 void GridObject::init(TypeId object_type_id,
@@ -17,7 +17,7 @@ void GridObject::init(TypeId object_type_id,
   this->vibe = object_vibe;
 }
 
-void GridObject::set_handlers(std::vector<std::shared_ptr<mettagrid::ActivationHandler>> handlers) {
+void GridObject::set_handlers(std::vector<std::shared_ptr<mettagrid::Handler>> handlers) {
   _handlers = std::move(handlers);
 }
 
