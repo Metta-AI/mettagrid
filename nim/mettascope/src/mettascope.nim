@@ -8,9 +8,9 @@ when isMainModule:
   # Build the atlas.
   var builder = newAtlasBuilder(1024, 4)
   builder.addDir(dataDir / "theme/", dataDir / "theme/")
-  builder.addDir(dataDir / "ui/", dataDir / "ui/")
-  builder.addDir(dataDir / "vibe/", dataDir / "vibe/")
-  builder.addDir(dataDir / "resources/", dataDir / "resources/")
+  builder.addDir(dataDir / "ui/", dataDir & "/")
+  builder.addDir(dataDir / "vibe/", dataDir & "/")
+  builder.addDir(dataDir / "resources/", dataDir & "/")
   # builder.addDir(dataDir / "agents/", dataDir / "agents/")
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "H1", 32.0)
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "Default", 18.0)
