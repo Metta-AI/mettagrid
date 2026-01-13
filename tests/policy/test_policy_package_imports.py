@@ -80,11 +80,13 @@ def test_policy_implementations_importable():
     """Test that common policy implementations can be imported."""
     from mettagrid.policy.lstm import LSTMPolicy
     from mettagrid.policy.noop import NoopPolicy
+    from mettagrid.policy.pufferlib import PufferlibStatefulImpl
     from mettagrid.policy.random_agent import RandomMultiAgentPolicy
 
     assert RandomMultiAgentPolicy is not None
     assert LSTMPolicy is not None
     assert NoopPolicy is not None
+    assert PufferlibStatefulImpl is not None
 
 
 def test_token_encoder_importable():

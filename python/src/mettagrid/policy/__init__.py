@@ -6,6 +6,7 @@ Import directly from submodules to avoid circular dependencies:
     from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
     from mettagrid.policy.loader import initialize_or_load_policy
     from mettagrid.policy.policy_env_interface import PolicyEnvInterface
+    from mettagrid.policy.pufferlib import PufferlibStatefulImpl
 """
 
 # This file intentionally contains no imports to avoid circular dependencies.
