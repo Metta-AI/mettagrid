@@ -9,7 +9,7 @@ from mettagrid.renderer.miniscope.components.base import MiniscopeComponent
 from mettagrid.renderer.miniscope.miniscope_panel import PanelLayout
 from mettagrid.renderer.miniscope.miniscope_state import MiniscopeState
 from mettagrid.simulator.simulator import Simulation
-from mettagrid.simulator.types import Action
+from mettagrid.types import Action
 
 
 class AgentControlComponent(MiniscopeComponent):

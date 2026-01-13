@@ -1,7 +1,6 @@
-"""Runtime helpers for validating MettaGrid gymnasium spaces."""
-
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TypeAlias, TypedDict, TypeVar, cast
 
 import numpy as np
@@ -11,6 +10,11 @@ SpaceT = TypeVar("SpaceT", bound=spaces.Space)
 
 # Type alias for clarity
 StatsDict: TypeAlias = dict[str, float]
+
+
+@dataclass
+class Action:
+    name: str
 
 
 class EpisodeStats(TypedDict):

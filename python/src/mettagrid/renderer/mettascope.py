@@ -10,7 +10,7 @@ from typing import Optional
 import numpy as np
 
 from mettagrid.renderer.renderer import Renderer
-from mettagrid.simulator.types import Action
+from mettagrid.types import Action
 from mettagrid.util.grid_object_formatter import format_grid_object
 
 logger = logging.getLogger(__name__)

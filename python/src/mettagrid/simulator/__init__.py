@@ -3,7 +3,6 @@
 This module provides the main simulation interface for MettaGrid environments.
 """
 
-from mettagrid.config.id_map import ObservationFeatureSpec  # noqa: F401
 from mettagrid.simulator.interface import (
     AgentObservation,
     ObservationToken,
@@ -16,13 +15,12 @@ from mettagrid.simulator.simulator import (
     SimulationAgent,
     Simulator,
 )
-from mettagrid.simulator.types import Action
+from mettagrid.types import Action
 
 __all__ = [
     # From interface
     "Action",
     "AgentObservation",
-    "ObservationFeatureSpec",
     "ObservationToken",
     "SimulatorEventHandler",
     # From replay_log_writer
