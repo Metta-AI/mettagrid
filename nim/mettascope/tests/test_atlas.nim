@@ -30,13 +30,14 @@ block test_pixel_atlas:
     size = 2048,
     margin = 4,
     dirsToScan = @[
-      "data/agents",
-      "data/objects",
-      "data/view",
-      "data/minimap"
+      dataDir / "agents",
+      dataDir / "objects",
+      dataDir / "view",
+      dataDir / "minimap"
     ],
     outputImagePath = dataDir / pixelImagePath,
-    outputJsonPath = dataDir / pixelJsonPath
+    outputJsonPath = dataDir / pixelJsonPath,
+    stripPrefix = dataDir & "/"
   )
 
   doAssert fileExists(dataDir / pixelJsonPath), "Pixel atlas JSON file should be created"

@@ -63,7 +63,8 @@ proc generatePixelAtlas*(
   margin: int,
   dirsToScan: seq[string],
   outputImagePath: string,
-  outputJsonPath: string
+  outputJsonPath: string,
+  stripPrefix: string = "data/"
 ) =
   ## Generates a pixel atlas from the given directories.
   let atlasImage = newImage(size, size)
@@ -94,7 +95,7 @@ proc generatePixelAtlas*(
           height: image.height
         )
         var key = file.path
-        key.removePrefix("data/")
+        key.removePrefix(stripPrefix)
         key.removeSuffix(".png")
         atlas.entries[key] = entry
 
