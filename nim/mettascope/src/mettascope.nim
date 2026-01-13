@@ -4,8 +4,8 @@ import
   mettascope/[replays, common, worldmap, panels, objectinfo, envconfig, vibes,
   footer, timeline, minimap, header, replayloader]
 
-when isMainModule:
-  # Build the atlas.
+proc buildSilkyAtlas*(imagePath, jsonPath: string) =
+  ## Build the silky UI atlas.
   var builder = newAtlasBuilder(1024, 4)
   builder.addDir(dataDir / "theme/", dataDir / "theme/")
   builder.addDir(dataDir / "ui/", dataDir & "/")
@@ -14,7 +14,11 @@ when isMainModule:
   # builder.addDir(dataDir / "agents/", dataDir / "agents/")
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "H1", 32.0)
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "Default", 18.0)
-  builder.write(dataDir / "silky.atlas.png", dataDir / "silky.atlas.json")
+  builder.write(imagePath, jsonPath)
+
+
+when isMainModule:
+  buildSilkyAtlas(dataDir / "silky.atlas.png", dataDir / "silky.atlas.json")
 
   window = newWindow(
     "MettaScope",
