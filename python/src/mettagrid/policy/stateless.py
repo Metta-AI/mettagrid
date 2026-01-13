@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 
 import pufferlib.pytorch
-from mettagrid.config.mettagrid_config import ActionsConfig
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.simulator import Action as MettaGridAction
@@ -17,7 +16,7 @@ logger = logging.getLogger("mettagrid.policy.stateless_policy")
 class StatelessPolicyNet(torch.nn.Module):
     """Stateless feedforward policy network."""
 
-    def __init__(self, actions_cfg: ActionsConfig, obs_shape: tuple):
+    def __init__(self, num_actions: int, obs_shape: tuple):
         super().__init__()
         self.hidden_size = 128
         self.net = torch.nn.Sequential(
@@ -28,7 +27,7 @@ class StatelessPolicyNet(torch.nn.Module):
             pufferlib.pytorch.layer_init(torch.nn.Linear(self.hidden_size, self.hidden_size)),
         )
 
-        self.num_actions = len(actions_cfg.actions())
+        self.num_actions = num_actions
 
         self.action_head = torch.nn.Linear(self.hidden_size, self.num_actions)
         self.value_head = torch.nn.Linear(self.hidden_size, 1)
@@ -103,12 +102,11 @@ class StatelessPolicy(MultiAgentPolicy):
 
     def __init__(self, policy_env_info: PolicyEnvInterface, device: torch.device | str | None = None):
         super().__init__(policy_env_info)
-        actions_cfg = policy_env_info.actions
         self._obs_shape = policy_env_info.observation_space.shape
-        self._net = StatelessPolicyNet(actions_cfg, self._obs_shape)
+        self.num_actions = len(policy_env_info.action_names)
+        self._net = StatelessPolicyNet(self.num_actions, self._obs_shape)
         if device is not None:
             self._net = self._net.to(torch.device(device))
-        self.num_actions = len(actions_cfg.actions())
 
     def network(self) -> nn.Module:
         """Return the underlying network for training."""

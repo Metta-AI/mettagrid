@@ -32,7 +32,7 @@ class LSTMPolicyNet(torch.nn.Module):
 
         self._rnn = torch.nn.LSTM(self.hidden_size, self.hidden_size, batch_first=True)
 
-        self._action_head = torch.nn.Linear(self.hidden_size, len(policy_env_info.actions.actions()))
+        self._action_head = torch.nn.Linear(self.hidden_size, len(policy_env_info.action_names))
         self._value_head = torch.nn.Linear(self.hidden_size, 1)
 
     def forward_eval(
@@ -226,7 +226,7 @@ class LSTMAgentPolicy(StatefulPolicyImpl[LSTMState]):
         dist = torch.distributions.Categorical(logits=logits)
         sampled_action = dist.sample().cpu().item()
         # Convert action index to Action object
-        action = list(self._policy_env_info.actions.actions())[sampled_action]
+        action = MettaGridAction(name=self._policy_env_info.action_names[sampled_action])
         return action, new_state.detach() if new_state is not None else None
 
 

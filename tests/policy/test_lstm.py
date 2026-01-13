@@ -1,11 +1,8 @@
 """Unit tests for LSTM policy implementation."""
 
-import numpy as np
 import torch
-from gymnasium.spaces import Box, Discrete
 
 from mettagrid.config.id_map import ObservationFeatureSpec
-from mettagrid.config.mettagrid_config import ActionsConfig
 from mettagrid.policy.lstm import LSTMPolicy, LSTMPolicyNet
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.simulator import AgentObservation, ObservationToken
@@ -13,20 +10,15 @@ from mettagrid.simulator import AgentObservation, ObservationToken
 
 def create_mock_policy_env_info() -> PolicyEnvInterface:
     """Create a mock PolicyEnvInterface for testing."""
-    actions_cfg = ActionsConfig()
-    obs_space = Box(low=0, high=255, shape=(7, 7, 3), dtype=np.uint8)
-    action_space = Discrete(8)
+    action_names = ["noop", "move_north", "move_south", "move_east", "move_west", "rotate_cw", "rotate_ccw", "attack"]
     return PolicyEnvInterface(
         obs_features=[],
         tags=[],
-        actions=actions_cfg,
+        action_names=action_names,
         num_agents=1,
-        observation_space=obs_space,
-        action_space=action_space,
-        obs_width=7,
-        obs_height=7,
+        observation_shape=(7, 7, 3),
+        egocentric_shape=(7, 7),
         assembler_protocols=[],
-        tag_id_to_name={},
     )
 
 
@@ -48,7 +40,7 @@ def test_forward_return_signature():
     logits, values = result
     assert isinstance(logits, torch.Tensor)
     assert logits.shape[0] == 4  # Batch size
-    assert logits.shape[1] == len(policy_env_info.actions.actions())  # Number of actions
+    assert logits.shape[1] == len(policy_env_info.action_names)  # Number of actions
     assert values.shape == (4, 1)  # Batch of 4, single value per obs
 
 
@@ -114,7 +106,7 @@ def test_forward_with_none_state():
     # Should still work and return valid outputs
     assert isinstance(logits, torch.Tensor)
     assert logits.shape[0] == 4  # Batch size
-    assert logits.shape[1] == len(policy_env_info.actions.actions())  # Number of actions
+    assert logits.shape[1] == len(policy_env_info.action_names)  # Number of actions
     assert values.shape == (4, 1)
 
 

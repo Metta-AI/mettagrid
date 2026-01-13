@@ -17,7 +17,7 @@ class NoopAgentPolicy(AgentPolicy):
 
     def step(self, obs: AgentObservation) -> Action:
         """Return the noop action for the agent."""
-        return self._policy_env_info.actions.noop.Noop()
+        return Action(name="noop")
 
 
 class NoopPolicy(MultiAgentPolicy):

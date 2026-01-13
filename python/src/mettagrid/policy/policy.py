@@ -67,7 +67,6 @@ class MultiAgentPolicy(metaclass=PolicyRegistryMeta):
 
     def __init__(self, policy_env_info: PolicyEnvInterface, device: str = "cpu", **kwargs: Any):
         self._policy_env_info = policy_env_info
-        self._actions = policy_env_info.actions
 
     @abstractmethod
     def agent_policy(self, agent_id: int) -> AgentPolicy:
