@@ -1,52 +1,28 @@
-from __future__ import annotations
+"""Core types for MettaGrid that need to be importable without circular dependencies.
+
+These types are intentionally kept in a minimal module with no internal dependencies
+to avoid circular import issues.
+"""
 
 from dataclasses import dataclass
-from typing import TypeAlias, TypedDict, TypeVar, cast
-
-import numpy as np
-from gymnasium import spaces
-
-SpaceT = TypeVar("SpaceT", bound=spaces.Space)
-
-# Type alias for clarity
-StatsDict: TypeAlias = dict[str, float]
+from typing import TypedDict
 
 
 @dataclass
 class Action:
+    """Represents an action that can be taken by an agent."""
+
     name: str
 
 
+# Re-export EpisodeStats from C++ bindings for convenience
+# Using TypedDict definition to avoid importing from mettagrid_c at module level
+# which can cause issues during installation when the C++ module isn't built yet
+StatsDict = dict[str, float]
+
+
 class EpisodeStats(TypedDict):
-    """Episode statistics returned from C++ simulator."""
+    """Episode statistics returned by the C++ simulator."""
 
     game: StatsDict
     agent: list[StatsDict]
-
-
-def _require_space(space: spaces.Space, kind: type[SpaceT], label: str) -> SpaceT:
-    if not isinstance(space, kind):
-        raise TypeError(
-            f"MettaGrid {label} space must be {kind.__name__}, got {type(space).__name__}",
-        )
-    return cast(SpaceT, space)
-
-
-def validate_observation_space(space: spaces.Space) -> None:
-    box = _require_space(space, spaces.Box, "observation")
-    if box.dtype != np.uint8:
-        raise TypeError(
-            f"MettaGrid observation space must have dtype uint8, got {box.dtype}",
-        )
-
-
-def validate_action_space(space: spaces.Space) -> None:
-    _require_space(space, spaces.Discrete, "action")
-
-
-def get_observation_shape(space: spaces.Box) -> tuple[int, ...]:
-    return tuple(space.shape)
-
-
-def get_action_count(space: spaces.Discrete) -> int:
-    return int(space.n)
