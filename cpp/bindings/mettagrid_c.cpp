@@ -564,11 +564,6 @@ void MettaGrid::_step() {
     _aoe_grid->apply_effects_at(agent->location, *agent);
   }
 
-  // Check and apply damage for all agents
-  for (auto* agent : _agents) {
-    agent->check_and_apply_damage(_rng);
-  }
-
   // Apply global systems
   if (_clipper) {
     _clipper->maybe_clip_new_assembler();
