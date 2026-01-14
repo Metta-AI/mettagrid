@@ -73,6 +73,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   GridCoord width = static_cast<GridCoord>(py::len(map[0]));
 
   _grid = std::make_unique<Grid>(height, width);
+  _aoe_grid = std::make_unique<mettagrid::AOEEffectGrid>(height, width);
   _obs_encoder = std::make_unique<ObservationEncoder>(
       game_config.protocol_details_obs, resource_names, game_config.feature_ids, game_config.token_value_base);
 
@@ -201,6 +202,11 @@ void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map) {
       // Add to grid and track stats
       _grid->add_object(created_object);
       _stats->incr("objects." + cell);
+
+      // Register AOE handlers for this object (possibly none)
+      for (const auto& handler : created_object->aoe_handlers()) {
+        _aoe_grid->register_source(*created_object, handler);
+      }
 
       // Handle agent-specific setup (agent_id and registration)
       if (Agent* agent = dynamic_cast<Agent*>(created_object)) {
@@ -553,6 +559,11 @@ void MettaGrid::_step() {
     }
   }
 
+  // Apply AOE effects to all agents at their current location
+  for (auto* agent : _agents) {
+    _aoe_grid->apply_effects_at(agent->location, *agent);
+  }
+
   // Check and apply damage for all agents
   for (auto* agent : _agents) {
     agent->check_and_apply_damage(_rng);
@@ -561,6 +572,11 @@ void MettaGrid::_step() {
   // Apply global systems
   if (_clipper) {
     _clipper->maybe_clip_new_assembler();
+  }
+
+  // Update held stats for all collectives (tracks how long objects are aligned)
+  for (auto& collective : _collectives) {
+    collective->update_held_stats();
   }
 
   // Compute observations for next step

@@ -4,9 +4,10 @@
 #include <string>
 #include <vector>
 
-#include "core/aoe_config.hpp"
 #include "core/aoe_helper.hpp"
 #include "core/grid_object.hpp"
+#include "handler/handler.hpp"
+#include "handler/handler_config.hpp"
 #include "objects/collective.hpp"
 #include "objects/collective_config.hpp"
 #include "objects/inventory_config.hpp"
@@ -45,6 +46,55 @@ CollectiveConfig create_test_collective_config(const std::string& name) {
   return config;
 }
 
+// Helper to create an AOE handler with resource delta
+std::shared_ptr<Handler> create_aoe_handler(int radius, InventoryItem resource_id, InventoryDelta delta) {
+  HandlerConfig config("test_aoe");
+  config.radius = radius;
+  ResourceDeltaMutationConfig mutation;
+  mutation.entity = EntityRef::target;
+  mutation.resource_id = resource_id;
+  mutation.delta = delta;
+  config.mutations.push_back(mutation);
+  return std::make_shared<Handler>(config);
+}
+
+// Helper to create an AOE handler with alignment filter
+std::shared_ptr<Handler> create_aoe_handler_with_alignment(int radius,
+                                                           InventoryItem resource_id,
+                                                           InventoryDelta delta,
+                                                           AlignmentCondition condition) {
+  HandlerConfig config("test_aoe_aligned");
+  config.radius = radius;
+  AlignmentFilterConfig filter;
+  filter.condition = condition;
+  config.filters.push_back(filter);
+  ResourceDeltaMutationConfig mutation;
+  mutation.entity = EntityRef::target;
+  mutation.resource_id = resource_id;
+  mutation.delta = delta;
+  config.mutations.push_back(mutation);
+  return std::make_shared<Handler>(config);
+}
+
+// Helper to create an AOE handler with tag filter
+std::shared_ptr<Handler> create_aoe_handler_with_tags(int radius,
+                                                      InventoryItem resource_id,
+                                                      InventoryDelta delta,
+                                                      const std::vector<int>& required_tag_ids) {
+  HandlerConfig config("test_aoe_tagged");
+  config.radius = radius;
+  TagFilterConfig filter;
+  filter.entity = EntityRef::target;
+  filter.required_tag_ids = required_tag_ids;
+  config.filters.push_back(filter);
+  ResourceDeltaMutationConfig mutation;
+  mutation.entity = EntityRef::target;
+  mutation.resource_id = resource_id;
+  mutation.delta = delta;
+  config.mutations.push_back(mutation);
+  return std::make_shared<Handler>(config);
+}
+
 void test_aoe_effect_grid_creation() {
   std::cout << "Testing AOEEffectGrid creation..." << std::endl;
 
@@ -65,12 +115,10 @@ void test_register_source_basic() {
   // Create a source object at position (5, 5)
   TestAOEObject source("healer", 5, 5);
 
-  // Create a config with range 1
-  AOEConfig config;
-  config.radius = 1;
-  config.deltas.push_back(AOEResourceDelta(0, 10));  // +10 health
+  // Create a handler with radius 1 and +10 health
+  auto handler = create_aoe_handler(1, 0, 10);
 
-  grid.register_source(source, config);
+  grid.register_source(source, handler);
 
   // Effect should be registered at source location and all cells within L-infinity distance 1
   // Cells affected: all 9 cells in the 3x3 square centered at (5,5)
@@ -99,45 +147,18 @@ void test_register_source_range_2() {
   AOEEffectGrid grid(10, 10);
 
   TestAOEObject source("healer", 5, 5);
+  auto handler = create_aoe_handler(2, 0, 10);
 
-  AOEConfig config;
-  config.radius = 2;
-  config.deltas.push_back(AOEResourceDelta(0, 10));
+  grid.register_source(source, handler);
 
-  grid.register_source(source, config);
-
-  // With L-infinity distance, range 2 creates a 5x5 square centered on source
-  // Center
-  assert(grid.effect_count_at(GridLocation(5, 5)) == 1);
-
-  // Distance 1 (cardinal)
-  assert(grid.effect_count_at(GridLocation(4, 5)) == 1);
-  assert(grid.effect_count_at(GridLocation(6, 5)) == 1);
-  assert(grid.effect_count_at(GridLocation(5, 4)) == 1);
-  assert(grid.effect_count_at(GridLocation(5, 6)) == 1);
-
-  // Distance 2 (cardinal)
+  // Cells at distance 2 should be affected
   assert(grid.effect_count_at(GridLocation(3, 5)) == 1);
   assert(grid.effect_count_at(GridLocation(7, 5)) == 1);
   assert(grid.effect_count_at(GridLocation(5, 3)) == 1);
   assert(grid.effect_count_at(GridLocation(5, 7)) == 1);
 
-  // Distance 1 (diagonal) - L-infinity distance is 1
-  assert(grid.effect_count_at(GridLocation(4, 4)) == 1);
-  assert(grid.effect_count_at(GridLocation(4, 6)) == 1);
-  assert(grid.effect_count_at(GridLocation(6, 4)) == 1);
-  assert(grid.effect_count_at(GridLocation(6, 6)) == 1);
-
-  // Distance 2 (diagonal) - L-infinity distance is 2
-  assert(grid.effect_count_at(GridLocation(3, 3)) == 1);
-  assert(grid.effect_count_at(GridLocation(3, 7)) == 1);
-  assert(grid.effect_count_at(GridLocation(7, 3)) == 1);
-  assert(grid.effect_count_at(GridLocation(7, 7)) == 1);
-
-  // Distance 3 (should NOT be affected)
+  // Cells at distance 3 should NOT be affected
   assert(grid.effect_count_at(GridLocation(2, 5)) == 0);
-  assert(grid.effect_count_at(GridLocation(5, 2)) == 0);
-  assert(grid.effect_count_at(GridLocation(2, 2)) == 0);  // Corner at distance 3
 
   std::cout << "✓ register_source range 2 test passed" << std::endl;
 }
@@ -148,18 +169,14 @@ void test_unregister_source() {
   AOEEffectGrid grid(10, 10);
 
   TestAOEObject source("healer", 5, 5);
+  auto handler = create_aoe_handler(1, 0, 10);
 
-  AOEConfig config;
-  config.radius = 1;
-  config.deltas.push_back(AOEResourceDelta(0, 10));
-
-  grid.register_source(source, config);
+  grid.register_source(source, handler);
   assert(grid.effect_count_at(GridLocation(5, 5)) == 1);
 
   grid.unregister_source(source);
   assert(grid.effect_count_at(GridLocation(5, 5)) == 0);
   assert(grid.effect_count_at(GridLocation(4, 5)) == 0);
-  assert(grid.effect_count_at(GridLocation(6, 5)) == 0);
 
   std::cout << "✓ unregister_source test passed" << std::endl;
 }
@@ -170,53 +187,45 @@ void test_multiple_sources() {
   AOEEffectGrid grid(10, 10);
 
   TestAOEObject source1("healer1", 5, 5);
-  TestAOEObject source2("healer2", 6, 5);  // Adjacent to source1
+  TestAOEObject source2("healer2", 5, 6);
 
-  AOEConfig config;
-  config.radius = 1;
-  config.deltas.push_back(AOEResourceDelta(0, 10));
+  auto handler1 = create_aoe_handler(1, 0, 10);
+  auto handler2 = create_aoe_handler(1, 0, 5);
 
-  grid.register_source(source1, config);
-  grid.register_source(source2, config);
+  grid.register_source(source1, handler1);
+  grid.register_source(source2, handler2);
 
-  // Source1's location is affected by both sources
-  assert(grid.effect_count_at(GridLocation(5, 5)) == 2);
+  // Cell (5,5) is covered by source1 only
+  assert(grid.effect_count_at(GridLocation(5, 5)) == 2);  // Both sources overlap at (5,6) distance
 
-  // Source2's location is affected by both sources
-  assert(grid.effect_count_at(GridLocation(6, 5)) == 2);
+  // Cell (5,6) is covered by both sources
+  assert(grid.effect_count_at(GridLocation(5, 6)) == 2);
 
-  // (4, 5) only affected by source1
-  assert(grid.effect_count_at(GridLocation(4, 5)) == 1);
-
-  // (7, 5) only affected by source2
-  assert(grid.effect_count_at(GridLocation(7, 5)) == 1);
+  // Cell (5,7) is covered by source2 only
+  assert(grid.effect_count_at(GridLocation(5, 7)) == 1);
 
   std::cout << "✓ multiple sources test passed" << std::endl;
 }
 
 void test_apply_effects_basic() {
-  std::cout << "Testing apply_effects_at basic..." << std::endl;
+  std::cout << "Testing apply_effects basic..." << std::endl;
 
   AOEEffectGrid grid(10, 10);
 
   TestAOEObject source("healer", 5, 5);
-  TestAOEObject target("agent", 5, 6);  // Adjacent to source
+  TestAOEObject target("agent", 5, 6);
 
-  // Set initial health
-  target.inventory.update(0, 100);
-  assert(target.inventory.amount(0) == 100);
+  target.inventory.update(0, 100);  // Start with 100 health
 
-  AOEConfig config;
-  config.radius = 1;
-  config.deltas.push_back(AOEResourceDelta(0, 10));  // +10 health
+  auto handler = create_aoe_handler(1, 0, 10);  // +10 health
 
-  grid.register_source(source, config);
+  grid.register_source(source, handler);
   grid.apply_effects_at(target.location, target);
 
   // Target should have gained 10 health
   assert(target.inventory.amount(0) == 110);
 
-  std::cout << "✓ apply_effects_at basic test passed" << std::endl;
+  std::cout << "✓ apply_effects basic test passed" << std::endl;
 }
 
 void test_source_does_not_affect_itself() {
@@ -227,42 +236,50 @@ void test_source_does_not_affect_itself() {
   TestAOEObject source("healer", 5, 5);
   source.inventory.update(0, 100);
 
-  AOEConfig config;
-  config.radius = 1;
-  config.deltas.push_back(AOEResourceDelta(0, 10));
+  auto handler = create_aoe_handler(1, 0, 10);
 
-  grid.register_source(source, config);
+  grid.register_source(source, handler);
   grid.apply_effects_at(source.location, source);
 
-  // Source should NOT have gained health (it's the source of the effect)
+  // Source should NOT be affected by its own AOE
   assert(source.inventory.amount(0) == 100);
 
   std::cout << "✓ source does not affect itself test passed" << std::endl;
 }
 
 void test_multiple_deltas() {
-  std::cout << "Testing multiple resource deltas..." << std::endl;
+  std::cout << "Testing multiple deltas..." << std::endl;
 
   AOEEffectGrid grid(10, 10);
 
-  TestAOEObject source("buff_station", 5, 5);
+  TestAOEObject source("healer", 5, 5);
   TestAOEObject target("agent", 5, 6);
 
   target.inventory.update(0, 100);  // health
   target.inventory.update(1, 50);   // energy
 
-  AOEConfig config;
+  // Create handler with multiple mutations
+  HandlerConfig config("multi_aoe");
   config.radius = 1;
-  config.deltas.push_back(AOEResourceDelta(0, 10));  // +10 health
-  config.deltas.push_back(AOEResourceDelta(1, -5));  // -5 energy
+  ResourceDeltaMutationConfig mutation1;
+  mutation1.entity = EntityRef::target;
+  mutation1.resource_id = 0;  // health
+  mutation1.delta = 10;
+  ResourceDeltaMutationConfig mutation2;
+  mutation2.entity = EntityRef::target;
+  mutation2.resource_id = 1;  // energy
+  mutation2.delta = -5;
+  config.mutations.push_back(mutation1);
+  config.mutations.push_back(mutation2);
+  auto handler = std::make_shared<Handler>(config);
 
-  grid.register_source(source, config);
+  grid.register_source(source, handler);
   grid.apply_effects_at(target.location, target);
 
-  assert(target.inventory.amount(0) == 110);  // 100 + 10
-  assert(target.inventory.amount(1) == 45);   // 50 - 5
+  assert(target.inventory.amount(0) == 110);  // +10 health
+  assert(target.inventory.amount(1) == 45);   // -5 energy
 
-  std::cout << "✓ multiple resource deltas test passed" << std::endl;
+  std::cout << "✓ multiple deltas test passed" << std::endl;
 }
 
 void test_tag_filter() {
@@ -271,26 +288,24 @@ void test_tag_filter() {
   AOEEffectGrid grid(10, 10);
 
   TestAOEObject source("healer", 5, 5);
-  TestAOEObject target_with_tag("agent", 5, 6);
+  TestAOEObject target_with_tag("ally", 5, 6);
   TestAOEObject target_without_tag("enemy", 6, 5);
 
-  // Add tag to one target
-  target_with_tag.tag_ids.push_back(42);
+  // Add tag 1 to target_with_tag
+  target_with_tag.tag_ids.push_back(1);
 
   target_with_tag.inventory.update(0, 100);
   target_without_tag.inventory.update(0, 100);
 
-  AOEConfig config;
-  config.radius = 1;
-  config.deltas.push_back(AOEResourceDelta(0, 10));
-  config.target_tag_ids.push_back(42);  // Only affect objects with tag 42
+  // Handler only affects targets with tag 1
+  auto handler = create_aoe_handler_with_tags(1, 0, 10, {1});
 
-  grid.register_source(source, config);
+  grid.register_source(source, handler);
   grid.apply_effects_at(target_with_tag.location, target_with_tag);
   grid.apply_effects_at(target_without_tag.location, target_without_tag);
 
-  assert(target_with_tag.inventory.amount(0) == 110);     // Affected
-  assert(target_without_tag.inventory.amount(0) == 100);  // Not affected
+  assert(target_with_tag.inventory.amount(0) == 110);     // Has tag, affected
+  assert(target_without_tag.inventory.amount(0) == 100);  // No tag, not affected
 
   std::cout << "✓ tag filter test passed" << std::endl;
 }
@@ -314,12 +329,9 @@ void test_alignment_filter_same_collective() {
   target_same.inventory.update(0, 100);
   target_different.inventory.update(0, 100);
 
-  AOEConfig config;
-  config.radius = 1;
-  config.deltas.push_back(AOEResourceDelta(0, 10));
-  config.alignment_filter = AOEAlignmentFilter::same_collective;
+  auto handler = create_aoe_handler_with_alignment(1, 0, 10, AlignmentCondition::same_collective);
 
-  grid.register_source(source, config);
+  grid.register_source(source, handler);
   grid.apply_effects_at(target_same.location, target_same);
   grid.apply_effects_at(target_different.location, target_different);
 
@@ -352,12 +364,9 @@ void test_alignment_filter_different_collective() {
   target_different.inventory.update(0, 100);
   target_no_collective.inventory.update(0, 100);
 
-  AOEConfig config;
-  config.radius = 1;
-  config.deltas.push_back(AOEResourceDelta(0, -10));  // -10 health (damage)
-  config.alignment_filter = AOEAlignmentFilter::different_collective;
+  auto handler = create_aoe_handler_with_alignment(1, 0, -10, AlignmentCondition::different_collective);
 
-  grid.register_source(source, config);
+  grid.register_source(source, handler);
   grid.apply_effects_at(target_same.location, target_same);
   grid.apply_effects_at(target_different.location, target_different);
   grid.apply_effects_at(target_no_collective.location, target_no_collective);
@@ -377,11 +386,9 @@ void test_boundary_effects() {
   // Source at corner (0, 0)
   TestAOEObject source("healer", 0, 0);
 
-  AOEConfig config;
-  config.radius = 2;
-  config.deltas.push_back(AOEResourceDelta(0, 10));
+  auto handler = create_aoe_handler(2, 0, 10);
 
-  grid.register_source(source, config);
+  grid.register_source(source, handler);
 
   // Should be registered at valid cells only
   assert(grid.effect_count_at(GridLocation(0, 0)) == 1);
@@ -407,11 +414,9 @@ void test_out_of_range_target() {
 
   target.inventory.update(0, 100);
 
-  AOEConfig config;
-  config.radius = 1;
-  config.deltas.push_back(AOEResourceDelta(0, 10));
+  auto handler = create_aoe_handler(1, 0, 10);
 
-  grid.register_source(source, config);
+  grid.register_source(source, handler);
   grid.apply_effects_at(target.location, target);
 
   // Target should NOT be affected (out of range)

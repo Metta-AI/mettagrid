@@ -204,7 +204,5 @@ class ActionsConfig(Config):
     change_vibe: ChangeVibeActionConfig = Field(default_factory=lambda: ChangeVibeActionConfig())
 
     def actions(self) -> list[Action]:
-        return sum(
-            [action.actions() for action in [self.noop, self.move, self.attack, self.transfer, self.change_vibe]],
-            [],
-        )
+        action_configs = [self.noop, self.move, self.attack, self.transfer, self.change_vibe]
+        return sum([action.actions() for action in action_configs], [])

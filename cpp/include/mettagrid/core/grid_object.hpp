@@ -8,7 +8,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "core/aoe_config.hpp"
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
 #include "objects/alignable.hpp"
@@ -63,8 +62,14 @@ struct GridObjectConfig {
   ObservationType initial_vibe;
   InventoryConfig inventory_config;
   std::unordered_map<InventoryItem, InventoryQuantity> initial_inventory;
-  std::vector<std::shared_ptr<mettagrid::AOEConfig>> aoes;  // AOE effects emitted by this object
-  std::vector<mettagrid::HandlerConfig> handlers;           // Handlers for this object
+
+  // Three types of handlers on GridObject:
+  // - on_use: Triggered when agent uses/activates this object (context: actor=agent, target=this)
+  // - on_update: Triggered after mutations are applied to this object (context: actor=null, target=this)
+  // - aoe: Triggered per-tick for objects within radius (context: actor=this, target=affected)
+  std::vector<mettagrid::HandlerConfig> on_use_handlers;
+  std::vector<mettagrid::HandlerConfig> on_update_handlers;
+  std::vector<mettagrid::HandlerConfig> aoe_handlers;
 
   GridObjectConfig(TypeId type_id, const std::string& type_name, ObservationType initial_vibe = 0)
       : type_id(type_id),
@@ -73,8 +78,9 @@ struct GridObjectConfig {
         tag_ids({}),
         initial_vibe(initial_vibe),
         inventory_config(),
-        aoes(),
-        handlers() {}
+        on_use_handlers(),
+        on_update_handlers(),
+        aoe_handlers() {}
 
   virtual ~GridObjectConfig() = default;
 };
@@ -105,21 +111,32 @@ public:
             ObservationType object_vibe = 0,
             const std::string& object_name = "");
 
-  // Set handlers from config
-  void set_handlers(std::vector<std::shared_ptr<mettagrid::Handler>> handlers);
+  // Set handlers for each type
+  void set_on_use_handlers(std::vector<std::shared_ptr<mettagrid::Handler>> handlers);
+  void set_on_update_handlers(std::vector<std::shared_ptr<mettagrid::Handler>> handlers);
+  void set_aoe_handlers(std::vector<std::shared_ptr<mettagrid::Handler>> handlers);
 
-  // Check if this object has any handlers
-  bool has_handlers() const;
+  // Check if this object has any handlers of each type
+  bool has_on_use_handlers() const;
+  bool has_on_update_handlers() const;
 
-  // Override onUse to try handlers
+  // Get handlers for AOE processing
+  const std::vector<std::shared_ptr<mettagrid::Handler>>& aoe_handlers() const;
+
+  // Override onUse to try on_use handlers
   bool onUse(Agent& actor, ActionArg arg) override;
+
+  // Fire on_update handlers (called after mutations are applied)
+  void fire_on_update_handlers();
 
   virtual std::vector<PartialObservationToken> obs_features() const {
     return {};  // Default: no observable features
   }
 
 protected:
-  std::vector<std::shared_ptr<mettagrid::Handler>> _handlers;
+  std::vector<std::shared_ptr<mettagrid::Handler>> _on_use_handlers;
+  std::vector<std::shared_ptr<mettagrid::Handler>> _on_update_handlers;
+  std::vector<std::shared_ptr<mettagrid::Handler>> _aoe_handlers;
 };
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GRID_OBJECT_HPP_

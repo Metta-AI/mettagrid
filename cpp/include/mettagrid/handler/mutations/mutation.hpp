@@ -87,8 +87,9 @@ public:
   explicit AlignmentMutation(const AlignmentMutationConfig& config) : _config(config) {}
 
   void apply(HandlerContext& ctx) override {
-    Alignable* target_alignable = dynamic_cast<Alignable*>(ctx.target);
-    if (target_alignable == nullptr) {
+    // All GridObjects are Alignable - try to cast target to GridObject
+    GridObject* target_obj = dynamic_cast<GridObject*>(ctx.target);
+    if (target_obj == nullptr) {
       return;
     }
 
@@ -96,12 +97,12 @@ public:
       case AlignTo::actor_collective: {
         Collective* actor_coll = ctx.actor_collective();
         if (actor_coll != nullptr) {
-          target_alignable->setCollective(actor_coll);
+          target_obj->setCollective(actor_coll);
         }
         break;
       }
       case AlignTo::none:
-        target_alignable->clearCollective();
+        target_obj->clearCollective();
         break;
     }
   }
@@ -143,16 +144,18 @@ public:
       return;
     }
 
-    if (_config.resource_id == 255) {
+    if (_config.resource_ids.empty()) {
       // Clear all resources
       auto items = entity->inventory.get();
       for (const auto& [item, amount] : items) {
         entity->inventory.update(item, -static_cast<InventoryDelta>(amount));
       }
     } else {
-      // Clear specific resource
-      InventoryQuantity amount = entity->inventory.amount(_config.resource_id);
-      entity->inventory.update(_config.resource_id, -static_cast<InventoryDelta>(amount));
+      // Clear specific resources in the list
+      for (const auto& resource_id : _config.resource_ids) {
+        InventoryQuantity amount = entity->inventory.amount(resource_id);
+        entity->inventory.update(resource_id, -static_cast<InventoryDelta>(amount));
+      }
     }
   }
 
