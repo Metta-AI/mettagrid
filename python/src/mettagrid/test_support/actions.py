@@ -3,7 +3,7 @@ from typing import Any, Optional
 
 import numpy as np
 
-from mettagrid.config.mettagrid_config import Direction
+from mettagrid.config.action_config import Direction
 from mettagrid.mettagrid_c import MettaGrid, dtype_actions
 from mettagrid.simulator import Action, Simulation
 from mettagrid.test_support.orientation import Orientation

@@ -258,6 +258,14 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         stat_rewards = rewards_config.get("stats", {})
         stat_reward_max = rewards_config.get("stats_max", {})
 
+        # Add collective_stats rewards (rewarded based on collective's stats)
+        for k, v in rewards_config.get("collective_stats", {}).items():
+            assert k not in stat_rewards, f"Stat reward {k} already exists"
+            stat_rewards[k] = v
+        for k, v in rewards_config.get("collective_stats_max", {}).items():
+            assert k not in stat_reward_max, f"Stat reward max {k} already exists"
+            stat_reward_max[k] = v
+
         for k, v in rewards_config.get("inventory", {}).items():
             assert k in resource_name_to_id, f"Inventory reward {k} not in resource_names"
             stat_name = k + ".amount"
@@ -268,14 +276,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             stat_name = k + ".amount"
             assert stat_name not in stat_reward_max, f"Stat reward max {stat_name} already exists"
             stat_reward_max[stat_name] = v
-
-        # Merge collective_stats into stat_rewards - these reward agents based on their collective's stats
-        for stat_name, reward in rewards_config.get("collective_stats", {}).items():
-            assert stat_name not in stat_rewards, f"Collective stat reward {stat_name} already exists in stat_rewards"
-            stat_rewards[stat_name] = reward
-        for stat_name, max_reward in rewards_config.get("collective_stats_max", {}).items():
-            assert stat_name not in stat_reward_max, f"Collective stat reward max {stat_name} already exists"
-            stat_reward_max[stat_name] = max_reward
 
         # Get inventory config
         inv_config = agent_props.get("inventory", {})

@@ -11,6 +11,8 @@ Handlers consist of filters (conditions that must be met) and mutations (effects
 
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import Field
 
 from mettagrid.base_config import Config
@@ -63,20 +65,34 @@ from mettagrid.config.mutation_config import (
 
 
 class AOEEffectConfig(Config):
-    """Simplified AOE effect configuration.
+    """Configuration for Area of Effect (AOE) resource effects.
 
-    This provides a simpler interface for common AOE patterns compared to full handlers.
-    AOEs apply resource deltas to entities within range, optionally filtered by alignment.
+    When attached to a grid object, objects with inventory within range receive the resource_deltas each tick.
+
+    Target filtering:
+    - target_tags: If set, only objects with at least one matching tag are affected.
+                   If None or empty, all HasInventory objects are affected.
+                   Agents are always checked every tick (they move).
+                   Static objects are registered/unregistered with the AOE for efficiency.
+    - filters: List of filters that must all pass for the effect to apply.
+               Uses the same filter types as activation handlers (AlignmentFilter, VibeFilter, ResourceFilter).
+               In AOE context, "actor" refers to the AOE source object and "target" refers to the affected object.
     """
 
-    range: int = Field(ge=0, description="Radius of the AOE effect")
+    range: int = Field(ge=0, description="Radius of effect (L-infinity/Chebyshev distance)")
     resource_deltas: dict[str, int] = Field(
         default_factory=dict,
-        description="Resource changes to apply to affected entities",
+        description="Resource changes per tick for objects in range. Positive = gain, negative = lose.",
+    )
+    target_tags: Optional[list[str]] = Field(
+        default=None,
+        description="If set, only objects with at least one matching tag are affected. "
+        "If None, all HasInventory objects are affected.",
     )
     filters: list[AnyFilter] = Field(
         default_factory=list,
-        description="Filters to determine which entities are affected",
+        description="Filters that must all pass for effect to apply. "
+        "In AOE context, 'actor' = source object, 'target' = affected object.",
     )
 
 

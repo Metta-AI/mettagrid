@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 
 import pufferlib.pytorch
+from mettagrid.config.action_config import ActionsConfig
 from mettagrid.config.id_map import ObservationFeatureSpec
-from mettagrid.config.mettagrid_config import ActionsConfig
 from mettagrid.mettagrid_c import dtype_actions
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface

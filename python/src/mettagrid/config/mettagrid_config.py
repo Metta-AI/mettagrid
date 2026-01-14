@@ -35,24 +35,6 @@ from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.map_builder.map_builder import AnyMapBuilderConfig
 from mettagrid.map_builder.random_map import RandomMapBuilder
 
-# Re-export action types for backwards compatibility
-# Note: Prefer importing from mettagrid.config.action_config directly for new code.
-__all__ = [
-    "ActionConfig",
-    "ActionsConfig",
-    "AttackActionConfig",
-    "AttackOutcome",
-    "CardinalDirection",
-    "CardinalDirections",
-    "ChangeVibeActionConfig",
-    "Direction",
-    "Directions",
-    "MoveActionConfig",
-    "NoopActionConfig",
-    "TransferActionConfig",
-    "VibeTransfer",
-]
-
 # ===== Python Configuration Models =====
 
 
@@ -162,9 +144,13 @@ class AgentConfig(Config):
         description="Resource names that contribute to inventory diversity metrics",
     )
     initial_vibe: int = Field(default=0, ge=0, description="Initial vibe value for this agent instance")
+    handlers: list[Handler] = Field(
+        default_factory=list,
+        description="Handlers triggered when another agent moves onto this agent",
+    )
     damage: Optional[DamageConfig] = Field(
         default=None,
-        description="Damage config: when all threshold stats are reached, remove one random resource from inventory",
+        description="Damage configuration: when threshold is reached, removes resources randomly",
     )
 
     @model_validator(mode="after")
@@ -217,6 +203,16 @@ class GridObjectConfig(Config):
         default=None,
         description="Name of collective this object belongs to. Adds 'collective:{name}' tag automatically.",
     )
+    aoes: list[AOEEffectConfig] = Field(
+        default_factory=list,
+        description="List of AOE effects this object emits to agents within range each tick",
+    )
+
+    # Handlers - dict[name, Handler] for backwards compatibility
+    handlers: dict[str, Handler] = Field(
+        default_factory=dict,
+        description="Handlers triggered when an agent moves onto this object (name -> handler)",
+    )
 
     # Three types of handlers on GridObject (name -> handler)
     on_use_handlers: dict[str, Handler] = Field(
@@ -230,10 +226,6 @@ class GridObjectConfig(Config):
     aoe_handlers: dict[str, Handler] = Field(
         default_factory=dict,
         description="Handlers triggered per-tick for objects within radius (context: actor=this, target=affected)",
-    )
-    aoes: list[AOEEffectConfig] = Field(
-        default_factory=list,
-        description="Simplified AOE effects (converted to aoe_handlers internally)",
     )
 
     @model_validator(mode="after")
