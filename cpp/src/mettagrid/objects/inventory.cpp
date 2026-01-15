@@ -14,7 +14,8 @@ Inventory::Inventory(const InventoryConfig& cfg, HasInventory* owner) : _invento
   for (const auto& limit_def : cfg.limit_defs) {
     SharedInventoryLimit* limit = new SharedInventoryLimit();
     limit->amount = 0;
-    limit->base_limit = limit_def.base_limit;
+    limit->min_limit = limit_def.min_limit;
+    limit->max_limit = limit_def.max_limit;
     limit->modifiers = limit_def.modifiers;
     for (const auto& resource : limit_def.resources) {
       this->_limits[resource] = limit;

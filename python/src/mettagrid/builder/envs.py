@@ -84,7 +84,7 @@ def make_arena(
                 inventory=InventoryConfig(
                     default_limit=50,
                     limits={
-                        "heart": ResourceLimitsConfig(limit=255, resources=["heart"]),
+                        "heart": ResourceLimitsConfig(min=255, resources=["heart"]),
                     },
                 ),
                 rewards=AgentRewards(
@@ -174,7 +174,7 @@ def make_assembly_lines(
                 ),
                 inventory=InventoryConfig(
                     default_limit=1,
-                    limits={"heart": ResourceLimitsConfig(limit=15, resources=["heart"])},
+                    limits={"heart": ResourceLimitsConfig(min=15, resources=["heart"])},
                 ),
             ),
         ),

@@ -248,7 +248,7 @@ void test_dynamic_limit_with_modifier() {
   InventoryConfig config;
   config.limit_defs.push_back(LimitDef({0}, 10));  // gear has fixed limit of 10
   // battery has base limit of 0, but each gear adds 5 capacity
-  config.limit_defs.push_back(LimitDef({1}, 0, {{0, 5}}));
+  config.limit_defs.push_back(LimitDef({1}, 0, 65535, {{0, 5}}));
 
   HasInventory inv(config);
 
@@ -288,9 +288,9 @@ void test_dynamic_limit_chain() {
   // Example: gear has fixed limit, battery depends on gear, energy depends on battery
   // Resource 0 = gear, Resource 1 = battery, Resource 2 = energy
   InventoryConfig config;
-  config.limit_defs.push_back(LimitDef({0}, 5));             // gear has fixed limit of 5
-  config.limit_defs.push_back(LimitDef({1}, 0, {{0, 1}}));   // each gear adds +1 battery capacity
-  config.limit_defs.push_back(LimitDef({2}, 0, {{1, 25}}));  // each battery adds +25 energy capacity
+  config.limit_defs.push_back(LimitDef({0}, 5));                    // gear has fixed limit of 5
+  config.limit_defs.push_back(LimitDef({1}, 0, 65535, {{0, 1}}));   // each gear adds +1 battery capacity
+  config.limit_defs.push_back(LimitDef({2}, 0, 65535, {{1, 25}}));  // each battery adds +25 energy capacity
 
   HasInventory inv(config);
 
@@ -324,8 +324,8 @@ void test_free_space_with_modifiers() {
 
   // Resource 0 = gear, Resource 1 = battery
   InventoryConfig config;
-  config.limit_defs.push_back(LimitDef({0}, 10));           // gear limit 10
-  config.limit_defs.push_back(LimitDef({1}, 0, {{0, 5}}));  // battery limit depends on gear
+  config.limit_defs.push_back(LimitDef({0}, 10));                  // gear limit 10
+  config.limit_defs.push_back(LimitDef({1}, 0, 65535, {{0, 5}}));  // battery limit depends on gear
 
   HasInventory inv(config);
 
@@ -352,8 +352,8 @@ void test_limit_reduces_when_modifier_removed() {
 
   // Resource 0 = gear, Resource 1 = battery
   InventoryConfig config;
-  config.limit_defs.push_back(LimitDef({0}, 10));           // gear limit 10
-  config.limit_defs.push_back(LimitDef({1}, 0, {{0, 5}}));  // battery limit depends on gear
+  config.limit_defs.push_back(LimitDef({0}, 10));                  // gear limit 10
+  config.limit_defs.push_back(LimitDef({1}, 0, 65535, {{0, 5}}));  // battery limit depends on gear
 
   HasInventory inv(config);
 
@@ -382,9 +382,9 @@ void test_recursive_limit_reduction_when_dropping_inventory() {
   // Resource 0 = gear, Resource 1 = battery, Resource 2 = energy
   // Chain: gear -> battery -> energy
   InventoryConfig config;
-  config.limit_defs.push_back(LimitDef({0}, 10));            // gear has fixed limit of 10
-  config.limit_defs.push_back(LimitDef({1}, 0, {{0, 2}}));   // each gear adds +2 battery capacity
-  config.limit_defs.push_back(LimitDef({2}, 0, {{1, 10}}));  // each battery adds +10 energy capacity
+  config.limit_defs.push_back(LimitDef({0}, 10));                   // gear has fixed limit of 10
+  config.limit_defs.push_back(LimitDef({1}, 0, 65535, {{0, 2}}));   // each gear adds +2 battery capacity
+  config.limit_defs.push_back(LimitDef({2}, 0, 65535, {{1, 10}}));  // each battery adds +10 energy capacity
 
   HasInventory inv(config);
 
@@ -433,7 +433,7 @@ void test_transfer_with_modifier_limits() {
 
   InventoryConfig target_config;
   target_config.limit_defs.push_back(LimitDef({0}, 10));
-  target_config.limit_defs.push_back(LimitDef({1}, 0, {{0, 5}}));  // target battery depends on gear
+  target_config.limit_defs.push_back(LimitDef({1}, 0, 65535, {{0, 5}}));  // target battery depends on gear
 
   HasInventory source(source_config);
   HasInventory target(target_config);

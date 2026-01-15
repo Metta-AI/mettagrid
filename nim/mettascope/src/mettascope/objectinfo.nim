@@ -8,7 +8,8 @@ const InventoryScale = 0.5f
 type
   ResourceLimitGroup* = object
     name*: string
-    limit*: int
+    minLimit*: int
+    maxLimit*: int
     resources*: seq[string]
     modifiers*: Table[string, int]
 
@@ -22,11 +23,18 @@ proc parseResourceLimits(mgConfig: JsonNode): seq[ResourceLimitGroup] =
   let agentConfig = mgConfig["game"]["agent"]
   if "resource_limits" notin agentConfig:
     return
-  let resourceLimits = agentConfig["resource_limits"]
-  for groupName, groupConfig in resourceLimits.pairs:
-    var group = ResourceLimitGroup(name: groupName)
-    if "limit" in groupConfig:
-      group.limit = groupConfig["limit"].getInt
+  let invConfig = agentConfig["inventory"]
+  if "limits" notin invConfig:
+    return
+  let limits = invConfig["limits"]
+  for groupName, groupConfig in limits.pairs:
+    var group = ResourceLimitGroup(name: groupName, maxLimit: 65535)
+    if "min_limit" in groupConfig:
+      group.minLimit = groupConfig["min_limit"].getInt
+    elif "limit" in groupConfig:
+      group.minLimit = groupConfig["limit"].getInt
+    if "max_limit" in groupConfig:
+      group.maxLimit = groupConfig["max_limit"].getInt
     if "resources" in groupConfig:
       for r in groupConfig["resources"]:
         group.resources.add(r.getStr)
@@ -37,13 +45,14 @@ proc parseResourceLimits(mgConfig: JsonNode): seq[ResourceLimitGroup] =
     result.add(group)
 
 proc computeEffectiveLimit(group: ResourceLimitGroup, inventory: seq[ItemAmount], itemNames: seq[string]): int =
-  ## Compute effective limit based on base limit + modifiers from inventory.
-  result = group.limit
+  ## Compute effective limit: clamp(sum(modifier_bonus * quantity), minLimit, maxLimit).
+  var modifierSum = 0
   for modItem, bonus in group.modifiers.pairs:
     for itemAmount in inventory:
       if itemAmount.itemId >= 0 and itemAmount.itemId < itemNames.len:
         if itemNames[itemAmount.itemId] == modItem:
-          result += bonus * itemAmount.count
+          modifierSum += bonus * itemAmount.count
+  result = clamp(modifierSum, group.minLimit, group.maxLimit)
 
 proc getItemName(itemAmount: ItemAmount): string =
   ## Safely resolve an item name from the replay data.

@@ -53,13 +53,13 @@ def test_initial_inventory_with_modifier_dependencies():
                     limits={
                         # Energy limit = 0 + battery * 25 = 0 + 4 * 25 = 100
                         "energy": ResourceLimitsConfig(
-                            limit=0,
+                            min=0,
                             resources=["energy"],
                             modifiers={"battery": 25},
                         ),
                         # Tech group limit = 0 + tech * 1 = 0 + 10 * 1 = 10
                         "tech_group": ResourceLimitsConfig(
-                            limit=0,
+                            min=0,
                             resources=["weapon", "shield", "battery"],
                             modifiers={"tech": 1},
                         ),
@@ -110,13 +110,13 @@ def test_initial_inventory_chained_modifiers():
                     limits={
                         # level1 limit = 0 + level2 * 5 = 0 + 3 * 5 = 15
                         "limit1": ResourceLimitsConfig(
-                            limit=0,
+                            min=0,
                             resources=["level1"],
                             modifiers={"level2": 5},
                         ),
                         # level2 limit = 0 + level3 * 1 = 0 + 5 * 1 = 5
                         "limit2": ResourceLimitsConfig(
-                            limit=0,
+                            min=0,
                             resources=["level2"],
                             modifiers={"level3": 1},
                         ),
@@ -167,7 +167,7 @@ def test_initial_inventory_exceeds_limit():
                     },
                     limits={
                         "cap": ResourceLimitsConfig(
-                            limit=0,
+                            min=0,
                             resources=["limited"],
                             modifiers={"modifier": 5},
                         ),

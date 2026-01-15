@@ -33,9 +33,9 @@ def create_test_sim(initial_inventory: dict[str, int] | None = None) -> Simulati
         agent=AgentConfig(
             inventory=InventoryConfig(
                 limits={
-                    "wood": ResourceLimitsConfig(limit=10, resources=["wood"]),
-                    "stone": ResourceLimitsConfig(limit=10, resources=["stone"]),
-                    "iron": ResourceLimitsConfig(limit=10, resources=["iron"]),
+                    "wood": ResourceLimitsConfig(min=10, resources=["wood"]),
+                    "stone": ResourceLimitsConfig(min=10, resources=["stone"]),
+                    "iron": ResourceLimitsConfig(min=10, resources=["iron"]),
                 },
                 initial=initial_inventory,
             ),

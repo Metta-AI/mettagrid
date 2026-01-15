@@ -413,7 +413,7 @@ class TestInventoryRegeneration:
         cfg.game.inventory_regen_interval = 1  # Every timestep
         cfg.game.agent.inventory.initial = {"energy": 95}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(limit=100, resources=["energy"]),  # Max 100 energy
+            "energy": ResourceLimitsConfig(min=100, resources=["energy"]),  # Max 100 energy
         }
         cfg.game.actions.noop.enabled = True
 

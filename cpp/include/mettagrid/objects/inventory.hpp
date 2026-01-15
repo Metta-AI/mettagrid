@@ -1,6 +1,7 @@
 #ifndef PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_OBJECTS_INVENTORY_HPP_
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_OBJECTS_INVENTORY_HPP_
 
+#include <algorithm>
 #include <limits>
 #include <memory>
 #include <unordered_map>
@@ -13,24 +14,26 @@
 class HasInventory;
 
 struct SharedInventoryLimit {
-  InventoryQuantity base_limit;
+  InventoryQuantity min_limit;
+  InventoryQuantity max_limit;
   // Modifiers: item_id -> bonus_per_item
   std::unordered_map<InventoryItem, InventoryQuantity> modifiers;
   // How much do we have of whatever-this-limit-applies-to
   InventoryQuantity amount;
 
-  // Get the effective limit (base + sum of modifier bonuses)
+  // Get the effective limit: clamp(sum(modifier_bonus * quantity_held), min_limit, max_limit)
   InventoryQuantity effective_limit(const std::unordered_map<InventoryItem, InventoryQuantity>& inventory) const {
-    int effective = base_limit;
+    int modifier_sum = 0;
     for (const auto& [item, bonus] : modifiers) {
       auto it = inventory.find(item);
       if (it != inventory.end()) {
-        effective += static_cast<int>(it->second) * static_cast<int>(bonus);
+        modifier_sum += static_cast<int>(it->second) * static_cast<int>(bonus);
       }
     }
+    // Apply formula: clamp(modifier_sum, min_limit, max_limit)
+    int effective = std::clamp(modifier_sum, static_cast<int>(min_limit), static_cast<int>(max_limit));
     // Clamp to valid range (0 to max InventoryQuantity which is uint16_t)
-    if (effective < 0) effective = 0;
-    if (effective > 65535) effective = 65535;
+    effective = std::clamp(effective, 0, 65535);
     return static_cast<InventoryQuantity>(effective);
   }
 };

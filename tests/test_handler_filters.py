@@ -47,7 +47,7 @@ class TestVibeFilterOnAOE:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(limit=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
         cfg.game.agent.inventory.regen_amounts = {}
         cfg.game.inventory_regen_interval = 0
@@ -106,7 +106,7 @@ class TestVibeFilterOnAOE:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(limit=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
         cfg.game.agent.inventory.regen_amounts = {}
         cfg.game.inventory_regen_interval = 0
@@ -150,7 +150,7 @@ class TestVibeFilterOnAOE:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(limit=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
         cfg.game.agent.inventory.regen_amounts = {}
         cfg.game.inventory_regen_interval = 0
@@ -204,7 +204,7 @@ class TestAlignmentFilterOnAOE:
         cfg.game.agent.collective = "cogs"  # Agent belongs to cogs collective
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(limit=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
         cfg.game.agent.inventory.regen_amounts = {}
         cfg.game.inventory_regen_interval = 0
@@ -213,7 +213,7 @@ class TestAlignmentFilterOnAOE:
         # Define collectives
         cfg.game.collectives = {
             "cogs": CollectiveConfig(
-                inventory=InventoryConfig(limits={"energy": ResourceLimitsConfig(limit=10000, resources=["energy"])})
+                inventory=InventoryConfig(limits={"energy": ResourceLimitsConfig(min=10000, resources=["energy"])})
             ),
         }
 
@@ -257,7 +257,7 @@ class TestAlignmentFilterOnAOE:
         cfg.game.agent.collective = "cogs"  # Agent belongs to cogs collective
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(limit=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
         cfg.game.agent.inventory.regen_amounts = {}
         cfg.game.inventory_regen_interval = 0
@@ -266,10 +266,10 @@ class TestAlignmentFilterOnAOE:
         # Define collectives
         cfg.game.collectives = {
             "cogs": CollectiveConfig(
-                inventory=InventoryConfig(limits={"energy": ResourceLimitsConfig(limit=10000, resources=["energy"])})
+                inventory=InventoryConfig(limits={"energy": ResourceLimitsConfig(min=10000, resources=["energy"])})
             ),
             "clips": CollectiveConfig(
-                inventory=InventoryConfig(limits={"energy": ResourceLimitsConfig(limit=10000, resources=["energy"])})
+                inventory=InventoryConfig(limits={"energy": ResourceLimitsConfig(min=10000, resources=["energy"])})
             ),
         }
 
@@ -314,7 +314,7 @@ class TestAlignmentFilterOnAOE:
         cfg.game.agent.collective = "cogs"  # Agent belongs to cogs collective
         cfg.game.agent.inventory.initial = {"hp": 100}
         cfg.game.agent.inventory.limits = {
-            "hp": ResourceLimitsConfig(limit=1000, resources=["hp"]),
+            "hp": ResourceLimitsConfig(min=1000, resources=["hp"]),
         }
         cfg.game.agent.inventory.regen_amounts = {}
         cfg.game.inventory_regen_interval = 0
@@ -323,10 +323,10 @@ class TestAlignmentFilterOnAOE:
         # Define collectives
         cfg.game.collectives = {
             "cogs": CollectiveConfig(
-                inventory=InventoryConfig(limits={"hp": ResourceLimitsConfig(limit=10000, resources=["hp"])})
+                inventory=InventoryConfig(limits={"hp": ResourceLimitsConfig(min=10000, resources=["hp"])})
             ),
             "clips": CollectiveConfig(
-                inventory=InventoryConfig(limits={"hp": ResourceLimitsConfig(limit=10000, resources=["hp"])})
+                inventory=InventoryConfig(limits={"hp": ResourceLimitsConfig(min=10000, resources=["hp"])})
             ),
         }
 

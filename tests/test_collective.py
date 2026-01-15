@@ -29,7 +29,7 @@ class TestCollectiveConfig:
             name="shared_storage",
             inventory=InventoryConfig(
                 initial={"gold": 100},
-                limits={"gold": ResourceLimitsConfig(limit=1000, resources=["gold"])},
+                limits={"gold": ResourceLimitsConfig(min=1000, resources=["gold"])},
             ),
         )
         assert cfg.name == "shared_storage"
@@ -70,7 +70,7 @@ class TestCollectiveConversion:
                 "vault": CollectiveConfig(
                     inventory=InventoryConfig(
                         initial={"gold": 100, "silver": 50},
-                        limits={"precious": ResourceLimitsConfig(limit=500, resources=["gold", "silver"])},
+                        limits={"precious": ResourceLimitsConfig(min=500, resources=["gold", "silver"])},
                     ),
                 ),
             },
@@ -105,7 +105,7 @@ class TestCollectiveIntegration:
                     "team_vault": CollectiveConfig(
                         inventory=InventoryConfig(
                             initial={"gold": 100},
-                            limits={"gold": ResourceLimitsConfig(limit=1000, resources=["gold"])},
+                            limits={"gold": ResourceLimitsConfig(min=1000, resources=["gold"])},
                         ),
                     ),
                 },

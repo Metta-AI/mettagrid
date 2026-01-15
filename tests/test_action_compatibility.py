@@ -41,8 +41,8 @@ def create_basic_config() -> GameConfig:
             freeze_duration=0,
             inventory=InventoryConfig(
                 limits={
-                    "ore": ResourceLimitsConfig(limit=10, resources=["ore"]),
-                    "wood": ResourceLimitsConfig(limit=10, resources=["wood"]),
+                    "ore": ResourceLimitsConfig(min=10, resources=["ore"]),
+                    "wood": ResourceLimitsConfig(min=10, resources=["wood"]),
                 },
             ),
         ),
@@ -202,8 +202,8 @@ class TestResourceRequirements:
                 freeze_duration=0,
                 inventory=InventoryConfig(
                     limits={
-                        "ore": ResourceLimitsConfig(limit=10, resources=["ore"]),
-                        "wood": ResourceLimitsConfig(limit=10, resources=["wood"]),
+                        "ore": ResourceLimitsConfig(min=10, resources=["ore"]),
+                        "wood": ResourceLimitsConfig(min=10, resources=["wood"]),
                     },
                     initial={"ore": 5, "wood": 3},
                 ),

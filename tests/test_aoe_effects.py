@@ -47,8 +47,8 @@ class TestAOEBasicFunctionality:
         cfg.game.resource_names = ["energy", "influence"]
         cfg.game.agent.inventory.initial = {"energy": 0, "influence": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(limit=1000, resources=["energy"]),
-            "influence": ResourceLimitsConfig(limit=1000, resources=["influence"]),
+            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "influence": ResourceLimitsConfig(min=1000, resources=["influence"]),
         }
         cfg.game.agent.inventory.regen_amounts = {}  # No passive regen
         cfg.game.inventory_regen_interval = 0  # Disable passive regen
@@ -112,7 +112,7 @@ class TestAOEBasicFunctionality:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(limit=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
         cfg.game.agent.inventory.regen_amounts = {}
         cfg.game.inventory_regen_interval = 0
@@ -162,7 +162,7 @@ class TestAOEWithAlignmentFilters:
         cfg.game.agent.collective = "cogs"  # Agent belongs to cogs collective
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(limit=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
         cfg.game.agent.inventory.regen_amounts = {}
         cfg.game.inventory_regen_interval = 0
@@ -185,7 +185,7 @@ class TestAOEWithAlignmentFilters:
         # Add the collective config
         cfg.game.collectives = {
             "cogs": CollectiveConfig(
-                inventory=InventoryConfig(limits={"energy": ResourceLimitsConfig(limit=1000, resources=["energy"])})
+                inventory=InventoryConfig(limits={"energy": ResourceLimitsConfig(min=1000, resources=["energy"])})
             ),
         }
 
@@ -217,7 +217,7 @@ class TestAOEWithAlignmentFilters:
         cfg.game.agent.collective = "cogs"
         cfg.game.agent.inventory.initial = {"hp": 100}
         cfg.game.agent.inventory.limits = {
-            "hp": ResourceLimitsConfig(limit=1000, resources=["hp"]),
+            "hp": ResourceLimitsConfig(min=1000, resources=["hp"]),
         }
         cfg.game.agent.inventory.regen_amounts = {}
         cfg.game.inventory_regen_interval = 0
@@ -240,10 +240,10 @@ class TestAOEWithAlignmentFilters:
         # Add collective configs
         cfg.game.collectives = {
             "cogs": CollectiveConfig(
-                inventory=InventoryConfig(limits={"hp": ResourceLimitsConfig(limit=1000, resources=["hp"])})
+                inventory=InventoryConfig(limits={"hp": ResourceLimitsConfig(min=1000, resources=["hp"])})
             ),
             "clips": CollectiveConfig(
-                inventory=InventoryConfig(limits={"hp": ResourceLimitsConfig(limit=1000, resources=["hp"])})
+                inventory=InventoryConfig(limits={"hp": ResourceLimitsConfig(min=1000, resources=["hp"])})
             ),
         }
 
@@ -277,7 +277,7 @@ class TestAOEMultipleSources:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(limit=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
         cfg.game.agent.inventory.regen_amounts = {}
         cfg.game.inventory_regen_interval = 0

@@ -19,7 +19,7 @@ class TestChest:
             },
             inventory=InventoryConfig(
                 limits={
-                    "gold": ResourceLimitsConfig(limit=100, resources=["gold"]),
+                    "gold": ResourceLimitsConfig(min=100, resources=["gold"]),
                 },
             ),
         )

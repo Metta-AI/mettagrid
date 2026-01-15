@@ -127,13 +127,13 @@ def test_swap_with_frozen_agent(make_sim, adjacent_agents_map):
             {
                 "team_id": 0,
                 "freeze_duration": 10,
-                "resource_limits": {"laser": ResourceLimitsConfig(limit=10, resources=["laser"])},
+                "resource_limits": {"laser": ResourceLimitsConfig(min=10, resources=["laser"])},
                 "initial_inventory": {"laser": 5},
             },
             {
                 "team_id": 1,
                 "freeze_duration": 10,
-                "resource_limits": {"laser": ResourceLimitsConfig(limit=10, resources=["laser"])},
+                "resource_limits": {"laser": ResourceLimitsConfig(min=10, resources=["laser"])},
                 "initial_inventory": {"laser": 5},
             },
         ],
@@ -205,13 +205,13 @@ def test_cannot_move_onto_non_frozen_agent(make_sim, adjacent_agents_map):
             {
                 "team_id": 0,
                 "freeze_duration": 10,
-                "resource_limits": {"laser": ResourceLimitsConfig(limit=10, resources=["laser"])},
+                "resource_limits": {"laser": ResourceLimitsConfig(min=10, resources=["laser"])},
                 "initial_inventory": {"laser": 5},
             },
             {
                 "team_id": 1,
                 "freeze_duration": 10,
-                "resource_limits": {"laser": ResourceLimitsConfig(limit=10, resources=["laser"])},
+                "resource_limits": {"laser": ResourceLimitsConfig(min=10, resources=["laser"])},
                 "initial_inventory": {"laser": 5},
             },
         ],
