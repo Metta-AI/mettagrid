@@ -72,6 +72,7 @@ class MiniscopeState:
     resource_names: Optional[List[str]] = None
     symbol_map: Optional[Dict[str, str]] = None
     vibes: Optional[List[str]] = None
+    show_aoe: bool = True
 
     # Sidebar panel visibility
     sidebar_visibility: Dict[str, bool] = field(default_factory=dict)

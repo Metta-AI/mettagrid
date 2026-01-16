@@ -4,8 +4,8 @@ AGENT_SQUARES = ["🟦", "🟧", "🟩", "🟨", "🟪", "🟥", "🟫", "⬛", 
 
 DEFAULT_SYMBOL_MAP = {
     # Terrain
-    "wall": "⬛",
-    "empty": "⬜",
+    "wall": "⬜",
+    "empty": "· ",
     "block": "📦",
     # Agents
     "agent": "🤖",
@@ -18,6 +18,7 @@ DEFAULT_SYMBOL_MAP = {
     "agent.predator": "🦁",
     # UI elements
     "cursor": "🎯",
+    "aoe": "· ",
     "?": "❓",
 }
 

@@ -43,6 +43,11 @@ class MapBuffer:
         # Highlighted agent state (for vibe picker)
         self._highlighted_agent_id: Optional[int] = None
 
+        # AOE overlay sources (row, col, radius, style_key)
+        self._aoe_sources: list[tuple[int, int, int, str]] = []
+        self._aoe_overlay_styles: dict[tuple[int, int], str] = {}
+        self._last_grid: Optional[list[list[str]]] = None
+
         # Cached grid objects
         self._last_grid_objects: Optional[Dict[int, dict]] = None
 
@@ -52,7 +57,7 @@ class MapBuffer:
         center_col: Optional[int] = None,
         height: Optional[int] = None,
         width: Optional[int] = None,
-    ) -> None:
+    ) -> bool:
         """Set viewport parameters for map rendering."""
         self._viewport_center_row = center_row
         self._viewport_center_col = center_col
@@ -67,6 +72,18 @@ class MapBuffer:
     def set_highlighted_agent(self, agent_id: Optional[int]) -> None:
         """Track which agent should be highlighted in the viewport."""
         self._highlighted_agent_id = agent_id
+
+    def set_aoe_sources(self, sources: list[tuple[int, int, int, str]]) -> None:
+        """Set the AOE overlay sources for rendering."""
+        self._aoe_sources = list(sources)
+
+    def get_aoe_overlay_styles(self) -> dict[tuple[int, int], str]:
+        """Return overlay style keys for the last rendered viewport."""
+        return self._aoe_overlay_styles
+
+    def get_last_grid(self) -> Optional[list[list[str]]]:
+        """Return the last rendered grid (viewport-relative)."""
+        return self._last_grid
 
     def move_viewport(self, delta_row: int = 0, delta_col: int = 0) -> None:
         """Move the viewport by the given deltas."""
@@ -235,8 +252,54 @@ class MapBuffer:
         if has_more_bottom and has_more_right:
             grid[view_height - 1][view_width - 1] = "◢" if view_width > 1 else "◢"
 
+        # Add AOE overlay (only on empty cells)
+        has_overlay = self._apply_aoe_overlay(
+            grid,
+            view_min_row,
+            view_min_col,
+            view_height,
+            view_width,
+            empty_symbol,
+        )
+
+        self._last_grid = grid if has_overlay else None
         lines = ["".join(row) for row in grid]
         return "\n".join(lines)
+
+    def _apply_aoe_overlay(
+        self,
+        grid: list[list[str]],
+        view_min_row: int,
+        view_min_col: int,
+        view_height: int,
+        view_width: int,
+        empty_symbol: str,
+    ) -> bool:
+        """Render AOE overlays onto the grid (only on empty cells)."""
+        self._aoe_overlay_styles = {}
+        if not self._aoe_sources:
+            return False
+
+        any_applied = False
+        for source_row, source_col, radius, style_key in self._aoe_sources:
+            if radius <= 0:
+                continue
+            symbol = self._symbol_map.get(style_key, self._symbol_map.get("aoe", "• "))
+
+            min_row = max(view_min_row, source_row - radius)
+            max_row = min(view_min_row + view_height - 1, source_row + radius)
+            min_col = max(view_min_col, source_col - radius)
+            max_col = min(view_min_col + view_width - 1, source_col + radius)
+
+            for row in range(min_row, max_row + 1):
+                grid_row = row - view_min_row
+                for col in range(min_col, max_col + 1):
+                    grid_col = col - view_min_col
+                    if grid[grid_row][grid_col] == empty_symbol:
+                        grid[grid_row][grid_col] = symbol
+                        self._aoe_overlay_styles[(grid_row, grid_col)] = style_key
+                        any_applied = True
+        return any_applied
 
     def render(
         self,

@@ -74,6 +74,7 @@ class HelpPanelComponent(MiniscopeComponent):
         lines.append("-" * 30)
         lines.append("  SPACE   - Play/Pause simulation")
         lines.append("  </>     - Decrease/Increase speed")
+        lines.append("  o       - Toggle AOE overlay")
         lines.append("")
 
         # System section
@@ -89,6 +90,7 @@ class HelpPanelComponent(MiniscopeComponent):
         lines.append("  1       - Toggle Agent info")
         lines.append("  2       - Toggle Object info")
         lines.append("  3       - Toggle Symbols list")
+        lines.append("  4       - Toggle Collective inventory")
         lines.append("")
 
         lines.append("=" * width)
@@ -135,6 +137,7 @@ class HelpPanelComponent(MiniscopeComponent):
         # Simulation
         table.add_row("Simulation", "SPACE", "Play/Pause")
         table.add_row("", "</>", "Decrease/Increase speed")
+        table.add_row("", "o", "Toggle AOE overlay")
         table.add_row("", "", "")
 
         # System
@@ -146,5 +149,6 @@ class HelpPanelComponent(MiniscopeComponent):
         table.add_row("Sidebar", "1", "Toggle Agent info")
         table.add_row("", "2", "Toggle Object info")
         table.add_row("", "3", "Toggle Symbols list")
+        table.add_row("", "4", "Toggle Collective inventory")
 
         return self._table_to_lines(table)

@@ -88,9 +88,10 @@ py::dict MettaGrid::grid_objects(int min_row, int max_row, int min_col, int max_
       obj_dict["inventory"] = inventory_dict;
     }
 
-    // Add collective_id for alignable objects
+    // Add collective_id/name for alignable objects
     Collective* collective = obj->getCollective();
     if (collective != nullptr) {
+      obj_dict["collective_name"] = collective->name;
       // Find the index of this collective in _collectives
       for (size_t i = 0; i < _collectives.size(); i++) {
         if (_collectives[i].get() == collective) {

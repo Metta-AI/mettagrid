@@ -1,5 +1,9 @@
 """Map component for miniscope renderer."""
 
+from typing import Dict
+
+from rich.text import Text
+
 from mettagrid.renderer.miniscope.buffer import MapBuffer
 from mettagrid.renderer.miniscope.components.base import MiniscopeComponent
 from mettagrid.renderer.miniscope.miniscope_panel import PanelLayout
@@ -9,6 +13,14 @@ from mettagrid.simulator.simulator import Simulation
 
 class MapComponent(MiniscopeComponent):
     """Component for rendering the game map."""
+
+    _AOE_STYLE_BY_KEY = {
+        "aoe.cogs": "green dim",
+        "aoe.clips": "red dim",
+        "aoe.neutral": "yellow dim",
+        "aoe.other": "magenta dim",
+        "aoe": "white dim",
+    }
 
     def __init__(
         self,
@@ -32,10 +44,69 @@ class MapComponent(MiniscopeComponent):
             initial_height=sim.map_height,
             initial_width=sim.map_width,
         )
+        self._aoe_type_ranges = self._build_aoe_type_ranges()
 
     def _update_buffer_config(self) -> None:
         """Update buffer configuration from state."""
         self._map_buffer._symbol_map = self.state.symbol_map or {}
+
+    def _build_aoe_type_ranges(self) -> dict[str, int]:
+        """Build a map of object type -> max AOE radius for rendering."""
+        ranges: dict[str, int] = {}
+        objects = self._sim.config.game.objects
+        for type_name, obj_cfg in objects.items():
+            max_range = 0
+            for aoe in getattr(obj_cfg, "aoes", []):
+                max_range = max(max_range, getattr(aoe, "range", 0))
+            for handler in getattr(obj_cfg, "aoe_handlers", {}).values():
+                max_range = max(max_range, getattr(handler, "radius", 0))
+            if max_range > 0:
+                ranges[type_name] = max_range
+        return ranges
+
+    def _collect_aoe_sources(self, grid_objects: Dict[int, dict]) -> list[tuple[int, int, int, str]]:
+        """Collect AOE sources for overlay rendering."""
+        if not self._aoe_type_ranges or not self._state.show_aoe:
+            return []
+
+        sources: list[tuple[int, int, int, str]] = []
+        for obj in grid_objects.values():
+            type_name = obj.get("type_name")
+            if not type_name:
+                continue
+            radius = self._aoe_type_ranges.get(type_name)
+            if radius is None:
+                continue
+            collective_name = obj.get("collective_name")
+            if not isinstance(collective_name, str) or not collective_name:
+                style_key = "aoe.neutral"
+            elif collective_name == "cogs":
+                style_key = "aoe.cogs"
+            elif collective_name == "clips":
+                style_key = "aoe.clips"
+            else:
+                style_key = "aoe.other"
+            sources.append((obj["r"], obj["c"], radius, style_key))
+        return sources
+
+    def _build_rich_map(
+        self,
+        grid: list[list[str]],
+        overlay_styles: dict[tuple[int, int], str],
+    ) -> Text:
+        """Build a Rich Text renderable for the map with colored overlays."""
+        text = Text()
+        for row_index, row in enumerate(grid):
+            for col_index, cell in enumerate(row):
+                style_key = overlay_styles.get((row_index, col_index))
+                if style_key:
+                    style = self._AOE_STYLE_BY_KEY.get(style_key, "white dim")
+                    text.append(cell, style=style)
+                else:
+                    text.append(cell)
+            if row_index < len(grid) - 1:
+                text.append("\n")
+        return text
 
     def handle_input(self, ch: str) -> bool:
         """Handle map-specific inputs (cursor movement in SELECT mode).
@@ -89,6 +160,9 @@ class MapComponent(MiniscopeComponent):
         # Get grid objects from environment
         grid_objects = self._sim.grid_objects()
 
+        # Update AOE overlays
+        self._map_buffer.set_aoe_sources(self._collect_aoe_sources(grid_objects))
+
         # Get viewport size from panel
         panel_width, panel_height = panel.size()
         # Each map cell takes 2 chars in width
@@ -117,4 +191,9 @@ class MapComponent(MiniscopeComponent):
 
         # Render with viewport and set panel content
         buffer = self._map_buffer.render(grid_objects, use_viewport=True)
-        panel.set_content(buffer.split("\n"))
+        overlay_styles = self._map_buffer.get_aoe_overlay_styles()
+        grid = self._map_buffer.get_last_grid()
+        if overlay_styles and grid is not None:
+            panel.set_content(self._build_rich_map(grid, overlay_styles))
+        else:
+            panel.set_content(buffer.split("\n"))
