@@ -1,3 +1,5 @@
+from typing import Any
+
 from mettagrid.config.handler_config import AlignmentCondition
 from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_mutations
 from mettagrid.config.mettagrid_config import (
@@ -529,7 +531,7 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
     actions_cpp_params = {}
 
     # Helper function to process common action config fields
-    def process_action_config(action_name: str, action_config):
+    def process_action_config(action_name: str, action_config) -> dict[str, Any]:
         # If disabled, return empty config (C++ code checks enabled status)
         if not action_config.enabled:
             return {

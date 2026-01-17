@@ -6,7 +6,7 @@ import gymnasium as gym
 from pydantic import BaseModel, Field
 
 from mettagrid.config.id_map import ObservationFeatureSpec
-from mettagrid.config.mettagrid_config import MettaGridConfig, ProtocolConfig
+from mettagrid.config.mettagrid_config import AssemblerConfig, MettaGridConfig, ProtocolConfig
 from mettagrid.mettagrid_c import dtype_observations
 
 
@@ -49,7 +49,7 @@ class PolicyEnvInterface(BaseModel):
     @property
     def observation_space(self) -> gym.spaces.Box:
         """Observation space derived from observation_shape."""
-        return gym.spaces.Box(0, 255, self.observation_shape, dtype=dtype_observations)
+        return gym.spaces.Box(0, 255, self.observation_shape, dtype=dtype_observations.type)
 
     @property
     def action_space(self) -> gym.spaces.Discrete:
@@ -74,7 +74,7 @@ class PolicyEnvInterface(BaseModel):
         # Extract assembler protocols if available
         assembler_protocols: list[ProtocolConfig] = []
         assembler_config = mg_cfg.game.objects.get("assembler")
-        if assembler_config and hasattr(assembler_config, "protocols"):
+        if assembler_config and isinstance(assembler_config, AssemblerConfig):
             assembler_protocols = list(assembler_config.protocols)
 
         id_map = mg_cfg.game.id_map()

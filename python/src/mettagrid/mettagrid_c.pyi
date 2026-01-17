@@ -1,9 +1,126 @@
+from enum import Enum
 from typing import Optional, TypeAlias, TypedDict
 
 import numpy as np
 
 # Type alias for clarity
 StatsDict: TypeAlias = dict[str, float]
+
+# Handler enums from handler_config.hpp
+
+class EntityRef(Enum):
+    """Entity reference for resolving actor/target in filters and mutations."""
+
+    actor = ...
+    target = ...
+    actor_collective = ...
+    target_collective = ...
+
+class AlignmentCondition(Enum):
+    """Alignment conditions for AlignmentFilter."""
+
+    aligned = ...
+    unaligned = ...
+    same_collective = ...
+    different_collective = ...
+
+class AlignTo(Enum):
+    """Align-to options for AlignmentMutation."""
+
+    actor_collective = ...
+    none = ...
+
+# Handler filter configs
+
+class VibeFilterConfig:
+    def __init__(
+        self,
+        entity: EntityRef = ...,
+        vibe_id: int = 0,
+    ) -> None: ...
+    entity: EntityRef
+    vibe_id: int
+
+class ResourceFilterConfig:
+    def __init__(
+        self,
+        entity: EntityRef = ...,
+        resource_id: int = 0,
+        min_amount: int = 1,
+    ) -> None: ...
+    entity: EntityRef
+    resource_id: int
+    min_amount: int
+
+class AlignmentFilterConfig:
+    def __init__(
+        self,
+        condition: AlignmentCondition = ...,
+    ) -> None: ...
+    condition: AlignmentCondition
+
+# Handler mutation configs
+
+class ResourceDeltaMutationConfig:
+    def __init__(
+        self,
+        entity: EntityRef = ...,
+        resource_id: int = 0,
+        delta: int = 0,
+    ) -> None: ...
+    entity: EntityRef
+    resource_id: int
+    delta: int
+
+class ResourceTransferMutationConfig:
+    def __init__(
+        self,
+        source: EntityRef = ...,
+        destination: EntityRef = ...,
+        resource_id: int = 0,
+        amount: int = -1,
+    ) -> None: ...
+    source: EntityRef
+    destination: EntityRef
+    resource_id: int
+    amount: int
+
+class AlignmentMutationConfig:
+    def __init__(
+        self,
+        align_to: AlignTo = ...,
+    ) -> None: ...
+    align_to: AlignTo
+
+class FreezeMutationConfig:
+    def __init__(
+        self,
+        duration: int = 1,
+    ) -> None: ...
+    duration: int
+
+class ClearInventoryMutationConfig:
+    def __init__(
+        self,
+        entity: EntityRef = ...,
+        resource_ids: list[int] = ...,
+    ) -> None: ...
+    entity: EntityRef
+    resource_ids: list[int]
+
+# Handler config
+
+class HandlerConfig:
+    def __init__(self, name: str = "") -> None: ...
+    name: str
+    filters: list
+    mutations: list
+    radius: int
+
+    def add_alignment_filter(self, filter: AlignmentFilterConfig) -> None: ...
+    def add_resource_filter(self, filter: ResourceFilterConfig) -> None: ...
+    def add_vibe_filter(self, filter: VibeFilterConfig) -> None: ...
+    def add_resource_delta_mutation(self, mutation: ResourceDeltaMutationConfig) -> None: ...
 
 # Data types exported from C++
 dtype_observations: np.dtype
@@ -53,17 +170,32 @@ class PackedCoordinate:
         """Check if packed value represents empty location."""
         ...
 
-class GridObjectConfig: ...
+class GridObjectConfig:
+    def __init__(
+        self,
+        type_id: int,
+        type_name: str,
+        initial_vibe: int = 0,
+    ) -> None: ...
+    type_id: int
+    type_name: str
+    tag_ids: list[int]
+    initial_vibe: int
+    on_use_handlers: list[HandlerConfig]
+    on_update_handlers: list[HandlerConfig]
+    aoe_handlers: list[HandlerConfig]
 
 class LimitDef:
     def __init__(
         self,
         resources: list[int] = [],
-        base_limit: int = 0,
+        min_limit: int = 0,
+        max_limit: int = 65535,
         modifiers: dict[int, int] = {},
     ) -> None: ...
     resources: list[int]
-    base_limit: int
+    min_limit: int
+    max_limit: int
     modifiers: dict[int, int]
 
 class InventoryConfig:
@@ -123,13 +255,6 @@ class Protocol:
     input_resources: dict[int, int]
     output_resources: dict[int, int]
     cooldown: int
-
-class InventoryConfig:
-    def __init__(
-        self,
-        limits: list[tuple[list[int], int]] = [],
-    ) -> None: ...
-    limits: list[tuple[list[int], int]]
 
 class AssemblerConfig(GridObjectConfig):
     def __init__(
@@ -343,3 +468,4 @@ class MettaGrid:
     def get_episode_stats(self) -> EpisodeStats: ...
     def action_success(self) -> list[bool]: ...
     def set_inventory(self, agent_id: int, inventory: dict[int, int]) -> None: ...
+    def get_collective_inventories(self) -> dict[str, dict[str, int]]: ...

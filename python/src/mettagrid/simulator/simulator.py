@@ -11,7 +11,7 @@ import numpy as np
 import mettagrid.config.mettagrid_c_config as mettagrid_c_config
 import mettagrid.config.mettagrid_config as mettagrid_config
 from mettagrid.config.id_map import ObservationFeatureSpec
-from mettagrid.map_builder.map_builder import GameMap, MapBuilderConfig
+from mettagrid.map_builder.map_builder import GameMap, HasSeed, MapBuilderConfig
 from mettagrid.mettagrid_c import MettaGrid as MettaGridCpp
 from mettagrid.mettagrid_c import PackedCoordinate
 from mettagrid.profiling.stopwatch import Stopwatch, with_instance_timer
@@ -268,13 +268,14 @@ class Simulation:
         return self._maps_cache.get_or_create(map_builder, self._config.game.num_agents)
 
     def _seeded_map_builder(self, map_builder: MapBuilderConfig) -> MapBuilderConfig:
-        if not hasattr(map_builder, "seed"):
+        if not isinstance(map_builder, HasSeed):
             return map_builder
         if map_builder.seed is None:
             return map_builder
         if self._simulator is None:
             return map_builder
         map_builder = map_builder.model_copy(deep=True)
+        assert map_builder.seed is not None
         map_builder.seed = self._simulator.next_map_seed(map_builder.seed)
         return map_builder
 

@@ -57,7 +57,7 @@ class MapBuffer:
         center_col: Optional[int] = None,
         height: Optional[int] = None,
         width: Optional[int] = None,
-    ) -> bool:
+    ) -> None:
         """Set viewport parameters for map rendering."""
         self._viewport_center_row = center_row
         self._viewport_center_col = center_col
