@@ -21,7 +21,8 @@ struct SharedInventoryLimit {
   // How much do we have of whatever-this-limit-applies-to
   InventoryQuantity amount;
 
-  // Get the effective limit: clamp(sum(modifier_bonus * quantity_held), min_limit, max_limit)
+  // Get the effective limit: min(max_limit, max(min_limit, sum(modifier_bonus * quantity_held)))
+  // This ensures min_limit acts as a floor and max_limit acts as a ceiling.
   InventoryQuantity effective_limit(const std::unordered_map<InventoryItem, InventoryQuantity>& inventory) const {
     int modifier_sum = 0;
     for (const auto& [item, bonus] : modifiers) {
@@ -30,8 +31,9 @@ struct SharedInventoryLimit {
         modifier_sum += static_cast<int>(it->second) * static_cast<int>(bonus);
       }
     }
-    // Apply formula: clamp(modifier_sum, min_limit, max_limit)
-    int effective = std::clamp(modifier_sum, static_cast<int>(min_limit), static_cast<int>(max_limit));
+    // Apply formula: min(max_limit, max(min_limit, modifier_sum))
+    // This avoids UB from std::clamp when min_limit > max_limit; max_limit wins in that case.
+    int effective = std::min(static_cast<int>(max_limit), std::max(static_cast<int>(min_limit), modifier_sum));
     // Clamp to valid range (0 to max InventoryQuantity which is uint16_t)
     effective = std::clamp(effective, 0, 65535);
     return static_cast<InventoryQuantity>(effective);
