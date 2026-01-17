@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import Literal, overload
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 import boto3
 
@@ -302,20 +302,34 @@ def policy_spec_from_uri(
         from mettagrid.policy.loader import discover_and_register_policies
         from mettagrid.policy.policy_registry import get_policy_registry
 
-        identifier = uri[len("metta://policy/") :]
+        parsed_uri = urlparse(uri)
+        identifier = parsed_uri.path.lstrip("/")
+        init_kwargs: dict[str, object] = {}
+        if parsed_uri.query:
+            for key, values in parse_qs(parsed_uri.query).items():
+                if not values:
+                    continue
+                raw_value = values[-1]
+                if raw_value.isdigit():
+                    init_kwargs[key] = int(raw_value)
+                elif raw_value.lower() in {"true", "false"}:
+                    init_kwargs[key] = raw_value.lower() == "true"
+                else:
+                    init_kwargs[key] = raw_value
+
         discover_and_register_policies()
         registry = get_policy_registry()
 
         # Check if it's a registered short name
         if identifier in registry:
-            return PolicySpec(class_path=registry[identifier])
+            return PolicySpec(class_path=registry[identifier], init_kwargs=init_kwargs)
         # Check if it looks like a full class path and is importable.
         # Otherwise, fall through to metta scheme resolution (e.g., policy names with dots).
         if "." in identifier and ":v" not in identifier and not identifier.endswith(":latest"):
             from mettagrid.util.module import load_symbol
 
             if load_symbol(identifier, strict=False) is not None:
-                return PolicySpec(class_path=identifier)
+                return PolicySpec(class_path=identifier, init_kwargs=init_kwargs)
 
     parsed = resolve_uri(uri)
 
