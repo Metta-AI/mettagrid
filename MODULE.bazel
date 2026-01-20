@@ -24,7 +24,7 @@ python.toolchain(
 )
 
 # pybind11 for Python bindings
-bazel_dep(name = "pybind11_bazel", version = "2.13.6")
+bazel_dep(name = "pybind11_bazel", version = "3.0.0")
 
 # Google Test for testing
 bazel_dep(name = "googletest", version = "1.17.0")
