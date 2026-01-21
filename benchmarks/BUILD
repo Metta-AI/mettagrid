@@ -1,5 +1,8 @@
 # Benchmarks for mettagrid
 
+# Bazel 9 requires explicit load() for cc_binary (removed from native rules)
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
 cc_binary(
     name = "test_mettagrid_env_benchmark",
     srcs = [

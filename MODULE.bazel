@@ -26,8 +26,8 @@ python.toolchain(
 # pybind11 for Python bindings
 bazel_dep(name = "pybind11_bazel", version = "3.0.0")
 
-# Google Test for testing
-bazel_dep(name = "googletest", version = "1.17.0")
+# Google Test for testing (bcr.2 includes load() statements for Bazel 9 compatibility)
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 
 # Google Benchmark for benchmarking
 bazel_dep(name = "google_benchmark", version = "1.9.4")
