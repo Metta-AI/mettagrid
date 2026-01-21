@@ -87,3 +87,12 @@ class TestResolveUri:
         path = str(tmp_path / "test.txt")
         parsed = resolve_uri(path)
         assert parsed.canonical.startswith("file://")
+
+
+def test_policy_spec_from_metta_uri_with_query_params():
+    """metta://policy/random?vibe_action_p=0.01 passes init_kwargs."""
+    from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri
+
+    spec = policy_spec_from_uri("metta://policy/random?vibe_action_p=0.01")
+
+    assert spec.init_kwargs.get("vibe_action_p") == "0.01"
