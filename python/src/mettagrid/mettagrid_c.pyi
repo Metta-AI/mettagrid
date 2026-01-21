@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, TypeAlias, TypedDict
+from typing import NotRequired, Optional, TypeAlias, TypedDict
 
 import numpy as np
 
@@ -134,6 +134,7 @@ dtype_success: np.dtype
 class EpisodeStats(TypedDict):
     game: StatsDict
     agent: list[StatsDict]
+    collective: NotRequired[dict[str, StatsDict]]
 
 class PackedCoordinate:
     """Packed coordinate encoding utilities."""

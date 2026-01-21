@@ -44,6 +44,10 @@ class StatsTracker(SimulatorEventHandler):
         for n, v in infos["agent"].items():
             infos["agent"][n] = v / num_agents
 
+        collective_stats = stats.get("collective")
+        if collective_stats:
+            infos["collective"] = collective_stats
+
         # If reward estimates are set, plot them compared to the mean reward
         if config.game.reward_estimates:
             infos["reward_estimates"] = {}

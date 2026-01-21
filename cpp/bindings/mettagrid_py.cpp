@@ -221,6 +221,7 @@ py::dict MettaGrid::get_episode_stats() {
   // {
   //   "game": dict[str, float],  // Global game statistics
   //   "agent": list[dict[str, float]],  // Per-agent statistics
+  //   "collective": dict[str, dict[str, float]],  // Per-collective statistics (name -> stats)
   // }
 
   py::dict stats;
@@ -231,6 +232,12 @@ py::dict MettaGrid::get_episode_stats() {
     agent_stats.append(py::cast(agent->stats.to_dict()));
   }
   stats["agent"] = agent_stats;
+
+  py::dict collective_stats;
+  for (const auto& collective : _collectives) {
+    collective_stats[py::str(collective->name)] = py::cast(collective->stats.to_dict());
+  }
+  stats["collective"] = collective_stats;
 
   return stats;
 }

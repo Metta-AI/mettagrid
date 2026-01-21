@@ -6,6 +6,7 @@
 
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
+#include "objects/agent.hpp"
 #include "objects/has_inventory.hpp"
 
 namespace mettagrid {
@@ -93,17 +94,39 @@ public:
       return;
     }
 
+    Collective* old_collective = target_obj->getCollective();
+    bool changed = false;
+
     switch (_config.align_to) {
       case AlignTo::actor_collective: {
         Collective* actor_coll = ctx.actor_collective();
-        if (actor_coll != nullptr) {
+        if (actor_coll != nullptr && old_collective != actor_coll) {
           target_obj->setCollective(actor_coll);
+          changed = true;
         }
         break;
       }
       case AlignTo::none:
-        target_obj->clearCollective();
+        if (old_collective != nullptr) {
+          target_obj->clearCollective();
+          changed = true;
+        }
         break;
+    }
+
+    if (!changed || target_obj->type_name != "junction") {
+      return;
+    }
+
+    Agent* actor = dynamic_cast<Agent*>(ctx.actor);
+    if (actor == nullptr) {
+      return;
+    }
+
+    if (_config.align_to == AlignTo::actor_collective) {
+      actor->stats.incr("junction.aligned_by_agent");
+    } else {
+      actor->stats.incr("junction.scrambled_by_agent");
     }
   }
 
