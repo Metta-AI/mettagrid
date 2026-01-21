@@ -26,7 +26,6 @@
 #include "objects/chest.hpp"
 #include "objects/collective.hpp"
 #include "core/aoe_helper.hpp"
-#include "systems/clipper.hpp"
 #include "systems/packed_coordinate.hpp"
 
 // Forward declarations of existing C++ classes
@@ -148,7 +147,6 @@ private:
   unsigned int _inventory_regen_interval;
 
   // Global systems
-  std::unique_ptr<Clipper> _clipper;
   std::unique_ptr<mettagrid::AOEEffectGrid> _aoe_grid;
 
   // Collective objects - owned by MettaGrid

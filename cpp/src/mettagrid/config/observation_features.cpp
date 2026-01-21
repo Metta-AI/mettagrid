@@ -14,7 +14,6 @@ ObservationType Vibe;
 ObservationType Compass;
 ObservationType Tag;
 ObservationType CooldownRemaining;
-ObservationType Clipped;
 ObservationType RemainingUses;
 ObservationType Goal;
 
@@ -31,7 +30,6 @@ void Initialize(const std::unordered_map<std::string, ObservationType>& feature_
   Compass = _instance->Compass;
   Tag = _instance->Tag;
   CooldownRemaining = _instance->CooldownRemaining;
-  Clipped = _instance->Clipped;
   RemainingUses = _instance->RemainingUses;
   Goal = _instance->Goal;
 }

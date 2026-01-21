@@ -358,16 +358,10 @@ proc drawObjects*() =
           "objects/" & thing.typeName
         else:
           "objects/unknown"
-      if thing.isClipped.at:
-        px.drawSprite(
-          spriteName & ".clipped",
-          pos * TILE_SIZE
-        )
-      else:
-        px.drawSprite(
-          spriteName,
-          pos * TILE_SIZE,
-        )
+      px.drawSprite(
+        spriteName,
+        pos * TILE_SIZE,
+      )
 
 proc drawVisualRanges*(alpha = 0.5) =
   ## Draw the visual ranges of the selected agent.

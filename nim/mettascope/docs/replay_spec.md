@@ -171,8 +171,6 @@ Assembler specific keys:
 - `current_recipe_id` - Index into the `protocols` array indicating which protocol is currently active.
 - `cooldown_remaining` - Time series of remaining cooldown steps before the assembler can be used again.
 - `cooldown_duration` - Total cooldown time in steps.
-- `is_clipped` - Time series boolean indicating if the assembler is clipped (disabled).
-- `is_clip_immune` - Time series boolean indicating if the assembler is immune to clipping.
 - `uses_count` - Time series of how many times the assembler has been used.
 - `max_uses` - Maximum number of times the assembler can be used before exhaustion.
 - `allow_partial_usage` - Boolean indicating if partial usage is allowed.

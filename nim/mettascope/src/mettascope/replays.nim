@@ -88,8 +88,6 @@ type
     # Assembler specific keys.
     cooldownRemaining*: seq[int]
     cooldownDuration*: int
-    isClipped*: seq[bool]
-    isClipImmune*: seq[bool]
     usesCount*: seq[int]
     maxUses*: int
     allowPartialUsage*: bool
@@ -174,8 +172,6 @@ type
     # Assembler specific keys.
     cooldownRemaining*: int
     cooldownDuration*: int
-    isClipped*: bool
-    isClipImmune*: bool
     usesCount*: int
     maxUses*: int
     allowPartialUsage*: bool
@@ -907,8 +903,6 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) =
 
     entity.cooldownRemaining.add(obj.cooldownRemaining)
     entity.cooldownDuration = obj.cooldownDuration
-    entity.isClipped.add(obj.isClipped)
-    entity.isClipImmune.add(obj.isClipImmune)
     entity.usesCount.add(obj.usesCount)
     entity.maxUses = obj.maxUses
     entity.allowPartialUsage = obj.allowPartialUsage

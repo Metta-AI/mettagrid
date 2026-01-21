@@ -95,7 +95,7 @@ GameConfig CreateBenchmarkConfig(size_t num_agents) {
                     false,
                     std::unordered_map<std::string, float>(),
                     0,
-                    nullptr);
+                    256);
 }
 
 py::list CreateDefaultMap(size_t num_agents_per_team = 2) {

@@ -195,15 +195,12 @@ class TestAssemblerProperties:
             # Check basic properties exist
             assert "cooldown_remaining" in assembler
             assert "cooldown_duration" in assembler
-            assert "is_clipped" in assembler
-            assert "is_clip_immune" in assembler
             assert "uses_count" in assembler
             assert "max_uses" in assembler
             assert "allow_partial_usage" in assembler
 
             # Check initial values
             assert assembler["cooldown_remaining"] == 0, "Should start with no cooldown"
-            assert assembler["is_clipped"] is False, "Should not be clipped initially"
             assert assembler["uses_count"] == 0, "Should start with zero uses"
             assert assembler["max_uses"] == 10, "Max uses should match config"
             assert assembler["allow_partial_usage"] is True, "Should match config"

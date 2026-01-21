@@ -65,8 +65,7 @@ protected:
         {"agent:compass", 14},
         {"tag", 15},
         {"cooldown_remaining", 16},
-        {"clipped", 17},
-        {"remaining_uses", 18},
+        {"remaining_uses", 17},
     };
     ObservationFeature::Initialize(feature_ids);
     resource_names = create_test_resource_names();
@@ -990,98 +989,6 @@ TEST_F(MettaGridCppTest, AssemblerBalancedConsumptionMixedResources) {
   EXPECT_GE(consumed4, 9);
   EXPECT_LE(consumed4, 10);
   EXPECT_EQ(consumed3 + consumed4, 19) << "Agents 3 and 4 should consume the remaining 19";
-}
-
-TEST_F(MettaGridCppTest, AssemblerClippingAndUnclipping) {
-  // Create a simple grid
-  Grid grid(10, 10);
-  std::mt19937 rng(42);  // Fixed seed for reproducibility
-  unsigned int current_timestep = 0;
-
-  // Create an assembler with normal protocols
-  AssemblerConfig config(1, "test_assembler");
-
-  // Create normal protocols (pattern 0: no agents needed)
-  auto normal_protocol = std::make_shared<Protocol>();
-  normal_protocol->input_resources[TestItems::ORE] = 2;
-  normal_protocol->output_resources[TestItems::LASER] = 1;
-  normal_protocol->cooldown = 0;
-
-  config.protocols.push_back(normal_protocol);
-
-  Assembler assembler(5, 5, config, stats_tracker.get());
-  assembler.set_grid(&grid);
-  assembler.set_current_timestep_ptr(&current_timestep);
-
-  // Create an agent to interact with the assembler
-  AgentConfig agent_cfg = create_test_agent_config();
-  agent_cfg.initial_inventory[TestItems::ORE] = 10;
-  agent_cfg.initial_inventory[TestItems::HEART] = 5;
-
-  auto resource_names = create_test_resource_names();
-  Agent* agent = new Agent(4, 5, agent_cfg, &resource_names);
-  float agent_reward = 0.0f;
-  agent->reward = &agent_reward;
-  grid.add_object(agent);
-
-  // Test 1: Verify assembler is not clipped initially
-  EXPECT_FALSE(assembler.is_clipped) << "Assembler should not be clipped initially";
-
-  // Test 2: Verify normal protocol works when not clipped
-  bool success = assembler.onUse(*agent, 0);
-  EXPECT_TRUE(success) << "Should be able to use normal protocol when not clipped";
-  EXPECT_EQ(agent->inventory.amount(TestItems::ORE), 8) << "Should consume 2 ore";
-  EXPECT_EQ(agent->inventory.amount(TestItems::LASER), 1) << "Should produce 1 laser";
-
-  // Test 3: Create unclipping protocols and clip the assembler
-  auto unclip_protocol = std::make_shared<Protocol>();
-  unclip_protocol->input_resources[TestItems::HEART] = 1;
-  unclip_protocol->output_resources[TestItems::ORE] = 3;
-  unclip_protocol->cooldown = 0;
-
-  std::vector<std::shared_ptr<Protocol>> unclip_protocols = {unclip_protocol};
-  assembler.become_clipped(unclip_protocols, nullptr);
-
-  EXPECT_TRUE(assembler.is_clipped) << "Assembler should be clipped after become_clipped()";
-
-  // Test 4: Verify clipped observation feature
-  auto features = assembler.obs_features();
-  bool found_clipped = false;
-  for (const auto& feature : features) {
-    if (feature.feature_id == ObservationFeature::Clipped) {
-      EXPECT_EQ(feature.value, 1) << "Clipped observation should be 1";
-      found_clipped = true;
-      break;
-    }
-  }
-  EXPECT_TRUE(found_clipped) << "Should have Clipped observation feature when clipped";
-
-  // Test 5: Verify unclip protocol is used when clipped
-  success = assembler.onUse(*agent, 0);
-  EXPECT_TRUE(success) << "Should be able to use unclip protocol when clipped";
-  EXPECT_EQ(agent->inventory.amount(TestItems::HEART), 4) << "Should consume 1 heart for unclipping";
-  EXPECT_EQ(agent->inventory.amount(TestItems::ORE), 11) << "Should produce 3 ore from unclip protocol";
-
-  // Test 6: Verify assembler is automatically unclipped after successful use
-  EXPECT_FALSE(assembler.is_clipped) << "Assembler should be unclipped after successful use";
-  EXPECT_TRUE(assembler.unclip_protocols.empty()) << "Unclip protocols should be empty";
-
-  // Test 7: Verify normal protocol works again after unclipping
-  success = assembler.onUse(*agent, 0);
-  EXPECT_TRUE(success) << "Should be able to use normal protocol after unclipping";
-  EXPECT_EQ(agent->inventory.amount(TestItems::ORE), 9) << "Should consume 2 ore (normal protocol)";
-  EXPECT_EQ(agent->inventory.amount(TestItems::LASER), 2) << "Should produce 1 more laser";
-
-  // Test 8: Verify no clipped observation after unclipping
-  features = assembler.obs_features();
-  found_clipped = false;
-  for (const auto& feature : features) {
-    if (feature.feature_id == ObservationFeature::Clipped) {
-      found_clipped = true;
-      break;
-    }
-  }
-  EXPECT_FALSE(found_clipped) << "Should not have Clipped observation feature when not clipped";
 }
 
 TEST_F(MettaGridCppTest, AssemblerMaxUses) {

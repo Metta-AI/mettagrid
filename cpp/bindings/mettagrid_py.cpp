@@ -15,7 +15,6 @@
 #include "objects/collective.hpp"
 #include "objects/protocol.hpp"
 #include "objects/wall.hpp"
-#include "systems/clipper_config.hpp"
 #include "systems/packed_coordinate.hpp"
 #include "systems/stats_tracker.hpp"
 
@@ -125,8 +124,6 @@ py::dict MettaGrid::grid_objects(int min_row, int max_row, int min_col, int max_
     if (auto* assembler = dynamic_cast<Assembler*>(obj)) {
       obj_dict["cooldown_remaining"] = assembler->cooldown_remaining();
       obj_dict["cooldown_duration"] = assembler->cooldown_duration;
-      obj_dict["is_clipped"] = assembler->is_clipped;
-      obj_dict["is_clip_immune"] = assembler->clip_immune;
       obj_dict["uses_count"] = assembler->uses_count;
       obj_dict["max_uses"] = assembler->max_uses;
       obj_dict["allow_partial_usage"] = assembler->allow_partial_usage;
@@ -153,7 +150,7 @@ py::dict MettaGrid::grid_objects(int min_row, int max_row, int min_col, int max_
 
       // Add all protocols information
       const std::unordered_map<GroupVibe, vector<std::shared_ptr<Protocol>>>& active_protocols =
-          assembler->is_clipped ? assembler->unclip_protocols : assembler->protocols;
+          assembler->protocols;
       py::list protocols_list;
 
       for (const auto& [vibe, protocols] : active_protocols) {
@@ -386,7 +383,6 @@ PYBIND11_MODULE(mettagrid_c, m) {
   bind_change_vibe_action_config(m);
   bind_move_action_config(m);
   bind_global_obs_config(m);
-  bind_clipper_config(m);
   bind_game_config(m);
 
   // Handler bindings

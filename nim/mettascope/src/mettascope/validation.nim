@@ -601,7 +601,7 @@ proc validateProtocol*(protocol: JsonNode, protocolIndex: int, objName: string, 
 proc validateAssemblerFields*(obj: JsonNode, objName: string, issues: var seq[ValidationIssue]) =
   ## Validate all assembler-specific fields.
   let assemblerFields = [
-    "protocols", "is_clipped", "is_clip_immune", "uses_count", "max_uses", "allow_partial_usage"
+    "protocols", "uses_count", "max_uses", "allow_partial_usage"
   ]
   requireFields(obj, assemblerFields, objName, issues)
 
@@ -624,8 +624,6 @@ proc validateAssemblerFields*(obj: JsonNode, objName: string, issues: var seq[Va
         validateProtocol(protocol, i, objName, issues)
 
   # Validate dynamic assembler fields (time series).
-  validateTimeSeries(obj, "is_clipped", objName & ".is_clipped", "bool", issues)
-  validateTimeSeries(obj, "is_clip_immune", objName & ".is_clip_immune", "bool", issues)
   validateTimeSeries(obj, "uses_count", objName & ".uses_count", "int", issues)
 
 proc validateBuildingFields*(obj: JsonNode, objName: string, issues: var seq[ValidationIssue]) =

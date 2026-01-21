@@ -12,7 +12,6 @@
 #include "config/observation_features.hpp"
 #include "core/types.hpp"
 #include "objects/collective_config.hpp"
-#include "systems/clipper_config.hpp"
 
 // Forward declarations
 #include "actions/action_handler.hpp"
@@ -52,9 +51,6 @@ struct GameConfig {
 
   // Inventory regeneration interval (global check timing)
   unsigned int inventory_regen_interval = 0;  // Interval in timesteps (0 = disabled)
-
-  // Global clipper settings
-  std::shared_ptr<ClipperConfig> clipper = nullptr;
 
   // Observation encoding settings
   unsigned int token_value_base = 256;  // Base for multi-token inventory encoding (value per token: 0 to base-1)
@@ -104,9 +100,6 @@ inline void bind_game_config(py::module& m) {
                     // Inventory regeneration
                     unsigned int,
 
-                    // Clipper
-                    const std::shared_ptr<ClipperConfig>&,
-
                     // Observation encoding
                     unsigned int>(),
            py::arg("num_agents"),
@@ -132,9 +125,6 @@ inline void bind_game_config(py::module& m) {
 
            // Inventory regeneration
            py::arg("inventory_regen_interval") = 0,
-
-           // Clipper
-           py::arg("clipper") = std::shared_ptr<ClipperConfig>(nullptr),
 
            // Observation encoding
            py::arg("token_value_base") = 256)
@@ -166,9 +156,6 @@ inline void bind_game_config(py::module& m) {
 
       // Inventory regeneration
       .def_readwrite("inventory_regen_interval", &GameConfig::inventory_regen_interval)
-
-      // Clipper
-      .def_readwrite("clipper", &GameConfig::clipper)
 
       // Observation encoding
       .def_readwrite("token_value_base", &GameConfig::token_value_base);

@@ -75,8 +75,6 @@ proc getMinimalReplay(fileName: string = "sample.json.z"): JsonNode =
         ],
         "cooldown_remaining": 0,
         "cooldown_duration": 10,
-        "is_clipped": false,
-        "is_clip_immune": false,
         "uses_count": 0,
         "max_uses": 100,
         "allow_partial_usage": true,

@@ -260,12 +260,6 @@ class AssemblerConfig(GridObjectConfig):
         ),
     )
     max_uses: int = Field(default=0, ge=0, description="Maximum number of uses (0 = unlimited)")
-    clip_immune: bool = Field(
-        default=False, description="If true, this assembler cannot be clipped by the Clipper system"
-    )
-    start_clipped: bool = Field(
-        default=False, description="If true, this assembler starts in a clipped state at the beginning of the game"
-    )
     chest_search_distance: int = Field(
         default=0,
         ge=0,
@@ -300,32 +294,6 @@ class CollectiveChestConfig(GridObjectConfig):
 
     pydantic_type: Literal["collective_chest"] = "collective_chest"
     name: str = Field(default="collective_chest")
-
-
-class ClipperConfig(Config):
-    """
-    Global clipper that probabilistically clips assemblers each tick.
-
-    The clipper system uses a spatial diffusion process where clipping spreads
-    based on distance from already-clipped buildings. The length_scale parameter
-    controls the exponential decay: weight ~= exp(-distance / length_scale).
-    """
-
-    unclipping_protocols: list[ProtocolConfig] = Field(default_factory=list)
-    length_scale: int = Field(
-        default=0,
-        ge=0,
-        description="Controls spatial spread rate: weight ~= exp(-distance / length_scale). "
-        "If <= 0, automatically calculated at runtime based on the sparsity of the grid.",
-    )
-    scaled_cutoff_distance: int = Field(
-        default=3,
-        ge=1,
-        description="Maximum distance in units of length_scale for infection weight calculations.",
-    )
-    clip_period: int = Field(
-        default=0, ge=0, description="Approximate timesteps between clipping events (0 = disabled)"
-    )
 
 
 class CollectiveConfig(Config):
@@ -403,9 +371,6 @@ class GameConfig(Config):
         default=0, ge=0, description="Interval in timesteps between regenerations (0 = disabled)"
     )
 
-    # Global clipper system
-    clipper: Optional[ClipperConfig] = Field(default=None, description="Global clipper configuration")
-
     # Collectives - shared inventories that grid objects can belong to
     collectives: dict[str, CollectiveConfig] = Field(
         default_factory=dict,
@@ -415,7 +380,6 @@ class GameConfig(Config):
     # Map builder configuration - accepts any MapBuilder config
     map_builder: AnyMapBuilderConfig = Field(default_factory=lambda: RandomMapBuilder.Config(agents=24))
 
-    # Note that if this is False, agents won't be able to see how to unclip assemblers.
     protocol_details_obs: bool = Field(
         default=True, description="Objects show their protocol inputs and outputs when observed"
     )

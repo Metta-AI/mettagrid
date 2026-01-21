@@ -35,8 +35,6 @@
 #include "objects/inventory_config.hpp"
 #include "objects/protocol.hpp"
 #include "objects/wall.hpp"
-#include "systems/clipper.hpp"
-#include "systems/clipper_config.hpp"
 #include "systems/observation_encoder.hpp"
 #include "systems/packed_coordinate.hpp"
 #include "systems/stats_tracker.hpp"
@@ -139,20 +137,6 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   // Create buffers
   _make_buffers(num_agents);
-
-  // Initialize global systems
-  if (_game_config.clipper) {
-    auto& clipper_cfg = *_game_config.clipper;
-    if (clipper_cfg.unclipping_protocols.empty()) {
-      throw std::runtime_error("Clipper config provided but unclipping_protocols is empty");
-    }
-    _clipper = std::make_unique<Clipper>(*_grid,
-                                         clipper_cfg.unclipping_protocols,
-                                         clipper_cfg.length_scale,
-                                         clipper_cfg.scaled_cutoff_distance,
-                                         clipper_cfg.clip_period,
-                                         _rng);
-  }
 }
 
 MettaGrid::~MettaGrid() = default;
@@ -562,11 +546,6 @@ void MettaGrid::_step() {
   // Apply AOE effects to all agents at their current location
   for (auto* agent : _agents) {
     _aoe_grid->apply_effects_at(agent->location, *agent);
-  }
-
-  // Apply global systems
-  if (_clipper) {
-    _clipper->maybe_clip_new_assembler();
   }
 
   // Update held stats for all collectives (tracks how long objects are aligned)

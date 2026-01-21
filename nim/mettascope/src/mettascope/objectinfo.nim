@@ -147,10 +147,6 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
         text(&"  Cooldown remaining: {cooldown}")
       if cur.cooldownDuration > 0:
         text(&"  Cooldown duration: {cur.cooldownDuration}")
-      if cur.isClipped.at:
-        text("  Is clipped")
-      if cur.isClipImmune.at:
-        text("  Clip immune")
       if cur.usesCount.at > 0:
         text(&"  Uses: {cur.usesCount.at}" &
           (if cur.maxUses > 0: "/" & $cur.maxUses else: ""))

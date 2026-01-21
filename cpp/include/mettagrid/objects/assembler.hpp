@@ -21,8 +21,6 @@
 #include "systems/observation_encoder.hpp"
 #include "systems/stats_tracker.hpp"
 
-class Clipper;
-
 class Assembler : public GridObject {
 private:
   // Surrounding positions in deterministic order: NW, N, NE, W, E, SW, S, SE
@@ -237,18 +235,6 @@ public:
   // Note that 0 is both the vibe you get when no one is showing a vibe, and also the default vibe.
   const std::unordered_map<GroupVibe, std::vector<std::shared_ptr<Protocol>>> protocols;
 
-  // Unclip protocols - used when assembler is clipped
-  std::unordered_map<GroupVibe, std::vector<std::shared_ptr<Protocol>>> unclip_protocols;
-
-  // Clipped state
-  bool is_clipped;
-
-  // Clip immunity - if true, cannot be clipped
-  bool clip_immune;
-
-  // Start clipped - if true, starts in clipped state
-  bool start_clipped;
-
   // Current cooldown state
   unsigned int cooldown_end_timestep;
   unsigned int cooldown_duration;  // Total duration of current cooldown
@@ -263,9 +249,6 @@ public:
   // Game-level stats tracker (shared across environment)
   StatsTracker* stats_tracker;
 
-  // Clipper pointer, for when we become unclipped.
-  Clipper* clipper_ptr;
-
   // Pointer to current timestep from environment
   unsigned int* current_timestep_ptr;
 
@@ -279,10 +262,6 @@ public:
 
   Assembler(GridCoord r, GridCoord c, const AssemblerConfig& cfg, StatsTracker* stats)
       : protocols(build_protocol_map(cfg.protocols)),
-        unclip_protocols(),
-        is_clipped(cfg.start_clipped),
-        clip_immune(cfg.clip_immune),
-        start_clipped(cfg.start_clipped),
         cooldown_end_timestep(0),
         cooldown_duration(0),
         uses_count(0),
@@ -292,8 +271,7 @@ public:
         current_timestep_ptr(nullptr),
         obs_encoder(nullptr),
         allow_partial_usage(cfg.allow_partial_usage),
-        chest_search_distance(cfg.chest_search_distance),
-        clipper_ptr(nullptr) {
+        chest_search_distance(cfg.chest_search_distance) {
     GridObject::init(cfg.type_id, cfg.type_name, GridLocation(r, c), cfg.tag_ids, cfg.initial_vibe);
   }
   virtual ~Assembler() = default;
@@ -379,13 +357,8 @@ public:
     GroupVibe vibe = get_local_vibe();
     size_t num_agents = get_surrounding_agents(nullptr).size();
 
-    auto protocols_to_use = protocols;
-    if (is_clipped) {
-      protocols_to_use = unclip_protocols;
-    }
-
-    auto it = protocols_to_use.find(vibe);
-    if (it != protocols_to_use.end()) {
+    auto it = protocols.find(vibe);
+    if (it != protocols.end()) {
       for (const auto& protocol : it->second) {
         if (protocol->min_agents <= num_agents) {
           return protocol.get();
@@ -394,8 +367,8 @@ public:
     }
 
     // Check the default if no protocol is found for the current vibe.
-    it = protocols_to_use.find(0);
-    if (it != protocols_to_use.end()) {
+    it = protocols.find(0);
+    if (it != protocols.end()) {
       for (const auto& protocol : it->second) {
         if (protocol->min_agents <= num_agents) {
           return protocol.get();
@@ -405,21 +378,6 @@ public:
 
     return nullptr;
   }
-
-  // Make this assembler clipped with the given unclip protocols
-  void become_clipped(const std::vector<std::shared_ptr<Protocol>>& unclip_protocols_list, Clipper* clipper) {
-    is_clipped = true;
-    unclip_protocols = build_protocol_map(unclip_protocols_list);
-    // It's a little odd that we store the clipper here, versus having global access to it. This is a
-    // path of least resistance, not a specific intention. But it does present questions around whether
-    // there could be more than one Clipper.
-    clipper_ptr = clipper;
-    // Reset cooldown. The assembler being on its normal cooldown shouldn't stop it from being unclipped.
-    cooldown_end_timestep = *current_timestep_ptr;
-    cooldown_duration = 0;
-  }
-
-  void become_unclipped();
 
   // Scale protocol requirements based on cooldown remaining (for partial usage)
   // Uses integer math: elapsed = duration - remaining, then scales by (amount * elapsed) / duration
@@ -478,11 +436,8 @@ public:
       protocol_to_use = scale_protocol_for_partial_usage(*original_protocol, elapsed, cooldown_duration);
 
       // Prevent usage that would yield no outputs (and would only serve to burn inputs and increment uses_count)
-      // Do not prevent usage if:
-      // - the unscaled protocol does not have outputs
-      // - usage would unclip the assembler; the unscaled unclipping protocol may happen to include outputs
       if (!Assembler::protocol_has_positive_output(protocol_to_use) &&
-          Assembler::protocol_has_positive_output(*original_protocol) && !is_clipped) {
+          Assembler::protocol_has_positive_output(*original_protocol)) {
         return false;
       }
     }
@@ -504,7 +459,7 @@ public:
       return false;
     }
     std::vector<Inventory*> output_inventories = get_output_inventories(protocol_to_use, surrounding_agents, actor);
-    if (!Assembler::can_receive_output(protocol_to_use, output_inventories) && !is_clipped) {
+    if (!Assembler::can_receive_output(protocol_to_use, output_inventories)) {
       // If the inventories gain nothing from the protocol, don't use it.
       return false;
     }
@@ -515,12 +470,7 @@ public:
     cooldown_duration = static_cast<unsigned int>(protocol_to_use.cooldown);
     cooldown_end_timestep = *current_timestep_ptr + cooldown_duration;
 
-    // If we were clipped and successfully used an unclip protocol, become unclipped. Also, don't count this as a use.
-    if (is_clipped) {
-      become_unclipped();
-    } else {
-      uses_count++;
-    }
+    uses_count++;
     return true;
   }
 
@@ -530,11 +480,6 @@ public:
     unsigned int remaining = std::min(cooldown_remaining(), 255u);
     if (remaining > 0) {
       features.push_back({ObservationFeature::CooldownRemaining, static_cast<ObservationType>(remaining)});
-    }
-
-    // Add clipped status to observations if clipped
-    if (is_clipped) {
-      features.push_back({ObservationFeature::Clipped, static_cast<ObservationType>(1)});
     }
 
     // Add remaining uses to observations if max_uses is set
@@ -576,18 +521,5 @@ public:
     return features;
   }
 };
-
-#include "systems/clipper.hpp"
-
-inline void Assembler::become_unclipped() {
-  is_clipped = false;
-  unclip_protocols.clear();
-  if (clipper_ptr) {
-    // clipper_ptr might not be set if we're being unclipped as part of a test.
-    // Later, it might be because we started clipped.
-    clipper_ptr->on_unclip_assembler(*this);
-  }
-  clipper_ptr = nullptr;
-}
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_OBJECTS_ASSEMBLER_HPP_

@@ -6,7 +6,6 @@ from mettagrid.config.mettagrid_config import (
     AgentConfig,
     AssemblerConfig,
     ChestConfig,
-    ClipperConfig,
     GameConfig,
     GridObjectConfig,
     WallConfig,
@@ -20,7 +19,6 @@ from mettagrid.mettagrid_c import AttackActionConfig as CppAttackActionConfig
 from mettagrid.mettagrid_c import AttackOutcome as CppAttackOutcome
 from mettagrid.mettagrid_c import ChangeVibeActionConfig as CppChangeVibeActionConfig
 from mettagrid.mettagrid_c import ChestConfig as CppChestConfig
-from mettagrid.mettagrid_c import ClipperConfig as CppClipperConfig
 from mettagrid.mettagrid_c import CollectiveConfig as CppCollectiveConfig
 from mettagrid.mettagrid_c import EntityRef as CppEntityRef
 from mettagrid.mettagrid_c import GameConfig as CppGameConfig
@@ -411,8 +409,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             cpp_config.protocols = protocols
             cpp_config.allow_partial_usage = object_config.allow_partial_usage
             cpp_config.max_uses = object_config.max_uses
-            cpp_config.clip_immune = object_config.clip_immune
-            cpp_config.start_clipped = object_config.start_clipped
             cpp_config.chest_search_distance = object_config.chest_search_distance
         elif isinstance(object_config, ChestConfig):
             # Convert vibe_transfers: vibe -> resource -> delta
@@ -636,41 +632,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
 
     # Add inventory regeneration interval
     game_cpp_params["inventory_regen_interval"] = game_config.inventory_regen_interval
-
-    # Add clipper if configured
-    if game_config.clipper is not None:
-        clipper: ClipperConfig = game_config.clipper
-        clipper_protocols = []
-        for protocol_config in clipper.unclipping_protocols:
-            cpp_protocol = CppProtocol()
-            cpp_protocol.min_agents = protocol_config.min_agents
-            # Validate all vibe names exist
-            for vibe in protocol_config.vibes:
-                if vibe not in vibe_name_to_id:
-                    raise ValueError(f"Unknown vibe name '{vibe}' in clipper unclipping_protocols")
-            cpp_protocol.vibes = sorted([vibe_name_to_id[vibe] for vibe in protocol_config.vibes])
-            # Ensure keys and values are explicitly Python ints for C++ binding
-            # Build dict item-by-item to ensure pybind11 recognizes it as dict[int, int]
-            input_res = {}
-            for k, v in protocol_config.input_resources.items():
-                key = int(resource_name_to_id[k])
-                val = int(v)
-                input_res[key] = val
-            cpp_protocol.input_resources = input_res
-            output_res = {}
-            for k, v in protocol_config.output_resources.items():
-                key = int(resource_name_to_id[k])
-                val = int(v)
-                output_res[key] = val
-            cpp_protocol.output_resources = output_res
-            cpp_protocol.cooldown = protocol_config.cooldown
-            clipper_protocols.append(cpp_protocol)
-        clipper_config = CppClipperConfig()
-        clipper_config.unclipping_protocols = clipper_protocols
-        clipper_config.length_scale = clipper.length_scale
-        clipper_config.scaled_cutoff_distance = clipper.scaled_cutoff_distance
-        clipper_config.clip_period = clipper.clip_period
-        game_cpp_params["clipper"] = clipper_config
 
     # Add tag mappings for C++ debugging/display
     game_cpp_params["tag_id_map"] = tag_id_to_name

@@ -25,7 +25,6 @@ public:
     _compass = get("agent:compass");
     _tag = get("tag");
     _cooldown_remaining = get("cooldown_remaining");
-    _clipped = get("clipped");
     _remaining_uses = get("remaining_uses");
     _goal = get("goal");
 
@@ -39,7 +38,6 @@ public:
     Compass = _compass;
     Tag = _tag;
     CooldownRemaining = _cooldown_remaining;
-    Clipped = _clipped;
     RemainingUses = _remaining_uses;
     Goal = _goal;
   }
@@ -68,7 +66,6 @@ public:
   ObservationType Compass;
   ObservationType Tag;
   ObservationType CooldownRemaining;
-  ObservationType Clipped;
   ObservationType RemainingUses;
   ObservationType Goal;
 
@@ -85,7 +82,6 @@ private:
   ObservationType _compass;
   ObservationType _tag;
   ObservationType _cooldown_remaining;
-  ObservationType _clipped;
   ObservationType _remaining_uses;
   ObservationType _goal;
 };
@@ -109,7 +105,6 @@ extern ObservationType Vibe;
 extern ObservationType Compass;
 extern ObservationType Tag;
 extern ObservationType CooldownRemaining;
-extern ObservationType Clipped;
 extern ObservationType RemainingUses;
 extern ObservationType Goal;
 }  // namespace ObservationFeature
