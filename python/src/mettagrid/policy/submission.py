@@ -1,5 +1,7 @@
 """Shared constants and utilities for policy submission archives."""
 
+import tempfile
+from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -21,3 +23,15 @@ class SubmissionPolicySpec(BaseModel):
         default=None,
         description="Relative path to a Python setup script to run once before loading the policy",
     )
+
+
+def write_submission_policy_spec(path: Path, spec: SubmissionPolicySpec) -> None:
+    with tempfile.NamedTemporaryFile(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as tmp:
+        tmp_path = Path(tmp.name)
+        tmp.write(spec.model_dump_json().encode("utf-8"))
+    tmp_path.replace(path)
