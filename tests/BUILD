@@ -1,4 +1,5 @@
 # BUILD file for mettagrid tests
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("@rules_python//python:defs.bzl", "py_test")
 
 # Basic compiler flags
