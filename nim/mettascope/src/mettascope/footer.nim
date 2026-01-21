@@ -15,10 +15,10 @@ proc drawFooter*(pos, size: Vec2) =
 
     sk.at = pos + vec2(16, 16)
     group(vec2(0, 0), LeftToRight):
-      clickableIcon("ui/rewindToStart", step == 0):
+      clickableIcon("ui/rewindToStart", step != 0):
         step = 0
         stepFloat = step.float32
-      clickableIcon("ui/stepBack", false):
+      clickableIcon("ui/stepBack", step > 0):
         step -= 1
         step = clamp(step, 0, replay.maxSteps - 1)
         stepFloat = step.float32
@@ -26,15 +26,15 @@ proc drawFooter*(pos, size: Vec2) =
         clickableIcon("ui/pause", true):
           play = false
       else:
-        clickableIcon("ui/play", false):
+        clickableIcon("ui/play", true):
           play = true
-      clickableIcon("ui/stepForward", false):
+      clickableIcon("ui/stepForward", step < replay.maxSteps - 1):
         step += 1
         if step > replay.maxSteps - 1:
           requestPython = true
         step = clamp(step, 0, replay.maxSteps - 1)
         stepFloat = step.float32
-      clickableIcon("ui/rewindToEnd", step == replay.maxSteps - 1):
+      clickableIcon("ui/rewindToEnd", step != replay.maxSteps - 1):
         step = replay.maxSteps - 1
         stepFloat = step.float32
 
