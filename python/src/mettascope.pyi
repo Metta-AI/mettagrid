@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Sequence
 
-
 class MettascopeAction:
     action_name: str | bytes
     agent_id: int
