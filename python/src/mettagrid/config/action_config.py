@@ -15,6 +15,10 @@ from mettagrid.base_config import Config
 from mettagrid.config.vibes import VIBES, Vibe
 from mettagrid.types import Action
 
+# ===== Action Name Prefixes =====
+
+CHANGE_VIBE_PREFIX = "change_vibe_"
+
 # ===== Direction Types =====
 
 Direction = Literal["north", "south", "east", "west", "northeast", "northwest", "southeast", "southwest"]
@@ -81,7 +85,7 @@ class ChangeVibeActionConfig(ActionConfig):
         return [self.ChangeVibe(vibe) for vibe in self.vibes]
 
     def ChangeVibe(self, vibe: Vibe) -> Action:
-        return Action(name=f"change_vibe_{vibe.name}")
+        return Action(name=f"{CHANGE_VIBE_PREFIX}{vibe.name}")
 
 
 class AttackOutcome(Config):
