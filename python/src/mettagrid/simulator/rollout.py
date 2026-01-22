@@ -9,6 +9,7 @@ from mettagrid.renderer.renderer import Renderer, RenderMode, create_renderer
 from mettagrid.simulator.interface import SimulatorEventHandler
 from mettagrid.simulator.simulator import Simulator
 from mettagrid.util.stats_writer import StatsWriter
+from mettagrid.util.tracer import NullTracer, Tracer
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class Rollout:
         seed: int = 0,
         event_handlers: Optional[list[SimulatorEventHandler]] = None,
         stats_writer: Optional[StatsWriter] = None,
+        tracer: Optional[Tracer] = None,
     ):
         self._config = config
         self._policies = policies
@@ -32,6 +34,7 @@ class Rollout:
         self._max_action_time_ms: int = max_action_time_ms or 10000
         self._renderer: Optional[Renderer] = None
         self._timeout_counts: list[int] = [0] * len(policies)
+        self._tracer: Tracer = tracer or NullTracer()
         # Attach renderer if specified
         if render_mode is not None:
             self._renderer = create_renderer(render_mode)
@@ -60,25 +63,31 @@ class Rollout:
             logger.debug(f"Step {self._step_count}")
 
         for i in range(len(self._policies)):
-            start_time = time.time()
-            action = self._policies[i].step(self._agents[i].observation)
-            elapsed_ms = (time.time() - start_time) * 1000
-            if elapsed_ms > self._max_action_time_ms:
-                logger.warning(f"Action took {elapsed_ms}ms, exceeding max of {self._max_action_time_ms}ms")
-                action = self._config.game.actions.noop.Noop()
-                self._timeout_counts[i] += 1
+            with self._tracer.span("agent_step", step=self._step_count, agent=i) as span:
+                start_time = time.time()
+                action = self._policies[i].step(self._agents[i].observation)
+                elapsed_ms = (time.time() - start_time) * 1000
+                timed_out = elapsed_ms > self._max_action_time_ms
+                if timed_out:
+                    logger.warning(f"Action took {elapsed_ms}ms, exceeding max of {self._max_action_time_ms}ms")
+                    action = self._config.game.actions.noop.Noop()
+                    self._timeout_counts[i] += 1
+                span.set(timed_out=timed_out)
             self._agents[i].set_action(action)
 
         if self._renderer is not None:
             self._renderer.render()
 
-        self._sim.step()
+        with self._tracer.span("env_step", step=self._step_count):
+            self._sim.step()
+
         self._step_count += 1
 
     def run_until_done(self) -> None:
         """Run the rollout until completion or early exit."""
         while not self.is_done():
             self.step()
+        self._tracer.flush()
 
     def is_done(self) -> bool:
         return self._sim.is_done()
