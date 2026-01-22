@@ -22,10 +22,9 @@ def create_test_sim(global_obs_config: dict[str, bool]) -> Simulation:
     """Create test simulation with specified global_obs configuration."""
     game_config = GameConfig(
         num_agents=2,
-        obs=ObsConfig(width=11, height=11, num_tokens=100),
+        obs=ObsConfig(width=11, height=11, num_tokens=100, global_obs=GlobalObsConfig(**global_obs_config)),
         max_steps=100,
         resource_names=["item1", "item2"],
-        global_obs=GlobalObsConfig(**global_obs_config),
         agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=0, rewards=AgentRewards()),
         actions=ActionsConfig(noop=NoopActionConfig(enabled=True), move=MoveActionConfig(enabled=True)),
         objects={"wall": WallConfig()},

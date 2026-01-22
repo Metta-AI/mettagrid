@@ -19,11 +19,11 @@ from .mettagrid_config import (
     AgentRewards,
     AssemblerConfig,
     GameConfig,
-    GlobalObsConfig,
     MettaGridConfig,
     ProtocolConfig,
     WallConfig,
 )
+from .obs_config import GlobalObsConfig
 
 __all__ = [
     "ActionConfig",

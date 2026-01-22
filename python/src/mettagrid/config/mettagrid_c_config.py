@@ -512,7 +512,7 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
     game_cpp_params["feature_ids"] = {feature.name: feature.id for feature in id_map.features()}
 
     # Convert global_obs configuration
-    global_obs_config = game_config.global_obs
+    global_obs_config = game_config.obs.global_obs
     global_obs_cpp = CppGlobalObsConfig(
         episode_completion_pct=global_obs_config.episode_completion_pct,
         last_action=global_obs_config.last_action,

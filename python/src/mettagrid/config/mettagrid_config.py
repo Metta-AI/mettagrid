@@ -30,7 +30,7 @@ from mettagrid.config.handler_config import (
     Handler,
 )
 from mettagrid.config.id_map import IdMap
-from mettagrid.config.obs_config import ObsConfig
+from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig  # noqa: F401 - GlobalObsConfig re-exported
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.map_builder.map_builder import AnyMapBuilderConfig
 from mettagrid.map_builder.random_map import RandomMapBuilder
@@ -136,23 +136,6 @@ class AgentConfig(Config):
             if collective_tag not in self.tags:
                 self.tags = self.tags + [collective_tag]
         return self
-
-
-class GlobalObsConfig(Config):
-    """Global observation configuration."""
-
-    episode_completion_pct: bool = Field(default=True)
-
-    # Controls whether the last_action global token is included
-    last_action: bool = Field(default=True)
-
-    last_reward: bool = Field(default=True)
-
-    # Compass token that points toward the assembler/hub center
-    compass: bool = Field(default=False)
-
-    # Goal tokens that indicate rewarding resources
-    goal_obs: bool = Field(default=False)
 
 
 class GridObjectConfig(Config):
@@ -359,7 +342,6 @@ class GameConfig(Config):
     agent: AgentConfig = Field(default_factory=AgentConfig)
     agents: list[AgentConfig] = Field(default_factory=list)
     actions: ActionsConfig = Field(default_factory=lambda: ActionsConfig())
-    global_obs: GlobalObsConfig = Field(default_factory=GlobalObsConfig)
     objects: dict[str, AnyGridObjectConfig] = Field(default_factory=dict)
     # these are not used in the C++ code, but we allow them to be set for other uses.
     # E.g., templates can use params as a place  where values are expected to be written,

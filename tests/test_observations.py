@@ -45,7 +45,7 @@ def basic_sim() -> Simulation:
         )
     )
 
-    cfg.game.global_obs.compass = True
+    cfg.game.obs.global_obs.compass = True
 
     return Simulation(cfg)
 
@@ -294,11 +294,15 @@ class TestGlobalTokens:
         cfg = MettaGridConfig(
             game=GameConfig(
                 num_agents=2,
-                obs=ObsConfig(width=3, height=3, num_tokens=NUM_OBS_TOKENS),
+                obs=ObsConfig(
+                    width=3,
+                    height=3,
+                    num_tokens=NUM_OBS_TOKENS,
+                    global_obs=GlobalObsConfig(episode_completion_pct=True, last_action=True, last_reward=True),
+                ),
                 max_steps=10,  # Important: 10 steps total so 1 step = 10%
                 actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
                 objects={"wall": WallConfig(tags=["wall"])},
-                global_obs=GlobalObsConfig(episode_completion_pct=True, last_action=True, last_reward=True),
                 resource_names=["laser", "armor", "heart"],
                 map_builder=AsciiMapBuilder.Config(map_data=game_map.tolist(), char_to_map_name=DEFAULT_CHAR_TO_NAME),
             )

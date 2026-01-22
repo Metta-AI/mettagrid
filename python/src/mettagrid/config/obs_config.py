@@ -9,6 +9,25 @@ from pydantic import ConfigDict, Field
 from mettagrid.base_config import Config
 
 
+class GlobalObsConfig(Config):
+    """Global observation configuration."""
+
+    episode_completion_pct: bool = Field(default=True)
+
+    # Controls whether the last_action global token is included
+    last_action: bool = Field(default=True)
+
+    last_reward: bool = Field(default=True)
+
+    # Compass token that points toward the assembler/hub center
+    compass: bool = Field(default=False)
+
+    # Goal tokens that indicate rewarding resources
+    goal_obs: bool = Field(default=False)
+
+    stats_obs: dict[str, bool] = Field(default_factory=dict)
+
+
 class ObsConfig(Config):
     """Observation configuration."""
 
@@ -23,3 +42,4 @@ class ObsConfig(Config):
 
     Default 256 for efficient byte packing.
     """
+    global_obs: GlobalObsConfig = Field(default_factory=GlobalObsConfig)

@@ -33,10 +33,9 @@ class TestGlobalObservations:
         # Create config with last_action observation enabled and move action requiring resources
         game_config = GameConfig(
             num_agents=1,
-            obs=ObsConfig(width=7, height=7, num_tokens=100),
+            obs=ObsConfig(width=7, height=7, num_tokens=100, global_obs=GlobalObsConfig(last_action=True)),
             max_steps=100,
             resource_names=["ore"],
-            global_obs=GlobalObsConfig(last_action=True),
             agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=0, rewards=AgentRewards()),
             actions=ActionsConfig(
                 noop=NoopActionConfig(enabled=True),
@@ -86,10 +85,9 @@ class TestGlobalObservations:
         # Create config with last_action observation enabled
         game_config = GameConfig(
             num_agents=1,
-            obs=ObsConfig(width=7, height=7, num_tokens=100),
+            obs=ObsConfig(width=7, height=7, num_tokens=100, global_obs=GlobalObsConfig(last_action=True)),
             max_steps=100,
             resource_names=["ore"],
-            global_obs=GlobalObsConfig(last_action=True),
             agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=0, rewards=AgentRewards()),
             actions=ActionsConfig(
                 noop=NoopActionConfig(enabled=True),
