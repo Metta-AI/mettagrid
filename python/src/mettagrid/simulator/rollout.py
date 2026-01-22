@@ -1,6 +1,8 @@
+import gc
 import logging
 import time
-from typing import Optional
+from contextlib import contextmanager
+from typing import Iterator, Optional
 
 from mettagrid.config.mettagrid_config import MettaGridConfig
 from mettagrid.envs.stats_tracker import StatsTracker
@@ -10,6 +12,26 @@ from mettagrid.simulator.interface import SimulatorEventHandler
 from mettagrid.simulator.simulator import Simulator
 from mettagrid.util.stats_writer import StatsWriter
 from mettagrid.util.tracer import NullTracer, Tracer
+
+
+@contextmanager
+def gc_disabled() -> Iterator[None]:
+    """Disable GC for a latency-sensitive section, then allow it to run if needed.
+
+    Gen2 collections take ~100ms, which is large compared to our per-policy-step
+    timeouts. This context manager disables GC during the critical section, then
+    on exit allows GC to run if thresholds are met (without forcing a full
+    collection).
+    """
+    was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        yield
+    finally:
+        if was_enabled:
+            gc.enable()
+            _ = []  # Allocate a container to trigger GC threshold evaluation
+
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +108,8 @@ class Rollout:
     def run_until_done(self) -> None:
         """Run the rollout until completion or early exit."""
         while not self.is_done():
-            self.step()
+            with gc_disabled():
+                self.step()
         self._tracer.flush()
 
     def is_done(self) -> bool:
