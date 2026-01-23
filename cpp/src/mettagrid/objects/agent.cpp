@@ -24,17 +24,7 @@ Agent::Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vec
       reward(nullptr),
       prev_location(r, c),
       steps_without_motion(0),
-      inventory_regen_amounts(config.inventory_regen_amounts),
-      resource_names(resource_names),
-      diversity_tracked_mask(resource_names != nullptr ? resource_names->size() : 0, 0),
-      tracked_resource_presence(resource_names != nullptr ? resource_names->size() : 0, 0),
-      tracked_resource_diversity(0) {
-  for (InventoryItem item : config.diversity_tracked_resources) {
-    const size_t index = static_cast<size_t>(item);
-    if (index < diversity_tracked_mask.size()) {
-      diversity_tracked_mask[index] = 1;
-    }
-  }
+      inventory_regen_amounts(config.inventory_regen_amounts) {
   populate_initial_inventory(config.initial_inventory);
   GridObject::init(config.type_id, config.type_name, GridLocation(r, c), config.tag_ids, config.initial_vibe);
 }
@@ -78,23 +68,6 @@ void Agent::on_inventory_change(InventoryItem item, InventoryDelta delta) {
       this->stats.add(this->stats.resource_name(item) + ".lost", -delta);
     }
     this->stats.set(this->stats.resource_name(item) + ".amount", amount);
-  }
-  update_inventory_diversity_stats(item, amount);
-}
-
-void Agent::update_inventory_diversity_stats(InventoryItem item, InventoryQuantity amount) {
-  const size_t index = static_cast<size_t>(item);
-  if (index >= this->diversity_tracked_mask.size() || this->diversity_tracked_mask[index] == 0) {
-    return;
-  }
-
-  const bool had = this->tracked_resource_presence[index] != 0;
-  const bool has = amount > 0;
-
-  if (had != has) {
-    this->tracked_resource_presence[index] = has ? 1 : 0;
-    this->tracked_resource_diversity += has ? 1 : static_cast<std::size_t>(-1);
-    this->stats.set("inventory.diversity", static_cast<float>(this->tracked_resource_diversity));
   }
 }
 

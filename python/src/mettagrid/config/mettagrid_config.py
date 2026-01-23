@@ -119,10 +119,6 @@ class AgentConfig(Config):
         description="Name of collective this agent belongs to. Adds 'collective:{name}' tag automatically.",
     )
     initial_vibe: int = Field(default=0, ge=0, description="Initial vibe value for this agent instance")
-    diversity_tracked_resources: list[str] = Field(
-        default_factory=list,
-        description="Resource names tracked for diversity reward computation",
-    )
     handlers: list[Handler] = Field(
         default_factory=list,
         description="Handlers triggered when another agent moves onto this agent",

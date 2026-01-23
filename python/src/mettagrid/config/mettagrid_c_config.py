@@ -326,13 +326,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         inventory_config = CppInventoryConfig()
         inventory_config.limit_defs = limit_defs
 
-        # Convert diversity_tracked_resources from names to IDs
-        diversity_tracked_resources = [
-            resource_name_to_id[name]
-            for name in agent_props.get("diversity_tracked_resources", [])
-            if name in resource_name_to_id
-        ]
-
         cpp_agent_config = CppAgentConfig(
             type_id=0,
             type_name="agent",
@@ -345,7 +338,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             stat_reward_max=stat_reward_max,
             initial_inventory=initial_inventory,
             inventory_regen_amounts=inventory_regen_amounts,
-            diversity_tracked_resources=diversity_tracked_resources,
         )
         cpp_agent_config.tag_ids = tag_ids
 

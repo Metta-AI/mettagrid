@@ -224,7 +224,6 @@ class AgentConfig(GridObjectConfig):
         stat_reward_max: dict[str, float] = {},
         initial_inventory: dict[int, int] = {},
         inventory_regen_amounts: dict[int, dict[int, int]] | None = None,
-        diversity_tracked_resources: list[int] | None = None,
     ) -> None: ...
     type_id: int
     type_name: str
@@ -238,7 +237,6 @@ class AgentConfig(GridObjectConfig):
     stat_reward_max: dict[str, float]
     initial_inventory: dict[int, int]
     inventory_regen_amounts: dict[int, dict[int, int]]
-    diversity_tracked_resources: list[int]
 
 class ActionConfig:
     def __init__(
