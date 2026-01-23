@@ -1,5 +1,6 @@
 #include "core/grid_object.hpp"
 
+#include "core/tag_index.hpp"
 #include "handler/handler.hpp"
 #include "handler/handler_context.hpp"
 #include "objects/agent.hpp"
@@ -14,7 +15,7 @@ void GridObject::init(TypeId object_type_id,
   this->type_name = object_type_name;
   this->name = object_name.empty() ? object_type_name : object_name;
   this->location = object_location;
-  this->tag_ids = tags;
+  this->tag_ids = std::set<int>(tags.begin(), tags.end());
   this->vibe = object_vibe;
 }
 
@@ -59,5 +60,23 @@ void GridObject::fire_on_update_handlers() {
   // Try each on_update handler - all that pass filters will be applied
   for (auto& handler : _on_update_handlers) {
     handler->try_apply(ctx);
+  }
+}
+
+bool GridObject::has_tag(int tag_id) const {
+  return tag_ids.find(tag_id) != tag_ids.end();
+}
+
+void GridObject::add_tag(int tag_id) {
+  bool added = tag_ids.insert(tag_id).second;
+  if (added && _tag_index != nullptr) {
+    _tag_index->on_tag_added(this, tag_id);
+  }
+}
+
+void GridObject::remove_tag(int tag_id) {
+  size_t removed = tag_ids.erase(tag_id);
+  if (removed > 0 && _tag_index != nullptr) {
+    _tag_index->on_tag_removed(this, tag_id);
   }
 }

@@ -211,12 +211,16 @@ class TestTags:
         # Both agent and wall have "shared_tag"
         # Agent has ["mobile", "shared_tag"]
         # Wall has ["solid", "shared_tag"]
-        # Sorted all unique tags: ["mobile", "shared_tag", "solid"]
-        # Expected IDs: mobile=0, shared_tag=1, solid=2
-        shared_tag_id = 1  # "shared_tag" should be ID 1
+        # Default agent has ["agent"]
+        # Sorted all unique tags: ["agent", "mobile", "shared_tag", "solid"]
+        # Get the actual shared_tag_id from id_map
+        id_map = sim.config.game.id_map()
+        tag_names = id_map.tag_names()
+        tag_name_to_id = {name: idx for idx, name in enumerate(tag_names)}
+        shared_tag_id = tag_name_to_id["shared_tag"]
 
         # Get tag feature ID from environment
-        tag_feature_id = sim.config.game.id_map().feature_id("tag")
+        tag_feature_id = id_map.feature_id("tag")
 
         # Find wall and agent locations
         wall_locations = _positions_with_char(sim, "#")
@@ -475,9 +479,9 @@ def test_tag_id_bounds():
     # Convert and verify tag IDs start at 0
     cpp_config = convert_to_cpp_game_config(game_config)
 
-    # Tag IDs should be: alpha=0, beta=1, delta=2, epsilon=3, gamma=4
+    # Tag IDs from explicit agents: alpha, beta, gamma, delta, epsilon (sorted alphabetically)
     tag_id_map = cpp_config.tag_id_map
-    assert len(tag_id_map) == 5
+    assert len(tag_id_map) == 5  # 5 explicit tags from agents list
 
     # Check that tag IDs start at 0
     min_tag_id = min(tag_id_map.keys())
@@ -545,7 +549,7 @@ def test_team_tag_consistency_success():
     # Should succeed
     cpp_config = convert_to_cpp_game_config(game_config)
 
-    # Verify tag mapping is correct
+    # Verify tag mapping is correct - only tags from explicit agents list
     tag_id_map = cpp_config.tag_id_map
     assert len(tag_id_map) == 4  # alpha, beta, delta, gamma (sorted)
 
@@ -569,9 +573,10 @@ def test_empty_tags_allowed():
     # Should succeed
     cpp_config = convert_to_cpp_game_config(game_config)
 
-    # Verify no tags in mapping
+    # Verify only "agent" tag from default agent config is in mapping
     tag_id_map = cpp_config.tag_id_map
-    assert len(tag_id_map) == 0
+    assert len(tag_id_map) == 1  # "agent" from default agent config
+    assert tag_id_map[0] == "agent"
 
 
 def test_default_agent_tags_preserved():
@@ -661,8 +666,8 @@ def test_tag_mapping_in_id_map():
                     tags=["machine", "industrial"],
                 ),
             },
-            # It's weird we have both of these! But we do.
-            agent=AgentConfig(tags=["default_agent"]),
+            # Note: game_config.agent is a template for default agents when agents list is empty.
+            # When agents list is explicitly specified (as here), only tags from the agents list are used.
             agents=[
                 AgentConfig(tags=["player", "mobile"]),
             ],
@@ -689,9 +694,8 @@ def test_tag_mapping_in_id_map():
     tag_values = id_map.tag_names()
     assert isinstance(tag_values, list), "tag values should be a list of tag names"
 
-    # All unique tags sorted: ["blocking", "industrial", "machine", "mobile", "player", "solid"]
-    # IDs correspond to list indices (0-5)
-    expected_tags = ["blocking", "default_agent", "industrial", "machine", "mobile", "player", "solid"]
+    # Tags are from objects and explicit agents only (sorted alphabetically)
+    expected_tags = ["blocking", "industrial", "machine", "mobile", "player", "solid"]
     assert len(tag_values) == len(expected_tags), f"Should have {len(expected_tags)} tags, got {len(tag_values)}"
 
     # Verify tags are sorted alphabetically with correct IDs (indices)

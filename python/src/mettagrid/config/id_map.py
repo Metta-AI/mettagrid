@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict
 # a. move IdMap, ObservationFeatureSpec to mettagrid_config
 # b. move IdMap, GameConfig, ObservationFeatureSpec to package-level types.py
 if TYPE_CHECKING:
-    from mettagrid.config.mettagrid_config import GameConfig
+    from mettagrid.config.mettagrid_config import GameConfig, GridObjectConfig
 
 
 def num_inventory_tokens_needed(max_inventory_value: int, token_value_base: int) -> int:
@@ -76,17 +76,23 @@ class IdMap:
         """Get mapping of feature names to IDs."""
         return {feature.name: feature.id for feature in self.features()}
 
-    def tag_names(self) -> list[str]:
-        """Get all tag names in alphabetical order."""
+    def _all_grid_objects(self) -> list["GridObjectConfig"]:
+        """Get all grid objects including agents.
 
-        result = sorted(
-            set(
-                [tag for obj_config in self._config.objects.values() for tag in obj_config.tags]
-                + [tag for agent_config in self._config.agents for tag in agent_config.tags]
-                + self._config.agent.tags
-            )
-        )
+        Returns objects from the objects dict plus agents. If agents list is empty
+        but num_agents > 0, includes the default agent template since default agents
+        will be created during conversion.
+        """
+        result: list["GridObjectConfig"] = list(self._config.objects.values())
+        if self._config.agents:
+            result.extend(self._config.agents)
+        elif self._config.num_agents > 0:
+            result.append(self._config.agent)
         return result
+
+    def tag_names(self) -> list[str]:
+        """Get all tag names in alphabetical order from all grid objects."""
+        return sorted(set(tag for obj in self._all_grid_objects() for tag in obj.tags))
 
     def _compute_features(self) -> list[ObservationFeatureSpec]:
         """Compute observation features from the game configuration."""

@@ -333,7 +333,7 @@ class TestAgentInitialVibe:
         assert agent_obj["vibe"] == 0, f"Expected default vibe=0, got {agent_obj['vibe']}"
 
     def test_initial_vibe_custom(self):
-        """Test that agents start with configured initial_vibe value."""
+        """Test that agents start with configured vibe value."""
         game_config = GameConfig(
             max_steps=50,
             num_agents=1,
@@ -342,7 +342,7 @@ class TestAgentInitialVibe:
             actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
             objects={"wall": WallConfig()},
             agent=AgentConfig(
-                initial_vibe=2,
+                vibe=2,
                 inventory=InventoryConfig(default_limit=10),
             ),
         )
@@ -360,4 +360,4 @@ class TestAgentInitialVibe:
         grid_objects = sim._c_sim.grid_objects(0)
         agent_obj = next(o for o in grid_objects.values() if o["type_name"] == "agent")
 
-        assert agent_obj["vibe"] == 2, f"Expected initial_vibe=2, got {agent_obj['vibe']}"
+        assert agent_obj["vibe"] == 2, f"Expected vibe=2, got {agent_obj['vibe']}"

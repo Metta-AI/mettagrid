@@ -187,6 +187,10 @@ void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map) {
       _grid->add_object(created_object);
       _stats->incr("objects." + cell);
 
+      // Wire up the tag index and register the object
+      created_object->set_tag_index(&_tag_index);
+      _tag_index.register_object(created_object);
+
       // Register AOE handlers for this object (possibly none)
       for (const auto& handler : created_object->aoe_handlers()) {
         _aoe_grid->register_source(*created_object, handler);

@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -85,10 +86,11 @@ struct GridObjectConfig {
   virtual ~GridObjectConfig() = default;
 };
 
-// Forward declaration for Handler
+// Forward declarations
 namespace mettagrid {
 class Handler;
-}
+class TagIndex;
+}  // namespace mettagrid
 
 class GridObject : public HasVibe, public Alignable, public HasInventory, public Usable {
 public:
@@ -97,7 +99,7 @@ public:
   TypeId type_id{};
   std::string type_name;  // Class type (e.g., "assembler")
   std::string name;       // Instance name (e.g., "carbon_extractor"), defaults to type_name
-  std::vector<int> tag_ids;
+  std::set<int> tag_ids;
 
   // Constructor with optional inventory config (defaults to empty)
   explicit GridObject(const InventoryConfig& inv_config = InventoryConfig()) : HasInventory(inv_config) {}
@@ -129,6 +131,16 @@ public:
   // Fire on_update handlers (called after mutations are applied)
   void fire_on_update_handlers();
 
+  // Tag mutation methods
+  bool has_tag(int tag_id) const;
+  void add_tag(int tag_id);
+  void remove_tag(int tag_id);
+
+  // Set the tag index reference (called by MettaGrid)
+  void set_tag_index(mettagrid::TagIndex* index) {
+    _tag_index = index;
+  }
+
   virtual std::vector<PartialObservationToken> obs_features() const {
     return {};  // Default: no observable features
   }
@@ -137,6 +149,9 @@ protected:
   std::vector<std::shared_ptr<mettagrid::Handler>> _on_use_handlers;
   std::vector<std::shared_ptr<mettagrid::Handler>> _on_update_handlers;
   std::vector<std::shared_ptr<mettagrid::Handler>> _aoe_handlers;
+
+private:
+  mettagrid::TagIndex* _tag_index = nullptr;
 };
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GRID_OBJECT_HPP_

@@ -207,11 +207,12 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
 
     # Build tag mappings - collect all unique tags from all objects
     # Note: This must happen AFTER default agents are created, so their tags are included
+    # This must match the logic in IdMap.tag_names() exactly to ensure consistent tag IDs
     all_tags = set()
     for obj_config in game_config.objects.values():
         all_tags.update(obj_config.tags)
 
-    # Also collect tags from agents
+    # Collect tags from agents (created from default config if list was empty)
     for agent_config in game_config.agents:
         all_tags.update(agent_config.tags)
 
@@ -332,7 +333,7 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             group_id=team_id,
             group_name=group_name,
             freeze_duration=agent_props["freeze_duration"],
-            initial_vibe=agent_props["initial_vibe"],
+            initial_vibe=agent_props["vibe"],
             inventory_config=inventory_config,
             stat_rewards=stat_rewards,
             stat_reward_max=stat_reward_max,

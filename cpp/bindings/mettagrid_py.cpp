@@ -3,6 +3,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
+#include "core/tag_index.hpp"
 #include "handler/handler_bindings.hpp"
 #include "actions/attack.hpp"
 #include "actions/change_vibe.hpp"
@@ -20,7 +21,7 @@
 
 namespace py = pybind11;
 
-py::dict MettaGrid::grid_objects(int min_row, int max_row, int min_col, int max_col, const py::list& ignore_types) {
+py::dict MettaGrid::grid_objects(py::object self_ref, int min_row, int max_row, int min_col, int max_col, const py::list& ignore_types) {
   py::dict objects;
 
   // Determine if bounding box filtering is enabled
@@ -191,6 +192,12 @@ py::dict MettaGrid::grid_objects(int min_row, int max_row, int min_col, int max_
       obj_dict["vibe_transfers"] = vibe_transfers_dict;
     }
 
+    // Add tag mutation methods (capture obj pointer and self_ref to prevent use-after-free)
+    // self_ref keeps the MettaGrid alive as long as these lambdas exist
+    obj_dict["has_tag"] = py::cpp_function([obj, self_ref](int tag_id) { return obj->has_tag(tag_id); });
+    obj_dict["add_tag"] = py::cpp_function([obj, self_ref](int tag_id) { obj->add_tag(tag_id); });
+    obj_dict["remove_tag"] = py::cpp_function([obj, self_ref](int tag_id) { obj->remove_tag(tag_id); });
+
     objects[py::int_(obj_id)] = obj_dict;
   }
 
@@ -319,7 +326,9 @@ PYBIND11_MODULE(mettagrid_c, m) {
            py::arg("rewards").noconvert(),
            py::arg("actions").noconvert())
       .def("grid_objects",
-           &MettaGrid::grid_objects,
+           [](MettaGrid& self, int min_row, int max_row, int min_col, int max_col, const py::list& ignore_types) {
+             return self.grid_objects(py::cast(&self), min_row, max_row, min_col, max_col, ignore_types);
+           },
            py::arg("min_row") = -1,
            py::arg("max_row") = -1,
            py::arg("min_col") = -1,
@@ -343,7 +352,8 @@ PYBIND11_MODULE(mettagrid_c, m) {
       .def_readonly("object_type_names", &MettaGrid::object_type_names)
       .def_readonly("resource_names", &MettaGrid::resource_names)
       .def("set_inventory", &MettaGrid::set_inventory, py::arg("agent_id"), py::arg("inventory"))
-      .def("get_collective_inventories", &MettaGrid::get_collective_inventories);
+      .def("get_collective_inventories", &MettaGrid::get_collective_inventories)
+      .def("tag_index", &MettaGrid::tag_index, py::return_value_policy::reference_internal);
 
   // Expose this so we can cast python WallConfig / AgentConfig to a common GridConfig cpp object.
   py::class_<GridObjectConfig, std::shared_ptr<GridObjectConfig>>(m, "GridObjectConfig")
@@ -387,6 +397,11 @@ PYBIND11_MODULE(mettagrid_c, m) {
 
   // Handler bindings
   bind_handler_config(m);
+
+  // TagIndex binding
+  py::class_<mettagrid::TagIndex>(m, "TagIndex")
+      .def(py::init<>())
+      .def("count_objects_with_tag", &mettagrid::TagIndex::count_objects_with_tag);
 
   // Export data types from types.hpp
   m.attr("dtype_observations") = dtype_observations();

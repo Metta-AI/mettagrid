@@ -105,35 +105,6 @@ class InventoryConfig(Config):
         return self.default_limit
 
 
-# TODO: this should probably subclass GridObjectConfig
-class AgentConfig(Config):
-    """Python agent configuration."""
-
-    inventory: InventoryConfig = Field(default_factory=InventoryConfig, description="Inventory configuration")
-    rewards: AgentRewards = Field(default_factory=AgentRewards)
-    freeze_duration: int = Field(default=10, ge=-1, description="Duration agent remains frozen after certain actions")
-    team_id: int = Field(default=0, ge=0, description="Team identifier for grouping agents")
-    tags: list[str] = Field(default_factory=lambda: ["agent"], description="Tags for this agent instance")
-    collective: Optional[str] = Field(
-        default=None,
-        description="Name of collective this agent belongs to. Adds 'collective:{name}' tag automatically.",
-    )
-    initial_vibe: int = Field(default=0, ge=0, description="Initial vibe value for this agent instance")
-    handlers: list[Handler] = Field(
-        default_factory=list,
-        description="Handlers triggered when another agent moves onto this agent",
-    )
-
-    @model_validator(mode="after")
-    def add_collective_tag(self) -> "AgentConfig":
-        """Add collective tag if collective is set."""
-        if self.collective:
-            collective_tag = f"collective:{self.collective}"
-            if collective_tag not in self.tags:
-                self.tags = self.tags + [collective_tag]
-        return self
-
-
 class GridObjectConfig(Config):
     """Base configuration for all grid objects.
 
@@ -161,6 +132,7 @@ class GridObjectConfig(Config):
         default_factory=list,
         description="List of AOE effects this object emits to agents within range each tick",
     )
+    inventory: InventoryConfig = Field(default_factory=InventoryConfig)
 
     # Handlers - dict[name, Handler] for backwards compatibility
     handlers: dict[str, Handler] = Field(
@@ -207,6 +179,18 @@ class WallConfig(GridObjectConfig):
     # Please don't use this for anything game related.
     pydantic_type: Literal["wall"] = "wall"
     name: str = Field(default="wall")
+
+
+class AgentConfig(GridObjectConfig):
+    """Python agent configuration.
+
+    Inherits from GridObjectConfig to share tags, collective, vibe, inventory, and handler fields.
+    """
+
+    name: str = Field(default="agent")
+    team_id: int = Field(default=0, ge=0, description="Team ID for grouping agents")
+    rewards: AgentRewards = Field(default_factory=AgentRewards)
+    freeze_duration: int = Field(default=10, ge=-1)
 
 
 class ProtocolConfig(Config):

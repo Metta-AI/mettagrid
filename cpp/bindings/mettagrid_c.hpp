@@ -21,6 +21,7 @@
 
 #include "config/mettagrid_config.hpp"
 #include "core/grid_object.hpp"
+#include "core/tag_index.hpp"
 #include "core/types.hpp"
 #include "objects/assembler.hpp"
 #include "objects/chest.hpp"
@@ -74,7 +75,8 @@ public:
                    const py::array_t<RewardType, py::array::c_style>& rewards,
                    const py::array_t<ActionType, py::array::c_style>& actions);
   void validate_buffers();
-  py::dict grid_objects(int min_row = -1,
+  py::dict grid_objects(py::object self_ref,
+                        int min_row = -1,
                         int max_row = -1,
                         int min_col = -1,
                         int max_col = -1,
@@ -107,6 +109,10 @@ public:
 
   const Agent* agent(uint32_t agent_id) const {
     return _agents[agent_id];
+  }
+
+  mettagrid::TagIndex& tag_index() {
+    return _tag_index;
   }
 
 private:
@@ -152,6 +158,9 @@ private:
   // Collective objects - owned by MettaGrid
   std::vector<std::unique_ptr<Collective>> _collectives;
   std::unordered_map<std::string, Collective*> _collectives_by_name;
+
+  // Tag index for efficient tag-based object lookup
+  mettagrid::TagIndex _tag_index;
 
   // Pre-computed goal_obs tokens per agent (when enabled)
   std::vector<std::vector<PartialObservationToken>> _agent_goal_obs_tokens;

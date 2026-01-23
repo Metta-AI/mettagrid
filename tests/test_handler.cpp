@@ -221,8 +221,8 @@ void test_tag_filter_matches() {
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
-  target.tag_ids.push_back(42);
-  target.tag_ids.push_back(100);
+  target.tag_ids.insert(42);
+  target.tag_ids.insert(100);
 
   HandlerContext ctx(&actor, &target);
 
@@ -241,8 +241,8 @@ void test_tag_filter_no_match() {
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
-  target.tag_ids.push_back(1);
-  target.tag_ids.push_back(2);
+  target.tag_ids.insert(1);
+  target.tag_ids.insert(2);
 
   HandlerContext ctx(&actor, &target);
 

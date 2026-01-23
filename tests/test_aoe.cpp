@@ -292,7 +292,7 @@ void test_tag_filter() {
   TestAOEObject target_without_tag("enemy", 6, 5);
 
   // Add tag 1 to target_with_tag
-  target_with_tag.tag_ids.push_back(1);
+  target_with_tag.tag_ids.insert(1);
 
   target_with_tag.inventory.update(0, 100);
   target_without_tag.inventory.update(0, 100);
