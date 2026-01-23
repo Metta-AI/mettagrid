@@ -1,10 +1,14 @@
 import importlib
 
+from importnb import Notebook
+
 
 def load_symbol(full_name: str, strict: bool = True):
     """Load a symbol from a full name, for example: 'mettagrid.base_config.Config' -> Config.
 
     Handles nested attributes like 'mettagrid.map_builder.ascii.AsciiMapBuilder.Config'.
+
+    Supports loading from Jupyter notebooks (e.g., 'my_notebook.MyClass' where my_notebook.ipynb exists).
     """
     parts = full_name.split(".")
     if len(parts) < 2:
@@ -17,8 +21,14 @@ def load_symbol(full_name: str, strict: bool = True):
         try:
             module = importlib.import_module(module_name)
         except ImportError as e:
-            last_error = e
-            continue
+            # Try loading from a Jupyter notebook as fallback
+            try:
+                module = Notebook.load_module(module_name)
+            except (AttributeError, ModuleNotFoundError):
+                # AttributeError: importnb bug when notebook doesn't exist
+                # ModuleNotFoundError: when trying to load a nested path like "notebook.ClassName"
+                last_error = e
+                continue
         try:
             # Navigate through the remaining attributes
             value = module
