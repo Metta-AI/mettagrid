@@ -1,10 +1,10 @@
 # Custom build backend for building mettagrid with Bazel
 # This backend compiles the C++ extension using Bazel during package installation
-
 import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from setuptools.build_meta import (
@@ -31,14 +31,22 @@ PYTHON_PACKAGE_DIR = PROJECT_ROOT / "python" / "src" / "mettagrid"
 METTASCOPE_PACKAGE_DIR = PYTHON_PACKAGE_DIR / "nim" / "mettascope"
 
 
-def cmd(cmd: str) -> None:
-    """Run a command and raise an error if it fails."""
-    print(f"Running: {cmd}")
-    result = subprocess.run(cmd.split(), cwd=METTASCOPE_DIR, capture_output=True, text=True)
-    print(result.stderr, file=sys.stderr)
-    print(result.stdout, file=sys.stderr)
-    if result.returncode != 0:
-        raise RuntimeError(f"Mettascope build failed: {cmd}")
+def cmd(cmd_str: str, max_attempts: int = 1) -> None:
+    for attempt in range(1, max_attempts + 1):
+        print(f"Running: {cmd_str}")
+        result = subprocess.run(cmd_str.split(), cwd=METTASCOPE_DIR, capture_output=True, text=True)
+        print(result.stderr, file=sys.stderr)
+        print(result.stdout, file=sys.stderr)
+
+        if result.returncode == 0:
+            return
+
+        if attempt < max_attempts:
+            wait = 2**attempt
+            print(f"Attempt {attempt}/{max_attempts} failed, retrying in {wait}s...")
+            time.sleep(wait)
+
+    raise RuntimeError(f"Mettascope build failed: {cmd_str}")
 
 
 def _run_bazel_build() -> None:
@@ -206,7 +214,7 @@ def _run_mettascope_build(copy_bindings: bool = False) -> None:
 
     print(f"Building mettascope from {METTASCOPE_DIR}")
 
-    cmd("nimby sync -g nimby.lock")
+    cmd("nimby sync -g nimby.lock", max_attempts=3)
     cmd("nim c bindings/bindings.nim")
 
     print("Successfully built mettascope")
