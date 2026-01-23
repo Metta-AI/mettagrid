@@ -298,12 +298,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             }
             inventory_regen_amounts[vibe_id] = resource_amounts_cpp
 
-        diversity_tracked_resources = [
-            resource_name_to_id[resource_name]
-            for resource_name in agent_props.get("diversity_tracked_resources", [])
-            if resource_name in resource_name_to_id
-        ]
-
         # Build inventory config with support for grouped limits and modifiers
         limit_defs = []
 
@@ -331,6 +325,13 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
 
         inventory_config = CppInventoryConfig()
         inventory_config.limit_defs = limit_defs
+
+        # Convert diversity_tracked_resources from names to IDs
+        diversity_tracked_resources = [
+            resource_name_to_id[name]
+            for name in agent_props.get("diversity_tracked_resources", [])
+            if name in resource_name_to_id
+        ]
 
         cpp_agent_config = CppAgentConfig(
             type_id=0,
