@@ -7,7 +7,8 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Union
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
+from urllib.request import Request, urlopen
 
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
@@ -17,15 +18,34 @@ from mettagrid.util.uri_resolvers.schemes import parse_uri
 logger = logging.getLogger(__name__)
 
 
+def _is_presigned_s3_url(url: str) -> bool:
+    """Check if URL is a presigned S3 URL (SigV4 or SigV2)."""
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        return False
+    query_params = parse_qs(parsed.query)
+    # SigV4 uses X-Amz-Algorithm, SigV2 uses AWSAccessKeyId
+    return "X-Amz-Algorithm" in query_params or "AWSAccessKeyId" in query_params
+
+
 def copy_data(src: str, dest: str, content_type: str = "application/octet-stream") -> None:
     data = read(src)
     write_data(dest, data, content_type=content_type)
 
 
 def write_data(path: str, data: Union[str, bytes], *, content_type: str = "application/octet-stream") -> None:
-    """Write in-memory bytes/str to *local*, *s3://* destinations."""
+    """Write in-memory bytes/str to *local*, *s3://*, or presigned S3 URL destinations."""
     if isinstance(data, str):
         data = data.encode()
+
+    # Handle presigned S3 URLs (https with X-Amz-Algorithm) before parse_uri
+    if _is_presigned_s3_url(path):
+        req = Request(path, data=data, method="PUT")
+        req.add_header("Content-Type", content_type)
+        with urlopen(req):
+            pass
+        logger.debug("Wrote %d B → presigned URL", len(data))
+        return
 
     parsed = parse_uri(path, allow_none=False)
 
