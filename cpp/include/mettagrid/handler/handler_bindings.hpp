@@ -34,60 +34,199 @@ inline void bind_handler_config(py::module& m) {
       .value("on_update", HandlerType::on_update)
       .value("aoe", HandlerType::aoe);
 
+  // StatsTarget enum
+  py::enum_<StatsTarget>(m, "StatsTarget")
+      .value("game", StatsTarget::game)
+      .value("agent", StatsTarget::agent)
+      .value("collective", StatsTarget::collective);
+
   // Filter configs
   py::class_<VibeFilterConfig>(m, "VibeFilterConfig")
-      .def(py::init<>())
+      .def(py::init([](EntityRef entity, ObservationType vibe_id) {
+             VibeFilterConfig cfg;
+             cfg.entity = entity;
+             cfg.vibe_id = vibe_id;
+             return cfg;
+           }),
+           py::arg("entity"),
+           py::arg("vibe_id"))
       .def_readwrite("entity", &VibeFilterConfig::entity)
       .def_readwrite("vibe_id", &VibeFilterConfig::vibe_id);
 
   py::class_<ResourceFilterConfig>(m, "ResourceFilterConfig")
-      .def(py::init<>())
+      .def(py::init([](EntityRef entity, InventoryItem resource_id, InventoryQuantity min_amount) {
+             ResourceFilterConfig cfg;
+             cfg.entity = entity;
+             cfg.resource_id = resource_id;
+             cfg.min_amount = min_amount;
+             return cfg;
+           }),
+           py::arg("entity"),
+           py::arg("resource_id"),
+           py::arg("min_amount") = 1)
       .def_readwrite("entity", &ResourceFilterConfig::entity)
       .def_readwrite("resource_id", &ResourceFilterConfig::resource_id)
       .def_readwrite("min_amount", &ResourceFilterConfig::min_amount);
 
   py::class_<AlignmentFilterConfig>(m, "AlignmentFilterConfig")
-      .def(py::init<>())
+      .def(py::init([](AlignmentCondition condition) {
+             AlignmentFilterConfig cfg;
+             cfg.condition = condition;
+             return cfg;
+           }),
+           py::arg("condition"))
       .def_readwrite("condition", &AlignmentFilterConfig::condition);
 
   py::class_<TagFilterConfig>(m, "TagFilterConfig")
-      .def(py::init<>())
+      .def(py::init([](EntityRef entity, int tag_id) {
+             TagFilterConfig cfg;
+             cfg.entity = entity;
+             cfg.tag_id = tag_id;
+             return cfg;
+           }),
+           py::arg("entity"),
+           py::arg("tag_id"))
       .def_readwrite("entity", &TagFilterConfig::entity)
-      .def_readwrite("required_tag_ids", &TagFilterConfig::required_tag_ids);
+      .def_readwrite("tag_id", &TagFilterConfig::tag_id);
+
+  py::class_<NearFilterConfig>(m, "NearFilterConfig")
+      .def(py::init([](EntityRef entity, int inner_tag_id, int radius) {
+             NearFilterConfig cfg;
+             cfg.entity = entity;
+             cfg.inner_tag_id = inner_tag_id;
+             cfg.radius = radius;
+             return cfg;
+           }),
+           py::arg("entity"),
+           py::arg("inner_tag_id"),
+           py::arg("radius") = 1)
+      .def_readwrite("entity", &NearFilterConfig::entity)
+      .def_readwrite("radius", &NearFilterConfig::radius)
+      .def_readwrite("inner_tag_id", &NearFilterConfig::inner_tag_id);
 
   // Mutation configs
   py::class_<ResourceDeltaMutationConfig>(m, "ResourceDeltaMutationConfig")
-      .def(py::init<>())
+      .def(py::init([](EntityRef entity, InventoryItem resource_id, InventoryDelta delta) {
+             ResourceDeltaMutationConfig cfg;
+             cfg.entity = entity;
+             cfg.resource_id = resource_id;
+             cfg.delta = delta;
+             return cfg;
+           }),
+           py::arg("entity"),
+           py::arg("resource_id"),
+           py::arg("delta"))
       .def_readwrite("entity", &ResourceDeltaMutationConfig::entity)
       .def_readwrite("resource_id", &ResourceDeltaMutationConfig::resource_id)
       .def_readwrite("delta", &ResourceDeltaMutationConfig::delta);
 
   py::class_<ResourceTransferMutationConfig>(m, "ResourceTransferMutationConfig")
-      .def(py::init<>())
+      .def(py::init([](EntityRef source, EntityRef destination, InventoryItem resource_id, InventoryDelta amount) {
+             ResourceTransferMutationConfig cfg;
+             cfg.source = source;
+             cfg.destination = destination;
+             cfg.resource_id = resource_id;
+             cfg.amount = amount;
+             return cfg;
+           }),
+           py::arg("source"),
+           py::arg("destination"),
+           py::arg("resource_id"),
+           py::arg("amount") = -1)
       .def_readwrite("source", &ResourceTransferMutationConfig::source)
       .def_readwrite("destination", &ResourceTransferMutationConfig::destination)
       .def_readwrite("resource_id", &ResourceTransferMutationConfig::resource_id)
       .def_readwrite("amount", &ResourceTransferMutationConfig::amount);
 
   py::class_<AlignmentMutationConfig>(m, "AlignmentMutationConfig")
-      .def(py::init<>())
+      .def(py::init([](AlignTo align_to) {
+             AlignmentMutationConfig cfg;
+             cfg.align_to = align_to;
+             return cfg;
+           }),
+           py::arg("align_to"))
       .def_readwrite("align_to", &AlignmentMutationConfig::align_to);
 
   py::class_<FreezeMutationConfig>(m, "FreezeMutationConfig")
-      .def(py::init<>())
+      .def(py::init([](int duration) {
+             FreezeMutationConfig cfg;
+             cfg.duration = duration;
+             return cfg;
+           }),
+           py::arg("duration"))
       .def_readwrite("duration", &FreezeMutationConfig::duration);
 
   py::class_<ClearInventoryMutationConfig>(m, "ClearInventoryMutationConfig")
-      .def(py::init<>())
+      .def(py::init([](EntityRef entity, std::vector<InventoryItem> resource_ids) {
+             ClearInventoryMutationConfig cfg;
+             cfg.entity = entity;
+             cfg.resource_ids = std::move(resource_ids);
+             return cfg;
+           }),
+           py::arg("entity"),
+           py::arg("resource_ids"))
       .def_readwrite("entity", &ClearInventoryMutationConfig::entity)
       .def_readwrite("resource_ids", &ClearInventoryMutationConfig::resource_ids);
 
   py::class_<AttackMutationConfig>(m, "AttackMutationConfig")
-      .def(py::init<>())
+      .def(py::init([](InventoryItem weapon_resource,
+                       InventoryItem armor_resource,
+                       InventoryItem health_resource,
+                       int damage_multiplier_pct) {
+             AttackMutationConfig cfg;
+             cfg.weapon_resource = weapon_resource;
+             cfg.armor_resource = armor_resource;
+             cfg.health_resource = health_resource;
+             cfg.damage_multiplier_pct = damage_multiplier_pct;
+             return cfg;
+           }),
+           py::arg("weapon_resource"),
+           py::arg("armor_resource"),
+           py::arg("health_resource"),
+           py::arg("damage_multiplier_pct") = 100)
       .def_readwrite("weapon_resource", &AttackMutationConfig::weapon_resource)
       .def_readwrite("armor_resource", &AttackMutationConfig::armor_resource)
       .def_readwrite("health_resource", &AttackMutationConfig::health_resource)
-      .def_readwrite("damage_multiplier", &AttackMutationConfig::damage_multiplier);
+      .def_readwrite("damage_multiplier_pct", &AttackMutationConfig::damage_multiplier_pct);
+
+  py::class_<StatsMutationConfig>(m, "StatsMutationConfig")
+      .def(py::init([](const std::string& stat_name, float delta, StatsTarget target) {
+             StatsMutationConfig cfg;
+             cfg.stat_name = stat_name;
+             cfg.delta = delta;
+             cfg.target = target;
+             return cfg;
+           }),
+           py::arg("stat_name"),
+           py::arg("delta") = 1.0f,
+           py::arg("target") = StatsTarget::collective)
+      .def_readwrite("stat_name", &StatsMutationConfig::stat_name)
+      .def_readwrite("delta", &StatsMutationConfig::delta)
+      .def_readwrite("target", &StatsMutationConfig::target);
+
+  py::class_<AddTagMutationConfig>(m, "AddTagMutationConfig")
+      .def(py::init([](EntityRef entity, int tag_id) {
+             AddTagMutationConfig cfg;
+             cfg.entity = entity;
+             cfg.tag_id = tag_id;
+             return cfg;
+           }),
+           py::arg("entity"),
+           py::arg("tag_id"))
+      .def_readwrite("entity", &AddTagMutationConfig::entity)
+      .def_readwrite("tag_id", &AddTagMutationConfig::tag_id);
+
+  py::class_<RemoveTagMutationConfig>(m, "RemoveTagMutationConfig")
+      .def(py::init([](EntityRef entity, int tag_id) {
+             RemoveTagMutationConfig cfg;
+             cfg.entity = entity;
+             cfg.tag_id = tag_id;
+             return cfg;
+           }),
+           py::arg("entity"),
+           py::arg("tag_id"))
+      .def_readwrite("entity", &RemoveTagMutationConfig::entity)
+      .def_readwrite("tag_id", &RemoveTagMutationConfig::tag_id);
 
   // HandlerConfig with methods to add filters and mutations
   py::class_<HandlerConfig, std::shared_ptr<HandlerConfig>>(m, "HandlerConfig")
@@ -111,6 +250,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_tag_filter",
           [](HandlerConfig& self, const TagFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_near_filter",
+          [](HandlerConfig& self, const NearFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       // Add mutation methods - each type wraps into the variant
       .def(
@@ -136,6 +279,18 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_attack_mutation",
           [](HandlerConfig& self, const AttackMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_stats_mutation",
+          [](HandlerConfig& self, const StatsMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_add_tag_mutation",
+          [](HandlerConfig& self, const AddTagMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_remove_tag_mutation",
+          [](HandlerConfig& self, const RemoveTagMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"));
 }
 

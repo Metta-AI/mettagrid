@@ -6,7 +6,9 @@
 #include <vector>
 
 #include "core/grid_object.hpp"
+#include "core/tag_index.hpp"
 #include "handler/handler.hpp"
+#include "systems/stats_tracker.hpp"
 
 namespace mettagrid {
 
@@ -44,7 +46,11 @@ public:
 
   // Apply all AOE handlers at a location to a target object
   // Handler filters are checked before applying mutations
-  void apply_effects_at(const GridLocation& loc, GridObject& target);
+  // Optional game_stats tracker for StatsMutation with StatsTarget::game
+  void apply_effects_at(const GridLocation& loc,
+                        GridObject& target,
+                        StatsTracker* game_stats = nullptr,
+                        TagIndex* tag_index = nullptr);
 
   // Get number of handler sources at a location (for testing/debugging)
   size_t effect_count_at(const GridLocation& loc) const;

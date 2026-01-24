@@ -5,11 +5,20 @@
 #include <vector>
 
 #include "core/grid_object.hpp"
+#include "core/tag_index.hpp"
+#include "handler/filters/alignment_filter.hpp"
 #include "handler/filters/filter.hpp"
+#include "handler/filters/near_filter.hpp"
+#include "handler/filters/resource_filter.hpp"
+#include "handler/filters/tag_filter.hpp"
+#include "handler/filters/vibe_filter.hpp"
 #include "handler/handler.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
+#include "handler/mutations/alignment_mutation.hpp"
+#include "handler/mutations/attack_mutation.hpp"
 #include "handler/mutations/mutation.hpp"
+#include "handler/mutations/resource_mutation.hpp"
 #include "objects/collective.hpp"
 #include "objects/collective_config.hpp"
 #include "objects/inventory_config.hpp"
@@ -228,7 +237,7 @@ void test_tag_filter_matches() {
 
   TagFilterConfig config;
   config.entity = EntityRef::target;
-  config.required_tag_ids.push_back(42);
+  config.tag_id = 42;
 
   TagFilter filter(config);
   assert(filter.passes(ctx) == true);
@@ -248,7 +257,7 @@ void test_tag_filter_no_match() {
 
   TagFilterConfig config;
   config.entity = EntityRef::target;
-  config.required_tag_ids.push_back(42);  // Target doesn't have tag 42
+  config.tag_id = 42;  // Target doesn't have tag 42
 
   TagFilter filter(config);
   assert(filter.passes(ctx) == false);
@@ -256,22 +265,23 @@ void test_tag_filter_no_match() {
   std::cout << "✓ TagFilter no match test passed" << std::endl;
 }
 
-void test_tag_filter_empty_required() {
-  std::cout << "Testing TagFilter empty required tags..." << std::endl;
+void test_tag_filter_on_actor() {
+  std::cout << "Testing TagFilter on actor..." << std::endl;
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
+  actor.tag_ids.insert(99);
 
   HandlerContext ctx(&actor, &target);
 
   TagFilterConfig config;
-  config.entity = EntityRef::target;
-  // No required tags - should pass
+  config.entity = EntityRef::actor;
+  config.tag_id = 99;
 
   TagFilter filter(config);
   assert(filter.passes(ctx) == true);
 
-  std::cout << "✓ TagFilter empty required tags test passed" << std::endl;
+  std::cout << "✓ TagFilter on actor test passed" << std::endl;
 }
 
 // ============================================================================
@@ -485,12 +495,12 @@ void test_attack_mutation() {
   config.weapon_resource = 0;
   config.armor_resource = 1;
   config.health_resource = 2;
-  config.damage_multiplier = 1.0f;
+  config.damage_multiplier_pct = 100;  // 100% = 1.0x multiplier
 
   AttackMutation mutation(config);
   mutation.apply(ctx);
 
-  // Damage = (10 * 1.0) - 3 = 7
+  // Damage = (10 * 100 / 100) - 3 = 7
   // Health = 50 - 7 = 43
   assert(target.inventory.amount(2) == 43);
 
@@ -645,6 +655,279 @@ void test_activation_handler_check_filters_only() {
   std::cout << "✓ Handler check_filters test passed" << std::endl;
 }
 
+// ============================================================================
+// NearFilter Tests
+// ============================================================================
+
+void test_near_filter_passes_when_tagged_object_within_radius() {
+  std::cout << "Testing NearFilter passes when tagged object within radius..." << std::endl;
+
+  // Create objects
+  TestActivationObject actor("actor");
+  TestActivationObject target("target");
+  TestActivationObject nearby_junction("junction");
+
+  // Position them: target at (0,0), nearby_junction at (1,1) - within radius 2
+  target.location.r = 0;
+  target.location.c = 0;
+  nearby_junction.location.r = 1;
+  nearby_junction.location.c = 1;
+
+  // Add tag to the junction
+  const int junction_tag = 0;
+  nearby_junction.add_tag(junction_tag);
+
+  // Create tag index and register the junction
+  TagIndex tag_index;
+  tag_index.on_tag_added(&nearby_junction, junction_tag);
+
+  // Create NearFilter that checks if target is near something with junction_tag
+  NearFilterConfig config;
+  config.entity = EntityRef::target;
+  config.radius = 2;
+  config.inner_tag_id = junction_tag;
+
+  NearFilter near_filter(config);
+
+  // Create context with tag_index
+  HandlerContext ctx(&actor, &target, nullptr, &tag_index);
+
+  // Should pass - target is within radius of junction
+  bool result = near_filter.passes(ctx);
+  assert(result == true);
+
+  std::cout << "✓ NearFilter passes when tagged object within radius" << std::endl;
+}
+
+void test_near_filter_fails_when_tagged_object_outside_radius() {
+  std::cout << "Testing NearFilter fails when tagged object outside radius..." << std::endl;
+
+  // Create objects
+  TestActivationObject actor("actor");
+  TestActivationObject target("target");
+  TestActivationObject far_junction("junction");
+
+  // Position them: target at (0,0), far_junction at (5,5) - outside radius 2
+  target.location.r = 0;
+  target.location.c = 0;
+  far_junction.location.r = 5;
+  far_junction.location.c = 5;
+
+  // Add tag to the junction
+  const int junction_tag = 0;
+  far_junction.add_tag(junction_tag);
+
+  // Create tag index and register the junction
+  TagIndex tag_index;
+  tag_index.on_tag_added(&far_junction, junction_tag);
+
+  // Create NearFilter that checks if target is near something with junction_tag
+  NearFilterConfig config;
+  config.entity = EntityRef::target;
+  config.radius = 2;
+  config.inner_tag_id = junction_tag;
+
+  NearFilter near_filter(config);
+
+  // Create context with tag_index
+  HandlerContext ctx(&actor, &target, nullptr, &tag_index);
+
+  // Should fail - target is outside radius of junction
+  bool result = near_filter.passes(ctx);
+  assert(result == false);
+
+  std::cout << "✓ NearFilter fails when tagged object outside radius" << std::endl;
+}
+
+void test_near_filter_fails_when_no_tagged_objects() {
+  std::cout << "Testing NearFilter fails when no tagged objects..." << std::endl;
+
+  // Create objects
+  TestActivationObject actor("actor");
+  TestActivationObject target("target");
+
+  target.location.r = 0;
+  target.location.c = 0;
+
+  // Create empty tag index - no objects with the tag
+  const int junction_tag = 0;
+  TagIndex tag_index;
+
+  // Create NearFilter
+  NearFilterConfig config;
+  config.entity = EntityRef::target;
+  config.radius = 2;
+  config.inner_tag_id = junction_tag;
+
+  NearFilter near_filter(config);
+
+  // Create context with tag_index
+  HandlerContext ctx(&actor, &target, nullptr, &tag_index);
+
+  // Should fail - no objects with the tag exist
+  bool result = near_filter.passes(ctx);
+  assert(result == false);
+
+  std::cout << "✓ NearFilter fails when no tagged objects" << std::endl;
+}
+
+void test_near_filter_requires_correct_tag() {
+  std::cout << "Testing NearFilter requires correct tag..." << std::endl;
+
+  // Create objects
+  TestActivationObject actor("actor");
+  TestActivationObject target("target");
+  TestActivationObject nearby_object("other");
+
+  // Position them within radius
+  target.location.r = 0;
+  target.location.c = 0;
+  nearby_object.location.r = 1;
+  nearby_object.location.c = 1;
+
+  // Add a different tag to nearby_object
+  const int wrong_tag = 1;
+  const int expected_tag = 0;
+  nearby_object.add_tag(wrong_tag);
+
+  // Create tag index and register with wrong tag
+  TagIndex tag_index;
+  tag_index.on_tag_added(&nearby_object, wrong_tag);
+
+  // Create NearFilter looking for expected_tag
+  NearFilterConfig config;
+  config.entity = EntityRef::target;
+  config.radius = 2;
+  config.inner_tag_id = expected_tag;
+
+  NearFilter near_filter(config);
+
+  // Create context with tag_index
+  HandlerContext ctx(&actor, &target, nullptr, &tag_index);
+
+  // Should fail - nearby object has wrong tag
+  bool result = near_filter.passes(ctx);
+  assert(result == false);
+
+  std::cout << "✓ NearFilter requires correct tag" << std::endl;
+}
+
+void test_near_filter_evaluates_inner_filters() {
+  std::cout << "Testing NearFilter evaluates inner filters..." << std::endl;
+
+  // Create objects
+  TestActivationObject actor("actor");
+  TestActivationObject target("target");
+  TestActivationObject nearby_junction("junction");
+
+  // Create two collectives
+  auto coll_config_a = create_test_collective_config("TeamA");
+  auto coll_config_b = create_test_collective_config("TeamB");
+  Collective collective_a(coll_config_a, &test_resource_names);
+  Collective collective_b(coll_config_b, &test_resource_names);
+
+  // Actor is in TeamA, nearby_junction is in TeamB
+  actor.setCollective(&collective_a);
+  nearby_junction.setCollective(&collective_b);
+
+  // Position them: target at (0,0), nearby_junction at (1,1) - within radius 2
+  target.location.r = 0;
+  target.location.c = 0;
+  nearby_junction.location.r = 1;
+  nearby_junction.location.c = 1;
+
+  // Add tag to the junction
+  const int junction_tag = 0;
+  nearby_junction.add_tag(junction_tag);
+
+  // Create tag index and register the junction
+  TagIndex tag_index;
+  tag_index.on_tag_added(&nearby_junction, junction_tag);
+
+  // Create NearFilter that checks if target is near something with junction_tag
+  // AND that passes the inner alignment filter (same_collective as actor)
+  NearFilterConfig near_config;
+  near_config.entity = EntityRef::target;
+  near_config.radius = 2;
+  near_config.inner_tag_id = junction_tag;
+
+  // Create an inner alignment filter: check if candidate is in same collective as actor
+  AlignmentFilterConfig align_config;
+  align_config.entity = EntityRef::target;  // Will be checked against candidate in inner context
+  align_config.condition = AlignmentCondition::same_collective;
+
+  std::vector<std::unique_ptr<Filter>> inner_filters;
+  inner_filters.push_back(std::make_unique<AlignmentFilter>(align_config));
+
+  NearFilter near_filter(near_config, std::move(inner_filters));
+
+  // Create context with tag_index
+  HandlerContext ctx(&actor, &target, nullptr, &tag_index);
+
+  // Should FAIL - junction is within radius and has the tag,
+  // but it's NOT in the same collective as actor
+  bool result = near_filter.passes(ctx);
+  assert(result == false);
+
+  std::cout << "✓ NearFilter evaluates inner filters" << std::endl;
+}
+
+void test_near_filter_passes_with_inner_filters() {
+  std::cout << "Testing NearFilter passes when inner filters match..." << std::endl;
+
+  // Create objects
+  TestActivationObject actor("actor");
+  TestActivationObject target("target");
+  TestActivationObject nearby_junction("junction");
+
+  // Create collective and put both actor and junction in it
+  auto coll_config = create_test_collective_config("TeamA");
+  Collective collective_a(coll_config, &test_resource_names);
+  actor.setCollective(&collective_a);
+  nearby_junction.setCollective(&collective_a);
+
+  // Position them: target at (0,0), nearby_junction at (1,1) - within radius 2
+  target.location.r = 0;
+  target.location.c = 0;
+  nearby_junction.location.r = 1;
+  nearby_junction.location.c = 1;
+
+  // Add tag to the junction
+  const int junction_tag = 0;
+  nearby_junction.add_tag(junction_tag);
+
+  // Create tag index and register the junction
+  TagIndex tag_index;
+  tag_index.on_tag_added(&nearby_junction, junction_tag);
+
+  // Create NearFilter that checks if target is near something with junction_tag
+  // AND that passes the inner alignment filter (same_collective as actor)
+  NearFilterConfig near_config;
+  near_config.entity = EntityRef::target;
+  near_config.radius = 2;
+  near_config.inner_tag_id = junction_tag;
+
+  // Create an inner alignment filter: check if candidate is in same collective as actor
+  AlignmentFilterConfig align_config;
+  align_config.entity = EntityRef::target;  // Will be checked against candidate in inner context
+  align_config.condition = AlignmentCondition::same_collective;
+
+  std::vector<std::unique_ptr<Filter>> inner_filters;
+  inner_filters.push_back(std::make_unique<AlignmentFilter>(align_config));
+
+  NearFilter near_filter(near_config, std::move(inner_filters));
+
+  // Create context with tag_index
+  HandlerContext ctx(&actor, &target, nullptr, &tag_index);
+
+  // Should PASS - junction is within radius, has the tag,
+  // AND is in the same collective as actor
+  bool result = near_filter.passes(ctx);
+  assert(result == true);
+
+  std::cout << "✓ NearFilter passes when inner filters match" << std::endl;
+}
+
 int main() {
   std::cout << "Running Handler tests..." << std::endl;
   std::cout << "================================================" << std::endl;
@@ -660,7 +943,15 @@ int main() {
   test_alignment_filter_unaligned();
   test_tag_filter_matches();
   test_tag_filter_no_match();
-  test_tag_filter_empty_required();
+  test_tag_filter_on_actor();
+
+  // NearFilter tests
+  test_near_filter_passes_when_tagged_object_within_radius();
+  test_near_filter_fails_when_tagged_object_outside_radius();
+  test_near_filter_fails_when_no_tagged_objects();
+  test_near_filter_requires_correct_tag();
+  test_near_filter_evaluates_inner_filters();
+  test_near_filter_passes_with_inner_filters();
 
   // Mutation tests
   test_resource_delta_mutation_add();

@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
+from mettagrid.config.filter.tag_filter import typeTag
+
 # This breaks a circular dependency: id_map <-> mettagrid_config
 # Pythonic resolutions (require refactor):
 # a. move IdMap, ObservationFeatureSpec to mettagrid_config
@@ -91,8 +93,18 @@ class IdMap:
         return result
 
     def tag_names(self) -> list[str]:
-        """Get all tag names in alphabetical order from all grid objects."""
-        return sorted(set(tag for obj in self._all_grid_objects() for tag in obj.tags))
+        """Get all tag names in alphabetical order.
+
+        Collects tags from:
+        - GameConfig.tags (explicit tags)
+        - Object/agent tags (obj.tags)
+        - Auto-generated type tags (typeTag(obj.name) for each object/agent)
+        """
+        all_tags = set(self._config.tags)
+        for obj_config in self._all_grid_objects():
+            all_tags.update(obj_config.tags)
+            all_tags.add(typeTag(obj_config.name))
+        return sorted(all_tags)
 
     def _compute_features(self) -> list[ObservationFeatureSpec]:
         """Compute observation features from the game configuration."""

@@ -12,6 +12,7 @@ from mettagrid.config.handler_config import (
     AlignmentCondition,
     AlignmentFilter,
     AOEEffectConfig,
+    HandlerTarget,
 )
 from mettagrid.config.mettagrid_config import (
     CollectiveConfig,
@@ -177,7 +178,12 @@ class TestAOEWithAlignmentFilters:
                 AOEEffectConfig(
                     range=2,
                     resource_deltas={"energy": 10},
-                    filters=[AlignmentFilter(alignment=AlignmentCondition.SAME_COLLECTIVE)],
+                    filters=[
+                        AlignmentFilter(
+                            target=HandlerTarget.TARGET,
+                            alignment=AlignmentCondition.SAME_COLLECTIVE,
+                        )
+                    ],
                 ),
             ],
         )
@@ -232,7 +238,12 @@ class TestAOEWithAlignmentFilters:
                 AOEEffectConfig(
                     range=2,
                     resource_deltas={"hp": -10},  # Damage
-                    filters=[AlignmentFilter(alignment=AlignmentCondition.DIFFERENT_COLLECTIVE)],
+                    filters=[
+                        AlignmentFilter(
+                            target=HandlerTarget.TARGET,
+                            alignment=AlignmentCondition.DIFFERENT_COLLECTIVE,
+                        )
+                    ],
                 ),
             ],
         )

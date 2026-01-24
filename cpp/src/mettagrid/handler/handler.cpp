@@ -1,6 +1,17 @@
 #include "handler/handler.hpp"
 
 #include "core/grid_object.hpp"
+#include "handler/filters/alignment_filter.hpp"
+#include "handler/filters/near_filter.hpp"
+#include "handler/filters/resource_filter.hpp"
+#include "handler/filters/tag_filter.hpp"
+#include "handler/filters/vibe_filter.hpp"
+#include "handler/mutations/alignment_mutation.hpp"
+#include "handler/mutations/attack_mutation.hpp"
+#include "handler/mutations/freeze_mutation.hpp"
+#include "handler/mutations/resource_mutation.hpp"
+#include "handler/mutations/stats_mutation.hpp"
+#include "handler/mutations/tag_mutation.hpp"
 
 namespace mettagrid {
 
@@ -75,6 +86,18 @@ std::unique_ptr<Filter> Handler::create_filter(const FilterConfig& config) {
           return std::make_unique<AlignmentFilter>(cfg);
         } else if constexpr (std::is_same_v<T, TagFilterConfig>) {
           return std::make_unique<TagFilter>(cfg);
+        } else if constexpr (std::is_same_v<T, NearFilterConfig>) {
+          // Recursively create inner filters from the config
+          std::vector<std::unique_ptr<Filter>> inner_filters;
+          for (const auto& box : cfg.inner_filters) {
+            if (box) {
+              auto filter = create_filter(box->config);
+              if (filter) {
+                inner_filters.push_back(std::move(filter));
+              }
+            }
+          }
+          return std::make_unique<NearFilter>(cfg, std::move(inner_filters));
         } else {
           return nullptr;
         }
@@ -98,6 +121,12 @@ std::unique_ptr<Mutation> Handler::create_mutation(const MutationConfig& config)
           return std::make_unique<ClearInventoryMutation>(cfg);
         } else if constexpr (std::is_same_v<T, AttackMutationConfig>) {
           return std::make_unique<AttackMutation>(cfg);
+        } else if constexpr (std::is_same_v<T, StatsMutationConfig>) {
+          return std::make_unique<StatsMutation>(cfg);
+        } else if constexpr (std::is_same_v<T, AddTagMutationConfig>) {
+          return std::make_unique<AddTagMutation>(cfg);
+        } else if constexpr (std::is_same_v<T, RemoveTagMutationConfig>) {
+          return std::make_unique<RemoveTagMutation>(cfg);
         } else {
           return nullptr;
         }

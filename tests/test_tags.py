@@ -1,6 +1,7 @@
 # Test tag system functionality for mettagrid
 import pytest
 
+from mettagrid.config.filter.tag_filter import typeTag
 from mettagrid.config.mettagrid_c_config import convert_to_cpp_game_config
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
@@ -283,8 +284,8 @@ class TestTags:
             if token[0] in wall_locations and token[1] == tag_feature_id:
                 tag_ids_found.add(token[2])  # token[2] contains the tag ID
 
-        # Should find all 10 tags (IDs 0-9 for sorted tags)
-        assert len(tag_ids_found) == 10, f"Should find all 10 tags, found {len(tag_ids_found)}"
+        # Should find all 10 explicit tags + type:wall (auto-generated) = 11 total
+        assert len(tag_ids_found) == 11, f"Should find all 11 tags, found {len(tag_ids_found)}"
 
     def test_tag_id_mapping(self):
         """Test that tag names are consistently mapped to IDs."""
@@ -343,8 +344,10 @@ class TestTags:
 
         # Get tag feature ID from environment
         tag_feature_id = env1.config.game.id_map().feature_id("tag")
-        alpha_tag_value = env1.config.game.id_map().tag_names().index("alpha")
-        beta_tag_value = env1.config.game.id_map().tag_names().index("beta")
+        tag_names = env1.config.game.id_map().tag_names()
+        alpha_tag_value = tag_names.index("alpha")
+        beta_tag_value = tag_names.index("beta")
+        type_wall_tag_value = tag_names.index(typeTag("wall"))
 
         # Extract tag IDs from both environments
         def get_wall_tag_ids(sim, obs):
@@ -360,12 +363,11 @@ class TestTags:
 
         # Both should have the same tag IDs (sorted mapping)
         assert tags1 == tags2, f"Tag IDs should be consistent: {tags1} vs {tags2}"
-        # Should have exactly 2 tag IDs (alpha and beta)
-        assert len(tags1) == 2, f"Should have 2 tag IDs, got {len(tags1)}"
-        # Tag IDs should be consecutive starting from 0
-        # "alpha" < "beta" alphabetically, so alpha=0, beta=1
-        assert tags1 == {alpha_tag_value, beta_tag_value}, (
-            f"Expected tag IDs {{alpha_tag_value, beta_tag_value}}, got {tags1}"
+        # Should have exactly 3 tag IDs (alpha, beta, type:wall auto-generated)
+        assert len(tags1) == 3, f"Should have 3 tag IDs, got {len(tags1)}"
+        # Verify all expected tags are present
+        assert tags1 == {alpha_tag_value, beta_tag_value, type_wall_tag_value}, (
+            f"Expected tag IDs {{alpha, beta, type:wall}}, got {tags1}"
         )
 
     def test_assembler_with_tags(self):
@@ -479,9 +481,9 @@ def test_tag_id_bounds():
     # Convert and verify tag IDs start at 0
     cpp_config = convert_to_cpp_game_config(game_config)
 
-    # Tag IDs from explicit agents: alpha, beta, gamma, delta, epsilon (sorted alphabetically)
+    # Tag IDs from explicit agents: alpha, beta, gamma, delta, epsilon + type:agent (auto-generated)
     tag_id_map = cpp_config.tag_id_map
-    assert len(tag_id_map) == 5  # 5 explicit tags from agents list
+    assert len(tag_id_map) == 6  # 5 explicit tags + type:agent (auto-generated from agent name)
 
     # Check that tag IDs start at 0
     min_tag_id = min(tag_id_map.keys())
@@ -549,15 +551,16 @@ def test_team_tag_consistency_success():
     # Should succeed
     cpp_config = convert_to_cpp_game_config(game_config)
 
-    # Verify tag mapping is correct - only tags from explicit agents list
+    # Verify tag mapping is correct - tags from explicit agents list + type:agent (auto-generated)
     tag_id_map = cpp_config.tag_id_map
-    assert len(tag_id_map) == 4  # alpha, beta, delta, gamma (sorted)
+    assert len(tag_id_map) == 5  # alpha, beta, delta, gamma + type:agent (sorted)
 
-    # Verify tags are assigned correctly (alpha=0, beta=1, delta=2, gamma=3)
+    # Verify tags are assigned correctly (sorted alphabetically)
     assert tag_id_map[0] == "alpha"
     assert tag_id_map[1] == "beta"
     assert tag_id_map[2] == "delta"
     assert tag_id_map[3] == "gamma"
+    assert tag_id_map[4] == typeTag("agent")
 
 
 def test_empty_tags_allowed():
@@ -573,10 +576,11 @@ def test_empty_tags_allowed():
     # Should succeed
     cpp_config = convert_to_cpp_game_config(game_config)
 
-    # Verify only "agent" tag from default agent config is in mapping
+    # Verify "agent" from default config + typeTag("agent") (auto-generated) are in mapping
     tag_id_map = cpp_config.tag_id_map
-    assert len(tag_id_map) == 1  # "agent" from default agent config
+    assert len(tag_id_map) == 2  # "agent" from default config + typeTag("agent") (auto-generated)
     assert tag_id_map[0] == "agent"
+    assert tag_id_map[1] == typeTag("agent")
 
 
 def test_default_agent_tags_preserved():
@@ -622,10 +626,12 @@ def test_default_agent_tags_preserved():
         # Find tag IDs in observation
         agent_tag_ids = {token[2] for token in agent_obs if token[1] == tag_feature_id}
 
-        # Each default agent should have 2 tags (default_tag1, default_tag2)
-        assert len(agent_tag_ids) == 2, f"Default agent {agent_idx} should have 2 tags, found {len(agent_tag_ids)}"
-        # Tag IDs should be 0 and 1 (alphabetically sorted: default_tag1=0, default_tag2=1)
-        assert agent_tag_ids == {0, 1}, f"Default agent {agent_idx} should have tag IDs {{0, 1}}, got {agent_tag_ids}"
+        # Each default agent should have 3 tags (default_tag1, default_tag2, type:agent)
+        assert len(agent_tag_ids) == 3, f"Default agent {agent_idx} should have 3 tags, found {len(agent_tag_ids)}"
+        # Tag IDs should be 0, 1, 2 (alphabetically sorted: default_tag1=0, default_tag2=1, type:agent=2)
+        assert agent_tag_ids == {0, 1, 2}, (
+            f"Default agent {agent_idx} should have tag IDs {{0, 1, 2}}, got {agent_tag_ids}"
+        )
 
 
 def test_default_agent_tags_in_cpp_config():
@@ -642,11 +648,12 @@ def test_default_agent_tags_in_cpp_config():
 
     # Verify tag mapping includes the default agent tags
     tag_id_map = cpp_config.tag_id_map
-    assert len(tag_id_map) == 2, f"Should have 2 tags in mapping, got {len(tag_id_map)}"
+    assert len(tag_id_map) == 3, f"Should have 3 tags in mapping, got {len(tag_id_map)}"
 
-    # Tags should be sorted alphabetically: hero=0, player=1
+    # Tags should be sorted alphabetically: hero=0, player=1, type:agent=2
     assert tag_id_map[0] == "hero", f"Tag ID 0 should be 'hero', got {tag_id_map[0]}"
     assert tag_id_map[1] == "player", f"Tag ID 1 should be 'player', got {tag_id_map[1]}"
+    assert tag_id_map[2] == typeTag("agent"), f"Tag ID 2 should be 'type:agent', got {tag_id_map[2]}"
 
 
 def test_tag_mapping_in_id_map():
@@ -694,8 +701,20 @@ def test_tag_mapping_in_id_map():
     tag_values = id_map.tag_names()
     assert isinstance(tag_values, list), "tag values should be a list of tag names"
 
-    # Tags are from objects and explicit agents only (sorted alphabetically)
-    expected_tags = ["blocking", "industrial", "machine", "mobile", "player", "solid"]
+    # Tags are from objects and agents + auto-generated type tags (sorted alphabetically)
+    expected_tags = sorted(
+        [
+            "blocking",
+            "industrial",
+            "machine",
+            "mobile",
+            "player",
+            "solid",
+            typeTag("agent"),
+            typeTag("assembler"),
+            typeTag("wall"),
+        ]
+    )
     assert len(tag_values) == len(expected_tags), f"Should have {len(expected_tags)} tags, got {len(tag_values)}"
 
     # Verify tags are sorted alphabetically with correct IDs (indices)

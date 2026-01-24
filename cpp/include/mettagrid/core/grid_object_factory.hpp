@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "core/grid_object.hpp"
+#include "core/tag_index.hpp"
 #include "core/types.hpp"
 
 // Forward declarations
@@ -28,7 +29,8 @@ GridObject* create_object_from_config(GridCoord r,
                                       const std::vector<std::string>* resource_names,
                                       Grid* grid,
                                       const ObservationEncoder* obs_encoder,
-                                      unsigned int* current_timestep_ptr);
+                                      unsigned int* current_timestep_ptr,
+                                      TagIndex* tag_index = nullptr);
 
 }  // namespace mettagrid
 

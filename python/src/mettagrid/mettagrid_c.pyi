@@ -30,6 +30,20 @@ class AlignTo(Enum):
     actor_collective = ...
     none = ...
 
+class HandlerType(Enum):
+    """Handler type enum."""
+
+    on_use = ...
+    on_update = ...
+    aoe = ...
+
+class StatsTarget(Enum):
+    """Stats target for StatsMutation."""
+
+    game = ...
+    agent = ...
+    collective = ...
+
 # Handler filter configs
 
 class VibeFilterConfig:
@@ -58,6 +72,26 @@ class AlignmentFilterConfig:
         condition: AlignmentCondition = ...,
     ) -> None: ...
     condition: AlignmentCondition
+
+class TagFilterConfig:
+    def __init__(
+        self,
+        entity: EntityRef = ...,
+        tag_id: int = 0,
+    ) -> None: ...
+    entity: EntityRef
+    tag_id: int
+
+class NearFilterConfig:
+    def __init__(
+        self,
+        entity: EntityRef = ...,
+        radius: int = 1,
+        inner_tag_id: int = -1,
+    ) -> None: ...
+    entity: EntityRef
+    radius: int
+    inner_tag_id: int
 
 # Handler mutation configs
 
@@ -108,6 +142,48 @@ class ClearInventoryMutationConfig:
     entity: EntityRef
     resource_ids: list[int]
 
+class AttackMutationConfig:
+    def __init__(
+        self,
+        weapon_resource: int = -1,
+        armor_resource: int = -1,
+        health_resource: int = -1,
+        damage_multiplier_pct: int = 100,
+    ) -> None: ...
+    weapon_resource: int
+    armor_resource: int
+    health_resource: int
+    damage_multiplier_pct: int
+
+class StatsMutationConfig:
+    def __init__(
+        self,
+        stat_name: str = "",
+        delta: int = 1,
+        target: StatsTarget = ...,
+    ) -> None: ...
+    stat_name: str
+    delta: int
+    target: StatsTarget
+
+class AddTagMutationConfig:
+    def __init__(
+        self,
+        entity: EntityRef = ...,
+        tag_id: int = -1,
+    ) -> None: ...
+    entity: EntityRef
+    tag_id: int
+
+class RemoveTagMutationConfig:
+    def __init__(
+        self,
+        entity: EntityRef = ...,
+        tag_id: int = -1,
+    ) -> None: ...
+    entity: EntityRef
+    tag_id: int
+
 # Handler config
 
 class HandlerConfig:
@@ -120,7 +196,17 @@ class HandlerConfig:
     def add_alignment_filter(self, filter: AlignmentFilterConfig) -> None: ...
     def add_resource_filter(self, filter: ResourceFilterConfig) -> None: ...
     def add_vibe_filter(self, filter: VibeFilterConfig) -> None: ...
+    def add_tag_filter(self, filter: TagFilterConfig) -> None: ...
+    def add_near_filter(self, filter: NearFilterConfig) -> None: ...
     def add_resource_delta_mutation(self, mutation: ResourceDeltaMutationConfig) -> None: ...
+    def add_resource_transfer_mutation(self, mutation: ResourceTransferMutationConfig) -> None: ...
+    def add_alignment_mutation(self, mutation: AlignmentMutationConfig) -> None: ...
+    def add_freeze_mutation(self, mutation: FreezeMutationConfig) -> None: ...
+    def add_clear_inventory_mutation(self, mutation: ClearInventoryMutationConfig) -> None: ...
+    def add_attack_mutation(self, mutation: AttackMutationConfig) -> None: ...
+    def add_stats_mutation(self, mutation: StatsMutationConfig) -> None: ...
+    def add_add_tag_mutation(self, mutation: AddTagMutationConfig) -> None: ...
+    def add_remove_tag_mutation(self, mutation: RemoveTagMutationConfig) -> None: ...
 
 # Data types exported from C++
 dtype_observations: np.dtype

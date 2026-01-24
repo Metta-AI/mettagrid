@@ -44,9 +44,10 @@ const std::vector<std::shared_ptr<mettagrid::Handler>>& GridObject::aoe_handlers
 }
 
 bool GridObject::onUse(Agent& actor, ActionArg /*arg*/) {
+  mettagrid::HandlerContext ctx(&actor, this, nullptr, _tag_index);
   // Try each on_use handler in order until one succeeds
   for (auto& handler : _on_use_handlers) {
-    if (handler->try_apply(&actor, this)) {
+    if (handler->try_apply(ctx)) {
       return true;
     }
   }
@@ -55,7 +56,7 @@ bool GridObject::onUse(Agent& actor, ActionArg /*arg*/) {
 
 void GridObject::fire_on_update_handlers() {
   // Prevent all recursion
-  mettagrid::HandlerContext ctx(nullptr, this, /*skip_on_update_trigger=*/true);
+  mettagrid::HandlerContext ctx(nullptr, this, nullptr, _tag_index, /*skip_on_update_trigger=*/true);
 
   // Try each on_update handler - all that pass filters will be applied
   for (auto& handler : _on_update_handlers) {

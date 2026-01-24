@@ -102,7 +102,8 @@ GridObject* create_object_from_config(GridCoord r,
                                       const std::vector<std::string>* resource_names,
                                       Grid* grid,
                                       const ObservationEncoder* obs_encoder,
-                                      unsigned int* current_timestep_ptr) {
+                                      unsigned int* current_timestep_ptr,
+                                      TagIndex* tag_index) {
   auto* obj = _create_object(r, c, config, stats, resource_names, grid, obs_encoder, current_timestep_ptr);
   _set_up_handlers(obj, config);
   return obj;

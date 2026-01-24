@@ -1,6 +1,7 @@
 #ifndef PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_HANDLER_CONFIG_HPP_
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_HANDLER_CONFIG_HPP_
 
+#include <memory>
 #include <string>
 #include <variant>
 #include <vector>
@@ -19,8 +20,8 @@ enum class EntityRef {
 
 // Alignment conditions for AlignmentFilter
 enum class AlignmentCondition {
-  aligned,              // Actor and target are both aligned (have collectives)
-  unaligned,            // Either actor or target has no collective
+  aligned,              // Entity has a collective
+  unaligned,            // Entity has no collective
   same_collective,      // Actor and target belong to same collective
   different_collective  // Actor and target belong to different collectives
 };
@@ -36,6 +37,13 @@ enum class HandlerType {
   on_use,     // Triggered when agent uses/activates the object
   on_update,  // Triggered after mutations are applied to this object
   aoe         // Triggered per-tick for objects within radius
+};
+
+// Target for stats logging - which stats tracker to log to
+enum class StatsTarget {
+  game,       // Log to game-level stats tracker
+  agent,      // Log to target agent's stats tracker
+  collective  // Log to target's collective's stats tracker
 };
 
 // ============================================================================
@@ -54,16 +62,34 @@ struct ResourceFilterConfig {
 };
 
 struct AlignmentFilterConfig {
+  EntityRef entity = EntityRef::target;  // Which entity to check
   AlignmentCondition condition = AlignmentCondition::same_collective;
+  int collective_id = -1;  // If >= 0, check if entity belongs to this specific collective
 };
 
 struct TagFilterConfig {
   EntityRef entity = EntityRef::target;
-  std::vector<int> required_tag_ids;  // Target must have at least one of these
+  int tag_id = 0;  // Single tag ID that must be present on the object
+};
+
+// Forward declaration for recursive filter config
+struct FilterConfigBox;
+
+struct NearFilterConfig {
+  EntityRef entity = EntityRef::target;
+  std::vector<std::shared_ptr<FilterConfigBox>> inner_filters;  // Recursive filters that nearby objects must pass
+  int radius = 1;                                               // Radius (chebyshev distance) to check
+  int inner_tag_id = -1;  // Tag ID to find nearby objects with (resolved from inner filters)
 };
 
 // Variant type for all filter configs
-using FilterConfig = std::variant<VibeFilterConfig, ResourceFilterConfig, AlignmentFilterConfig, TagFilterConfig>;
+using FilterConfig =
+    std::variant<VibeFilterConfig, ResourceFilterConfig, AlignmentFilterConfig, TagFilterConfig, NearFilterConfig>;
+
+// Boxed FilterConfig for recursive filter support (NearFilter can contain any filter including NearFilter)
+struct FilterConfigBox {
+  FilterConfig config;
+};
 
 // ============================================================================
 // Mutation Configs
@@ -84,6 +110,9 @@ struct ResourceTransferMutationConfig {
 
 struct AlignmentMutationConfig {
   AlignTo align_to = AlignTo::actor_collective;
+  std::string collective_name;  // If non-empty, align to this specific collective (overrides align_to)
+  int collective_id = -1;       // Resolved collective ID (set during config setup)
+  int collective_tag_id = -1;   // Tag ID for "collective:X" tag (set during config setup)
 };
 
 struct FreezeMutationConfig {
@@ -100,7 +129,23 @@ struct AttackMutationConfig {
   InventoryItem weapon_resource = 0;
   InventoryItem armor_resource = 0;
   InventoryItem health_resource = 0;
-  float damage_multiplier = 1.0f;
+  int damage_multiplier_pct = 100;  // Percentage (100 = 1.0x, 150 = 1.5x)
+};
+
+struct StatsMutationConfig {
+  std::string stat_name;                         // Name of the stat to log
+  float delta = 1.0f;                            // Delta to add to the stat
+  StatsTarget target = StatsTarget::collective;  // Which stats tracker to log to
+};
+
+struct AddTagMutationConfig {
+  EntityRef entity = EntityRef::target;
+  int tag_id = -1;
+};
+
+struct RemoveTagMutationConfig {
+  EntityRef entity = EntityRef::target;
+  int tag_id = -1;
 };
 
 // Variant type for all mutation configs
@@ -109,7 +154,10 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     AlignmentMutationConfig,
                                     FreezeMutationConfig,
                                     ClearInventoryMutationConfig,
-                                    AttackMutationConfig>;
+                                    AttackMutationConfig,
+                                    StatsMutationConfig,
+                                    AddTagMutationConfig,
+                                    RemoveTagMutationConfig>;
 
 // ============================================================================
 // Handler Config

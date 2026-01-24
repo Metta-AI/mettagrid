@@ -18,12 +18,12 @@
 #include "actions/change_vibe.hpp"
 #include "actions/move_config.hpp"
 #include "actions/transfer.hpp"
-#include "core/grid_object_factory.hpp"
-#include "handler/handler_bindings.hpp"
 #include "config/observation_features.hpp"
 #include "core/aoe_bindings.hpp"
 #include "core/grid.hpp"
+#include "core/grid_object_factory.hpp"
 #include "core/types.hpp"
+#include "handler/handler_bindings.hpp"
 #include "objects/agent.hpp"
 #include "objects/alignable.hpp"
 #include "objects/assembler.hpp"
@@ -181,7 +181,7 @@ void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map) {
 
       // Create object from config using the factory
       GridObject* created_object = mettagrid::create_object_from_config(
-          r, c, object_cfg, _stats.get(), &resource_names, _grid.get(), _obs_encoder.get(), &current_step);
+          r, c, object_cfg, _stats.get(), &resource_names, _grid.get(), _obs_encoder.get(), &current_step, &_tag_index);
 
       // Add to grid and track stats
       _grid->add_object(created_object);
@@ -347,8 +347,7 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
         episode_completion_pct = std::numeric_limits<ObservationType>::max();
       } else {
         episode_completion_pct = static_cast<ObservationType>(
-          (static_cast<uint32_t>(std::numeric_limits<ObservationType>::max()) + 1) * current_step / max_steps
-        );
+            (static_cast<uint32_t>(std::numeric_limits<ObservationType>::max()) + 1) * current_step / max_steps);
       }
     }
     global_tokens.push_back({ObservationFeature::EpisodeCompletionPct, episode_completion_pct});
@@ -444,8 +443,8 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
     // Prepare observation buffer for this object
     ObservationToken* obs_ptr =
         reinterpret_cast<ObservationToken*>(observation_view.mutable_data(agent_idx, tokens_written, 0));
-    ObservationTokens obs_tokens(
-        obs_ptr, static_cast<size_t>(observation_view.shape(1)) - static_cast<size_t>(tokens_written));
+    ObservationTokens obs_tokens(obs_ptr,
+                                 static_cast<size_t>(observation_view.shape(1)) - static_cast<size_t>(tokens_written));
 
     // Calculate position within the observation window (agent is at the center)
     int obs_r = r - static_cast<int>(observer_row) + static_cast<int>(obs_height_radius);
@@ -548,8 +547,9 @@ void MettaGrid::_step() {
   }
 
   // Apply AOE effects to all agents at their current location
+  // Pass game stats tracker so StatsMutation can log to game-level stats
   for (auto* agent : _agents) {
-    _aoe_grid->apply_effects_at(agent->location, *agent);
+    _aoe_grid->apply_effects_at(agent->location, *agent, _stats.get(), &_tag_index);
   }
 
   // Update held stats for all collectives (tracks how long objects are aligned)

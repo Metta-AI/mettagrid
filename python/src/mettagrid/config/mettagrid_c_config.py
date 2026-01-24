@@ -1,5 +1,6 @@
 from typing import Any
 
+from mettagrid.config.filter.tag_filter import typeTag
 from mettagrid.config.handler_config import AlignmentCondition
 from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_mutations
 from mettagrid.config.mettagrid_config import (
@@ -28,9 +29,11 @@ from mettagrid.mettagrid_c import HandlerConfig as CppHandlerConfig
 from mettagrid.mettagrid_c import InventoryConfig as CppInventoryConfig
 from mettagrid.mettagrid_c import LimitDef as CppLimitDef
 from mettagrid.mettagrid_c import MoveActionConfig as CppMoveActionConfig
+from mettagrid.mettagrid_c import NearFilterConfig as CppNearFilterConfig
 from mettagrid.mettagrid_c import Protocol as CppProtocol
 from mettagrid.mettagrid_c import ResourceDeltaMutationConfig as CppResourceDeltaMutationConfig
 from mettagrid.mettagrid_c import ResourceFilterConfig as CppResourceFilterConfig
+from mettagrid.mettagrid_c import TagFilterConfig as CppTagFilterConfig
 from mettagrid.mettagrid_c import TransferActionConfig as CppTransferActionConfig
 from mettagrid.mettagrid_c import VibeFilterConfig as CppVibeFilterConfig
 from mettagrid.mettagrid_c import VibeTransferEffect as CppVibeTransferEffect
@@ -48,7 +51,7 @@ def _convert_alignment_condition(alignment) -> CppAlignmentCondition:
     return mapping.get(alignment, CppAlignmentCondition.same_collective)
 
 
-def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource_ids, vibe_name_to_id):
+def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource_ids, vibe_name_to_id, tag_name_to_id):
     """Convert Python Handler dict to C++ HandlerConfig list.
 
     Args:
@@ -56,6 +59,7 @@ def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource
         resource_name_to_id: Dict mapping resource names to IDs
         limit_name_to_resource_ids: Dict mapping limit names to lists of resource IDs
         vibe_name_to_id: Dict mapping vibe names to IDs
+        tag_name_to_id: Dict mapping tag names to IDs
 
     Returns:
         List of CppHandlerConfig objects
@@ -71,26 +75,49 @@ def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource
             filter_type = getattr(filter_config, "filter_type", None)
 
             if filter_type == "alignment":
-                cpp_filter = CppAlignmentFilterConfig()
-                cpp_filter.condition = _convert_alignment_condition(filter_config.alignment)
+                cpp_filter = CppAlignmentFilterConfig(_convert_alignment_condition(filter_config.alignment))
                 cpp_handler.add_alignment_filter(cpp_filter)
 
             elif filter_type == "resource":
                 # Resource filter can have multiple resources - add one filter per resource
                 for resource_name, min_amount in filter_config.resources.items():
-                    if resource_name in resource_name_to_id:
-                        cpp_filter = CppResourceFilterConfig()
-                        cpp_filter.entity = convert_entity_ref(filter_config.target)
-                        cpp_filter.resource_id = resource_name_to_id[resource_name]
-                        cpp_filter.min_amount = min_amount
-                        cpp_handler.add_resource_filter(cpp_filter)
+                    assert resource_name in resource_name_to_id, (
+                        f"ResourceFilter in handler '{handler_name}' references unknown resource '{resource_name}'"
+                    )
+                    cpp_filter = CppResourceFilterConfig(
+                        convert_entity_ref(filter_config.target), resource_name_to_id[resource_name], min_amount
+                    )
+                    cpp_handler.add_resource_filter(cpp_filter)
 
             elif filter_type == "vibe":
-                if filter_config.vibe in vibe_name_to_id:
-                    cpp_filter = CppVibeFilterConfig()
-                    cpp_filter.entity = convert_entity_ref(filter_config.target)
-                    cpp_filter.vibe_id = vibe_name_to_id[filter_config.vibe]
-                    cpp_handler.add_vibe_filter(cpp_filter)
+                assert filter_config.vibe in vibe_name_to_id, (
+                    f"VibeFilter in handler '{handler_name}' references unknown vibe '{filter_config.vibe}'"
+                )
+                cpp_filter = CppVibeFilterConfig(
+                    convert_entity_ref(filter_config.target), vibe_name_to_id[filter_config.vibe]
+                )
+                cpp_handler.add_vibe_filter(cpp_filter)
+
+            elif filter_type == "tag":
+                assert filter_config.tag in tag_name_to_id, (
+                    f"TagFilter in handler '{handler_name}' references unknown tag '{filter_config.tag}'. "
+                    f"Add it to GameConfig.tags or object tags."
+                )
+                cpp_filter = CppTagFilterConfig(
+                    convert_entity_ref(filter_config.target), tag_name_to_id[filter_config.tag]
+                )
+                cpp_handler.add_tag_filter(cpp_filter)
+
+            elif filter_type == "near":
+                assert filter_config.tag in tag_name_to_id, (
+                    f"NearFilter in handler '{handler_name}' references unknown tag '{filter_config.tag}'. "
+                    f"Add it to GameConfig.tags or object tags."
+                )
+                inner_tag_id = tag_name_to_id[filter_config.tag]
+                cpp_filter = CppNearFilterConfig(
+                    convert_entity_ref(filter_config.target), inner_tag_id, filter_config.radius
+                )
+                cpp_handler.add_near_filter(cpp_filter)
 
         # Convert mutations using shared utility
         convert_mutations(
@@ -98,6 +125,7 @@ def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource
             cpp_handler,
             resource_name_to_id,
             limit_name_to_resource_ids,
+            tag_name_to_id,
             context=f"handler '{handler_name}'",
         )
 
@@ -130,17 +158,15 @@ def _convert_aoes_to_handlers(aoes, resource_name_to_id):
             filter_type = getattr(filter_config, "filter_type", None)
 
             if filter_type == "alignment":
-                cpp_filter = CppAlignmentFilterConfig()
-                cpp_filter.condition = _convert_alignment_condition(filter_config.alignment)
+                cpp_filter = CppAlignmentFilterConfig(_convert_alignment_condition(filter_config.alignment))
                 cpp_handler.add_alignment_filter(cpp_filter)
 
         # Convert resource_deltas to mutations
         for resource_name, delta in aoe.resource_deltas.items():
             if resource_name in resource_name_to_id:
-                mutation = CppResourceDeltaMutationConfig()
-                mutation.entity = CppEntityRef.target  # AOE affects target
-                mutation.resource_id = resource_name_to_id[resource_name]
-                mutation.delta = delta
+                mutation = CppResourceDeltaMutationConfig(
+                    CppEntityRef.target, resource_name_to_id[resource_name], delta
+                )
                 cpp_handler.add_resource_delta_mutation(mutation)
 
         cpp_handlers.append(cpp_handler)
@@ -172,8 +198,14 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
     resource_name_to_id = {name: i for i, name in enumerate(resource_names)}
 
     # Compute deterministic type_id mapping for C++ (Python never exposes these)
-    type_names_sorted = sorted(game_config.objects.keys())
-    type_id_by_type_name = {name: (i + 1) for i, name in enumerate(type_names_sorted)}  # 0 reserved for agents
+    # Include agent names alongside object names - agents are treated like any other type
+    type_names = set(game_config.objects.keys())
+    for agent_config in game_config.agents:
+        type_names.add(agent_config.name)
+    if not game_config.agents and game_config.num_agents > 0:
+        type_names.add(game_config.agent.name)
+    type_names_sorted = sorted(type_names)
+    type_id_by_type_name = {name: i for i, name in enumerate(type_names_sorted)}
 
     # Set up vibe mappings from the change_vibe action config.
     # The C++ bindings expect dense uint8 identifiers, so keep a name->id lookup.
@@ -207,14 +239,16 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
 
     # Build tag mappings - collect all unique tags from all objects
     # Note: This must happen AFTER default agents are created, so their tags are included
-    # This must match the logic in IdMap.tag_names() exactly to ensure consistent tag IDs
-    all_tags = set()
-    for obj_config in game_config.objects.values():
+    # All tag references in handlers must refer to GameConfig.tags, obj.tags, or type:object_type
+    all_tags = set(game_config.tags)
+    for obj_name, obj_config in game_config.objects.items():
         all_tags.update(obj_config.tags)
+        all_tags.add(typeTag(obj_name))
 
     # Collect tags from agents (created from default config if list was empty)
     for agent_config in game_config.agents:
         all_tags.update(agent_config.tags)
+        all_tags.add(typeTag(agent_config.name))
 
     tag_id_offset = 0  # Start tag IDs at 0
     sorted_tags = sorted(all_tags)
@@ -286,8 +320,9 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         # Map team IDs to conventional group names
         team_names = {0: "red", 1: "blue", 2: "green", 3: "yellow", 4: "purple", 5: "orange"}
         group_name = team_names.get(team_id, f"team_{team_id}")
-        # Convert tag names to IDs for first agent in team
-        tag_ids = [tag_name_to_id[tag] for tag in first_agent.tags]
+        # Convert tag names to IDs for first agent in team (include auto-generated type tag)
+        agent_tags = list(first_agent.tags) + [typeTag(first_agent.name)]
+        tag_ids = [tag_name_to_id[tag] for tag in agent_tags]
 
         # Convert vibe-keyed inventory regeneration amounts from names to IDs
         # Format: {vibe_name: {resource_name: amount}} -> {vibe_id: {resource_id: amount}}
@@ -328,8 +363,8 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         inventory_config.limit_defs = limit_defs
 
         cpp_agent_config = CppAgentConfig(
-            type_id=0,
-            type_name="agent",
+            type_id=type_id_by_type_name[first_agent.name],
+            type_name=first_agent.name,
             group_id=team_id,
             group_name=group_name,
             freeze_duration=agent_props["freeze_duration"],
@@ -356,9 +391,10 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
     for object_type, object_config in game_config.objects.items():
         cpp_config = None  # Will hold the created C++ config object
 
-        # Common GridObjectConfig fields - computed once
+        # Common GridObjectConfig fields - computed once (include auto-generated type tag)
         type_id = type_id_by_type_name[object_type]
-        tag_ids = [tag_name_to_id[tag] for tag in object_config.tags]
+        object_tags = list(object_config.tags) + [typeTag(object_type)]
+        tag_ids = [tag_name_to_id[tag] for tag in object_tags]
 
         if isinstance(object_config, WallConfig):
             cpp_config = CppWallConfig(type_id=type_id, type_name=object_type, initial_vibe=object_config.vibe)
@@ -459,15 +495,27 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             # Convert the three handler types
             if object_config.on_use_handlers:
                 cpp_config.on_use_handlers = _convert_handlers(
-                    object_config.on_use_handlers, resource_name_to_id, limit_name_to_resource_ids, vibe_name_to_id
+                    object_config.on_use_handlers,
+                    resource_name_to_id,
+                    limit_name_to_resource_ids,
+                    vibe_name_to_id,
+                    tag_name_to_id,
                 )
             if object_config.on_update_handlers:
                 cpp_config.on_update_handlers = _convert_handlers(
-                    object_config.on_update_handlers, resource_name_to_id, limit_name_to_resource_ids, vibe_name_to_id
+                    object_config.on_update_handlers,
+                    resource_name_to_id,
+                    limit_name_to_resource_ids,
+                    vibe_name_to_id,
+                    tag_name_to_id,
                 )
             if object_config.aoe_handlers:
                 cpp_config.aoe_handlers = _convert_handlers(
-                    object_config.aoe_handlers, resource_name_to_id, limit_name_to_resource_ids, vibe_name_to_id
+                    object_config.aoe_handlers,
+                    resource_name_to_id,
+                    limit_name_to_resource_ids,
+                    vibe_name_to_id,
+                    tag_name_to_id,
                 )
 
             # Convert aoes (AOEEffectConfig) to AOE handlers
@@ -490,6 +538,8 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         del game_cpp_params["params"]
     if "map_builder" in game_cpp_params:
         del game_cpp_params["map_builder"]
+    if "tags" in game_cpp_params:
+        del game_cpp_params["tags"]
 
     # Extract obs config to top level for C++ compatibility
     if "obs" in game_cpp_params:

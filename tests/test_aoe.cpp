@@ -77,15 +77,15 @@ std::shared_ptr<Handler> create_aoe_handler_with_alignment(int radius,
 }
 
 // Helper to create an AOE handler with tag filter
-std::shared_ptr<Handler> create_aoe_handler_with_tags(int radius,
-                                                      InventoryItem resource_id,
-                                                      InventoryDelta delta,
-                                                      const std::vector<int>& required_tag_ids) {
+std::shared_ptr<Handler> create_aoe_handler_with_tag(int radius,
+                                                     InventoryItem resource_id,
+                                                     InventoryDelta delta,
+                                                     int tag_id) {
   HandlerConfig config("test_aoe_tagged");
   config.radius = radius;
   TagFilterConfig filter;
   filter.entity = EntityRef::target;
-  filter.required_tag_ids = required_tag_ids;
+  filter.tag_id = tag_id;
   config.filters.push_back(filter);
   ResourceDeltaMutationConfig mutation;
   mutation.entity = EntityRef::target;
@@ -298,7 +298,7 @@ void test_tag_filter() {
   target_without_tag.inventory.update(0, 100);
 
   // Handler only affects targets with tag 1
-  auto handler = create_aoe_handler_with_tags(1, 0, 10, {1});
+  auto handler = create_aoe_handler_with_tag(1, 0, 10, 1);
 
   grid.register_source(source, handler);
   grid.apply_effects_at(target_with_tag.location, target_with_tag);

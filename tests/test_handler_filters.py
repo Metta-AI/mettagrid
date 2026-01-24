@@ -7,7 +7,7 @@ These tests verify that:
 
 import pytest
 
-from mettagrid.config.filter_config import VibeFilter
+from mettagrid.config.filter import VibeFilter
 from mettagrid.config.handler_config import (
     AlignmentCondition,
     AlignmentFilter,
@@ -21,7 +21,7 @@ from mettagrid.config.mettagrid_config import (
     MettaGridConfig,
     ResourceLimitsConfig,
 )
-from mettagrid.config.mutation_config import (
+from mettagrid.config.mutation import (
     EntityTarget,
     ResourceDeltaMutation,
 )
@@ -225,7 +225,12 @@ class TestAlignmentFilterOnAOE:
             aoe_handlers={
                 "ally_boost": Handler(
                     radius=2,
-                    filters=[AlignmentFilter(alignment=AlignmentCondition.SAME_COLLECTIVE)],
+                    filters=[
+                        AlignmentFilter(
+                            target=HandlerTarget.TARGET,
+                            alignment=AlignmentCondition.SAME_COLLECTIVE,
+                        )
+                    ],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
                 ),
             },
@@ -281,7 +286,12 @@ class TestAlignmentFilterOnAOE:
             aoe_handlers={
                 "ally_boost": Handler(
                     radius=2,
-                    filters=[AlignmentFilter(alignment=AlignmentCondition.SAME_COLLECTIVE)],
+                    filters=[
+                        AlignmentFilter(
+                            target=HandlerTarget.TARGET,
+                            alignment=AlignmentCondition.SAME_COLLECTIVE,
+                        )
+                    ],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
                 ),
             },
@@ -338,7 +348,12 @@ class TestAlignmentFilterOnAOE:
             aoe_handlers={
                 "enemy_damage": Handler(
                     radius=2,
-                    filters=[AlignmentFilter(alignment=AlignmentCondition.DIFFERENT_COLLECTIVE)],
+                    filters=[
+                        AlignmentFilter(
+                            target=HandlerTarget.TARGET,
+                            alignment=AlignmentCondition.DIFFERENT_COLLECTIVE,
+                        )
+                    ],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"hp": -10})],
                 ),
             },

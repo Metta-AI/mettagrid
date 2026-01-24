@@ -2,9 +2,11 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_HANDLER_CONTEXT_HPP_
 
 #include "core/grid_object.hpp"
+#include "core/tag_index.hpp"
 #include "handler/handler_config.hpp"
 #include "objects/collective.hpp"
 #include "objects/has_inventory.hpp"
+#include "systems/stats_tracker.hpp"
 
 namespace mettagrid {
 
@@ -21,6 +23,8 @@ class HandlerContext {
 public:
   HasInventory* actor = nullptr;
   HasInventory* target = nullptr;
+  StatsTracker* game_stats = nullptr;  // Game-level stats tracker (for StatsMutation)
+  TagIndex* tag_index = nullptr;       // Tag index for NearFilter lookups
 
   // Flag to prevent infinite recursion when on_update handlers trigger more mutations
   bool skip_on_update_trigger = false;
@@ -28,6 +32,10 @@ public:
   HandlerContext() = default;
   HandlerContext(HasInventory* act, HasInventory* tgt, bool skip_update = false)
       : actor(act), target(tgt), skip_on_update_trigger(skip_update) {}
+  HandlerContext(HasInventory* act, HasInventory* tgt, StatsTracker* stats, bool skip_update = false)
+      : actor(act), target(tgt), game_stats(stats), skip_on_update_trigger(skip_update) {}
+  HandlerContext(HasInventory* act, HasInventory* tgt, StatsTracker* stats, TagIndex* tags, bool skip_update = false)
+      : actor(act), target(tgt), game_stats(stats), tag_index(tags), skip_on_update_trigger(skip_update) {}
 
   // Resolve an EntityRef to the corresponding HasInventory*
   HasInventory* resolve(EntityRef ref) const {

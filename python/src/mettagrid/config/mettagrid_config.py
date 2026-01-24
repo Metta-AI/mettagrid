@@ -348,6 +348,10 @@ class GameConfig(Config):
 
     reward_estimates: Optional[dict[str, float]] = Field(default=None)
 
+    # Explicit list of tags used in the game. All tag references in filters/mutations
+    # must refer to one of these, or obj.tags, or the implicit type:object_type tag.
+    tags: list[str] = Field(default_factory=list, description="Explicit list of tags used in the game")
+
     @model_validator(mode="after")
     def _compute_feature_ids(self) -> "GameConfig":
         self.vibe_names = [vibe.name for vibe in self.actions.change_vibe.vibes]

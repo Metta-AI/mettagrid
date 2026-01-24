@@ -77,7 +77,10 @@ void AOEEffectGrid::unregister_source(GridObject& source) {
   _source_handlers.erase(handlers_it);
 }
 
-void AOEEffectGrid::apply_effects_at(const GridLocation& loc, GridObject& target) {
+void AOEEffectGrid::apply_effects_at(const GridLocation& loc,
+                                     GridObject& target,
+                                     StatsTracker* game_stats,
+                                     TagIndex* tag_index) {
   auto cell_it = _cell_effects.find(loc);
   if (cell_it == _cell_effects.end()) {
     return;
@@ -89,8 +92,8 @@ void AOEEffectGrid::apply_effects_at(const GridLocation& loc, GridObject& target
       continue;
     }
 
-    // Create context: actor=source, target=affected object
-    HandlerContext ctx(effect.source, &target);
+    // Create context: actor=source, target=affected object, game_stats for StatsMutation
+    HandlerContext ctx(effect.source, &target, game_stats, tag_index);
 
     // Handler's filters and mutations are applied via try_apply
     effect.handler->try_apply(ctx);
