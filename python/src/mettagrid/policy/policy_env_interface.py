@@ -1,6 +1,7 @@
 """Lightweight environment description for policy initialization."""
 
 import json
+from typing import Optional
 
 import gymnasium as gym
 from pydantic import BaseModel, Field
@@ -22,6 +23,10 @@ class PolicyEnvInterface(BaseModel):
     action_names: list[str] = Field(
         description="Ordered list of action names (e.g., ['noop', 'move_north', ...]). "
         "Action indices in the policy output correspond to this list."
+    )
+    move_energy_cost: Optional[int] = Field(
+        default=None,
+        description="Energy cost for a single move action, if configured.",
     )
     num_agents: int = Field(description="Number of agents in the environment.")
     observation_shape: tuple[int, ...] = Field(
@@ -80,6 +85,9 @@ class PolicyEnvInterface(BaseModel):
         id_map = mg_cfg.game.id_map()
         tag_names_list = id_map.tag_names()
         actions_list = mg_cfg.game.actions.actions()
+        move_energy_cost = None
+        if mg_cfg.game.actions.move and mg_cfg.game.actions.move.consumed_resources:
+            move_energy_cost = mg_cfg.game.actions.move.consumed_resources.get("energy")
 
         return PolicyEnvInterface(
             obs_features=id_map.features(),
@@ -89,6 +97,7 @@ class PolicyEnvInterface(BaseModel):
             observation_shape=(mg_cfg.game.obs.num_tokens, mg_cfg.game.obs.token_dim),
             egocentric_shape=(mg_cfg.game.obs.height, mg_cfg.game.obs.width),
             assembler_protocols=assembler_protocols,
+            move_energy_cost=move_energy_cost,
         )
 
     def to_json(self) -> str:
