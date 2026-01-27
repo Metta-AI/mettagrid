@@ -64,6 +64,7 @@ struct GridObjectConfig {
   std::string name;  // Instance name (defaults to type_name if empty)
   std::vector<int> tag_ids;
   ObservationType initial_vibe;
+  int collective_id = -1;  // Collective ID for initial alignment (-1 = none)
   InventoryConfig inventory_config;
   std::unordered_map<InventoryItem, InventoryQuantity> initial_inventory;
 

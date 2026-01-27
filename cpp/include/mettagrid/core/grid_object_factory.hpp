@@ -12,11 +12,12 @@
 class StatsTracker;
 class Grid;
 class ObservationEncoder;
+class Collective;
 
 namespace mettagrid {
 
 // Factory for creating GridObjects from config.
-// Sets up grid, obs_encoder, and current_timestep_ptr on objects that need them.
+// Sets up grid, obs_encoder, current_timestep_ptr, and collective on objects that need them.
 // Returns the created object. Caller is responsible for:
 // - Adding to grid
 // - Agent-specific setup (agent_id, add_agent)
@@ -30,7 +31,8 @@ GridObject* create_object_from_config(GridCoord r,
                                       Grid* grid,
                                       const ObservationEncoder* obs_encoder,
                                       unsigned int* current_timestep_ptr,
-                                      TagIndex* tag_index = nullptr);
+                                      TagIndex* tag_index,
+                                      const std::vector<Collective*>* collectives_by_id);
 
 }  // namespace mettagrid
 

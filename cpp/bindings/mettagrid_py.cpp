@@ -371,6 +371,7 @@ PYBIND11_MODULE(mettagrid_c, m) {
       .def_readwrite("name", &GridObjectConfig::name)
       .def_readwrite("tag_ids", &GridObjectConfig::tag_ids)
       .def_readwrite("initial_vibe", &GridObjectConfig::initial_vibe)
+      .def_readwrite("collective_id", &GridObjectConfig::collective_id)
       .def_readwrite("on_use_handlers", &GridObjectConfig::on_use_handlers)
       .def_readwrite("aoe_configs", &GridObjectConfig::aoe_configs);
 

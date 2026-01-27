@@ -1,5 +1,6 @@
 #include "core/grid_object_factory.hpp"
 
+#include <cassert>
 #include <memory>
 #include <stdexcept>
 #include <typeinfo>
@@ -9,10 +10,12 @@
 #include "handler/handler.hpp"
 #include "objects/agent.hpp"
 #include "objects/agent_config.hpp"
+#include "objects/alignable.hpp"
 #include "objects/assembler.hpp"
 #include "objects/assembler_config.hpp"
 #include "objects/chest.hpp"
 #include "objects/chest_config.hpp"
+#include "objects/collective.hpp"
 #include "objects/wall.hpp"
 #include "systems/observation_encoder.hpp"
 #include "systems/stats_tracker.hpp"
@@ -86,10 +89,18 @@ GridObject* create_object_from_config(GridCoord r,
                                       Grid* grid,
                                       const ObservationEncoder* obs_encoder,
                                       unsigned int* current_timestep_ptr,
-                                      TagIndex* tag_index) {
+                                      TagIndex* tag_index,
+                                      const std::vector<Collective*>* collectives_by_id) {
   auto* obj = _create_object(r, c, config, stats, resource_names, grid, obs_encoder, current_timestep_ptr);
   obj->set_obs_encoder(obs_encoder);
   _set_up_handlers(obj, config, tag_index);
+
+  // Set collective if specified in config (all GridObjects inherit from Alignable)
+  assert(collectives_by_id != nullptr);
+  if (config->collective_id >= 0 && static_cast<size_t>(config->collective_id) < collectives_by_id->size()) {
+    obj->setCollective((*collectives_by_id)[config->collective_id]);
+  }
+
   return obj;
 }
 

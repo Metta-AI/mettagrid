@@ -305,6 +305,7 @@ class GridObjectConfig:
     type_name: str
     tag_ids: list[int]
     initial_vibe: int
+    collective_id: int
     on_use_handlers: list[HandlerConfig]
     aoe_configs: list[AOEConfig]
 

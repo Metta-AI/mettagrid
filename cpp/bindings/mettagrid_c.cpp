@@ -90,9 +90,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   init_action_handlers();
 
-  _init_grid(game_config, map);
-
-  // Initialize collectives from config in SORTED order
+  // Initialize collectives from config in SORTED order (before _init_grid so objects can reference them)
   // This ensures collective IDs match between Python and C++ (unordered_map iteration is unpredictable)
   std::vector<std::string> collective_names;
   collective_names.reserve(game_config.collectives.size());
@@ -106,37 +104,11 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
     auto collective = std::make_unique<Collective>(*collective_cfg, &resource_names);
     collective->id = static_cast<int>(_collectives.size());  // Set ID to index (sorted order)
     _collectives_by_name[name] = collective.get();
+    _collectives_by_id.push_back(collective.get());
     _collectives.push_back(std::move(collective));
   }
 
-  // Associate alignable objects with their collective based on tags
-  // Tags of the form "collective:name" indicate membership
-  // Only objects that implement Alignable can belong to a collective
-  const std::string collective_tag_prefix = "collective:";
-  for (unsigned int obj_id = 1; obj_id < _grid->objects.size(); obj_id++) {
-    auto obj = _grid->object(obj_id);
-    if (!obj) continue;
-
-    // Try to cast to Alignable - only alignable objects can have a collective
-    Alignable* alignable = dynamic_cast<Alignable*>(obj);
-    if (!alignable) continue;
-
-    // Check for collective tags
-    for (int tag_id : obj->tag_ids) {
-      auto tag_it = game_config.tag_id_map.find(tag_id);
-      if (tag_it != game_config.tag_id_map.end()) {
-        const std::string& tag_name = tag_it->second;
-        if (tag_name.rfind(collective_tag_prefix, 0) == 0) {
-          // Extract collective name from tag
-          std::string collective_name = tag_name.substr(collective_tag_prefix.length());
-          auto collective_it = _collectives_by_name.find(collective_name);
-          if (collective_it != _collectives_by_name.end()) {
-            alignable->setCollective(collective_it->second);
-          }
-        }
-      }
-    }
-  }
+  _init_grid(game_config, map, _collectives_by_id);
 
   // Initialize EventScheduler from config
   if (!game_config.events.empty()) {
@@ -162,7 +134,8 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 MettaGrid::~MettaGrid() = default;
 
 
-void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map) {
+void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map,
+                           const std::vector<Collective*>& collectives_by_id) {
   GridCoord height = static_cast<GridCoord>(py::len(map));
   GridCoord width = static_cast<GridCoord>(py::len(map[0]));
 
@@ -203,7 +176,7 @@ void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map) {
       // Create object from config using the factory
       GridObject* created_object = mettagrid::create_object_from_config(
           r, c, object_cfg, _stats.get(), &resource_names, _grid.get(), _obs_encoder.get(), &current_step,
-          &_tag_index);
+          &_tag_index, &collectives_by_id);
 
       // Add to grid and track stats
       _grid->add_object(created_object);
@@ -226,6 +199,7 @@ void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map) {
         agent->agent_id = static_cast<decltype(agent->agent_id)>(_agents.size());
         add_agent(agent);
       }
+
     }
   }
 }

@@ -126,7 +126,7 @@ class GridObjectConfig(Config):
     vibe: int = Field(default=0, ge=0, le=255, description="Vibe value for this object instance")
     collective: Optional[str] = Field(
         default=None,
-        description="Name of collective this object belongs to. Adds 'collective:{name}' tag automatically.",
+        description="Name of collective this object belongs to.",
     )
     aoes: dict[str, AOEConfig] = Field(
         default_factory=dict,
@@ -254,9 +254,7 @@ class CollectiveConfig(Config):
     Configuration for a shared inventory (Collective).
 
     Collective provides a shared inventory that multiple grid objects can access.
-    Objects are associated with a collective via tags of the form "collective:{name}".
-    Grid objects can specify collective="name" in their config to automatically add
-    this tag.
+    Objects are associated with a collective by setting collective="name" in their config.
 
     Note: Collective name is typically provided as the dict key when defining collectives.
     """

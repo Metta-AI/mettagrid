@@ -112,7 +112,6 @@ struct AlignmentMutationConfig {
   AlignTo align_to = AlignTo::actor_collective;
   std::string collective_name;  // If non-empty, align to this specific collective (overrides align_to)
   int collective_id = -1;       // Resolved collective ID (set during config setup)
-  int collective_tag_id = -1;   // Tag ID for "collective:X" tag (set during config setup)
 };
 
 struct FreezeMutationConfig {

@@ -537,6 +537,9 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
     supported_vibes = game_config.actions.change_vibe.vibes
     vibe_name_to_id = {vibe.name: i for i, vibe in enumerate(supported_vibes)}
 
+    # Build collective_name_to_id mapping (sorted for deterministic IDs matching C++)
+    collective_name_to_id = {name: idx for idx, name in enumerate(sorted(game_config.collectives.keys()))}
+
     objects_cpp_params = {}  # params for CppWallConfig
 
     # These are the baseline settings for all agents
@@ -702,6 +705,10 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         )
         cpp_agent_config.tag_ids = tag_ids
 
+        # Set collective_id if agent belongs to a collective
+        if first_agent.collective and first_agent.collective in collective_name_to_id:
+            cpp_agent_config.collective_id = collective_name_to_id[first_agent.collective]
+
         # Convert agent aoes (dict[str, AOEConfig]) to C++ AOEConfig list
         if first_agent.aoes:
             cpp_agent_config.aoe_configs = _convert_aoe_configs(
@@ -826,6 +833,10 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         # Set common GridObjectConfig fields generically
         if cpp_config is not None:
             cpp_config.tag_ids = tag_ids
+
+            # Set collective_id if object belongs to a collective
+            if object_config.collective and object_config.collective in collective_name_to_id:
+                cpp_config.collective_id = collective_name_to_id[object_config.collective]
 
             # Convert the three handler types
             if object_config.on_use_handlers:
@@ -1047,11 +1058,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         collectives_cpp[collective_name] = cpp_collective_config
 
     game_cpp_params["collectives"] = collectives_cpp
-
-    # Build collective_name_to_id mapping for events
-    # Collective IDs are assigned in SORTED order to ensure consistency between Python and C++
-    # (C++ unordered_map iteration order is unpredictable, but we sort in C++ before assignment)
-    collective_name_to_id = {name: idx for idx, name in enumerate(sorted(game_config.collectives.keys()))}
 
     # Convert event configurations
     if game_config.events:

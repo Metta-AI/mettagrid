@@ -17,7 +17,7 @@ class Tag(str):
     Examples:
         Tag("infected")
         Tag("type:wall")
-        Tag("collective:team_red")
+        Tag("team:red")
     """
 
     @classmethod

@@ -163,6 +163,7 @@ private:
   // Collective objects - owned by MettaGrid
   std::vector<std::unique_ptr<Collective>> _collectives;
   std::unordered_map<std::string, Collective*> _collectives_by_name;
+  std::vector<Collective*> _collectives_by_id;
 
   // Tag index for efficient tag-based object lookup
   mettagrid::TagIndex _tag_index;
@@ -178,7 +179,8 @@ private:
                            size_t tokens_written,
                            ObservationType global_location);
   void add_agent(Agent* agent);
-  void _init_grid(const GameConfig& game_config, const py::list& map);
+  void _init_grid(const GameConfig& game_config, const py::list& map,
+                  const std::vector<Collective*>& collectives_by_id);
   void _make_buffers(unsigned int num_agents);
   void _init_buffers(unsigned int num_agents);
   void _compute_observation(GridCoord observer_r,

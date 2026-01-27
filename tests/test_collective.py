@@ -15,7 +15,6 @@ from mettagrid.config.mettagrid_config import (
     ResourceLimitsConfig,
     WallConfig,
 )
-from mettagrid.config.tag import Tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Simulation
@@ -36,15 +35,10 @@ class TestCollectiveConfig:
         assert cfg.name == "shared_storage"
         assert cfg.inventory.initial["gold"] == 100
 
-    def test_collective_tag_auto_added(self):
-        """Test that collective field adds the collective tag automatically."""
+    def test_collective_field_set(self):
+        """Test that collective field is set on the config."""
         cfg = WallConfig(name="my_wall", collective="shared")
-        assert "collective:shared" in cfg.tags
-
-    def test_collective_tag_not_duplicated(self):
-        """Test that collective tag is not duplicated if already present."""
-        cfg = WallConfig(name="my_wall", tags=[Tag("collective:shared")], collective="shared")
-        assert cfg.tags.count("collective:shared") == 1
+        assert cfg.collective == "shared"
 
     def test_game_config_with_collectives(self):
         """Test that GameConfig accepts collectives dict."""
@@ -136,8 +130,8 @@ class TestCollectiveIntegration:
             )
         )
 
-        # Verify collective tag was added to chest
-        assert "collective:team_vault" in cfg.game.objects["chest"].tags
+        # Verify collective is set on chest
+        assert cfg.game.objects["chest"].collective == "team_vault"
 
         # Create simulation - this verifies the C++ side accepts our config
         sim = Simulation(cfg)
@@ -198,19 +192,19 @@ class TestCollectiveIntegration:
             )
         )
 
-        # Verify collective tag was added to assembler
-        assert "collective:factory_storage" in cfg.game.objects["smelter"].tags
+        # Verify collective is set on assembler
+        assert cfg.game.objects["smelter"].collective == "factory_storage"
 
         # Create simulation
         sim = Simulation(cfg)
         assert sim is not None
 
 
-class TestCollectiveTagMapping:
-    """Test that collective tags are properly mapped in the tag system."""
+class TestCollectiveIdMapping:
+    """Test that collective IDs are properly assigned during conversion."""
 
-    def test_collective_tag_in_tag_map(self):
-        """Test that collective tags appear in the tag_id_map."""
+    def test_collective_field_on_object(self):
+        """Test that collective field is properly set on objects."""
         game_config = GameConfig(
             num_agents=1,
             resource_names=["gold"],
@@ -220,14 +214,15 @@ class TestCollectiveTagMapping:
             },
         )
 
-        cpp_config = convert_to_cpp_game_config(game_config)
+        # Verify the Python config has the collective set
+        assert game_config.objects["wall"].collective == "vault"
 
-        # Check that collective:vault tag is in the tag_id_map
-        tag_names = list(cpp_config.tag_id_map.values())
-        assert "collective:vault" in tag_names
+        # C++ conversion should succeed (actual collective_id assignment is tested via AOE tests)
+        cpp_config = convert_to_cpp_game_config(game_config)
+        assert cpp_config is not None
 
     def test_multiple_objects_same_collective(self):
-        """Test that multiple objects can share the same collective tag."""
+        """Test that multiple objects can have the same collective."""
         game_config = GameConfig(
             num_agents=1,
             resource_names=["gold"],
@@ -238,9 +233,10 @@ class TestCollectiveTagMapping:
             },
         )
 
-        cpp_config = convert_to_cpp_game_config(game_config)
+        # Both walls should have the same collective
+        assert game_config.objects["wall1"].collective == "shared"
+        assert game_config.objects["wall2"].collective == "shared"
 
-        # Both walls should have the same collective tag
-        # The tag should appear only once in the map
-        tag_names = list(cpp_config.tag_id_map.values())
-        assert tag_names.count("collective:shared") == 1
+        # C++ conversion should succeed
+        cpp_config = convert_to_cpp_game_config(game_config)
+        assert cpp_config is not None
