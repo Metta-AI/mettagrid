@@ -230,11 +230,11 @@ Represents a single observation value at a specific location.
 @dataclass
 class ObservationToken:
     feature: ObservationFeatureSpec  # What is being observed
-    location: tuple[int, int]        # (col, row) in observation window
+    location: tuple[int, int]        # (row, col) in observation window
     value: int                       # The observed value
 
     def row() -> int  # Extract row from location
-    def col() -> int  # Extract column from location
+    def col() -> int  # Extract col from location
 ```
 
 ### AgentObservation
