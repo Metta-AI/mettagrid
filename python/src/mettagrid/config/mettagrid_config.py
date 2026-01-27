@@ -5,7 +5,6 @@ from typing import Any, Literal, Optional, Union
 from pydantic import (
     ConfigDict,
     Field,
-    PrivateAttr,
     model_validator,
 )
 
@@ -327,8 +326,6 @@ class GameConfig(Config):
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    _resolved_type_ids: bool = PrivateAttr(default=False)
 
     resource_names: list[str] = Field(
         default=[
