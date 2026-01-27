@@ -1,7 +1,6 @@
 # Test tag system functionality for mettagrid
 import pytest
 
-from mettagrid.config.filter.tag_filter import typeTag
 from mettagrid.config.mettagrid_c_config import convert_to_cpp_game_config
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
@@ -15,6 +14,7 @@ from mettagrid.config.mettagrid_config import (
     ProtocolConfig,
     WallConfig,
 )
+from mettagrid.config.tag import Tag, typeTag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.mettagrid_c import PackedCoordinate
@@ -54,7 +54,7 @@ def sim_with_tags() -> Simulation:
             obs=ObsConfig(width=7, height=7, num_tokens=NUM_OBS_TOKENS),
             max_steps=1000,
             actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
-            objects={"wall": WallConfig(tags=["solid", "blocking"])},
+            objects={"wall": WallConfig(tags=[Tag("solid"), Tag("blocking")])},
             resource_names=[],
             map_builder=AsciiMapBuilder.Config(
                 map_data=[
@@ -83,9 +83,9 @@ def sim_with_duplicate_tags() -> Simulation:
             max_steps=1000,
             actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
             agents=[
-                AgentConfig(tags=["mobile", "shared_tag"]),
+                AgentConfig(tags=[Tag("mobile"), Tag("shared_tag")]),
             ],
-            objects={"wall": WallConfig(tags=["solid", "shared_tag"])},
+            objects={"wall": WallConfig(tags=[Tag("solid"), Tag("shared_tag")])},
             resource_names=[],
             map_builder=AsciiMapBuilder.Config(
                 map_data=[
@@ -243,7 +243,7 @@ class TestTags:
 
     def test_many_tags_on_single_object(self):
         """Test that an object can have many tags."""
-        tags = [f"tag{i:02d}" for i in range(1, 11)]  # tag01 through tag10
+        tags = [Tag(f"tag{i:02d}") for i in range(1, 11)]  # tag01 through tag10
 
         cfg = MettaGridConfig(
             game=GameConfig(
@@ -296,7 +296,7 @@ class TestTags:
                 obs=ObsConfig(width=3, height=3, num_tokens=200),
                 max_steps=100,
                 actions=ActionsConfig(noop=NoopActionConfig()),
-                objects={"wall": WallConfig(tags=["alpha", "beta"])},
+                objects={"wall": WallConfig(tags=[Tag("alpha"), Tag("beta")])},
                 resource_names=[],
                 map_builder=AsciiMapBuilder.Config(
                     map_data=[
@@ -317,7 +317,7 @@ class TestTags:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 objects={
                     "wall": WallConfig(
-                        tags=["beta", "alpha"],  # Same tags, different order
+                        tags=[Tag("beta"), Tag("alpha")],  # Same tags, different order
                     )
                 },
                 resource_names=[],
@@ -385,9 +385,9 @@ class TestTags:
                             ProtocolConfig(input_resources={"wood": 1}, output_resources={"coal": 1}, cooldown=5)
                         ],
                         max_uses=10,
-                        tags=["machine", "industrial"],
+                        tags=[Tag("machine"), Tag("industrial")],
                     ),
-                    "wall": WallConfig(tags=["solid"]),
+                    "wall": WallConfig(tags=[Tag("solid")]),
                 },
                 resource_names=["wood", "coal"],
                 map_builder=AsciiMapBuilder.Config(
@@ -436,8 +436,8 @@ class TestTags:
                 max_steps=100,
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 agents=[
-                    AgentConfig(team_id=0, tags=["player", "team_red"]),
-                    AgentConfig(team_id=1, tags=["player", "team_blue"]),
+                    AgentConfig(team_id=0, tags=[Tag("player"), Tag("team_red")]),
+                    AgentConfig(team_id=1, tags=[Tag("player"), Tag("team_blue")]),
                 ],
                 resource_names=[],
                 map_builder=AsciiMapBuilder.Config(
@@ -474,8 +474,8 @@ def test_tag_id_bounds():
     # Create a config with a few tags
     game_config = GameConfig()
     game_config.agents = [
-        AgentConfig(team_id=0, tags=["alpha", "beta", "gamma"]),
-        AgentConfig(team_id=1, tags=["delta", "epsilon"]),
+        AgentConfig(team_id=0, tags=[Tag("alpha"), Tag("beta"), Tag("gamma")]),
+        AgentConfig(team_id=1, tags=[Tag("delta"), Tag("epsilon")]),
     ]
 
     # Convert and verify tag IDs start at 0
@@ -506,7 +506,7 @@ def test_too_many_tags_error():
 
     game_config.agents = []
     for i in range(num_agents):
-        tags = [f"tag_{i}_{j}" for j in range(tags_per_agent)]
+        tags = [Tag(f"tag_{i}_{j}") for j in range(tags_per_agent)]
         game_config.agents.append(AgentConfig(team_id=i, tags=tags))
 
     # Should raise ValueError about too many tags
@@ -523,9 +523,9 @@ def test_team_tag_consistency_enforced():
 
     # Create agents in same team with different tags
     game_config.agents = [
-        AgentConfig(team_id=0, tags=["alpha", "beta"]),
-        AgentConfig(team_id=0, tags=["alpha", "gamma"]),  # Different tags, same team
-        AgentConfig(team_id=1, tags=["delta"]),
+        AgentConfig(team_id=0, tags=[Tag("alpha"), Tag("beta")]),
+        AgentConfig(team_id=0, tags=[Tag("alpha"), Tag("gamma")]),  # Different tags, same team
+        AgentConfig(team_id=1, tags=[Tag("delta")]),
     ]
 
     # Should raise ValueError about inconsistent tags in team
@@ -542,10 +542,10 @@ def test_team_tag_consistency_success():
 
     # Create agents in same team with identical tags
     game_config.agents = [
-        AgentConfig(team_id=0, tags=["alpha", "beta"]),
-        AgentConfig(team_id=0, tags=["alpha", "beta"]),  # Same tags, same team - OK
-        AgentConfig(team_id=1, tags=["gamma", "delta"]),
-        AgentConfig(team_id=1, tags=["gamma", "delta"]),  # Same tags, same team - OK
+        AgentConfig(team_id=0, tags=[Tag("alpha"), Tag("beta")]),
+        AgentConfig(team_id=0, tags=[Tag("alpha"), Tag("beta")]),  # Same tags, same team - OK
+        AgentConfig(team_id=1, tags=[Tag("gamma"), Tag("delta")]),
+        AgentConfig(team_id=1, tags=[Tag("gamma"), Tag("delta")]),  # Same tags, same team - OK
     ]
 
     # Should succeed
@@ -567,7 +567,7 @@ def test_empty_tags_allowed():
     """Test that agents with no tags work correctly."""
     game_config = GameConfig()
 
-    # Create agents with no tags
+    # Create agents with no tags - they will get default type:agent tag from validator
     game_config.agents = [
         AgentConfig(team_id=0, tags=[]),
         AgentConfig(team_id=1, tags=[]),
@@ -576,11 +576,10 @@ def test_empty_tags_allowed():
     # Should succeed
     cpp_config = convert_to_cpp_game_config(game_config)
 
-    # Verify "agent" from default config + typeTag("agent") (auto-generated) are in mapping
+    # Verify type:agent tag is in mapping (from validator default + C++ auto-generated, deduplicated)
     tag_id_map = cpp_config.tag_id_map
-    assert len(tag_id_map) == 2  # "agent" from default config + typeTag("agent") (auto-generated)
-    assert tag_id_map[0] == "agent"
-    assert tag_id_map[1] == typeTag("agent")
+    assert len(tag_id_map) == 1  # Only type:agent (deduped)
+    assert tag_id_map[0] == typeTag("agent")
 
 
 def test_default_agent_tags_preserved():
@@ -594,7 +593,7 @@ def test_default_agent_tags_preserved():
             max_steps=100,
             actions=ActionsConfig(noop=NoopActionConfig()),
             agent=AgentConfig(
-                tags=["default_tag1", "default_tag2"]  # Tags for default agents
+                tags=[Tag("default_tag1"), Tag("default_tag2")]  # Tags for default agents
             ),
             agents=[],  # Empty agents list - will use defaults from agent field
             resource_names=[],
@@ -639,7 +638,7 @@ def test_default_agent_tags_in_cpp_config():
     game_config = GameConfig()
 
     # Set default agent tags but leave agents list empty
-    game_config.agent = AgentConfig(tags=["hero", "player"])
+    game_config.agent = AgentConfig(tags=[Tag("hero"), Tag("player")])
     game_config.agents = []  # Empty - will create default agents
     game_config.num_agents = 3  # Will create 3 default agents
 
@@ -665,18 +664,18 @@ def test_tag_mapping_in_id_map():
             max_steps=100,
             actions=ActionsConfig(noop=NoopActionConfig()),
             objects={
-                "wall": WallConfig(tags=["solid", "blocking"]),
+                "wall": WallConfig(tags=[Tag("solid"), Tag("blocking")]),
                 "assembler": AssemblerConfig(
                     name="assembler",
                     protocols=[ProtocolConfig(input_resources={"wood": 1}, output_resources={"coal": 1}, cooldown=5)],
                     max_uses=10,
-                    tags=["machine", "industrial"],
+                    tags=[Tag("machine"), Tag("industrial")],
                 ),
             },
             # Note: game_config.agent is a template for default agents when agents list is empty.
             # When agents list is explicitly specified (as here), only tags from the agents list are used.
             agents=[
-                AgentConfig(tags=["player", "mobile"]),
+                AgentConfig(tags=[Tag("player"), Tag("mobile")]),
             ],
             resource_names=["wood", "coal"],
             map_builder=AsciiMapBuilder.Config(
@@ -756,7 +755,7 @@ def test_tag_mapping_empty_tags():
     tag_feature_id = id_map.feature_id("tag")
     assert tag_feature_id is not None
 
-    # Now expect mapping to include the default 'wall' tag
+    # Now expect mapping to include the default 'type:wall' tag (from validator)
     tag_values = id_map.tag_names()
     assert isinstance(tag_values, list)
-    assert "wall" in tag_values, f"Expected default 'wall' tag. Got {tag_values}"
+    assert typeTag("wall") in tag_values, f"Expected default 'type:wall' tag. Got {tag_values}"

@@ -25,55 +25,16 @@ from mettagrid.config.action_config import (  # noqa: F401 - re-exported for bac
     VibeTransfer,
 )
 from mettagrid.config.event_config import EventConfig
-from mettagrid.config.filter import (
-    AlignmentFilter,
-    NearFilter,
-    ResourceFilter,
-    TagFilter,
-    VibeFilter,
-)
 from mettagrid.config.handler_config import (
     AOEConfig,
     Handler,
 )
 from mettagrid.config.id_map import IdMap
-from mettagrid.config.mutation import (
-    AddTagMutation,
-    AlignmentMutation,
-    AlignTo,
-    AttackMutation,
-    ClearInventoryMutation,
-    FreezeMutation,
-    RemoveTagMutation,
-    ResourceDeltaMutation,
-    ResourceTransferMutation,
-    StatsMutation,
-)
 from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig  # noqa: F401 - GlobalObsConfig re-exported
+from mettagrid.config.tag import Tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.map_builder.map_builder import AnyMapBuilderConfig
 from mettagrid.map_builder.random_map import RandomMapBuilder
-
-# Rebuild EventConfig with forward references now that all filter/mutation classes are available
-EventConfig.model_rebuild(
-    _types_namespace={
-        "VibeFilter": VibeFilter,
-        "ResourceFilter": ResourceFilter,
-        "AlignmentFilter": AlignmentFilter,
-        "TagFilter": TagFilter,
-        "NearFilter": NearFilter,
-        "ResourceDeltaMutation": ResourceDeltaMutation,
-        "ResourceTransferMutation": ResourceTransferMutation,
-        "AlignmentMutation": AlignmentMutation,
-        "AlignTo": AlignTo,
-        "FreezeMutation": FreezeMutation,
-        "ClearInventoryMutation": ClearInventoryMutation,
-        "AttackMutation": AttackMutation,
-        "StatsMutation": StatsMutation,
-        "AddTagMutation": AddTagMutation,
-        "RemoveTagMutation": RemoveTagMutation,
-    }
-)
 
 # ===== Python Configuration Models =====
 
@@ -161,7 +122,7 @@ class GridObjectConfig(Config):
     map_name: str = Field(default="", description="Stable key used by maps to select this config")
     render_name: str = Field(default="", description="Stable display-class identifier for theming")
     render_symbol: str = Field(default="❓", description="Symbol used for rendering (e.g., emoji)")
-    tags: list[str] = Field(default_factory=list, description="Tags for this object instance")
+    tags: list[Tag] = Field(default_factory=list, description="Tags for this object instance")
     vibe: int = Field(default=0, ge=0, le=255, description="Vibe value for this object instance")
     collective: Optional[str] = Field(
         default=None,
@@ -191,14 +152,12 @@ class GridObjectConfig(Config):
             self.map_name = self.name
         if not self.render_name:
             self.render_name = self.name
-        # If no tags, inject a default kind tag so the object is visible in observations
-        if not self.tags:
-            self.tags = [self.render_name]
         # Add collective tag if collective is set
         if self.collective:
-            collective_tag = f"collective:{self.collective}"
+            collective_tag = Tag(f"collective:{self.collective}")
             if collective_tag not in self.tags:
                 self.tags = self.tags + [collective_tag]
+        # Type tags are auto-generated during C++ conversion via typeTag(object_type)
         return self
 
 
@@ -385,7 +344,7 @@ class GameConfig(Config):
 
     # Explicit list of tags used in the game. All tag references in filters/mutations
     # must refer to one of these, or obj.tags, or the implicit type:object_type tag.
-    tags: list[str] = Field(default_factory=list, description="Explicit list of tags used in the game")
+    tags: list[Tag] = Field(default_factory=list, description="Explicit list of tags used in the game")
 
     @model_validator(mode="after")
     def _compute_feature_ids(self) -> "GameConfig":

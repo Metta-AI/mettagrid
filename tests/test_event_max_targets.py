@@ -14,6 +14,7 @@ import pytest
 from mettagrid.config.event_config import EventConfig
 from mettagrid.config.filter import hasTag
 from mettagrid.config.mutation import logStat
+from mettagrid.config.tag import Tag
 
 
 class TestMaxTargetsConfig:
@@ -25,7 +26,7 @@ class TestMaxTargetsConfig:
             name="test_event",
             target_tag="test:target",
             timesteps=[10],
-            filters=[hasTag("test:target")],
+            filters=[hasTag(Tag("test:target"))],
             mutations=[logStat("test.stat")],
         )
         assert event.max_targets == 1
@@ -36,7 +37,7 @@ class TestMaxTargetsConfig:
             name="test_event",
             target_tag="test:target",
             timesteps=[10],
-            filters=[hasTag("test:target")],
+            filters=[hasTag(Tag("test:target"))],
             mutations=[logStat("test.stat")],
             max_targets=0,
         )
@@ -48,7 +49,7 @@ class TestMaxTargetsConfig:
             name="test_event",
             target_tag="test:target",
             timesteps=[10],
-            filters=[hasTag("test:target")],
+            filters=[hasTag(Tag("test:target"))],
             mutations=[logStat("test.stat")],
             max_targets=5,
         )
@@ -60,7 +61,7 @@ class TestMaxTargetsConfig:
             name="test_event",
             target_tag="test:target",
             timesteps=[10],
-            filters=[hasTag("test:target")],
+            filters=[hasTag(Tag("test:target"))],
             mutations=[logStat("test.stat")],
             max_targets=3,
         )
@@ -74,7 +75,7 @@ class TestMaxTargetsConfig:
             name="test_event",
             target_tag="test:target",
             timesteps=[10],
-            filters=[hasTag("test:target")],
+            filters=[hasTag(Tag("test:target"))],
             mutations=[logStat("test.stat")],
             max_targets=0,
         )
@@ -88,7 +89,7 @@ class TestMaxTargetsConfig:
             name="test_event",
             target_tag="test:target",
             timesteps=[10],
-            filters=[hasTag("test:target")],
+            filters=[hasTag(Tag("test:target"))],
             mutations=[],
             max_targets=7,
         )

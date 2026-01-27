@@ -27,6 +27,7 @@ from mettagrid.config.mettagrid_config import (
     WallConfig,
 )
 from mettagrid.config.mutation import alignTo
+from mettagrid.config.tag import Tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 
@@ -43,7 +44,7 @@ class TestEventCppConversion:
             actions=ActionsConfig(noop=NoopActionConfig()),
             resource_names=[],
             objects={
-                "wall": WallConfig(tags=["target_wall"]),
+                "wall": WallConfig(tags=[Tag("target_wall")]),
             },
             collectives={
                 "cogs": CollectiveConfig(),
@@ -151,8 +152,8 @@ class TestEventFilterConversion:
             actions=ActionsConfig(noop=NoopActionConfig()),
             resource_names=[],
             objects={
-                "wall": WallConfig(tags=["target_wall"], collective="cogs"),
-                "junction": WallConfig(tags=["type:junction"]),
+                "wall": WallConfig(tags=[Tag("target_wall")], collective="cogs"),
+                "junction": WallConfig(tags=[Tag("type:junction")]),
             },
             collectives={
                 "cogs": CollectiveConfig(),
@@ -266,7 +267,7 @@ class TestConvertEventsFunction:
             actions=ActionsConfig(noop=NoopActionConfig()),
             resource_names=["energy"],
             objects={
-                "wall": WallConfig(tags=["target_wall"]),
+                "wall": WallConfig(tags=[Tag("target_wall")]),
             },
             collectives={
                 "cogs": CollectiveConfig(),
@@ -285,7 +286,7 @@ class TestConvertEventsFunction:
                 name="event1",
                 target_tag="type:wall",
                 timesteps=[10],
-                filters=[hasTag("target_wall")],
+                filters=[hasTag(Tag("target_wall"))],
                 mutations=[alignTo("cogs")],
                 max_targets=1,
             ),
@@ -293,7 +294,7 @@ class TestConvertEventsFunction:
                 name="event2",
                 target_tag="type:wall",
                 timesteps=[20],
-                filters=[hasTag("target_wall")],
+                filters=[hasTag(Tag("target_wall"))],
                 mutations=[alignTo("cogs")],
                 max_targets=10,
             ),

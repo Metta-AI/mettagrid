@@ -9,6 +9,7 @@ from mettagrid.config.mettagrid_config import (
     ObsConfig,
     WallConfig,
 )
+from mettagrid.config.tag import Tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.mettagrid_c import TagIndex
@@ -33,8 +34,8 @@ class TestGridObjectTagMethods:
                 obs=ObsConfig(width=5, height=5, num_tokens=100),
                 max_steps=100,
                 actions=ActionsConfig(noop=NoopActionConfig()),
-                objects={"wall": WallConfig(tags=["solid", "blocking"])},
-                agents=[AgentConfig(tags=["mobile", "player"])],
+                objects={"wall": WallConfig(tags=[Tag("solid"), Tag("blocking")])},
+                agents=[AgentConfig(tags=[Tag("mobile"), Tag("player")])],
                 resource_names=[],
                 map_builder=AsciiMapBuilder.Config(
                     map_data=[
@@ -86,8 +87,8 @@ class TestGridObjectTagMethods:
                 obs=ObsConfig(width=3, height=3, num_tokens=100),
                 max_steps=100,
                 actions=ActionsConfig(noop=NoopActionConfig()),
-                objects={"wall": WallConfig(tags=["solid"])},
-                agents=[AgentConfig(tags=["mobile"])],
+                objects={"wall": WallConfig(tags=[Tag("solid")])},
+                agents=[AgentConfig(tags=[Tag("mobile")])],
                 resource_names=[],
                 map_builder=AsciiMapBuilder.Config(
                     map_data=[
@@ -137,8 +138,8 @@ class TestGridObjectTagMethods:
                 obs=ObsConfig(width=3, height=3, num_tokens=100),
                 max_steps=100,
                 actions=ActionsConfig(noop=NoopActionConfig()),
-                objects={"wall": WallConfig(tags=["solid"])},
-                agents=[AgentConfig(tags=["mobile", "player"])],
+                objects={"wall": WallConfig(tags=[Tag("solid")])},
+                agents=[AgentConfig(tags=[Tag("mobile"), Tag("player")])],
                 resource_names=[],
                 map_builder=AsciiMapBuilder.Config(
                     map_data=[
@@ -188,7 +189,7 @@ class TestGridObjectTagMethods:
                 obs=ObsConfig(width=3, height=3, num_tokens=100),
                 max_steps=100,
                 actions=ActionsConfig(noop=NoopActionConfig()),
-                agents=[AgentConfig(tags=["mobile"])],
+                agents=[AgentConfig(tags=[Tag("mobile")])],
                 resource_names=[],
                 map_builder=AsciiMapBuilder.Config(
                     map_data=[
@@ -233,7 +234,7 @@ class TestGridObjectTagMethods:
                 obs=ObsConfig(width=3, height=3, num_tokens=100),
                 max_steps=100,
                 actions=ActionsConfig(noop=NoopActionConfig()),
-                agents=[AgentConfig(tags=["mobile"])],
+                agents=[AgentConfig(tags=[Tag("mobile")])],
                 resource_names=[],
                 map_builder=AsciiMapBuilder.Config(
                     map_data=[
@@ -283,10 +284,10 @@ class TestTagIndexIntegration:
                 max_steps=100,
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 objects={
-                    "wall_a": WallConfig(name="wall_a", map_name="wall_a", tags=["foo"]),
-                    "wall_b": WallConfig(name="wall_b", map_name="wall_b", tags=["foo", "bar"]),
+                    "wall_a": WallConfig(name="wall_a", map_name="wall_a", tags=[Tag("foo")]),
+                    "wall_b": WallConfig(name="wall_b", map_name="wall_b", tags=[Tag("foo"), Tag("bar")]),
                 },
-                agents=[AgentConfig(tags=["mobile"])],
+                agents=[AgentConfig(tags=[Tag("mobile")])],
                 resource_names=[],
                 map_builder=AsciiMapBuilder.Config(
                     map_data=[
@@ -332,8 +333,8 @@ class TestTagIndexIntegration:
                 obs=ObsConfig(width=3, height=3, num_tokens=100),
                 max_steps=100,
                 actions=ActionsConfig(noop=NoopActionConfig()),
-                objects={"wall": WallConfig(tags=["solid"])},
-                agents=[AgentConfig(tags=["mobile"])],
+                objects={"wall": WallConfig(tags=[Tag("solid")])},
+                agents=[AgentConfig(tags=[Tag("mobile")])],
                 resource_names=[],
                 map_builder=AsciiMapBuilder.Config(
                     map_data=[

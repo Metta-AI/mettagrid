@@ -15,6 +15,7 @@ from mettagrid.config.mettagrid_config import (
     ResourceLimitsConfig,
     WallConfig,
 )
+from mettagrid.config.tag import Tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Simulation
@@ -42,7 +43,7 @@ class TestCollectiveConfig:
 
     def test_collective_tag_not_duplicated(self):
         """Test that collective tag is not duplicated if already present."""
-        cfg = WallConfig(name="my_wall", tags=["collective:shared"], collective="shared")
+        cfg = WallConfig(name="my_wall", tags=[Tag("collective:shared")], collective="shared")
         assert cfg.tags.count("collective:shared") == 1
 
     def test_game_config_with_collectives(self):

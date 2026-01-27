@@ -31,6 +31,7 @@ from mettagrid.config.mettagrid_config import (
     WallConfig,
 )
 from mettagrid.config.mutation import alignTo, removeAlignment
+from mettagrid.config.tag import Tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Simulation
@@ -83,8 +84,8 @@ class TestClipScrambleEvents:
                 resource_names=[],
                 agent=AgentConfig(collective="cogs"),
                 objects={
-                    "wall": WallConfig(name="wall", tags=["type:wall"]),
-                    "junction": WallConfig(name="junction", tags=["type:junction"], collective="clips"),
+                    "wall": WallConfig(name="wall", tags=[Tag("type:wall")]),
+                    "junction": WallConfig(name="junction", tags=[Tag("type:junction")], collective="clips"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -154,8 +155,8 @@ class TestClipScrambleEvents:
                 resource_names=[],
                 agent=AgentConfig(collective="cogs"),
                 objects={
-                    "wall": WallConfig(name="wall", tags=["type:wall"]),
-                    "junction": WallConfig(name="junction", tags=["type:junction"], collective="clips"),
+                    "wall": WallConfig(name="wall", tags=[Tag("type:wall")]),
+                    "junction": WallConfig(name="junction", tags=[Tag("type:junction")], collective="clips"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -230,8 +231,8 @@ class TestClipAlignEvents:
                 resource_names=[],
                 agent=AgentConfig(collective="cogs"),
                 objects={
-                    "wall": WallConfig(name="wall", tags=["type:wall"]),
-                    "junction": WallConfig(name="junction", tags=["type:junction"]),  # Starts unaligned
+                    "wall": WallConfig(name="wall", tags=[Tag("type:wall")]),
+                    "junction": WallConfig(name="junction", tags=[Tag("type:junction")]),  # Starts unaligned
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -311,8 +312,8 @@ class TestAggressiveClipTakeover:
                 resource_names=[],
                 agent=AgentConfig(collective="cogs"),
                 objects={
-                    "wall": WallConfig(name="wall", tags=["type:wall"]),
-                    "junction": WallConfig(name="junction", tags=["type:junction"], collective="clips"),
+                    "wall": WallConfig(name="wall", tags=[Tag("type:wall")]),
+                    "junction": WallConfig(name="junction", tags=[Tag("type:junction")], collective="clips"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -412,8 +413,8 @@ class TestAggressiveClipTakeover:
                 resource_names=[],
                 agent=AgentConfig(collective="cogs"),
                 objects={
-                    "wall": WallConfig(name="wall", tags=["type:wall"]),
-                    "junction": WallConfig(name="junction", tags=["type:junction"], collective="clips"),
+                    "wall": WallConfig(name="wall", tags=[Tag("type:wall")]),
+                    "junction": WallConfig(name="junction", tags=[Tag("type:junction")], collective="clips"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -504,8 +505,8 @@ class TestNearFilterWithAlignment:
                 resource_names=[],
                 agent=AgentConfig(collective="cogs"),
                 objects={
-                    "wall": WallConfig(name="wall", tags=["type:wall"]),
-                    "junction": WallConfig(name="junction", tags=["type:junction"], collective="clips"),
+                    "wall": WallConfig(name="wall", tags=[Tag("type:wall")]),
+                    "junction": WallConfig(name="junction", tags=[Tag("type:junction")], collective="clips"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),

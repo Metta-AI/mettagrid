@@ -22,8 +22,9 @@ from mettagrid.config.filter.resource_filter import (
     targetCollectiveHas,
     targetHas,
 )
-from mettagrid.config.filter.tag_filter import TagFilter, hasTag, isA, typeTag
+from mettagrid.config.filter.tag_filter import TagFilter, hasTag, isA
 from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVibe
+from mettagrid.config.tag import Tag, typeTag
 
 # Rebuild models with forward references now that all filter classes are defined
 NearFilter.model_rebuild()
@@ -57,5 +58,5 @@ __all__ = [
     "actorVibe",
     "targetVibe",
     # Tag utilities
-    "typeTag",
+    "Tag",
 ]

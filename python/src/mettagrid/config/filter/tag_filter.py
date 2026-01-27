@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import Field
 
 from mettagrid.config.filter.filter import Filter, HandlerTarget
+from mettagrid.config.tag import Tag, typeTag
 
 
 class TagFilter(Filter):
@@ -16,31 +17,18 @@ class TagFilter(Filter):
     This is useful for events that should only affect certain object types.
 
     Example:
-        TagFilter(tag="type:assembler")  # only affects objects with "type:assembler" tag
+        TagFilter(target=HandlerTarget.TARGET, tag=Tag("type:assembler"))
     """
 
     filter_type: Literal["tag"] = "tag"
-    tag: str = Field(description="Full tag in name:value format")
-
-
-# ===== Helper Functions =====
-
-
-def typeTag(name: str) -> str:
-    """Return the type tag string for an object/agent name.
-
-    Auto-generated type tags use this format. Objects named "wall" get tag "type:wall".
-
-    Args:
-        name: The object or agent type name (e.g., "wall", "agent", "assembler")
-    """
-    return f"type:{name}"
+    target: HandlerTarget = Field(description="Entity to check the filter against")
+    tag: Tag = Field(description="Full tag in name:value format")
 
 
 # ===== Helper Filter Functions =====
 
 
-def hasTag(tag: str) -> TagFilter:
+def hasTag(tag: Tag) -> TagFilter:
     """Filter: target has the specified tag.
 
     Args:

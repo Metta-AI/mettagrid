@@ -22,6 +22,7 @@ from mettagrid.config.mettagrid_config import (
     WallConfig,
 )
 from mettagrid.config.mutation import alignTo
+from mettagrid.config.tag import Tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Simulation
@@ -55,7 +56,7 @@ class TestEventMaxTargetsSimulation:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 resource_names=[],
                 objects={
-                    "wall": WallConfig(tags=["type:wall"]),
+                    "wall": WallConfig(tags=[Tag("type:wall")]),
                 },
                 collectives={
                     "clips": CollectiveConfig(),
@@ -124,7 +125,7 @@ class TestEventMaxTargetsSimulation:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 resource_names=[],
                 objects={
-                    "wall": WallConfig(tags=["type:wall"]),
+                    "wall": WallConfig(tags=[Tag("type:wall")]),
                 },
                 collectives={
                     "clips": CollectiveConfig(),
@@ -176,7 +177,7 @@ class TestEventMaxTargetsSimulation:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 resource_names=[],
                 objects={
-                    "wall": WallConfig(tags=["type:wall"]),
+                    "wall": WallConfig(tags=[Tag("type:wall")]),
                 },
                 collectives={
                     "clips": CollectiveConfig(),
@@ -255,9 +256,9 @@ class TestEventFilterSimulation:
                 resource_names=[],
                 objects={
                     # wall type that starts unaligned
-                    "wall": WallConfig(tags=["type:wall"]),
+                    "wall": WallConfig(tags=[Tag("type:wall")]),
                     # aligned_wall type that starts aligned
-                    "aligned_wall": WallConfig(tags=["type:wall"], collective="cogs"),
+                    "aligned_wall": WallConfig(tags=[Tag("type:wall")], collective="cogs"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),

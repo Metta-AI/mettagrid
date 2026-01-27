@@ -1,6 +1,5 @@
 from typing import Any
 
-from mettagrid.config.filter.tag_filter import typeTag
 from mettagrid.config.handler_config import AlignmentCondition
 from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_mutations
 from mettagrid.config.mettagrid_config import (
@@ -12,6 +11,7 @@ from mettagrid.config.mettagrid_config import (
     WallConfig,
 )
 from mettagrid.config.obs_config import StatsSource
+from mettagrid.config.tag import typeTag
 from mettagrid.mettagrid_c import ActionConfig as CppActionConfig
 from mettagrid.mettagrid_c import AgentConfig as CppAgentConfig
 from mettagrid.mettagrid_c import AlignmentCondition as CppAlignmentCondition

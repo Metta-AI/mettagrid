@@ -5,7 +5,7 @@ These tests verify that:
 2. hasTag() and isA() helper functions work correctly
 """
 
-from mettagrid.config.filter import HandlerTarget, TagFilter, hasTag, isA, typeTag
+from mettagrid.config.filter import HandlerTarget, TagFilter, hasTag, isA
 from mettagrid.config.handler_config import AOEConfig
 from mettagrid.config.mettagrid_config import (
     GridObjectConfig,
@@ -13,6 +13,7 @@ from mettagrid.config.mettagrid_config import (
     ResourceLimitsConfig,
 )
 from mettagrid.config.mutation import EntityTarget, ResourceDeltaMutation
+from mettagrid.config.tag import Tag, typeTag
 from mettagrid.simulator import Simulation
 
 
@@ -42,7 +43,7 @@ class TestTagFilter:
         cfg.game.actions.noop.enabled = True
 
         # Add tags to agent (type:agent is auto-generated from agent name)
-        cfg.game.agent.tags = ["mobile"]
+        cfg.game.agent.tags = [Tag("mobile")]
 
         # AOE source with tag filter - only affects objects with "type:agent" tag (auto-generated)
         cfg.game.objects["aoe_source"] = GridObjectConfig(
@@ -89,7 +90,7 @@ class TestTagFilter:
         cfg.game.actions.noop.enabled = True
 
         # Agent has "mobile" tag but not "type:structure"
-        cfg.game.agent.tags = ["mobile"]
+        cfg.game.agent.tags = [Tag("mobile")]
 
         # Add a structure object so type:structure is auto-registered as a tag
         cfg.game.objects["structure"] = GridObjectConfig(name="structure", map_name="structure")
@@ -122,17 +123,17 @@ class TestTagFilterHelpers:
 
     def test_has_tag_helper(self):
         """hasTag() should create a TagFilter with the given tag."""
-        f = hasTag("type:junction")
+        f = hasTag(Tag("type:junction"))
         assert isinstance(f, TagFilter)
-        assert f.tag == "type:junction"
+        assert f.tag == Tag("type:junction")
 
     def test_is_a_helper(self):
         """isA() should create a TagFilter with type:value format."""
         f = isA("assembler")
         assert isinstance(f, TagFilter)
-        assert f.tag == "type:assembler"
+        assert f.tag == Tag("type:assembler")
 
     def test_is_a_helper_with_junction(self):
         """isA() should work with junction type."""
         f = isA("junction")
-        assert f.tag == "type:junction"
+        assert f.tag == Tag("type:junction")

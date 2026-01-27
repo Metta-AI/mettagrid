@@ -3,6 +3,7 @@
 from mettagrid.config.event_config import EventConfig, periodic
 from mettagrid.config.filter import hasTag
 from mettagrid.config.mutation import logStat
+from mettagrid.config.tag import Tag
 
 
 class TestEventValidation:
@@ -12,7 +13,7 @@ class TestEventValidation:
             name="valid_event",
             target_tag="target_tag",
             timesteps=periodic(start=1, period=10, end=100),
-            filters=[hasTag("target_tag")],
+            filters=[hasTag(Tag("target_tag"))],
             mutations=[logStat(stat="test")],
         )
         assert event.name == "valid_event"
