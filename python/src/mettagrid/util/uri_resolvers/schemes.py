@@ -210,7 +210,7 @@ _SCHEME_RESOLVERS: list[str] = [
     "mettagrid.util.uri_resolvers.schemes.S3SchemeResolver",
     "mettagrid.util.uri_resolvers.schemes.HttpSchemeResolver",
     "mettagrid.util.uri_resolvers.schemes.MockSchemeResolver",
-    "metta.rl.metta_scheme_resolver.MettaSchemeResolver",
+    "metta.app_backend.metta_scheme_resolver.MettaSchemeResolver",
 ]
 
 
