@@ -48,6 +48,7 @@ class Rollout:
         seed: int = 0,
         event_handlers: Optional[list[SimulatorEventHandler]] = None,
         stats_writer: Optional[StatsWriter] = None,
+        autostart: bool = False,
         tracer: Optional[Tracer] = None,
     ):
         self._config = config
@@ -59,7 +60,7 @@ class Rollout:
         self._tracer: Tracer = tracer or NullTracer()
         # Attach renderer if specified
         if render_mode is not None:
-            self._renderer = create_renderer(render_mode)
+            self._renderer = create_renderer(render_mode, autostart=autostart)
             self._simulator.add_event_handler(self._renderer)
         # Attach stats tracker if provided
         if stats_writer is not None:
