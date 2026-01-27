@@ -23,6 +23,15 @@ EventScheduler::EventScheduler(const std::map<std::string, EventConfig>& event_c
     }
   }
 
+  // Resolve fallback event pointers (after all events are created)
+  for (auto& [name, event] : _events) {
+    const auto& fallback_name = event->fallback_name();
+    if (!fallback_name.empty()) {
+      Event* fallback = get_event(fallback_name);
+      event->set_fallback_event(fallback);
+    }
+  }
+
   // Sort schedule by timestep
   std::sort(_schedule.begin(), _schedule.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
 }
@@ -34,34 +43,8 @@ int EventScheduler::process_timestep(int timestep, TagIndex& tag_index) {
   while (_next_idx < _schedule.size() && _schedule[_next_idx].first <= timestep) {
     Event* event = _schedule[_next_idx].second;
 
-    // Use event's target_tag_id for efficient lookup via TagIndex
-    int target_tag_id = event->target_tag_id();
-    std::vector<HasInventory*> targets;
-    const auto& objects = tag_index.get_objects_with_tag(target_tag_id);
-    for (auto* obj : objects) {
-      targets.push_back(obj);
-    }
-
-    // Apply event to each target, respecting max_targets limit
-    int max_targets = event->max_targets();
-    int targets_applied = 0;
-
-    // If max_targets is limited and we have more candidates than needed,
-    // shuffle to select targets randomly
-    if (max_targets > 0 && targets.size() > static_cast<size_t>(max_targets) && _rng != nullptr) {
-      std::shuffle(targets.begin(), targets.end(), *_rng);
-    }
-
-    for (auto* target : targets) {
-      if (max_targets > 0 && targets_applied >= max_targets) {
-        break;  // Reached the limit
-      }
-      if (event->try_apply(target)) {
-        ++targets_applied;
-      }
-    }
-
-    // Count this as one event fired if it was applied to at least one target
+    // Execute event (handles fallback internally if no targets match)
+    int targets_applied = event->execute(tag_index, _rng);
     if (targets_applied > 0) {
       ++events_fired;
     }

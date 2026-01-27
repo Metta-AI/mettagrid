@@ -2,6 +2,7 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_EVENT_HPP_
 
 #include <memory>
+#include <random>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -40,20 +41,24 @@ public:
     return _name;
   }
 
-  // Get target tag ID for efficient lookup via TagIndex (required)
-  int target_tag_id() const {
-    return _target_tag_id;
+  // Get fallback event name (empty string if none) - used during initialization
+  const std::string& fallback_name() const {
+    return _fallback_name;
   }
 
-  // Get max targets (0 = unlimited)
-  int max_targets() const {
-    return _max_targets;
+  // Set the fallback event pointer (called by EventScheduler after all events are created)
+  void set_fallback_event(Event* fallback) {
+    _fallback_event = fallback;
   }
 
   // Set collectives vector for context-based resolution
   void set_collectives(const std::vector<std::unique_ptr<Collective>>* collectives) {
     _collectives = collectives;
   }
+
+  // Execute this event: find targets, apply mutations, return number of targets affected.
+  // If no targets match and a fallback is set, executes the fallback instead.
+  int execute(TagIndex& tag_index, std::mt19937* rng);
 
   // Try to apply this event to the given target (no actor for events)
   // Returns true if all filters passed and mutations were applied
@@ -62,16 +67,13 @@ public:
   // Check if all filters pass without applying mutations
   bool check_filters(HasInventory* target) const;
 
-  // Accessor for EventScheduler pre-filtering
-  const std::vector<std::unique_ptr<Filter>>& get_filters() const {
-    return _filters;
-  }
-
 private:
   std::string _name;
-  int _target_tag_id = -1;                                                 // Tag ID for finding targets (required)
-  int _max_targets = 0;                                                    // 0 = unlimited
-  TagIndex* _tag_index = nullptr;                                          // Tag index for NearFilter lookups
+  int _target_tag_id = -1;           // Tag ID for finding targets (required)
+  int _max_targets = 0;              // 0 = unlimited
+  std::string _fallback_name;        // Fallback event name (for initialization)
+  Event* _fallback_event = nullptr;  // Pointer to fallback event (resolved at init)
+  TagIndex* _tag_index = nullptr;    // Tag index for NearFilter lookups
   const std::vector<std::unique_ptr<Collective>>* _collectives = nullptr;  // Collectives for context lookup
   std::vector<std::unique_ptr<Filter>> _filters;
   std::vector<std::unique_ptr<Mutation>> _mutations;

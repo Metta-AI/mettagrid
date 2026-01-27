@@ -267,6 +267,7 @@ def _convert_event_configs(
         cpp_event = CppEventConfig(event.name)
         cpp_event.timesteps = list(event.timesteps)
         cpp_event.max_targets = event.max_targets if event.max_targets is not None else 0
+        cpp_event.fallback = event.fallback or ""
 
         # Set target_tag_id for efficient target lookup via TagIndex
         if event.target_tag not in tag_name_to_id:

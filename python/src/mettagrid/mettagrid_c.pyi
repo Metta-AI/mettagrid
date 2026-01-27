@@ -243,6 +243,7 @@ class EventConfig(HandlerConfig):
     target_tag_id: int
     timesteps: list[int]
     max_targets: int
+    fallback: str
 
 # Data types exported from C++
 dtype_observations: np.dtype

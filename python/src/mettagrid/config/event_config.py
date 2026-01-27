@@ -87,3 +87,7 @@ class EventConfig(Handler):
         ge=0,
         description="Maximum number of targets to apply mutations to (0 = unlimited)",
     )
+    fallback: Optional[str] = Field(
+        default=None,
+        description="Event name to fire if no targets match (optional)",
+    )

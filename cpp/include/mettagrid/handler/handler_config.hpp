@@ -231,6 +231,7 @@ struct EventConfig {
   std::vector<FilterConfig> filters;      // All must pass for event to affect object
   std::vector<MutationConfig> mutations;  // Applied to matching objects
   int max_targets = 0;                    // Maximum targets to apply to (0 = unlimited)
+  std::string fallback;                   // Event name to fire if no targets match (optional)
 
   EventConfig() = default;
   explicit EventConfig(const std::string& event_name) : name(event_name) {}

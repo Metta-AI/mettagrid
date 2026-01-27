@@ -19,6 +19,7 @@ inline void bind_event_config(py::module& m) {
       .def_readwrite("target_tag_id", &EventConfig::target_tag_id)
       .def_readwrite("timesteps", &EventConfig::timesteps)
       .def_readwrite("max_targets", &EventConfig::max_targets)
+      .def_readwrite("fallback", &EventConfig::fallback)
       // Add filter methods - each type wraps into the variant
       .def(
           "add_vibe_filter",
