@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 
 from mettagrid.config.mettagrid_config import (
@@ -17,10 +19,20 @@ from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.map_builder.utils import create_grid
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.mettagrid_c import PackedCoordinate
-from mettagrid.simulator import Simulation
+from mettagrid.simulator import Location, Simulation
 from mettagrid.test_support import ObservationHelper, TokenTypes
 
 NUM_OBS_TOKENS = 50
+
+
+def xy(x: int, y: int) -> Location:
+    """Convert (x, y) coordinates to Location(row, col).
+
+    Tests use (x, y) where x is horizontal (col) and y is vertical (row).
+    This converts to (row, col) which is the standard throughout mettagrid,
+    matching PackedCoordinate semantics in the C++ core.
+    """
+    return Location(row=y, col=x)
 
 
 @pytest.fixture
@@ -83,6 +95,10 @@ class TestObservations:
 
     def test_observation_structure(self, basic_sim):
         """Test basic observation structure."""
+        # Rectangular obs window to catch x/y vs row/col bugs
+        cfg = copy.deepcopy(basic_sim.config)
+        cfg.game.obs.width = 5
+        basic_sim = Simulation(cfg)
         obs = basic_sim._c_sim.observations()
 
         # global token is always at the center of the observation window
@@ -121,7 +137,7 @@ class TestObservations:
             else:
                 assert compass_tokens.shape[0] == 1, "Expected exactly one compass token"
                 compass_position = helper.get_positions_from_tokens(compass_tokens)[0]
-                expected_position = (center_obs_position[0] + step_col, center_obs_position[1] + step_row)
+                expected_position = xy(center_obs_position[0] + step_col, center_obs_position[1] + step_row)
                 assert compass_position == expected_position, (
                     f"Compass should point from {center_obs_position} toward {expected_position}"
                 )
@@ -161,11 +177,11 @@ class TestObservations:
         #
         # The bottom wall is outside the 3x3 observation window
         wall_positions_agent0 = [
-            (0, 0),  # top-left
-            (1, 0),  # top-center
-            (2, 0),  # top-right
-            (0, 1),  # middle-left
-            (0, 2),  # bottom-left
+            xy(0, 0),  # top-left
+            xy(1, 0),  # top-center
+            xy(2, 0),  # top-right
+            xy(0, 1),  # middle-left
+            xy(0, 2),  # bottom-left
         ]
 
         agent0_wall_tokens = helper.find_tokens(agent0_obs, feature_id=tag_feature_id, value=wall_tag_id)
@@ -188,9 +204,9 @@ class TestObservations:
         #   W W W
         #
         wall_positions_agent1 = [
-            (0, 2),  # bottom-left
-            (1, 2),  # bottom-center
-            (2, 2),  # bottom-right
+            xy(0, 2),  # bottom-left
+            xy(1, 2),  # bottom-center
+            xy(2, 2),  # bottom-right
         ]
 
         agent1_wall_tokens = helper.find_tokens(agent1_obs, feature_id=tag_feature_id, value=wall_tag_id)
@@ -225,7 +241,7 @@ class TestObservations:
         # Agent 1 at grid (2,2) - Agent 0 at grid (1,2) = offset (1,0)
         # So Agent 1 should appear at observation position (1+1, 1+0) = (2,1)
 
-        agent1_tokens = helper.find_tokens(obs[0], location=(2, 1))
+        agent1_tokens = helper.find_tokens(obs[0], location=xy(2, 1))
         assert len(agent1_tokens) > 0, "Agent 0 should see Agent 1 at (2,1)"
 
         # Agent 1 at (2,2) has observation window centered at (2,2)
@@ -237,7 +253,7 @@ class TestObservations:
         # Agent 0 at grid (1,2) - Agent 1 at grid (2,2) = offset (-1,0)
         # So Agent 0 should appear at observation position (1-1, 1+0) = (0,1)
 
-        agent0_tokens = helper.find_tokens(obs[1], location=(0, 1))
+        agent0_tokens = helper.find_tokens(obs[1], location=xy(0, 1))
         assert len(agent0_tokens) > 0, "Agent 1 should see Agent 0 at (0,1)"
 
     def test_observation_token_order(self, basic_sim):
@@ -273,10 +289,14 @@ class TestGlobalTokens:
 
         # Check token types and values
         assert helper.find_token_values(
-            obs[0], location=(global_x, global_y), feature_id=episode_completion_pct_feature_id
+            obs[0], location=xy(global_x, global_y), feature_id=episode_completion_pct_feature_id
         ) == [0]
-        assert helper.find_token_values(obs[0], location=(global_x, global_y), feature_id=last_action_feature_id) == [0]
-        assert helper.find_token_values(obs[0], location=(global_x, global_y), feature_id=last_reward_feature_id) == [0]
+        assert helper.find_token_values(obs[0], location=xy(global_x, global_y), feature_id=last_action_feature_id) == [
+            0
+        ]
+        assert helper.find_token_values(obs[0], location=xy(global_x, global_y), feature_id=last_reward_feature_id) == [
+            0
+        ]
 
     def test_global_tokens_update(self):
         """Test that global tokens update correctly."""
@@ -327,14 +347,16 @@ class TestGlobalTokens:
         # Check episode completion updated (1/10 = 10%)
         expected_completion = int(0.1 * 256)
         completion_values = helper.find_token_values(
-            obs[0], location=(global_x, global_y), feature_id=episode_completion_pct_feature_id
+            obs[0], location=xy(global_x, global_y), feature_id=episode_completion_pct_feature_id
         )
         assert completion_values == [expected_completion], (
             f"Expected completion {expected_completion}, got {completion_values}"
         )
 
         # Check last action - verify it's the noop action
-        last_action = helper.find_token_values(obs[0], location=(global_x, global_y), feature_id=last_action_feature_id)
+        last_action = helper.find_token_values(
+            obs[0], location=xy(global_x, global_y), feature_id=last_action_feature_id
+        )
         assert last_action == env.action_names.index("noop"), f"Expected noop action, got {last_action}"
 
         # Take a move action
@@ -346,11 +368,13 @@ class TestGlobalTokens:
         # Check updates
         expected_completion = int(round(0.2 * 255))
         completion_value = helper.find_token_values(
-            obs[0], location=(global_x, global_y), feature_id=episode_completion_pct_feature_id
+            obs[0], location=xy(global_x, global_y), feature_id=episode_completion_pct_feature_id
         )
         assert completion_value == expected_completion
 
-        last_action = helper.find_token_values(obs[0], location=(global_x, global_y), feature_id=last_action_feature_id)
+        last_action = helper.find_token_values(
+            obs[0], location=xy(global_x, global_y), feature_id=last_action_feature_id
+        )
         assert last_action == env.action_names.index("move_south"), f"Expected move_south action, got {last_action}"
 
         # take a bunch more steps and check episode completion.
@@ -358,7 +382,7 @@ class TestGlobalTokens:
             env.step()
         expected_completion = 255
         completion_values = helper.find_token_values(
-            obs[0], location=(global_x, global_y), feature_id=episode_completion_pct_feature_id
+            obs[0], location=xy(global_x, global_y), feature_id=episode_completion_pct_feature_id
         )
         assert completion_values == [expected_completion], (
             f"Expected completion {expected_completion}, got {completion_values}"
@@ -404,10 +428,10 @@ class TestGlobalTokens:
         obs = sim._c_sim.observations()
 
         # Check if we're seeing uninitialized memory issues
-        agent0_self_vibe = helper.find_token_values(obs[0], location=(1, 1), feature_id=vibe_feature_id)
-        agent0_sees_agent1_vibe = helper.find_token_values(obs[0], location=(2, 1), feature_id=vibe_feature_id)
-        agent1_self_vibe = helper.find_token_values(obs[1], location=(1, 1), feature_id=vibe_feature_id)
-        agent1_sees_agent0_vibe = helper.find_token_values(obs[1], location=(0, 1), feature_id=vibe_feature_id)
+        agent0_self_vibe = helper.find_token_values(obs[0], location=xy(1, 1), feature_id=vibe_feature_id)
+        agent0_sees_agent1_vibe = helper.find_token_values(obs[0], location=xy(2, 1), feature_id=vibe_feature_id)
+        agent1_self_vibe = helper.find_token_values(obs[1], location=xy(1, 1), feature_id=vibe_feature_id)
+        agent1_sees_agent0_vibe = helper.find_token_values(obs[1], location=xy(0, 1), feature_id=vibe_feature_id)
 
         # Initially, both agents should have vibe 0 (default)
         # Since vibe 0 is suppressed, we should NOT find any vibe tokens
@@ -435,16 +459,16 @@ class TestGlobalTokens:
         sim.step()
         obs = sim._c_sim.observations()
 
-        agent0_self_vibe = helper.find_token_values(obs[0], location=(1, 1), feature_id=vibe_feature_id)
+        agent0_self_vibe = helper.find_token_values(obs[0], location=xy(1, 1), feature_id=vibe_feature_id)
         # Agent 0 should now have a non-zero vibe (vibe was changed)
         assert len(agent0_self_vibe) > 0, "Agent 0 should have a vibe token after changing vibe"
         assert agent0_self_vibe != 0, f"Agent 0 vibe should not be 0 (default), got {agent0_self_vibe}"
 
-        agent1_sees_agent0_vibe = helper.find_token_values(obs[1], location=(0, 1), feature_id=vibe_feature_id)
+        agent1_sees_agent0_vibe = helper.find_token_values(obs[1], location=xy(0, 1), feature_id=vibe_feature_id)
         assert len(agent1_sees_agent0_vibe) > 0, "Agent 1 should see Agent 0's vibe"
         assert agent1_sees_agent0_vibe == agent0_self_vibe, "Agent 1 should see the same vibe as Agent 0 has"
 
-        agent1_self_vibe = helper.find_token_values(obs[1], location=(1, 1), feature_id=vibe_feature_id)
+        agent1_self_vibe = helper.find_token_values(obs[1], location=xy(1, 1), feature_id=vibe_feature_id)
         assert len(agent1_self_vibe) > 0, "Agent 1 should have a vibe token after changing vibe"
         assert agent1_self_vibe != agent0_self_vibe, "Agent 1 should have different vibe than Agent 0"
 
@@ -461,8 +485,8 @@ class TestGlobalTokens:
         obs = sim._c_sim.observations()
 
         # Verify vibe tokens are gone
-        agent0_vibe = helper.find_token_values(obs[0], location=(1, 1), feature_id=vibe_feature_id)
-        agent1_vibe = helper.find_token_values(obs[1], location=(1, 1), feature_id=vibe_feature_id)
+        agent0_vibe = helper.find_token_values(obs[0], location=xy(1, 1), feature_id=vibe_feature_id)
+        agent1_vibe = helper.find_token_values(obs[1], location=xy(1, 1), feature_id=vibe_feature_id)
 
         assert len(agent0_vibe) == 0, f"Agent 0 changed to vibe 0 should have no token, got {agent0_vibe}"
         assert len(agent1_vibe) == 0, f"Agent 1 changed to vibe 0 should have no token, got {agent1_vibe}"
@@ -512,7 +536,7 @@ class TestEdgeObservations:
         obs = sim._c_sim.observations()
 
         # Verify initial position - agent should be at center of observation
-        agent_tokens = helper.find_tokens(obs[0], location=(3, 3))
+        agent_tokens = helper.find_tokens(obs[0], location=xy(3, 3))
         assert len(agent_tokens) > 0, "Agent should see itself at center (3,3)"
 
         # Check walls are visible around the edges
@@ -529,7 +553,7 @@ class TestEdgeObservations:
             obs = sim._c_sim.observations()
 
             # Verify agent is still at center of its observation
-            agent_tokens = helper.find_tokens(obs[0], location=(3, 3))
+            agent_tokens = helper.find_tokens(obs[0], location=xy(3, 3))
             assert len(agent_tokens) > 0, f"Agent should still see itself at center (3,3) after step {step + 1}"
 
             # Verify walls are still visible at edges
@@ -552,7 +576,7 @@ class TestEdgeObservations:
             obs = sim._c_sim.observations()
 
         # Verify agent is still at center of observation
-        agent_tokens = helper.find_tokens(obs[0], location=(3, 3))
+        agent_tokens = helper.find_tokens(obs[0], location=xy(3, 3))
         assert len(agent_tokens) > 0, "Agent should still see itself at center (3,3)"
 
         # Verify walls are still visible at the edges
@@ -610,12 +634,12 @@ class TestCollectiveObservations:
         obs = sim._c_sim.observations()
 
         # Agent 0 (at center 1,1) should have collective observation
-        agent0_collective = helper.find_token_values(obs[0], location=(1, 1), feature_id=collective_feature_id)
+        agent0_collective = helper.find_token_values(obs[0], location=xy(1, 1), feature_id=collective_feature_id)
         assert len(agent0_collective) == 1, f"Agent 0 should have a collective observation, got {agent0_collective}"
 
         # Agent 1 (at 2,1 relative to agent 0) should have collective observation visible to agent 0
         agent1_collective_seen_by_0 = helper.find_token_values(
-            obs[0], location=(2, 1), feature_id=collective_feature_id
+            obs[0], location=xy(2, 1), feature_id=collective_feature_id
         )
         assert len(agent1_collective_seen_by_0) == 1, "Agent 0 should see Agent 1's collective"
 
@@ -626,7 +650,7 @@ class TestCollectiveObservations:
         )
 
         # Agent 1's self observation should match what agent 0 sees
-        agent1_collective = helper.find_token_values(obs[1], location=(1, 1), feature_id=collective_feature_id)
+        agent1_collective = helper.find_token_values(obs[1], location=xy(1, 1), feature_id=collective_feature_id)
         assert agent1_collective == agent1_collective_seen_by_0, "Collective ID should be consistent"
 
     def test_no_collective_observation_when_not_set(self):
@@ -662,7 +686,7 @@ class TestCollectiveObservations:
         obs = sim._c_sim.observations()
 
         # Agent should NOT have a collective observation
-        agent_collective = helper.find_token_values(obs[0], location=(1, 1), feature_id=collective_feature_id)
+        agent_collective = helper.find_token_values(obs[0], location=xy(1, 1), feature_id=collective_feature_id)
         assert len(agent_collective) == 0, (
             f"Agent without collective should have no collective observation, got {agent_collective}"
         )

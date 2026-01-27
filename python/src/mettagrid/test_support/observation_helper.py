@@ -1,6 +1,7 @@
 import numpy as np
 
 from mettagrid.mettagrid_c import PackedCoordinate
+from mettagrid.simulator.interface import Location
 
 
 class ObservationHelper:
@@ -9,14 +10,14 @@ class ObservationHelper:
     @staticmethod
     def find_tokens(
         obs: np.ndarray,
-        location: None | tuple[int, int] = None,
+        location: None | Location = None,
         feature_id: None | int = None,
         value: None | int = None,
     ) -> np.ndarray:
         """Filter tokens by location, feature id, and value."""
         tokens = obs
         if location is not None:
-            tokens = tokens[tokens[:, 0] == PackedCoordinate.pack(location[1], location[0])]
+            tokens = tokens[tokens[:, 0] == PackedCoordinate.pack(location.row, location.col)]
         if feature_id is not None:
             tokens = tokens[tokens[:, 1] == feature_id]
         if value is not None:
@@ -26,7 +27,7 @@ class ObservationHelper:
     @staticmethod
     def find_token_values(
         obs: np.ndarray,
-        location: None | tuple[int, int] = None,
+        location: None | Location = None,
         feature_id: None | int = None,
         value: None | int = None,
     ) -> np.ndarray:
@@ -39,12 +40,14 @@ class ObservationHelper:
         return tokens[:, 2]
 
     @staticmethod
-    def get_positions_from_tokens(tokens: np.ndarray) -> list[tuple[int, int]]:
-        """Extract (x, y) positions from tokens."""
+    def get_positions_from_tokens(tokens: np.ndarray) -> list[Location]:
+        """Extract positions from tokens as Location objects.
+
+        Returned Location objects support both .row/.col and .x/.y accessors.
+        """
         positions = []
         for token in tokens:
             coords = PackedCoordinate.unpack(token[0])
             if coords:
-                row, col = coords
-                positions.append((col, row))  # Return as (x, y)
+                positions.append(Location(*coords))
         return positions
