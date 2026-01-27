@@ -131,6 +131,40 @@ def _find_package_source_root(extraction_root: Path, class_path: str) -> Path | 
     return None
 
 
+def _module_matches_package_root(module: object, expected_pkg_dir: Path) -> bool:
+    expected_pkg_dir = expected_pkg_dir.resolve()
+    module_path = getattr(module, "__path__", None)
+    if module_path:
+        for entry in module_path:
+            try:
+                if Path(entry).resolve() == expected_pkg_dir:
+                    return True
+            except OSError:
+                continue
+    module_file = getattr(module, "__file__", None)
+    if module_file:
+        try:
+            if Path(module_file).resolve().parent == expected_pkg_dir:
+                return True
+        except OSError:
+            pass
+    return False
+
+
+def _purge_package_modules(top_package: str, expected_pkg_dir: Path | None) -> None:
+    """Drop cached modules for a top-level package when switching submission roots."""
+    existing = sys.modules.get(top_package)
+    if existing is not None and expected_pkg_dir is not None:
+        if _module_matches_package_root(existing, expected_pkg_dir):
+            return
+
+    # If a new submission bundle reuses the same top-level package name,
+    # clear cached modules so imports resolve to the new extraction root.
+    for name in list(sys.modules.keys()):
+        if name == top_package or name.startswith(f"{top_package}."):
+            sys.modules.pop(name, None)
+
+
 def _run_setup_script(setup_script_path: Path, extraction_root: Path) -> None:
     """Run a setup script from the submission archive.
 
@@ -264,6 +298,10 @@ def load_policy_spec_from_path(
         spec.init_kwargs["device"] = device
 
     module_root = _find_package_source_root(extraction_root, spec.class_path)
+    if module_root:
+        top_package = spec.class_path.split(".")[0]
+        # Guard against stale module state when a different bundle is loaded in the same process.
+        _purge_package_modules(top_package, module_root / top_package)
     if module_root and module_root != extraction_root:
         sys_path_entry = str(module_root.resolve())
         if sys_path_entry not in sys.path:
