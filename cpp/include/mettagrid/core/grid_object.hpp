@@ -64,13 +64,11 @@ struct GridObjectConfig {
   InventoryConfig inventory_config;
   std::unordered_map<InventoryItem, InventoryQuantity> initial_inventory;
 
-  // Three types of handlers on GridObject:
+  // Two types of handlers on GridObject:
   // - on_use: Triggered when agent uses/activates this object (context: actor=agent, target=this)
-  // - on_update: Triggered after mutations are applied to this object (context: actor=null, target=this)
   // - aoe: Triggered per-tick for objects within radius (context: actor=this, target=affected)
   std::vector<mettagrid::HandlerConfig> on_use_handlers;
-  std::vector<mettagrid::HandlerConfig> on_update_handlers;
-  std::vector<mettagrid::HandlerConfig> aoe_handlers;
+  std::vector<mettagrid::AOEConfig> aoe_configs;
 
   GridObjectConfig(TypeId type_id, const std::string& type_name, ObservationType initial_vibe = 0)
       : type_id(type_id),
@@ -80,8 +78,7 @@ struct GridObjectConfig {
         initial_vibe(initial_vibe),
         inventory_config(),
         on_use_handlers(),
-        on_update_handlers(),
-        aoe_handlers() {}
+        aoe_configs() {}
 
   virtual ~GridObjectConfig() = default;
 };
@@ -115,21 +112,16 @@ public:
 
   // Set handlers for each type
   void set_on_use_handlers(std::vector<std::shared_ptr<mettagrid::Handler>> handlers);
-  void set_on_update_handlers(std::vector<std::shared_ptr<mettagrid::Handler>> handlers);
-  void set_aoe_handlers(std::vector<std::shared_ptr<mettagrid::Handler>> handlers);
+  void set_aoe_configs(std::vector<mettagrid::AOEConfig> configs);
 
   // Check if this object has any handlers of each type
   bool has_on_use_handlers() const;
-  bool has_on_update_handlers() const;
 
-  // Get handlers for AOE processing
-  const std::vector<std::shared_ptr<mettagrid::Handler>>& aoe_handlers() const;
+  // Get AOE configs for AOE processing
+  const std::vector<mettagrid::AOEConfig>& aoe_configs() const;
 
   // Override onUse to try on_use handlers
   bool onUse(Agent& actor, ActionArg arg) override;
-
-  // Fire on_update handlers (called after mutations are applied)
-  void fire_on_update_handlers();
 
   // Tag mutation methods
   bool has_tag(int tag_id) const;
@@ -147,8 +139,7 @@ public:
 
 protected:
   std::vector<std::shared_ptr<mettagrid::Handler>> _on_use_handlers;
-  std::vector<std::shared_ptr<mettagrid::Handler>> _on_update_handlers;
-  std::vector<std::shared_ptr<mettagrid::Handler>> _aoe_handlers;
+  std::vector<mettagrid::AOEConfig> _aoe_configs;
 
 private:
   mettagrid::TagIndex* _tag_index = nullptr;

@@ -1,17 +1,14 @@
 """Handler configuration classes and helper functions.
 
 This module provides a data-driven system for configuring handlers on GridObjects.
-There are three types of handlers:
+There are two types of handlers:
   - on_use: Triggered when agent uses/activates an object (context: actor=agent, target=object)
-  - on_update: Triggered after mutations are applied (context: actor=null, target=object)
   - aoe: Triggered per-tick for objects within radius (context: actor=source, target=affected)
 
 Handlers consist of filters (conditions that must be met) and mutations (effects that are applied).
 """
 
 from __future__ import annotations
-
-from typing import Optional
 
 from pydantic import Field
 
@@ -72,48 +69,15 @@ from mettagrid.config.mutation import (
 )
 
 
-class AOEEffectConfig(Config):
-    """Configuration for Area of Effect (AOE) resource effects.
-
-    When attached to a grid object, objects with inventory within range receive the resource_deltas each tick.
-
-    Target filtering:
-    - target_tags: If set, only objects with at least one matching tag are affected.
-                   If None or empty, all HasInventory objects are affected.
-                   Agents are always checked every tick (they move).
-                   Static objects are registered/unregistered with the AOE for efficiency.
-    - filters: List of filters that must all pass for the effect to apply.
-               Uses the same filter types as activation handlers (AlignmentFilter, VibeFilter, ResourceFilter).
-               In AOE context, "actor" refers to the AOE source object and "target" refers to the affected object.
-    """
-
-    range: int = Field(ge=0, description="Radius of effect (L-infinity/Chebyshev distance)")
-    resource_deltas: dict[str, int] = Field(
-        default_factory=dict,
-        description="Resource changes per tick for objects in range. Positive = gain, negative = lose.",
-    )
-    target_tags: Optional[list[str]] = Field(
-        default=None,
-        description="If set, only objects with at least one matching tag are affected. "
-        "If None, all HasInventory objects are affected.",
-    )
-    filters: list[AnyFilter] = Field(
-        default_factory=list,
-        description="Filters that must all pass for effect to apply. "
-        "In AOE context, 'actor' = source object, 'target' = affected object.",
-    )
-
-
 class Handler(Config):
     """Configuration for a handler on GridObject.
 
-    Used for all three handler types:
+    Used for both handler types:
       - on_use: Triggered when agent uses/activates this object
-      - on_update: Triggered after mutations are applied to this object
       - aoe: Triggered per-tick for objects within radius
 
     For on_use handlers, the first handler where all filters pass has its mutations applied.
-    For on_update and aoe handlers, all handlers where filters pass have their mutations applied.
+    For aoe handlers, all handlers where filters pass have their mutations applied.
 
     The handler name is provided as the dict key when defining handlers on a GridObject.
     """
@@ -130,6 +94,43 @@ class Handler(Config):
         default=0,
         ge=0,
         description="AOE radius (L-infinity/Chebyshev distance). Only used for aoe handlers.",
+    )
+
+
+class AOEConfig(Handler):
+    """Configuration for Area of Effect (AOE) systems.
+
+    Extends Handler with AOE-specific fields. Inherits filters, mutations, and radius.
+
+    Supports two modes:
+    - Static (is_static=True, default): Pre-computed cell registration for efficiency.
+      Good for stationary objects like turrets, healing stations.
+    - Mobile (is_static=False): Re-evaluated each tick for moving sources.
+      Good for agents with auras.
+
+    In AOE context, "actor" refers to the AOE source object and "target" refers to
+    the affected object.
+
+    Effects:
+    - mutations: Applied every tick to targets that pass filters and are in range.
+    - presence_deltas: One-time resource changes when target enters/exits AOE.
+      On enter: apply +delta, on exit: apply -delta.
+    """
+
+    radius: int = Field(default=1, ge=0, description="Radius of effect (L-infinity/Chebyshev distance)")
+    is_static: bool = Field(
+        default=True,
+        description="If True (default), pre-compute affected cells at registration (for static sources). "
+        "If False, re-evaluate position each tick (for moving sources like agents).",
+    )
+    effect_self: bool = Field(
+        default=False,
+        description="If True, the AOE source is affected by its own AOE.",
+    )
+    presence_deltas: dict[str, int] = Field(
+        default_factory=dict,
+        description="One-time resource changes when target enters/exits AOE. "
+        "On enter: apply +delta, on exit: apply -delta. Keys are resource names.",
     )
 
 
@@ -163,7 +164,7 @@ __all__ = [
     "RemoveTagMutation",
     "AnyMutation",
     # Config classes
-    "AOEEffectConfig",
+    "AOEConfig",
     "Handler",
     # Filter helpers
     "isAlignedToActor",

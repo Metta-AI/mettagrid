@@ -97,8 +97,8 @@ cc_binary(
 )
 
 cc_binary(
-    name="test_aoe_bin",
-    srcs=["test_aoe.cpp"],
+    name="test_handler_bin",
+    srcs=["test_handler.cpp"],
     copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
     linkstatic=True,
     deps=[
@@ -108,12 +108,13 @@ cc_binary(
 )
 
 cc_binary(
-    name="test_handler_bin",
-    srcs=["test_handler.cpp"],
+    name="test_aoe_tracker_bin",
+    srcs=["test_aoe_tracker.cpp"],
     copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
     linkstatic=True,
     deps=[
         "//:mettagrid_lib",
+        "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
 )
@@ -174,20 +175,20 @@ py_test(
 )
 
 py_test(
-    name="test_aoe",
-    srcs=["run_test.py"],
-    main="run_test.py",
-    args=["--bin=test_aoe_bin"],
-    data=[":test_aoe_bin"],
-    size="small",
-)
-
-py_test(
     name="test_handler",
     srcs=["run_test.py"],
     main="run_test.py",
     args=["--bin=test_handler_bin"],
     data=[":test_handler_bin"],
+    size="small",
+)
+
+py_test(
+    name="test_aoe_tracker",
+    srcs=["run_test.py"],
+    main="run_test.py",
+    args=["--bin=test_aoe_tracker_bin"],
+    data=[":test_aoe_tracker_bin"],
     size="small",
 )
 
@@ -201,7 +202,7 @@ test_suite(
         ":test_observations",
         ":test_has_inventory",
         ":test_collective",
-        ":test_aoe",
         ":test_handler",
+        ":test_aoe_tracker",
     ],
 )

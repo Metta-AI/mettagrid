@@ -34,7 +34,6 @@ class HandlerType(Enum):
     """Handler type enum."""
 
     on_use = ...
-    on_update = ...
     aoe = ...
 
 class StatsTarget(Enum):
@@ -43,6 +42,12 @@ class StatsTarget(Enum):
     game = ...
     agent = ...
     collective = ...
+
+class StatsEntity(Enum):
+    """Stats entity for StatsMutation."""
+
+    target = ...
+    actor = ...
 
 # Handler filter configs
 
@@ -87,11 +92,16 @@ class NearFilterConfig:
         self,
         entity: EntityRef = ...,
         radius: int = 1,
-        inner_tag_id: int = -1,
+        target_tag: int = -1,
     ) -> None: ...
     entity: EntityRef
     radius: int
-    inner_tag_id: int
+    target_tag: int
+    filters: list
+    def add_alignment_filter(self, filter: AlignmentFilterConfig) -> None: ...
+    def add_vibe_filter(self, filter: VibeFilterConfig) -> None: ...
+    def add_resource_filter(self, filter: ResourceFilterConfig) -> None: ...
+    def add_tag_filter(self, filter: TagFilterConfig) -> None: ...
 
 # Handler mutation configs
 
@@ -159,12 +169,14 @@ class StatsMutationConfig:
     def __init__(
         self,
         stat_name: str = "",
-        delta: int = 1,
+        delta: float = 1.0,
         target: StatsTarget = ...,
+        entity: StatsEntity = ...,
     ) -> None: ...
     stat_name: str
-    delta: int
+    delta: float
     target: StatsTarget
+    entity: StatsEntity
 
 class AddTagMutationConfig:
     def __init__(
@@ -207,6 +219,19 @@ class HandlerConfig:
     def add_stats_mutation(self, mutation: StatsMutationConfig) -> None: ...
     def add_add_tag_mutation(self, mutation: AddTagMutationConfig) -> None: ...
     def add_remove_tag_mutation(self, mutation: RemoveTagMutationConfig) -> None: ...
+
+class ResourceDelta:
+    def __init__(self, resource_id: int = 0, delta: int = 0) -> None: ...
+    resource_id: int
+    delta: int
+
+class AOEConfig(HandlerConfig):
+    """AOE configuration inheriting filters/mutations from HandlerConfig."""
+
+    def __init__(self) -> None: ...
+    is_static: bool
+    effect_self: bool
+    presence_deltas: list[ResourceDelta]
 
 # Data types exported from C++
 dtype_observations: np.dtype
@@ -269,8 +294,7 @@ class GridObjectConfig:
     tag_ids: list[int]
     initial_vibe: int
     on_use_handlers: list[HandlerConfig]
-    on_update_handlers: list[HandlerConfig]
-    aoe_handlers: list[HandlerConfig]
+    aoe_configs: list[AOEConfig]
 
 class LimitDef:
     def __init__(

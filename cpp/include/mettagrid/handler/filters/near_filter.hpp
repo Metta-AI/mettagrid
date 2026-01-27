@@ -24,13 +24,18 @@ namespace mettagrid {
  */
 class NearFilter : public Filter {
 public:
-  NearFilter(const NearFilterConfig& config, std::vector<std::unique_ptr<Filter>> inner_filters = {})
-      : _config(config), _inner_filters(std::move(inner_filters)) {}
+  NearFilter(const NearFilterConfig& config, std::vector<std::unique_ptr<Filter>> filters = {})
+      : _config(config), _filters(std::move(filters)) {}
+
+  // Get mutable access to filters for collective resolution
+  std::vector<std::unique_ptr<Filter>>& filters() {
+    return _filters;
+  }
 
   bool passes(const HandlerContext& ctx) const override {
-    // NearFilter requires a tag index and valid tag_id to function
-    assert(ctx.tag_index != nullptr && "NearFilter requires a non-null tag_index in HandlerContext");
-    assert(_config.inner_tag_id >= 0 && "NearFilter requires a valid inner_tag_id");
+    // NearFilter requires a tag index and valid target_tag
+    assert(ctx.tag_index != nullptr && "NearFilter requires tag_index");
+    assert(_config.target_tag >= 0 && "NearFilter requires valid target_tag");
 
     // Get GridObject to check proximity
     GridObject* grid_obj = dynamic_cast<GridObject*>(ctx.resolve(_config.entity));
@@ -38,19 +43,19 @@ public:
       return false;
     }
 
-    // Find objects with the tag and check if any are within radius AND pass inner filters
-    const auto& candidates = ctx.tag_index->get_objects_with_tag(_config.inner_tag_id);
+    // Find objects with the tag and check if any are within radius AND pass filters
+    const auto& candidates = ctx.tag_index->get_objects_with_tag(_config.target_tag);
     for (GridObject* candidate : candidates) {
       if (is_within_radius(grid_obj, candidate)) {
-        // If no inner filters, proximity alone is sufficient
-        if (_inner_filters.empty()) {
+        // If no filters, proximity alone is sufficient
+        if (_filters.empty()) {
           return true;
         }
 
-        // Create context with candidate as target and check all inner filters
-        HandlerContext inner_ctx(ctx.actor, candidate, ctx.game_stats, ctx.skip_on_update_trigger);
+        // Create context with candidate as target and check all filters
+        HandlerContext inner_ctx(ctx.actor, candidate, ctx.game_stats);
         bool passes_all_filters = true;
-        for (const auto& filter : _inner_filters) {
+        for (const auto& filter : _filters) {
           if (!filter->passes(inner_ctx)) {
             passes_all_filters = false;
             break;
@@ -78,7 +83,7 @@ private:
   }
 
   NearFilterConfig _config;
-  std::vector<std::unique_ptr<Filter>> _inner_filters;
+  std::vector<std::unique_ptr<Filter>> _filters;
 };
 
 }  // namespace mettagrid

@@ -16,7 +16,6 @@ namespace mettagrid {
  *
  * Context varies by handler type:
  *   - on_use: actor=agent performing action, target=object being used
- *   - on_update: actor=nullptr, target=object being updated
  *   - aoe: actor=source object, target=affected object
  */
 class HandlerContext {
@@ -26,16 +25,12 @@ public:
   StatsTracker* game_stats = nullptr;  // Game-level stats tracker (for StatsMutation)
   TagIndex* tag_index = nullptr;       // Tag index for NearFilter lookups
 
-  // Flag to prevent infinite recursion when on_update handlers trigger more mutations
-  bool skip_on_update_trigger = false;
-
   HandlerContext() = default;
-  HandlerContext(HasInventory* act, HasInventory* tgt, bool skip_update = false)
-      : actor(act), target(tgt), skip_on_update_trigger(skip_update) {}
-  HandlerContext(HasInventory* act, HasInventory* tgt, StatsTracker* stats, bool skip_update = false)
-      : actor(act), target(tgt), game_stats(stats), skip_on_update_trigger(skip_update) {}
-  HandlerContext(HasInventory* act, HasInventory* tgt, StatsTracker* stats, TagIndex* tags, bool skip_update = false)
-      : actor(act), target(tgt), game_stats(stats), tag_index(tags), skip_on_update_trigger(skip_update) {}
+  HandlerContext(HasInventory* act, HasInventory* tgt) : actor(act), target(tgt) {}
+  HandlerContext(HasInventory* act, HasInventory* tgt, StatsTracker* stats)
+      : actor(act), target(tgt), game_stats(stats) {}
+  HandlerContext(HasInventory* act, HasInventory* tgt, StatsTracker* stats, TagIndex* tags)
+      : actor(act), target(tgt), game_stats(stats), tag_index(tags) {}
 
   // Resolve an EntityRef to the corresponding HasInventory*
   HasInventory* resolve(EntityRef ref) const {

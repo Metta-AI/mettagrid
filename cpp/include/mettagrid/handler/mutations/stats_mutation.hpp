@@ -18,6 +18,9 @@ public:
   explicit StatsMutation(const StatsMutationConfig& config) : _config(config) {}
 
   void apply(HandlerContext& ctx) override {
+    // Resolve which entity to use based on the entity field
+    HasInventory* entity = (_config.entity == StatsEntity::actor) ? ctx.actor : ctx.target;
+
     switch (_config.target) {
       case StatsTarget::game: {
         // Log to game-level stats tracker
@@ -27,16 +30,16 @@ public:
         break;
       }
       case StatsTarget::agent: {
-        // Log to target agent's stats tracker
-        Agent* agent = dynamic_cast<Agent*>(ctx.target);
+        // Log to entity's agent stats tracker
+        Agent* agent = dynamic_cast<Agent*>(entity);
         if (agent != nullptr) {
           agent->stats.add(_config.stat_name, _config.delta);
         }
         break;
       }
       case StatsTarget::collective: {
-        // Log to target's collective's stats tracker
-        Collective* coll = ctx.target_collective();
+        // Log to entity's collective's stats tracker
+        Collective* coll = (_config.entity == StatsEntity::actor) ? ctx.actor_collective() : ctx.target_collective();
         if (coll != nullptr) {
           coll->stats.add(_config.stat_name, _config.delta);
         }

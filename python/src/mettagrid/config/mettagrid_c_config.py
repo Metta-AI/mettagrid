@@ -15,13 +15,13 @@ from mettagrid.mettagrid_c import ActionConfig as CppActionConfig
 from mettagrid.mettagrid_c import AgentConfig as CppAgentConfig
 from mettagrid.mettagrid_c import AlignmentCondition as CppAlignmentCondition
 from mettagrid.mettagrid_c import AlignmentFilterConfig as CppAlignmentFilterConfig
+from mettagrid.mettagrid_c import AOEConfig as CppAOEConfig
 from mettagrid.mettagrid_c import AssemblerConfig as CppAssemblerConfig
 from mettagrid.mettagrid_c import AttackActionConfig as CppAttackActionConfig
 from mettagrid.mettagrid_c import AttackOutcome as CppAttackOutcome
 from mettagrid.mettagrid_c import ChangeVibeActionConfig as CppChangeVibeActionConfig
 from mettagrid.mettagrid_c import ChestConfig as CppChestConfig
 from mettagrid.mettagrid_c import CollectiveConfig as CppCollectiveConfig
-from mettagrid.mettagrid_c import EntityRef as CppEntityRef
 from mettagrid.mettagrid_c import GameConfig as CppGameConfig
 from mettagrid.mettagrid_c import GlobalObsConfig as CppGlobalObsConfig
 from mettagrid.mettagrid_c import GridObjectConfig as CppGridObjectConfig
@@ -31,7 +31,7 @@ from mettagrid.mettagrid_c import LimitDef as CppLimitDef
 from mettagrid.mettagrid_c import MoveActionConfig as CppMoveActionConfig
 from mettagrid.mettagrid_c import NearFilterConfig as CppNearFilterConfig
 from mettagrid.mettagrid_c import Protocol as CppProtocol
-from mettagrid.mettagrid_c import ResourceDeltaMutationConfig as CppResourceDeltaMutationConfig
+from mettagrid.mettagrid_c import ResourceDelta as CppResourceDelta
 from mettagrid.mettagrid_c import ResourceFilterConfig as CppResourceFilterConfig
 from mettagrid.mettagrid_c import TagFilterConfig as CppTagFilterConfig
 from mettagrid.mettagrid_c import TransferActionConfig as CppTransferActionConfig
@@ -49,6 +49,65 @@ def _convert_alignment_condition(alignment) -> CppAlignmentCondition:
         AlignmentCondition.DIFFERENT_COLLECTIVE: CppAlignmentCondition.different_collective,
     }
     return mapping.get(alignment, CppAlignmentCondition.same_collective)
+
+
+def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, tag_name_to_id, context: str):
+    """Convert Python filters to C++ and add them to the target config.
+
+    Args:
+        filters: List of filter configs
+        cpp_target: Target object with add_*_filter methods (HandlerConfig or AOEConfig)
+        resource_name_to_id: Dict mapping resource names to IDs
+        vibe_name_to_id: Dict mapping vibe names to IDs
+        tag_name_to_id: Dict mapping tag names to IDs
+        context: Description for error messages (e.g., "handler 'foo'" or "AOEConfig")
+    """
+    for filter_config in filters:
+        filter_type = filter_config.filter_type
+
+        if filter_type == "alignment":
+            cpp_filter = CppAlignmentFilterConfig(_convert_alignment_condition(filter_config.alignment))
+            cpp_target.add_alignment_filter(cpp_filter)
+
+        elif filter_type == "resource":
+            for resource_name, min_amount in filter_config.resources.items():
+                assert resource_name in resource_name_to_id, (
+                    f"ResourceFilter in {context} references unknown resource '{resource_name}'"
+                )
+                cpp_filter = CppResourceFilterConfig(
+                    convert_entity_ref(filter_config.target), resource_name_to_id[resource_name], min_amount
+                )
+                cpp_target.add_resource_filter(cpp_filter)
+
+        elif filter_type == "vibe":
+            assert filter_config.vibe in vibe_name_to_id, (
+                f"VibeFilter in {context} references unknown vibe '{filter_config.vibe}'"
+            )
+            cpp_filter = CppVibeFilterConfig(
+                convert_entity_ref(filter_config.target), vibe_name_to_id[filter_config.vibe]
+            )
+            cpp_target.add_vibe_filter(cpp_filter)
+
+        elif filter_type == "tag":
+            assert filter_config.tag in tag_name_to_id, (
+                f"TagFilter in {context} references unknown tag '{filter_config.tag}'. "
+                f"Add it to GameConfig.tags or object tags."
+            )
+            cpp_filter = CppTagFilterConfig(convert_entity_ref(filter_config.target), tag_name_to_id[filter_config.tag])
+            cpp_target.add_tag_filter(cpp_filter)
+
+        elif filter_type == "near":
+            assert filter_config.tag in tag_name_to_id, (
+                f"NearFilter in {context} references unknown tag '{filter_config.tag}'. "
+                f"Add it to GameConfig.tags or object tags."
+            )
+            cpp_filter = CppNearFilterConfig(
+                convert_entity_ref(filter_config.target), filter_config.radius, tag_name_to_id[filter_config.tag]
+            )
+            cpp_target.add_near_filter(cpp_filter)
+
+        else:
+            raise ValueError(f"Unknown filter type '{filter_type}' in {context}")
 
 
 def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource_ids, vibe_name_to_id, tag_name_to_id):
@@ -70,56 +129,15 @@ def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource
         cpp_handler = CppHandlerConfig(handler_name)
         cpp_handler.radius = handler.radius
 
-        # Convert filters
-        for filter_config in handler.filters:
-            filter_type = getattr(filter_config, "filter_type", None)
+        _convert_filters(
+            handler.filters,
+            cpp_handler,
+            resource_name_to_id,
+            vibe_name_to_id,
+            tag_name_to_id,
+            context=f"handler '{handler_name}'",
+        )
 
-            if filter_type == "alignment":
-                cpp_filter = CppAlignmentFilterConfig(_convert_alignment_condition(filter_config.alignment))
-                cpp_handler.add_alignment_filter(cpp_filter)
-
-            elif filter_type == "resource":
-                # Resource filter can have multiple resources - add one filter per resource
-                for resource_name, min_amount in filter_config.resources.items():
-                    assert resource_name in resource_name_to_id, (
-                        f"ResourceFilter in handler '{handler_name}' references unknown resource '{resource_name}'"
-                    )
-                    cpp_filter = CppResourceFilterConfig(
-                        convert_entity_ref(filter_config.target), resource_name_to_id[resource_name], min_amount
-                    )
-                    cpp_handler.add_resource_filter(cpp_filter)
-
-            elif filter_type == "vibe":
-                assert filter_config.vibe in vibe_name_to_id, (
-                    f"VibeFilter in handler '{handler_name}' references unknown vibe '{filter_config.vibe}'"
-                )
-                cpp_filter = CppVibeFilterConfig(
-                    convert_entity_ref(filter_config.target), vibe_name_to_id[filter_config.vibe]
-                )
-                cpp_handler.add_vibe_filter(cpp_filter)
-
-            elif filter_type == "tag":
-                assert filter_config.tag in tag_name_to_id, (
-                    f"TagFilter in handler '{handler_name}' references unknown tag '{filter_config.tag}'. "
-                    f"Add it to GameConfig.tags or object tags."
-                )
-                cpp_filter = CppTagFilterConfig(
-                    convert_entity_ref(filter_config.target), tag_name_to_id[filter_config.tag]
-                )
-                cpp_handler.add_tag_filter(cpp_filter)
-
-            elif filter_type == "near":
-                assert filter_config.tag in tag_name_to_id, (
-                    f"NearFilter in handler '{handler_name}' references unknown tag '{filter_config.tag}'. "
-                    f"Add it to GameConfig.tags or object tags."
-                )
-                inner_tag_id = tag_name_to_id[filter_config.tag]
-                cpp_filter = CppNearFilterConfig(
-                    convert_entity_ref(filter_config.target), inner_tag_id, filter_config.radius
-                )
-                cpp_handler.add_near_filter(cpp_filter)
-
-        # Convert mutations using shared utility
         convert_mutations(
             handler.mutations,
             cpp_handler,
@@ -134,44 +152,63 @@ def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource
     return cpp_handlers
 
 
-def _convert_aoes_to_handlers(aoes, resource_name_to_id):
-    """Convert Python AOEEffectConfig list to C++ HandlerConfig list.
-
-    Converts the simplified AOEEffectConfig format (with resource_deltas and filters)
-    into the full Handler format that the C++ AOE system uses.
+def _convert_aoe_configs(
+    aoes: dict,
+    resource_name_to_id: dict,
+    limit_name_to_resource_ids: dict,
+    vibe_name_to_id: dict,
+    tag_name_to_id: dict,
+) -> list:
+    """Convert Python AOEConfig dict to C++ AOEConfig list.
 
     Args:
-        aoes: List of AOEEffectConfig from Python
+        aoes: Dict of AOEConfig from Python (name -> config)
         resource_name_to_id: Dict mapping resource names to IDs
+        limit_name_to_resource_ids: Dict mapping limit names to resource ID lists
+        vibe_name_to_id: Dict mapping vibe names to IDs
+        tag_name_to_id: Dict mapping tag names to IDs
 
     Returns:
-        List of CppHandlerConfig objects
+        List of CppAOEConfig objects
     """
-    cpp_handlers = []
+    cpp_aoe_configs = []
 
-    for idx, aoe in enumerate(aoes):
-        cpp_handler = CppHandlerConfig(f"aoe_{idx}")
-        cpp_handler.radius = aoe.range
+    for aoe in aoes.values():
+        cpp_aoe = CppAOEConfig()
+        cpp_aoe.radius = aoe.radius
+        cpp_aoe.is_static = aoe.is_static
+        cpp_aoe.effect_self = aoe.effect_self
 
-        # Convert filters
-        for filter_config in aoe.filters:
-            filter_type = getattr(filter_config, "filter_type", None)
+        _convert_filters(
+            aoe.filters,
+            cpp_aoe,
+            resource_name_to_id,
+            vibe_name_to_id,
+            tag_name_to_id,
+            context="AOEConfig",
+        )
 
-            if filter_type == "alignment":
-                cpp_filter = CppAlignmentFilterConfig(_convert_alignment_condition(filter_config.alignment))
-                cpp_handler.add_alignment_filter(cpp_filter)
+        convert_mutations(
+            aoe.mutations,
+            cpp_aoe,
+            resource_name_to_id,
+            limit_name_to_resource_ids,
+            tag_name_to_id,
+            context="AOEConfig",
+        )
 
-        # Convert resource_deltas to mutations
-        for resource_name, delta in aoe.resource_deltas.items():
-            if resource_name in resource_name_to_id:
-                mutation = CppResourceDeltaMutationConfig(
-                    CppEntityRef.target, resource_name_to_id[resource_name], delta
-                )
-                cpp_handler.add_resource_delta_mutation(mutation)
+        # Convert presence_deltas (one-time resource changes on enter/exit)
+        # Note: pybind11 returns copies of lists, so we must assign a new list, not append
+        presence_deltas_list = []
+        for resource_name, delta in aoe.presence_deltas.items():
+            if resource_name not in resource_name_to_id:
+                raise ValueError(f"Unknown resource '{resource_name}' in AOEConfig presence_deltas")
+            presence_deltas_list.append(CppResourceDelta(resource_name_to_id[resource_name], delta))
+        cpp_aoe.presence_deltas = presence_deltas_list
 
-        cpp_handlers.append(cpp_handler)
+        cpp_aoe_configs.append(cpp_aoe)
 
-    return cpp_handlers
+    return cpp_aoe_configs
 
 
 def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
@@ -377,6 +414,16 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         )
         cpp_agent_config.tag_ids = tag_ids
 
+        # Convert agent aoes (dict[str, AOEConfig]) to C++ AOEConfig list
+        if first_agent.aoes:
+            cpp_agent_config.aoe_configs = _convert_aoe_configs(
+                first_agent.aoes,
+                resource_name_to_id,
+                limit_name_to_resource_ids,
+                vibe_name_to_id,
+                tag_name_to_id,
+            )
+
         objects_cpp_params["agent." + group_name] = cpp_agent_config
 
         # Also register team_X naming convention for maps that use it
@@ -501,31 +548,15 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
                     vibe_name_to_id,
                     tag_name_to_id,
                 )
-            if object_config.on_update_handlers:
-                cpp_config.on_update_handlers = _convert_handlers(
-                    object_config.on_update_handlers,
-                    resource_name_to_id,
-                    limit_name_to_resource_ids,
-                    vibe_name_to_id,
-                    tag_name_to_id,
-                )
-            if object_config.aoe_handlers:
-                cpp_config.aoe_handlers = _convert_handlers(
-                    object_config.aoe_handlers,
-                    resource_name_to_id,
-                    limit_name_to_resource_ids,
-                    vibe_name_to_id,
-                    tag_name_to_id,
-                )
-
-            # Convert aoes (AOEEffectConfig) to AOE handlers
+            # Convert aoes (dict[str, AOEConfig]) to C++ AOEConfig list
             if object_config.aoes:
-                aoe_handlers_from_aoes = _convert_aoes_to_handlers(object_config.aoes, resource_name_to_id)
-                # Append to existing aoe_handlers if any
-                if cpp_config.aoe_handlers:
-                    cpp_config.aoe_handlers.extend(aoe_handlers_from_aoes)
-                else:
-                    cpp_config.aoe_handlers = aoe_handlers_from_aoes
+                cpp_config.aoe_configs = _convert_aoe_configs(
+                    object_config.aoes,
+                    resource_name_to_id,
+                    limit_name_to_resource_ids,
+                    vibe_name_to_id,
+                    tag_name_to_id,
+                )
 
             # Key by map_name so map grid (which uses map_name) resolves directly.
             objects_cpp_params[object_config.map_name or object_type] = cpp_config

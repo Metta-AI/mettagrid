@@ -6,7 +6,7 @@ These tests verify that:
 3. Different StatsTarget values (game, agent, collective) work correctly
 """
 
-from mettagrid.config.handler_config import Handler
+from mettagrid.config.handler_config import AOEConfig
 from mettagrid.config.mettagrid_config import (
     CollectiveConfig,
     GridObjectConfig,
@@ -18,6 +18,7 @@ from mettagrid.config.mutation import (
     StatsMutation,
     StatsTarget,
     logStat,
+    logTargetCollectiveStat,
 )
 from mettagrid.simulator import Simulation
 
@@ -85,12 +86,12 @@ class TestStatsMutationEndToEnd:
         cfg.game.objects["counter"] = GridObjectConfig(
             name="counter",
             map_name="counter",
-            aoe_handlers={
-                "count": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[],
                     mutations=[logStat("aoe_hits", target=StatsTarget.GAME)],
-                ),
+                )
             },
         )
 
@@ -128,12 +129,12 @@ class TestStatsMutationEndToEnd:
         cfg.game.objects["counter"] = GridObjectConfig(
             name="counter",
             map_name="counter",
-            aoe_handlers={
-                "count": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[],
                     mutations=[logStat("ticks", delta=5, target=StatsTarget.GAME)],
-                ),
+                )
             },
         )
 
@@ -180,12 +181,12 @@ class TestStatsMutationEndToEnd:
         cfg.game.objects["counter"] = GridObjectConfig(
             name="counter",
             map_name="counter",
-            aoe_handlers={
-                "count": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[],
-                    mutations=[logStat("collective_events", target=StatsTarget.COLLECTIVE)],
-                ),
+                    mutations=[logTargetCollectiveStat("collective_events")],
+                )
             },
         )
 

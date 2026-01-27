@@ -6,7 +6,7 @@ These tests verify that:
 """
 
 from mettagrid.config.filter import HandlerTarget, TagFilter, hasTag, isA, typeTag
-from mettagrid.config.handler_config import Handler
+from mettagrid.config.handler_config import AOEConfig
 from mettagrid.config.mettagrid_config import (
     GridObjectConfig,
     MettaGridConfig,
@@ -48,12 +48,12 @@ class TestTagFilter:
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
             map_name="aoe_source",
-            aoe_handlers={
-                "tag_aoe": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("agent"))],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
-                ),
+                )
             },
         )
 
@@ -98,12 +98,12 @@ class TestTagFilter:
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
             map_name="aoe_source",
-            aoe_handlers={
-                "tag_aoe": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("structure"))],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
-                ),
+                )
             },
         )
 

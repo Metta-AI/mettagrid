@@ -26,7 +26,17 @@ from mettagrid.config.mutation.resource_mutation import (
     updateTargetCollective,
     withdraw,
 )
-from mettagrid.config.mutation.stats_mutation import StatsMutation, StatsTarget, logStat
+from mettagrid.config.mutation.stats_mutation import (
+    StatsEntity,
+    StatsMutation,
+    StatsTarget,
+    logActorAgentStat,
+    logActorCollectiveStat,
+    logStat,
+    logStatToGame,
+    logTargetAgentStat,
+    logTargetCollectiveStat,
+)
 from mettagrid.config.mutation.tag_mutation import AddTagMutation, RemoveTagMutation, addTag, removeTag
 
 # Rebuild models with forward references now that AnyMutation is defined
@@ -55,6 +65,12 @@ __all__ = [
     "alignTo",
     "removeAlignment",
     "logStat",
+    "logStatToGame",
+    "logTargetAgentStat",
+    "logActorAgentStat",
+    "logTargetCollectiveStat",
+    "logActorCollectiveStat",
+    "StatsEntity",
     "addTag",
     "removeTag",
     "withdraw",

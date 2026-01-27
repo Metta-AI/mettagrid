@@ -685,7 +685,7 @@ void test_near_filter_passes_when_tagged_object_within_radius() {
   NearFilterConfig config;
   config.entity = EntityRef::target;
   config.radius = 2;
-  config.inner_tag_id = junction_tag;
+  config.target_tag = junction_tag;
 
   NearFilter near_filter(config);
 
@@ -725,7 +725,7 @@ void test_near_filter_fails_when_tagged_object_outside_radius() {
   NearFilterConfig config;
   config.entity = EntityRef::target;
   config.radius = 2;
-  config.inner_tag_id = junction_tag;
+  config.target_tag = junction_tag;
 
   NearFilter near_filter(config);
 
@@ -757,7 +757,7 @@ void test_near_filter_fails_when_no_tagged_objects() {
   NearFilterConfig config;
   config.entity = EntityRef::target;
   config.radius = 2;
-  config.inner_tag_id = junction_tag;
+  config.target_tag = junction_tag;
 
   NearFilter near_filter(config);
 
@@ -798,7 +798,7 @@ void test_near_filter_requires_correct_tag() {
   NearFilterConfig config;
   config.entity = EntityRef::target;
   config.radius = 2;
-  config.inner_tag_id = expected_tag;
+  config.target_tag = expected_tag;
 
   NearFilter near_filter(config);
 
@@ -849,7 +849,7 @@ void test_near_filter_evaluates_inner_filters() {
   NearFilterConfig near_config;
   near_config.entity = EntityRef::target;
   near_config.radius = 2;
-  near_config.inner_tag_id = junction_tag;
+  near_config.target_tag = junction_tag;
 
   // Create an inner alignment filter: check if candidate is in same collective as actor
   AlignmentFilterConfig align_config;
@@ -905,7 +905,7 @@ void test_near_filter_passes_with_inner_filters() {
   NearFilterConfig near_config;
   near_config.entity = EntityRef::target;
   near_config.radius = 2;
-  near_config.inner_tag_id = junction_tag;
+  near_config.target_tag = junction_tag;
 
   // Create an inner alignment filter: check if candidate is in same collective as actor
   AlignmentFilterConfig align_config;

@@ -34,16 +34,21 @@ enum class AlignTo {
 
 // Handler types
 enum class HandlerType {
-  on_use,     // Triggered when agent uses/activates the object
-  on_update,  // Triggered after mutations are applied to this object
-  aoe         // Triggered per-tick for objects within radius
+  on_use,  // Triggered when agent uses/activates the object
+  aoe      // Triggered per-tick for objects within radius
 };
 
 // Target for stats logging - which stats tracker to log to
 enum class StatsTarget {
   game,       // Log to game-level stats tracker
-  agent,      // Log to target agent's stats tracker
-  collective  // Log to target's collective's stats tracker
+  agent,      // Log to entity's agent stats tracker
+  collective  // Log to entity's collective's stats tracker
+};
+
+// Which entity to use for resolving stats target (agent or collective)
+enum class StatsEntity {
+  target,  // Use the target entity (default)
+  actor    // Use the actor entity
 };
 
 // ============================================================================
@@ -73,22 +78,17 @@ struct TagFilterConfig {
 };
 
 // Forward declaration for recursive filter config
-struct FilterConfigBox;
+struct NearFilterConfig;
 
-struct NearFilterConfig {
-  EntityRef entity = EntityRef::target;
-  std::vector<std::shared_ptr<FilterConfigBox>> inner_filters;  // Recursive filters that nearby objects must pass
-  int radius = 1;                                               // Radius (chebyshev distance) to check
-  int inner_tag_id = -1;  // Tag ID to find nearby objects with (resolved from inner filters)
-};
-
-// Variant type for all filter configs
+// Variant type for all filter configs (defined early so NearFilterConfig can reference it)
 using FilterConfig =
     std::variant<VibeFilterConfig, ResourceFilterConfig, AlignmentFilterConfig, TagFilterConfig, NearFilterConfig>;
 
-// Boxed FilterConfig for recursive filter support (NearFilter can contain any filter including NearFilter)
-struct FilterConfigBox {
-  FilterConfig config;
+struct NearFilterConfig {
+  EntityRef entity = EntityRef::target;
+  std::vector<FilterConfig> filters;  // Filters that nearby objects must pass (can include nested NearFilter)
+  int radius = 1;                     // Radius (chebyshev distance) to check
+  int target_tag = -1;                // Tag ID to find nearby objects with
 };
 
 // ============================================================================
@@ -136,6 +136,7 @@ struct StatsMutationConfig {
   std::string stat_name;                         // Name of the stat to log
   float delta = 1.0f;                            // Delta to add to the stat
   StatsTarget target = StatsTarget::collective;  // Which stats tracker to log to
+  StatsEntity entity = StatsEntity::target;      // Which entity to use for resolving target
 };
 
 struct AddTagMutationConfig {
@@ -173,6 +174,43 @@ struct HandlerConfig {
 
   HandlerConfig() = default;
   explicit HandlerConfig(const std::string& handler_name) : name(handler_name) {}
+};
+
+// ============================================================================
+// AOE Config - Unified configuration for Area of Effect systems
+// ============================================================================
+
+// Resource delta for presence_deltas (applied on enter/exit)
+struct ResourceDelta {
+  InventoryItem resource_id = 0;
+  InventoryDelta delta = 0;
+};
+
+/**
+ * AOEConfig - Configuration for Area of Effect (AOE) systems.
+ *
+ * Inherits filters and mutations from HandlerConfig.
+ *
+ * Supports two modes:
+ * - Static (is_static=true, default): Pre-computed cell registration for efficiency.
+ *   Good for stationary objects like turrets, healing stations.
+ * - Mobile (is_static=false): Re-evaluated each tick for moving sources.
+ *   Good for agents with auras.
+ *
+ * In AOE context, "actor" refers to the AOE source object and "target" refers to
+ * the affected object.
+ */
+struct AOEConfig : public HandlerConfig {
+  bool is_static = true;     // true = fixed (default), false = mobile (for agents)
+  bool effect_self = false;  // Whether source is affected by its own AOE
+
+  // One-time resource changes when target enters/exits AOE
+  // Enter: apply +delta, Exit: apply -delta
+  std::vector<ResourceDelta> presence_deltas;
+
+  AOEConfig() {
+    radius = 1;  // Override default radius for AOE
+  }
 };
 
 }  // namespace mettagrid

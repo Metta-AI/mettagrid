@@ -6,6 +6,7 @@
 #include <variant>
 #include <vector>
 
+#include "core/tag_index.hpp"
 #include "handler/filters/filter.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
@@ -16,12 +17,8 @@ namespace mettagrid {
 /**
  * Handler processes events through configurable filter chains and mutation chains.
  *
- * Used for three handler types:
+ * Used for two handler types:
  *   - on_use: Triggered when agent uses/activates an object
- *   - on_update: Triggered when specific resources or alignment change on an object.
- *               Can be OnInventoryUpdate(resource_ids) or OnAlignmentUpdate.
- *               The C++ code should only call these handlers when the specified
- *               resource count (or alignment) actually changed, not on every timestep.
  *   - aoe: Triggered per-tick for objects within radius
  *
  * Usage:
@@ -31,7 +28,7 @@ namespace mettagrid {
  */
 class Handler {
 public:
-  explicit Handler(const HandlerConfig& config);
+  explicit Handler(const HandlerConfig& config, TagIndex* tag_index = nullptr);
 
   // Get handler name
   const std::string& name() const {
@@ -58,12 +55,6 @@ public:
   bool check_filters(HasInventory* actor, HasInventory* target) const;
 
 private:
-  // Create a filter from its config
-  static std::unique_ptr<Filter> create_filter(const FilterConfig& config);
-
-  // Create a mutation from its config
-  static std::unique_ptr<Mutation> create_mutation(const MutationConfig& config);
-
   std::string _name;
   int _radius = 0;  // AOE radius (0 for non-AOE handlers)
   std::vector<std::unique_ptr<Filter>> _filters;

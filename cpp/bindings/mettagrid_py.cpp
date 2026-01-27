@@ -1,15 +1,14 @@
-#include "bindings/mettagrid_c.hpp"
-
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-#include "core/tag_index.hpp"
-#include "handler/handler_bindings.hpp"
 #include "actions/attack.hpp"
 #include "actions/change_vibe.hpp"
 #include "actions/move_config.hpp"
 #include "actions/transfer.hpp"
+#include "bindings/mettagrid_c.hpp"
 #include "core/grid.hpp"
+#include "core/tag_index.hpp"
+#include "handler/handler_bindings.hpp"
 #include "objects/agent.hpp"
 #include "objects/assembler.hpp"
 #include "objects/chest.hpp"
@@ -21,7 +20,12 @@
 
 namespace py = pybind11;
 
-py::dict MettaGrid::grid_objects(py::object self_ref, int min_row, int max_row, int min_col, int max_col, const py::list& ignore_types) {
+py::dict MettaGrid::grid_objects(py::object self_ref,
+                                 int min_row,
+                                 int max_row,
+                                 int min_col,
+                                 int max_col,
+                                 const py::list& ignore_types) {
   py::dict objects;
 
   // Determine if bounding box filtering is enabled
@@ -68,8 +72,8 @@ py::dict MettaGrid::grid_objects(py::object self_ref, int min_row, int max_row, 
     // Note: it might be different for matrix computations.
     obj_dict["location"] = py::make_tuple(obj->location.c, obj->location.r);
 
-    obj_dict["r"] = obj->location.r;          // To remove
-    obj_dict["c"] = obj->location.c;          // To remove
+    obj_dict["r"] = obj->location.r;  // To remove
+    obj_dict["c"] = obj->location.c;  // To remove
 
     // Inject observation features
     auto features = obj->obs_features();
@@ -150,8 +154,7 @@ py::dict MettaGrid::grid_objects(py::object self_ref, int min_row, int max_row, 
       }
 
       // Add all protocols information
-      const std::unordered_map<GroupVibe, vector<std::shared_ptr<Protocol>>>& active_protocols =
-          assembler->protocols;
+      const std::unordered_map<GroupVibe, vector<std::shared_ptr<Protocol>>>& active_protocols = assembler->protocols;
       py::list protocols_list;
 
       for (const auto& [vibe, protocols] : active_protocols) {
@@ -325,15 +328,16 @@ PYBIND11_MODULE(mettagrid_c, m) {
            py::arg("truncations").noconvert(),
            py::arg("rewards").noconvert(),
            py::arg("actions").noconvert())
-      .def("grid_objects",
-           [](MettaGrid& self, int min_row, int max_row, int min_col, int max_col, const py::list& ignore_types) {
-             return self.grid_objects(py::cast(&self), min_row, max_row, min_col, max_col, ignore_types);
-           },
-           py::arg("min_row") = -1,
-           py::arg("max_row") = -1,
-           py::arg("min_col") = -1,
-           py::arg("max_col") = -1,
-           py::arg("ignore_types") = py::list())
+      .def(
+          "grid_objects",
+          [](MettaGrid& self, int min_row, int max_row, int min_col, int max_col, const py::list& ignore_types) {
+            return self.grid_objects(py::cast(&self), min_row, max_row, min_col, max_col, ignore_types);
+          },
+          py::arg("min_row") = -1,
+          py::arg("max_row") = -1,
+          py::arg("min_col") = -1,
+          py::arg("max_col") = -1,
+          py::arg("ignore_types") = py::list())
       .def("observations", &MettaGrid::observations)
       .def("terminals", &MettaGrid::terminals)
       .def("truncations", &MettaGrid::truncations)
@@ -367,8 +371,7 @@ PYBIND11_MODULE(mettagrid_c, m) {
       .def_readwrite("tag_ids", &GridObjectConfig::tag_ids)
       .def_readwrite("initial_vibe", &GridObjectConfig::initial_vibe)
       .def_readwrite("on_use_handlers", &GridObjectConfig::on_use_handlers)
-      .def_readwrite("on_update_handlers", &GridObjectConfig::on_update_handlers)
-      .def_readwrite("aoe_handlers", &GridObjectConfig::aoe_handlers);
+      .def_readwrite("aoe_configs", &GridObjectConfig::aoe_configs);
 
   bind_wall_config(m);
 

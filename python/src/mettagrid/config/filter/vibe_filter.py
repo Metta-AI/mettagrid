@@ -1,4 +1,4 @@
-"""Vibe filter configuration and helper functions."""
+"""Vibe filter configuration."""
 
 from __future__ import annotations
 
@@ -19,11 +19,19 @@ class VibeFilter(Filter):
 # ===== Helper Filter Functions =====
 
 
-def actorVibe(vibe: str) -> VibeFilter:
-    """Filter: actor must have the specified vibe."""
-    return VibeFilter(target=HandlerTarget.ACTOR, vibe=vibe)
-
-
 def targetVibe(vibe: str) -> VibeFilter:
-    """Filter: target must have the specified vibe."""
+    """Filter: target has the specified vibe.
+
+    Args:
+        vibe: The vibe name to check for (e.g., "charger", "up", "down")
+    """
     return VibeFilter(target=HandlerTarget.TARGET, vibe=vibe)
+
+
+def actorVibe(vibe: str) -> VibeFilter:
+    """Filter: actor has the specified vibe.
+
+    Args:
+        vibe: The vibe name to check for (e.g., "charger", "up", "down")
+    """
+    return VibeFilter(target=HandlerTarget.ACTOR, vibe=vibe)

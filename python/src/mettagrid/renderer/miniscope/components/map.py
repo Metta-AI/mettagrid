@@ -56,10 +56,8 @@ class MapComponent(MiniscopeComponent):
         objects = self._sim.config.game.objects
         for type_name, obj_cfg in objects.items():
             max_range = 0
-            for aoe in getattr(obj_cfg, "aoes", []):
-                max_range = max(max_range, getattr(aoe, "range", 0))
-            for handler in getattr(obj_cfg, "aoe_handlers", {}).values():
-                max_range = max(max_range, getattr(handler, "radius", 0))
+            for aoe in obj_cfg.aoes.values():
+                max_range = max(max_range, aoe.radius)
             if max_range > 0:
                 ranges[type_name] = max_range
         return ranges

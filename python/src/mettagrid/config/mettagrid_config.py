@@ -26,7 +26,7 @@ from mettagrid.config.action_config import (  # noqa: F401 - re-exported for bac
     VibeTransfer,
 )
 from mettagrid.config.handler_config import (
-    AOEEffectConfig,
+    AOEConfig,
     Handler,
 )
 from mettagrid.config.id_map import IdMap
@@ -114,8 +114,7 @@ class GridObjectConfig(Config):
 
     Handlers:
       - on_use_handlers: Triggered when agent uses/activates this object
-      - on_update_handlers: Triggered after mutations are applied to this object
-      - aoe_handlers: Triggered per-tick for objects within radius
+      - aoes: Area of effect configurations for objects that emit effects
     """
 
     name: str = Field(description="Canonical type_name (human-readable)")
@@ -128,9 +127,9 @@ class GridObjectConfig(Config):
         default=None,
         description="Name of collective this object belongs to. Adds 'collective:{name}' tag automatically.",
     )
-    aoes: list[AOEEffectConfig] = Field(
-        default_factory=list,
-        description="List of AOE effects this object emits to agents within range each tick",
+    aoes: dict[str, AOEConfig] = Field(
+        default_factory=dict,
+        description="Named AOE configs this object emits to targets within range (name -> config)",
     )
     inventory: InventoryConfig = Field(default_factory=InventoryConfig)
 
@@ -140,18 +139,10 @@ class GridObjectConfig(Config):
         description="Handlers triggered when an agent moves onto this object (name -> handler)",
     )
 
-    # Three types of handlers on GridObject (name -> handler)
+    # Handler types on GridObject (name -> handler)
     on_use_handlers: dict[str, Handler] = Field(
         default_factory=dict,
         description="Handlers triggered when agent uses/activates this object (context: actor=agent, target=this)",
-    )
-    on_update_handlers: dict[str, Handler] = Field(
-        default_factory=dict,
-        description="Handlers triggered after mutations are applied (context: actor=null, target=this)",
-    )
-    aoe_handlers: dict[str, Handler] = Field(
-        default_factory=dict,
-        description="Handlers triggered per-tick for objects within radius (context: actor=this, target=affected)",
     )
 
     @model_validator(mode="after")

@@ -7,7 +7,8 @@ These tests verify that:
 """
 
 from mettagrid.config.filter import TagFilter
-from mettagrid.config.handler_config import Handler, HandlerTarget
+from mettagrid.config.filter.filter import HandlerTarget
+from mettagrid.config.handler_config import AOEConfig
 from mettagrid.config.mettagrid_config import (
     GridObjectConfig,
     MettaGridConfig,
@@ -95,19 +96,18 @@ class TestAddTagMutationEndToEnd:
 
         cfg.game.actions.noop.enabled = True
 
-        # Register the "infected" tag explicitly in config
-        cfg.game.tags = ["infected"]
-
         # AOE source that adds "infected" tag to agents in range
+        # Define "infected" tag on the source so it's registered in the tag map
         cfg.game.objects["tagger"] = GridObjectConfig(
             name="tagger",
             map_name="tagger",
-            aoe_handlers={
-                "infect": Handler(
+            tags=["infected"],  # Register the tag so it's available for mutations
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[],
                     mutations=[addTag("infected")],
-                ),
+                )
             },
         )
 
@@ -159,19 +159,18 @@ class TestAddTagMutationEndToEnd:
         cfg.game.inventory_regen_interval = 0
         cfg.game.actions.noop.enabled = True
 
-        # Register the "blessed" tag explicitly in config
-        cfg.game.tags = ["blessed"]
-
         # Tagger adds "blessed" tag
+        # Define "blessed" tag on the tagger so it's registered in the tag map
         cfg.game.objects["tagger"] = GridObjectConfig(
             name="tagger",
             map_name="tagger",
-            aoe_handlers={
-                "bless": Handler(
+            tags=["blessed"],  # Register the tag so it's available for mutations
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[],
                     mutations=[addTag("blessed")],
-                ),
+                )
             },
         )
 
@@ -179,12 +178,12 @@ class TestAddTagMutationEndToEnd:
         cfg.game.objects["giver"] = GridObjectConfig(
             name="giver",
             map_name="giver",
-            aoe_handlers={
-                "gift": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[TagFilter(target=HandlerTarget.TARGET, tag="blessed")],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 100})],
-                ),
+                )
             },
         )
 
@@ -224,12 +223,12 @@ class TestRemoveTagMutationEndToEnd:
         cfg.game.objects["cleanser"] = GridObjectConfig(
             name="cleanser",
             map_name="cleanser",
-            aoe_handlers={
-                "cleanse": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[],
                     mutations=[removeTag("cursed")],
-                ),
+                )
             },
         )
 
@@ -286,12 +285,12 @@ class TestRemoveTagMutationEndToEnd:
         cfg.game.objects["cleanser"] = GridObjectConfig(
             name="cleanser",
             map_name="cleanser",
-            aoe_handlers={
-                "cleanse": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[],
                     mutations=[removeTag("vulnerable")],
-                ),
+                )
             },
         )
 
@@ -299,12 +298,12 @@ class TestRemoveTagMutationEndToEnd:
         cfg.game.objects["damager"] = GridObjectConfig(
             name="damager",
             map_name="damager",
-            aoe_handlers={
-                "damage": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[TagFilter(target=HandlerTarget.TARGET, tag="vulnerable")],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"hp": -50})],
-                ),
+                )
             },
         )
 

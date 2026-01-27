@@ -5,13 +5,10 @@ These tests verify that:
 2. AlignmentFilter correctly gates handler execution based on collective alignment
 """
 
-import pytest
-
-from mettagrid.config.filter import VibeFilter
+from mettagrid.config.filter import AlignmentFilter, targetVibe
 from mettagrid.config.handler_config import (
     AlignmentCondition,
-    AlignmentFilter,
-    Handler,
+    AOEConfig,
     HandlerTarget,
 )
 from mettagrid.config.mettagrid_config import (
@@ -57,12 +54,12 @@ class TestVibeFilterOnAOE:
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
             map_name="aoe_source",
-            aoe_handlers={
-                "charger_aoe": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
-                    filters=[VibeFilter(target=HandlerTarget.TARGET, vibe="charger")],
+                    filters=[targetVibe("charger")],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
-                ),
+                )
             },
         )
 
@@ -116,12 +113,12 @@ class TestVibeFilterOnAOE:
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
             map_name="aoe_source",
-            aoe_handlers={
-                "energy_aoe": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[],  # No filter
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
-                ),
+                )
             },
         )
 
@@ -160,12 +157,12 @@ class TestVibeFilterOnAOE:
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
             map_name="aoe_source",
-            aoe_handlers={
-                "charger_only_aoe": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
-                    filters=[VibeFilter(target=HandlerTarget.TARGET, vibe="charger")],
+                    filters=[targetVibe("charger")],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
-                ),
+                )
             },
         )
 
@@ -186,7 +183,6 @@ class TestVibeFilterOnAOE:
 class TestAlignmentFilterOnAOE:
     """Test alignment filter on AOE handlers."""
 
-    @pytest.mark.skip(reason="AOE alignment filter requires collective setup that may not work on aoe_handlers yet")
     def test_aoe_alignment_filter_same_collective(self):
         """AOE with same_collective filter should only affect aligned agents."""
         cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
@@ -222,8 +218,8 @@ class TestAlignmentFilterOnAOE:
             name="aoe_source",
             map_name="aoe_source",
             collective="cogs",  # Same collective as agent
-            aoe_handlers={
-                "ally_boost": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[
                         AlignmentFilter(
@@ -232,7 +228,7 @@ class TestAlignmentFilterOnAOE:
                         )
                     ],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
-                ),
+                )
             },
         )
 
@@ -283,8 +279,8 @@ class TestAlignmentFilterOnAOE:
             name="aoe_source",
             map_name="aoe_source",
             collective="clips",  # Different collective from agent
-            aoe_handlers={
-                "ally_boost": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[
                         AlignmentFilter(
@@ -293,7 +289,7 @@ class TestAlignmentFilterOnAOE:
                         )
                     ],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
-                ),
+                )
             },
         )
 
@@ -306,7 +302,6 @@ class TestAlignmentFilterOnAOE:
         energy = sim.agent(0).inventory.get("energy", 0)
         assert energy == 0, f"Agent in different collective should NOT receive AOE effect, got energy={energy}"
 
-    @pytest.mark.skip(reason="AOE alignment filter requires collective setup that may not work on aoe_handlers yet")
     def test_aoe_alignment_filter_different_collective_damages(self):
         """AOE with different_collective filter should affect agents in different collective."""
         cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
@@ -345,8 +340,8 @@ class TestAlignmentFilterOnAOE:
             name="aoe_source",
             map_name="aoe_source",
             collective="clips",  # Different collective from agent
-            aoe_handlers={
-                "enemy_damage": Handler(
+            aoes={
+                "default": AOEConfig(
                     radius=2,
                     filters=[
                         AlignmentFilter(
@@ -355,7 +350,7 @@ class TestAlignmentFilterOnAOE:
                         )
                     ],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"hp": -10})],
-                ),
+                )
             },
         )
 

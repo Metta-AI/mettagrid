@@ -20,13 +20,13 @@
 #include <vector>
 
 #include "config/mettagrid_config.hpp"
+#include "core/aoe_tracker.hpp"
 #include "core/grid_object.hpp"
 #include "core/tag_index.hpp"
 #include "core/types.hpp"
 #include "objects/assembler.hpp"
 #include "objects/chest.hpp"
 #include "objects/collective.hpp"
-#include "core/aoe_helper.hpp"
 #include "systems/packed_coordinate.hpp"
 
 // Forward declarations of existing C++ classes
@@ -153,7 +153,7 @@ private:
   unsigned int _inventory_regen_interval;
 
   // Global systems
-  std::unique_ptr<mettagrid::AOEEffectGrid> _aoe_grid;
+  std::unique_ptr<mettagrid::AOETracker> _aoe_tracker;
 
   // Collective objects - owned by MettaGrid
   std::vector<std::unique_ptr<Collective>> _collectives;

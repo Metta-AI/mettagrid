@@ -20,30 +20,17 @@
 namespace mettagrid {
 
 // Set up handlers on a GridObject from its config
-static void _set_up_handlers(GridObject* obj, const GridObjectConfig* config) {
+static void _set_up_handlers(GridObject* obj, const GridObjectConfig* config, TagIndex* tag_index) {
   // on_use handlers
   std::vector<std::shared_ptr<Handler>> on_use_handlers;
   on_use_handlers.reserve(config->on_use_handlers.size());
   for (const auto& handler_config : config->on_use_handlers) {
-    on_use_handlers.push_back(std::make_shared<Handler>(handler_config));
+    on_use_handlers.push_back(std::make_shared<Handler>(handler_config, tag_index));
   }
   obj->set_on_use_handlers(std::move(on_use_handlers));
 
-  // on_update handlers
-  std::vector<std::shared_ptr<Handler>> on_update_handlers;
-  on_update_handlers.reserve(config->on_update_handlers.size());
-  for (const auto& handler_config : config->on_update_handlers) {
-    on_update_handlers.push_back(std::make_shared<Handler>(handler_config));
-  }
-  obj->set_on_update_handlers(std::move(on_update_handlers));
-
-  // AOE handlers
-  std::vector<std::shared_ptr<Handler>> aoe_handlers;
-  aoe_handlers.reserve(config->aoe_handlers.size());
-  for (const auto& handler_config : config->aoe_handlers) {
-    aoe_handlers.push_back(std::make_shared<Handler>(handler_config));
-  }
-  obj->set_aoe_handlers(std::move(aoe_handlers));
+  // AOE configs - just copy them, AOETracker will instantiate filters/mutations
+  obj->set_aoe_configs(config->aoe_configs);
 }
 
 // Create a GridObject from config (without handlers)
@@ -105,7 +92,7 @@ GridObject* create_object_from_config(GridCoord r,
                                       unsigned int* current_timestep_ptr,
                                       TagIndex* tag_index) {
   auto* obj = _create_object(r, c, config, stats, resource_names, grid, obs_encoder, current_timestep_ptr);
-  _set_up_handlers(obj, config);
+  _set_up_handlers(obj, config, tag_index);
   return obj;
 }
 

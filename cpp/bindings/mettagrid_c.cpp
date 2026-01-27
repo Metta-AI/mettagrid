@@ -19,7 +19,6 @@
 #include "actions/move_config.hpp"
 #include "actions/transfer.hpp"
 #include "config/observation_features.hpp"
-#include "core/aoe_bindings.hpp"
 #include "core/grid.hpp"
 #include "core/grid_object_factory.hpp"
 #include "core/types.hpp"
@@ -71,7 +70,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   GridCoord width = static_cast<GridCoord>(py::len(map[0]));
 
   _grid = std::make_unique<Grid>(height, width);
-  _aoe_grid = std::make_unique<mettagrid::AOEEffectGrid>(height, width);
+  _aoe_tracker = std::make_unique<mettagrid::AOETracker>(height, width, nullptr, &_tag_index);
   _obs_encoder = std::make_unique<ObservationEncoder>(
       game_config.protocol_details_obs, resource_names, game_config.feature_ids, game_config.token_value_base);
 
@@ -84,6 +83,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   }
 
   _stats = std::make_unique<StatsTracker>(&resource_names);
+  _aoe_tracker->set_game_stats(_stats.get());
 
   _action_success.resize(num_agents);
 
@@ -181,7 +181,8 @@ void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map) {
 
       // Create object from config using the factory
       GridObject* created_object = mettagrid::create_object_from_config(
-          r, c, object_cfg, _stats.get(), &resource_names, _grid.get(), _obs_encoder.get(), &current_step, &_tag_index);
+          r, c, object_cfg, _stats.get(), &resource_names, _grid.get(), _obs_encoder.get(), &current_step,
+          &_tag_index);
 
       // Add to grid and track stats
       _grid->add_object(created_object);
@@ -191,9 +192,9 @@ void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map) {
       created_object->set_tag_index(&_tag_index);
       _tag_index.register_object(created_object);
 
-      // Register AOE handlers for this object (possibly none)
-      for (const auto& handler : created_object->aoe_handlers()) {
-        _aoe_grid->register_source(*created_object, handler);
+      // Register AOE configs for this object (possibly none)
+      for (const auto& aoe_config : created_object->aoe_configs()) {
+        _aoe_tracker->register_source(*created_object, aoe_config);
       }
 
       // Handle agent-specific setup (agent_id and registration)
@@ -546,11 +547,13 @@ void MettaGrid::_step() {
     }
   }
 
-  // Apply AOE effects to all agents at their current location
-  // Pass game stats tracker so StatsMutation can log to game-level stats
+  // Apply fixed AOE effects to all agents at their current location
   for (auto* agent : _agents) {
-    _aoe_grid->apply_effects_at(agent->location, *agent, _stats.get(), &_tag_index);
+    _aoe_tracker->apply_fixed(*agent);
   }
+
+  // Apply mobile AOE effects (sources checked against all agents)
+  _aoe_tracker->apply_mobile(_agents);
 
   // Update held stats for all collectives (tracks how long objects are aligned)
   for (auto& collective : _collectives) {

@@ -11,6 +11,7 @@ from mettagrid.config.mutation import (
     RemoveTagMutation,
     ResourceDeltaMutation,
     ResourceTransferMutation,
+    StatsEntity,
     StatsMutation,
     StatsTarget,
 )
@@ -23,6 +24,7 @@ from mettagrid.mettagrid_c import FreezeMutationConfig as CppFreezeMutationConfi
 from mettagrid.mettagrid_c import RemoveTagMutationConfig as CppRemoveTagMutationConfig
 from mettagrid.mettagrid_c import ResourceDeltaMutationConfig as CppResourceDeltaMutationConfig
 from mettagrid.mettagrid_c import ResourceTransferMutationConfig as CppResourceTransferMutationConfig
+from mettagrid.mettagrid_c import StatsEntity as CppStatsEntity
 from mettagrid.mettagrid_c import StatsMutationConfig as CppStatsMutationConfig
 from mettagrid.mettagrid_c import StatsTarget as CppStatsTarget
 
@@ -47,6 +49,12 @@ _STATS_TARGET_TO_CPP: dict[StatsTarget, CppStatsTarget] = {
     StatsTarget.COLLECTIVE: CppStatsTarget.collective,
 }
 
+# Mapping from Python StatsEntity enum to C++ StatsEntity enum
+_STATS_ENTITY_TO_CPP: dict[StatsEntity, CppStatsEntity] = {
+    StatsEntity.TARGET: CppStatsEntity.target,
+    StatsEntity.ACTOR: CppStatsEntity.actor,
+}
+
 # Mapping from Python AlignmentEntityTarget enum to C++ EntityRef enum
 _ALIGNMENT_ENTITY_TARGET_TO_CPP: dict[AlignmentEntityTarget, CppEntityRef] = {
     AlignmentEntityTarget.ACTOR: CppEntityRef.actor,
@@ -63,7 +71,8 @@ def convert_entity_ref(target: EntityTarget) -> CppEntityRef:
     Returns:
         Corresponding C++ EntityRef enum value
     """
-    return _ENTITY_TARGET_TO_CPP.get(target, CppEntityRef.target)
+    assert target in _ENTITY_TARGET_TO_CPP, f"Unknown EntityTarget: {target}"
+    return _ENTITY_TARGET_TO_CPP[target]
 
 
 def convert_align_to(align_to: AlignTo) -> CppAlignTo:
@@ -75,7 +84,8 @@ def convert_align_to(align_to: AlignTo) -> CppAlignTo:
     Returns:
         Corresponding C++ AlignTo enum value
     """
-    return _ALIGN_TO_CPP.get(align_to, CppAlignTo.none)
+    assert align_to in _ALIGN_TO_CPP, f"Unknown AlignTo: {align_to}"
+    return _ALIGN_TO_CPP[align_to]
 
 
 def convert_mutations(
@@ -101,10 +111,13 @@ def convert_mutations(
             # Resource delta mutation can have multiple deltas - add one mutation per resource
             for resource_name, delta in mutation.deltas.items():
                 assert resource_name in resource_name_to_id, (
-                    f"ResourceDeltaMutation in {context} references unknown resource '{resource_name}'"
+                    f"ResourceDeltaMutation references unknown resource '{resource_name}'. "
+                    f"Available resources: {list(resource_name_to_id.keys())}"
                 )
                 cpp_mutation = CppResourceDeltaMutationConfig(
-                    convert_entity_ref(mutation.target), resource_name_to_id[resource_name], delta
+                    entity=convert_entity_ref(mutation.target),
+                    resource_id=resource_name_to_id[resource_name],
+                    delta=delta,
                 )
                 target_obj.add_resource_delta_mutation(cpp_mutation)
 
@@ -112,22 +125,27 @@ def convert_mutations(
             # Resource transfer mutation can have multiple resources - add one mutation per resource
             for resource_name, amount in mutation.resources.items():
                 assert resource_name in resource_name_to_id, (
-                    f"ResourceTransferMutation in {context} references unknown resource '{resource_name}'"
+                    f"ResourceTransferMutation references unknown resource '{resource_name}'. "
+                    f"Available resources: {list(resource_name_to_id.keys())}"
                 )
                 cpp_mutation = CppResourceTransferMutationConfig(
-                    convert_entity_ref(mutation.from_target),
-                    convert_entity_ref(mutation.to_target),
-                    resource_name_to_id[resource_name],
-                    amount,
+                    source=convert_entity_ref(mutation.from_target),
+                    destination=convert_entity_ref(mutation.to_target),
+                    resource_id=resource_name_to_id[resource_name],
+                    amount=amount,
                 )
                 target_obj.add_resource_transfer_mutation(cpp_mutation)
 
         elif isinstance(mutation, AlignmentMutation):
-            cpp_mutation = CppAlignmentMutationConfig(convert_align_to(mutation.align_to))
+            cpp_mutation = CppAlignmentMutationConfig(
+                align_to=convert_align_to(mutation.align_to),
+            )
             target_obj.add_alignment_mutation(cpp_mutation)
 
         elif isinstance(mutation, FreezeMutation):
-            cpp_mutation = CppFreezeMutationConfig(mutation.duration)
+            cpp_mutation = CppFreezeMutationConfig(
+                duration=mutation.duration,
+            )
             target_obj.add_freeze_mutation(cpp_mutation)
 
         elif isinstance(mutation, ClearInventoryMutation):
@@ -139,34 +157,37 @@ def convert_mutations(
                     f"Available limits: {list(limit_name_to_resource_ids.keys())}"
                 )
             cpp_mutation = CppClearInventoryMutationConfig(
-                convert_entity_ref(mutation.target), limit_name_to_resource_ids[limit_name]
+                entity=convert_entity_ref(mutation.target),
+                resource_ids=limit_name_to_resource_ids[limit_name],
             )
             target_obj.add_clear_inventory_mutation(cpp_mutation)
 
         elif isinstance(mutation, StatsMutation):
             cpp_mutation = CppStatsMutationConfig(
-                mutation.stat, mutation.delta, _STATS_TARGET_TO_CPP.get(mutation.target, CppStatsTarget.collective)
+                stat_name=mutation.stat,
+                delta=mutation.delta,
+                target=_STATS_TARGET_TO_CPP[mutation.target],
+                entity=_STATS_ENTITY_TO_CPP[mutation.entity],
             )
             target_obj.add_stats_mutation(cpp_mutation)
 
         elif isinstance(mutation, AddTagMutation):
             assert mutation.tag in tag_name_to_id, (
-                f"AddTagMutation in {context} references unknown tag '{mutation.tag}'. "
-                f"Add it to GameConfig.tags or object tags."
+                f"AddTagMutation references unknown tag '{mutation.tag}'. Available tags: {list(tag_name_to_id.keys())}"
             )
             cpp_mutation = CppAddTagMutationConfig(
-                _ALIGNMENT_ENTITY_TARGET_TO_CPP.get(mutation.target, CppEntityRef.target),
-                tag_name_to_id[mutation.tag],
+                entity=_ALIGNMENT_ENTITY_TARGET_TO_CPP[mutation.target],
+                tag_id=tag_name_to_id[mutation.tag],
             )
             target_obj.add_add_tag_mutation(cpp_mutation)
 
         elif isinstance(mutation, RemoveTagMutation):
             assert mutation.tag in tag_name_to_id, (
-                f"RemoveTagMutation in {context} references unknown tag '{mutation.tag}'. "
-                f"Add it to GameConfig.tags or object tags."
+                f"RemoveTagMutation references unknown tag '{mutation.tag}'. "
+                f"Available tags: {list(tag_name_to_id.keys())}"
             )
             cpp_mutation = CppRemoveTagMutationConfig(
-                _ALIGNMENT_ENTITY_TARGET_TO_CPP.get(mutation.target, CppEntityRef.target),
-                tag_name_to_id[mutation.tag],
+                entity=_ALIGNMENT_ENTITY_TARGET_TO_CPP[mutation.target],
+                tag_id=tag_name_to_id[mutation.tag],
             )
             target_obj.add_remove_tag_mutation(cpp_mutation)
