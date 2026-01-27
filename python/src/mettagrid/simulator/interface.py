@@ -18,10 +18,10 @@ class ObservationToken:
     raw_token: tuple[int, int, int]
 
     def row(self) -> int:
-        return self.location[1]
+        return self.location[0]
 
     def col(self) -> int:
-        return self.location[0]
+        return self.location[1]
 
 
 @dataclass
