@@ -66,6 +66,7 @@ protected:
         {"tag", 15},
         {"cooldown_remaining", 16},
         {"remaining_uses", 17},
+        {"collective", 18},
     };
     ObservationFeature::Initialize(feature_ids);
     resource_names = create_test_resource_names();

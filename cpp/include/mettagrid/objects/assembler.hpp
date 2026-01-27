@@ -252,8 +252,6 @@ public:
   // Pointer to current timestep from environment
   unsigned int* current_timestep_ptr;
 
-  const class ObservationEncoder* obs_encoder;
-
   // Allow partial usage during cooldown
   bool allow_partial_usage;
 
@@ -269,7 +267,6 @@ public:
         grid(nullptr),
         stats_tracker(stats),
         current_timestep_ptr(nullptr),
-        obs_encoder(nullptr),
         allow_partial_usage(cfg.allow_partial_usage),
         chest_search_distance(cfg.chest_search_distance) {
     GridObject::init(cfg.type_id, cfg.type_name, GridLocation(r, c), cfg.tag_ids, cfg.initial_vibe);
@@ -284,11 +281,6 @@ public:
   // Set current timestep pointer
   void set_current_timestep_ptr(unsigned int* timestep_ptr) {
     this->current_timestep_ptr = timestep_ptr;
-  }
-
-  // Set observation encoder for protocol feature ID lookup
-  void set_obs_encoder(const class ObservationEncoder* encoder) {
-    this->obs_encoder = encoder;
   }
 
   // Get the remaining cooldown duration in ticks (0 when ready for use)
@@ -475,7 +467,8 @@ public:
   }
 
   virtual std::vector<PartialObservationToken> obs_features() const override {
-    std::vector<PartialObservationToken> features;
+    // Start with base class features (collective, tags)
+    auto features = GridObject::obs_features();
 
     unsigned int remaining = std::min(cooldown_remaining(), 255u);
     if (remaining > 0) {
@@ -507,15 +500,6 @@ public:
           }
         }
       }
-    }
-
-    // Emit tag features
-    for (int tag_id : this->tag_ids) {
-      features.push_back({ObservationFeature::Tag, static_cast<ObservationType>(tag_id)});
-    }
-
-    if (this->vibe != 0) {
-      features.push_back({ObservationFeature::Vibe, static_cast<ObservationType>(this->vibe)});
     }
 
     return features;

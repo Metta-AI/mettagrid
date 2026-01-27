@@ -1,11 +1,9 @@
 #include "objects/agent.hpp"
 
 #include <algorithm>
-#include <cassert>
 
 #include "config/observation_features.hpp"
 #include "objects/collective.hpp"
-#include "systems/observation_encoder.hpp"
 
 // For std::shuffle
 #include <random>
@@ -111,29 +109,12 @@ bool Agent::onUse(Agent& actor, ActionArg arg) {
 }
 
 std::vector<PartialObservationToken> Agent::obs_features() const {
-  if (!this->obs_encoder) {
-    throw std::runtime_error("Observation encoder not set for agent");
-  }
-  const size_t num_tokens =
-      this->inventory.get().size() * this->obs_encoder->get_num_inventory_tokens() + this->tag_ids.size() + 5;
+  // Start with base class features (collective, tags, vibe, inventory)
+  auto features = GridObject::obs_features();
 
-  std::vector<PartialObservationToken> features;
-  features.reserve(num_tokens);
-
+  // Agent-specific observations
   features.push_back({ObservationFeature::Group, static_cast<ObservationType>(group)});
   features.push_back({ObservationFeature::Frozen, static_cast<ObservationType>(frozen != 0 ? 1 : 0)});
-  if (vibe != 0) features.push_back({ObservationFeature::Vibe, static_cast<ObservationType>(vibe)});
-
-  for (const auto& [item, amount] : this->inventory.get()) {
-    // inventory should only contain non-zero amounts
-    assert(amount > 0);
-    this->obs_encoder->append_inventory_tokens(features, item, amount);
-  }
-
-  // Emit tag features
-  for (int tag_id : tag_ids) {
-    features.push_back({ObservationFeature::Tag, static_cast<ObservationType>(tag_id)});
-  }
 
   return features;
 }

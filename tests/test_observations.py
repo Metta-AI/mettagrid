@@ -559,3 +559,109 @@ class TestEdgeObservations:
         assert len(wall_tokens) > 0, "Should still see walls at edges even at bottom-right corner"
 
         print("\nSUCCESS: Observation window correctly tracks agent movement to corner")
+
+
+class TestCollectiveObservations:
+    """Test collective observation functionality."""
+
+    def test_collective_observation(self):
+        """Test that objects with a collective emit the collective observation."""
+        from mettagrid.config.mettagrid_config import CollectiveConfig
+
+        # Create a simple 5x5 environment with two agents
+        game_map = create_grid(5, 5, fill_value=".")
+
+        # Add walls around perimeter
+        game_map[0, :] = "#"
+        game_map[-1, :] = "#"
+        game_map[:, 0] = "#"
+        game_map[:, -1] = "#"
+
+        # Place two agents next to each other
+        game_map[2, 1] = "@"
+        game_map[2, 2] = "@"
+
+        # Create environment with agents in a collective
+        cfg = MettaGridConfig(
+            game=GameConfig(
+                num_agents=2,
+                obs=ObsConfig(width=3, height=3, num_tokens=NUM_OBS_TOKENS),
+                max_steps=10,
+                actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
+                objects={"wall": WallConfig(tags=["wall"])},
+                resource_names=["gold"],
+                collectives={
+                    "team_cogs": CollectiveConfig(),
+                },
+                map_builder=AsciiMapBuilder.Config(
+                    map_data=game_map.tolist(),
+                    char_to_map_name=DEFAULT_CHAR_TO_NAME,
+                ),
+            )
+        )
+        # Set the agent's collective
+        cfg.game.agent.collective = "team_cogs"
+
+        sim = Simulation(cfg)
+        collective_feature_id = sim.config.game.id_map().feature_id("collective")
+        helper = ObservationHelper()
+
+        obs = sim._c_sim.observations()
+
+        # Agent 0 (at center 1,1) should have collective observation
+        agent0_collective = helper.find_token_values(obs[0], location=(1, 1), feature_id=collective_feature_id)
+        assert len(agent0_collective) == 1, f"Agent 0 should have a collective observation, got {agent0_collective}"
+
+        # Agent 1 (at 2,1 relative to agent 0) should have collective observation visible to agent 0
+        agent1_collective_seen_by_0 = helper.find_token_values(
+            obs[0], location=(2, 1), feature_id=collective_feature_id
+        )
+        assert len(agent1_collective_seen_by_0) == 1, "Agent 0 should see Agent 1's collective"
+
+        # Both agents are in the same collective, so IDs should match
+        assert agent0_collective == agent1_collective_seen_by_0, (
+            f"Agents in same collective should have same collective IDs: "
+            f"{agent0_collective} vs {agent1_collective_seen_by_0}"
+        )
+
+        # Agent 1's self observation should match what agent 0 sees
+        agent1_collective = helper.find_token_values(obs[1], location=(1, 1), feature_id=collective_feature_id)
+        assert agent1_collective == agent1_collective_seen_by_0, "Collective ID should be consistent"
+
+    def test_no_collective_observation_when_not_set(self):
+        """Test that objects without a collective do not emit the collective observation."""
+        # Create a simple 5x5 environment
+        game_map = create_grid(5, 5, fill_value=".")
+
+        # Add walls around perimeter
+        game_map[0, :] = "#"
+        game_map[-1, :] = "#"
+        game_map[:, 0] = "#"
+        game_map[:, -1] = "#"
+
+        # Place one agent
+        game_map[2, 2] = "@"
+
+        # Create environment without collectives
+        cfg = MettaGridConfig(
+            game=GameConfig(
+                num_agents=1,
+                obs=ObsConfig(width=3, height=3, num_tokens=NUM_OBS_TOKENS),
+                max_steps=10,
+                actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
+                objects={"wall": WallConfig(tags=["wall"])},
+                resource_names=["gold"],
+                map_builder=AsciiMapBuilder.Config(map_data=game_map.tolist(), char_to_map_name=DEFAULT_CHAR_TO_NAME),
+            )
+        )
+        sim = Simulation(cfg)
+        collective_feature_id = sim.config.game.id_map().feature_id("collective")
+        helper = ObservationHelper()
+
+        obs = sim._c_sim.observations()
+
+        # Agent should NOT have a collective observation
+        agent_collective = helper.find_token_values(obs[0], location=(1, 1), feature_id=collective_feature_id)
+        assert len(agent_collective) == 0, (
+            f"Agent without collective should have no collective observation, got {agent_collective}"
+        )

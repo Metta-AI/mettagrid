@@ -27,8 +27,8 @@
 #include "objects/assembler.hpp"
 #include "objects/chest.hpp"
 #include "objects/collective.hpp"
-#include "core/aoe_tracker.hpp"
 #include "handler/event_scheduler.hpp"
+#include "core/aoe_tracker.hpp"
 #include "systems/packed_coordinate.hpp"
 
 // Forward declarations of existing C++ classes

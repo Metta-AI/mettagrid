@@ -1,9 +1,15 @@
 #include "core/grid_object.hpp"
 
+#include <algorithm>
+#include <cassert>
+
+#include "config/observation_features.hpp"
 #include "core/tag_index.hpp"
 #include "handler/handler.hpp"
 #include "handler/handler_context.hpp"
 #include "objects/agent.hpp"
+#include "objects/collective.hpp"
+#include "systems/observation_encoder.hpp"
 
 void GridObject::init(TypeId object_type_id,
                       const std::string& object_type_name,
@@ -62,4 +68,36 @@ void GridObject::remove_tag(int tag_id) {
   if (removed > 0 && _tag_index != nullptr) {
     _tag_index->on_tag_removed(this, tag_id);
   }
+}
+
+std::vector<PartialObservationToken> GridObject::obs_features() const {
+  std::vector<PartialObservationToken> features;
+  features.reserve(tag_ids.size() + 3 +
+                   (obs_encoder ? inventory.get().size() * obs_encoder->get_num_inventory_tokens() : 0));
+
+  // Emit collective ID if this object belongs to a collective and the feature is configured
+  Collective* collective = getCollective();
+  if (collective != nullptr && ObservationFeature::Collective != 0) {
+    features.push_back({ObservationFeature::Collective, static_cast<ObservationType>(collective->id)});
+  }
+
+  // Emit tag features
+  for (int tag_id : tag_ids) {
+    features.push_back({ObservationFeature::Tag, static_cast<ObservationType>(tag_id)});
+  }
+
+  // Emit vibe if non-zero
+  if (vibe != 0) {
+    features.push_back({ObservationFeature::Vibe, static_cast<ObservationType>(vibe)});
+  }
+
+  // Emit inventory using multi-token encoding (if obs_encoder is available)
+  if (obs_encoder) {
+    for (const auto& [item, amount] : inventory.get()) {
+      assert(amount > 0);
+      obs_encoder->append_inventory_tokens(features, item, amount);
+    }
+  }
+
+  return features;
 }

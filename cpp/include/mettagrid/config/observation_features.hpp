@@ -15,7 +15,7 @@ public:
   // Initialize from feature_ids map (name -> id)
   explicit ObservationFeaturesImpl(const std::unordered_map<std::string, ObservationType>& feature_ids)
       : _name_to_id(feature_ids) {
-    // Cache commonly used feature IDs (all are always present now)
+    // Cache commonly used feature IDs
     _group = get("agent:group");
     _frozen = get("agent:frozen");
     _episode_completion_pct = get("episode_completion_pct");
@@ -27,6 +27,7 @@ public:
     _cooldown_remaining = get("cooldown_remaining");
     _remaining_uses = get("remaining_uses");
     _goal = get("goal");
+    _collective = has("collective") ? get("collective") : 0;
 
     // Initialize public members (must be done AFTER private members are set above)
     Group = _group;
@@ -40,6 +41,7 @@ public:
     CooldownRemaining = _cooldown_remaining;
     RemainingUses = _remaining_uses;
     Goal = _goal;
+    Collective = _collective;
   }
 
   // Get feature ID by name (throws if not found)
@@ -68,6 +70,7 @@ public:
   ObservationType CooldownRemaining;
   ObservationType RemainingUses;
   ObservationType Goal;
+  ObservationType Collective;
 
 private:
   std::unordered_map<std::string, ObservationType> _name_to_id;
@@ -84,6 +87,7 @@ private:
   ObservationType _cooldown_remaining;
   ObservationType _remaining_uses;
   ObservationType _goal;
+  ObservationType _collective;
 };
 
 // Global singleton instance
@@ -107,6 +111,7 @@ extern ObservationType Tag;
 extern ObservationType CooldownRemaining;
 extern ObservationType RemainingUses;
 extern ObservationType Goal;
+extern ObservationType Collective;
 }  // namespace ObservationFeature
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CONFIG_OBSERVATION_FEATURES_HPP_

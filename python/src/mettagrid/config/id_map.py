@@ -155,6 +155,10 @@ class IdMap:
         features.append(ObservationFeatureSpec(id=feature_id, normalization=255.0, name="remaining_uses"))
         feature_id += 1
 
+        # Collective ID (for aligned objects)
+        features.append(ObservationFeatureSpec(id=feature_id, normalization=10.0, name="collective"))
+        feature_id += 1
+
         # Inventory features using multi-token encoding with configurable base
         # inv:{resource} = amount % token_value_base (always emitted)
         # inv:{resource}:p1 = (amount / token_value_base) % token_value_base (emitted if amount >= token_value_base)

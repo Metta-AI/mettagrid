@@ -18,6 +18,9 @@
 #include "objects/inventory_config.hpp"
 #include "objects/usable.hpp"
 
+// Forward declaration
+class ObservationEncoder;
+
 using TypeId = ObservationType;
 using ObservationCoord = ObservationType;
 using Vibe = ObservationType;
@@ -133,9 +136,16 @@ public:
     _tag_index = index;
   }
 
-  virtual std::vector<PartialObservationToken> obs_features() const {
-    return {};  // Default: no observable features
+  // Set observation encoder for inventory token encoding
+  void set_obs_encoder(const ObservationEncoder* encoder) {
+    obs_encoder = encoder;
   }
+
+  // Returns observable features for this object (collective, tags, vibe, inventory)
+  // Subclasses should call this base implementation and append their specific features
+  virtual std::vector<PartialObservationToken> obs_features() const;
+
+  const ObservationEncoder* obs_encoder = nullptr;
 
 protected:
   std::vector<std::shared_ptr<mettagrid::Handler>> _on_use_handlers;

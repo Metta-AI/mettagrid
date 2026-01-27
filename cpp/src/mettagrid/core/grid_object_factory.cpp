@@ -50,23 +50,19 @@ static GridObject* _create_object(GridCoord r,
   }
 
   if (const auto* agent_config = dynamic_cast<const AgentConfig*>(config)) {
-    auto* obj = new Agent(r, c, *agent_config, resource_names);
-    obj->set_obs_encoder(obs_encoder);
-    return obj;
+    return new Agent(r, c, *agent_config, resource_names);
   }
 
   if (const auto* assembler_config = dynamic_cast<const AssemblerConfig*>(config)) {
     auto* obj = new Assembler(r, c, *assembler_config, stats);
     obj->set_grid(grid);
     obj->set_current_timestep_ptr(current_timestep_ptr);
-    obj->set_obs_encoder(obs_encoder);
     return obj;
   }
 
   if (const auto* chest_config = dynamic_cast<const ChestConfig*>(config)) {
     auto* obj = new Chest(r, c, *chest_config, stats);
     obj->set_grid(grid);
-    obj->set_obs_encoder(obs_encoder);
     return obj;
   }
 
@@ -92,6 +88,7 @@ GridObject* create_object_from_config(GridCoord r,
                                       unsigned int* current_timestep_ptr,
                                       TagIndex* tag_index) {
   auto* obj = _create_object(r, c, config, stats, resource_names, grid, obs_encoder, current_timestep_ptr);
+  obj->set_obs_encoder(obs_encoder);
   _set_up_handlers(obj, config, tag_index);
   return obj;
 }

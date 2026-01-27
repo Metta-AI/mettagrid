@@ -277,6 +277,14 @@ def _convert_event_configs(
             )
         cpp_event.target_tag_id = tag_name_to_id[event.target_tag]
 
+        # Set target_tag_id for efficient target lookup via TagIndex
+        if event.target_tag not in tag_name_to_id:
+            raise ValueError(
+                f"Event '{event_name}' has target_tag '{event.target_tag}' not found in tag mappings. "
+                f"Available tags: {sorted(tag_name_to_id.keys())}"
+            )
+        cpp_event.target_tag_id = tag_name_to_id[event.target_tag]
+
         # Convert filters
         _convert_event_filters(
             event.filters,

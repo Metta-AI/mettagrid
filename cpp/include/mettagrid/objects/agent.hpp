@@ -54,14 +54,6 @@ public:
   bool onUse(Agent& actor, ActionArg arg) override;
 
   std::vector<PartialObservationToken> obs_features() const override;
-
-  // Set observation encoder for inventory feature ID lookup
-  void set_obs_encoder(const ObservationEncoder* encoder) {
-    this->obs_encoder = encoder;
-  }
-
-private:
-  const ObservationEncoder* obs_encoder = nullptr;
 };
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_OBJECTS_AGENT_HPP_
