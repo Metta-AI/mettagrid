@@ -291,7 +291,7 @@ def load_policy_spec_from_path(
     spec = PolicySpec(
         class_path=submission_spec.class_path,
         data_path=submission_spec.data_path,
-        init_kwargs=submission_spec.init_kwargs,
+        init_kwargs=dict(submission_spec.init_kwargs),
     )
     spec.data_path = _resolve_spec_data_path(spec.data_path, extraction_root)
     if device is not None and "device" in spec.init_kwargs:

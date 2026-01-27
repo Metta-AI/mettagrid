@@ -96,3 +96,20 @@ def test_policy_spec_from_metta_uri_with_query_params():
     spec = policy_spec_from_uri("metta://policy/random?vibe_action_p=0.01")
 
     assert spec.init_kwargs.get("vibe_action_p") == "0.01"
+
+
+def test_policy_spec_from_file_path_with_query_params(tmp_path):
+    from mettagrid.policy.loader import resolve_policy_class_path
+    from mettagrid.policy.submission import SubmissionPolicySpec, write_submission_policy_spec
+    from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri
+
+    submission_spec = SubmissionPolicySpec(
+        class_path=resolve_policy_class_path("random"),
+        init_kwargs={"miner": 1},
+    )
+    write_submission_policy_spec(tmp_path / "policy_spec.json", submission_spec)
+
+    spec = policy_spec_from_uri(f"{tmp_path}?miner=4&aligner=6")
+
+    assert spec.init_kwargs.get("miner") == 4
+    assert spec.init_kwargs.get("aligner") == 6

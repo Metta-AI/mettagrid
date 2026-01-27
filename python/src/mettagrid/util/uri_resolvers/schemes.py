@@ -284,8 +284,25 @@ def checkpoint_uri_for_epoch(base_uri: str, epoch: int) -> str:
     raise ValueError(f"Unsupported URI scheme for checkpoint reloading: {parsed.scheme}")
 
 
-def policy_spec_from_uri(
-    uri: str,
+def parse_init_kwargs_from_query(query: str) -> dict[str, object]:
+    init_kwargs: dict[str, object] = {}
+    if not query:
+        return init_kwargs
+    for key, values in parse_qs(query).items():
+        if not values:
+            continue
+        raw_value = values[-1]
+        if raw_value.isdigit():
+            init_kwargs[key] = int(raw_value)
+        elif raw_value.lower() in {"true", "false"}:
+            init_kwargs[key] = raw_value.lower() == "true"
+        else:
+            init_kwargs[key] = raw_value
+    return init_kwargs
+
+
+def _load_policy_spec_from_uri(
+    base_uri: str,
     *,
     device: str = "cpu",
     remove_downloaded_copy_on_exit: bool = False,
@@ -298,40 +315,24 @@ def policy_spec_from_uri(
     )
 
     # Handle metta://policy/<builtin> URIs for built-in policies
-    if uri.startswith("metta://policy/"):
+    if base_uri.startswith("metta://policy/"):
         from mettagrid.policy.loader import discover_and_register_policies
         from mettagrid.policy.policy_registry import get_policy_registry
 
-        parsed_uri = urlparse(uri)
-        identifier = parsed_uri.path.lstrip("/")
-        init_kwargs: dict[str, object] = {}
-        if parsed_uri.query:
-            for key, values in parse_qs(parsed_uri.query).items():
-                if not values:
-                    continue
-                raw_value = values[-1]
-                if raw_value.isdigit():
-                    init_kwargs[key] = int(raw_value)
-                elif raw_value.lower() in {"true", "false"}:
-                    init_kwargs[key] = raw_value.lower() == "true"
-                else:
-                    init_kwargs[key] = raw_value
+        identifier = urlparse(base_uri).path.lstrip("/")
 
         discover_and_register_policies()
         registry = get_policy_registry()
 
-        # Check if it's a registered short name
         if identifier in registry:
-            return PolicySpec(class_path=registry[identifier], init_kwargs=init_kwargs)
-        # Check if it looks like a full class path and is importable.
-        # Otherwise, fall through to metta scheme resolution (e.g., policy names with dots).
+            return PolicySpec(class_path=registry[identifier])
         if "." in identifier and ":v" not in identifier and not identifier.endswith(":latest"):
             from mettagrid.util.module import load_symbol
 
             if load_symbol(identifier, strict=False) is not None:
-                return PolicySpec(class_path=identifier, init_kwargs=init_kwargs)
+                return PolicySpec(class_path=identifier)
 
-    parsed = resolve_uri(uri)
+    parsed = resolve_uri(base_uri)
 
     if parsed.canonical.endswith(".mpt"):
         raise ValueError("Legacy .mpt policies are no longer supported; use a checkpoint bundle instead.")
@@ -356,4 +357,32 @@ def policy_spec_from_uri(
             remove_downloaded_copy_on_exit=remove_downloaded_copy_on_exit,
         )
 
-    raise ValueError(f"Cannot load policy spec from URI: {uri}")
+    raise ValueError(f"Cannot load policy spec from URI: {base_uri}")
+
+
+def policy_spec_from_uri(
+    uri: str,
+    *,
+    device: str = "cpu",
+    remove_downloaded_copy_on_exit: bool = False,
+):
+    parsed_uri = urlparse(uri)
+    query_kwargs = parse_init_kwargs_from_query(parsed_uri.query)
+    base_uri = uri.split("?", 1)[0] if parsed_uri.query else uri
+
+    spec = _load_policy_spec_from_uri(
+        base_uri,
+        device=device,
+        remove_downloaded_copy_on_exit=remove_downloaded_copy_on_exit,
+    )
+
+    if query_kwargs:
+        merged = dict(spec.init_kwargs)
+        merged.update(query_kwargs)
+        spec.init_kwargs = merged
+    # TODO: reject "device" in query kwargs at submit time (SubmissionPolicySpec validation),
+    # or document that URI-level "device" is always overridden by the caller.
+    if device is not None and "device" in spec.init_kwargs:
+        spec.init_kwargs["device"] = device
+
+    return spec
