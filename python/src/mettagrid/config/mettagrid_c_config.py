@@ -15,6 +15,8 @@ from mettagrid.mettagrid_c import ActionConfig as CppActionConfig
 from mettagrid.mettagrid_c import AgentConfig as CppAgentConfig
 from mettagrid.mettagrid_c import AlignmentCondition as CppAlignmentCondition
 from mettagrid.mettagrid_c import AlignmentFilterConfig as CppAlignmentFilterConfig
+from mettagrid.mettagrid_c import AlignmentMutationConfig as CppAlignmentMutationConfig
+from mettagrid.mettagrid_c import AlignTo as CppAlignTo
 from mettagrid.mettagrid_c import AOEConfig as CppAOEConfig
 from mettagrid.mettagrid_c import AssemblerConfig as CppAssemblerConfig
 from mettagrid.mettagrid_c import AttackActionConfig as CppAttackActionConfig
@@ -22,6 +24,7 @@ from mettagrid.mettagrid_c import AttackOutcome as CppAttackOutcome
 from mettagrid.mettagrid_c import ChangeVibeActionConfig as CppChangeVibeActionConfig
 from mettagrid.mettagrid_c import ChestConfig as CppChestConfig
 from mettagrid.mettagrid_c import CollectiveConfig as CppCollectiveConfig
+from mettagrid.mettagrid_c import EventConfig as CppEventConfig
 from mettagrid.mettagrid_c import GameConfig as CppGameConfig
 from mettagrid.mettagrid_c import GlobalObsConfig as CppGlobalObsConfig
 from mettagrid.mettagrid_c import GridObjectConfig as CppGridObjectConfig
@@ -51,63 +54,26 @@ def _convert_alignment_condition(alignment) -> CppAlignmentCondition:
     return mapping.get(alignment, CppAlignmentCondition.same_collective)
 
 
-def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, tag_name_to_id, context: str):
-    """Convert Python filters to C++ and add them to the target config.
+def _resolve_near_tag_id(filter_config, tag_name_to_id: dict, context: str) -> int:
+    """Resolve the tag_id for a NearFilter's target_tag.
 
     Args:
-        filters: List of filter configs
-        cpp_target: Target object with add_*_filter methods (HandlerConfig or AOEConfig)
-        resource_name_to_id: Dict mapping resource names to IDs
-        vibe_name_to_id: Dict mapping vibe names to IDs
+        filter_config: NearFilter config with target_tag attribute
         tag_name_to_id: Dict mapping tag names to IDs
-        context: Description for error messages (e.g., "handler 'foo'" or "AOEConfig")
+        context: Description for error messages
+
+    Returns:
+        The tag_id for the target_tag
+
+    Raises:
+        ValueError: If target_tag is not found in tag_name_to_id
     """
-    for filter_config in filters:
-        filter_type = filter_config.filter_type
-
-        if filter_type == "alignment":
-            cpp_filter = CppAlignmentFilterConfig(_convert_alignment_condition(filter_config.alignment))
-            cpp_target.add_alignment_filter(cpp_filter)
-
-        elif filter_type == "resource":
-            for resource_name, min_amount in filter_config.resources.items():
-                assert resource_name in resource_name_to_id, (
-                    f"ResourceFilter in {context} references unknown resource '{resource_name}'"
-                )
-                cpp_filter = CppResourceFilterConfig(
-                    convert_entity_ref(filter_config.target), resource_name_to_id[resource_name], min_amount
-                )
-                cpp_target.add_resource_filter(cpp_filter)
-
-        elif filter_type == "vibe":
-            assert filter_config.vibe in vibe_name_to_id, (
-                f"VibeFilter in {context} references unknown vibe '{filter_config.vibe}'"
-            )
-            cpp_filter = CppVibeFilterConfig(
-                convert_entity_ref(filter_config.target), vibe_name_to_id[filter_config.vibe]
-            )
-            cpp_target.add_vibe_filter(cpp_filter)
-
-        elif filter_type == "tag":
-            assert filter_config.tag in tag_name_to_id, (
-                f"TagFilter in {context} references unknown tag '{filter_config.tag}'. "
-                f"Add it to GameConfig.tags or object tags."
-            )
-            cpp_filter = CppTagFilterConfig(convert_entity_ref(filter_config.target), tag_name_to_id[filter_config.tag])
-            cpp_target.add_tag_filter(cpp_filter)
-
-        elif filter_type == "near":
-            assert filter_config.tag in tag_name_to_id, (
-                f"NearFilter in {context} references unknown tag '{filter_config.tag}'. "
-                f"Add it to GameConfig.tags or object tags."
-            )
-            cpp_filter = CppNearFilterConfig(
-                convert_entity_ref(filter_config.target), filter_config.radius, tag_name_to_id[filter_config.tag]
-            )
-            cpp_target.add_near_filter(cpp_filter)
-
-        else:
-            raise ValueError(f"Unknown filter type '{filter_type}' in {context}")
+    target_tag = filter_config.target_tag
+    if target_tag not in tag_name_to_id:
+        raise ValueError(
+            f"NearFilter in {context} references unknown tag '{target_tag}'. Add it to GameConfig.tags or object tags."
+        )
+    return tag_name_to_id[target_tag]
 
 
 def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource_ids, vibe_name_to_id, tag_name_to_id):
@@ -150,6 +116,306 @@ def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource
         cpp_handlers.append(cpp_handler)
 
     return cpp_handlers
+
+
+def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, tag_name_to_id, context: str = ""):
+    """Convert Python filters to C++ and add them to the target config.
+
+    Args:
+        filters: List of filter configs
+        cpp_target: Target object with add_*_filter methods
+        resource_name_to_id: Dict mapping resource names to IDs
+        vibe_name_to_id: Dict mapping vibe names to IDs
+        tag_name_to_id: Dict mapping tag names to IDs
+        context: Description for error messages (unused, kept for compatibility)
+    """
+    for filter_config in filters:
+        filter_type = getattr(filter_config, "filter_type", None)
+
+        if filter_type == "alignment":
+            cpp_filter = CppAlignmentFilterConfig(
+                condition=_convert_alignment_condition(filter_config.alignment),
+            )
+            cpp_target.add_alignment_filter(cpp_filter)
+
+        elif filter_type == "resource":
+            for resource_name, min_amount in filter_config.resources.items():
+                if resource_name in resource_name_to_id:
+                    cpp_filter = CppResourceFilterConfig(
+                        entity=convert_entity_ref(filter_config.target),
+                        resource_id=resource_name_to_id[resource_name],
+                        min_amount=min_amount,
+                    )
+                    cpp_target.add_resource_filter(cpp_filter)
+
+        elif filter_type == "vibe":
+            if filter_config.vibe in vibe_name_to_id:
+                cpp_filter = CppVibeFilterConfig(
+                    entity=convert_entity_ref(filter_config.target),
+                    vibe_id=vibe_name_to_id[filter_config.vibe],
+                )
+                cpp_target.add_vibe_filter(cpp_filter)
+
+        elif filter_type == "tag":
+            if filter_config.tag in tag_name_to_id:
+                cpp_filter = CppTagFilterConfig(
+                    entity=convert_entity_ref(filter_config.target),
+                    tag_id=tag_name_to_id[filter_config.tag],
+                )
+                cpp_target.add_tag_filter(cpp_filter)
+
+        elif filter_type == "near":
+            # NearFilter requires a tag for efficient spatial lookup
+            tag_id = _resolve_near_tag_id(filter_config, tag_name_to_id, "handler filters")
+            cpp_filter = CppNearFilterConfig(
+                entity=convert_entity_ref(filter_config.target),
+                radius=filter_config.radius,
+                target_tag=tag_id,
+            )
+            # Convert and add filters
+            _add_filters_to_near_filter(
+                filter_config.filters,
+                cpp_filter,
+                resource_name_to_id,
+                vibe_name_to_id,
+                tag_name_to_id,
+            )
+            cpp_target.add_near_filter(cpp_filter)
+
+
+def _add_filters_to_near_filter(
+    filters, cpp_near_filter, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id=None
+):
+    """Add filters to a NearFilterConfig.
+
+    Args:
+        filters: List of Python filter configs
+        cpp_near_filter: CppNearFilterConfig to add filters to
+        resource_name_to_id: Dict mapping resource names to IDs
+        vibe_name_to_id: Dict mapping vibe names to IDs
+        tag_name_to_id: Dict mapping tag names to IDs
+        collective_name_to_id: Dict mapping collective names to IDs (optional)
+    """
+    collective_name_to_id = collective_name_to_id or {}
+
+    for filter_cfg in filters:
+        filter_type = getattr(filter_cfg, "filter_type", None)
+
+        if filter_type == "alignment":
+            cpp_filter = CppAlignmentFilterConfig(
+                condition=_convert_alignment_condition(filter_cfg.alignment),
+            )
+            # Set collective_id if specific collective is specified
+            collective = getattr(filter_cfg, "collective", None)
+            if collective is not None and collective in collective_name_to_id:
+                cpp_filter.collective_id = collective_name_to_id[collective]
+            cpp_near_filter.add_alignment_filter(cpp_filter)
+
+        elif filter_type == "vibe":
+            if filter_cfg.vibe in vibe_name_to_id:
+                cpp_filter = CppVibeFilterConfig(
+                    entity=convert_entity_ref(filter_cfg.target),
+                    vibe_id=vibe_name_to_id[filter_cfg.vibe],
+                )
+                cpp_near_filter.add_vibe_filter(cpp_filter)
+
+        elif filter_type == "resource":
+            for resource_name, min_amount in filter_cfg.resources.items():
+                if resource_name in resource_name_to_id:
+                    cpp_filter = CppResourceFilterConfig(
+                        entity=convert_entity_ref(filter_cfg.target),
+                        resource_id=resource_name_to_id[resource_name],
+                        min_amount=min_amount,
+                    )
+                    cpp_near_filter.add_resource_filter(cpp_filter)
+
+        elif filter_type == "tag":
+            if filter_cfg.tag in tag_name_to_id:
+                cpp_filter = CppTagFilterConfig(
+                    entity=convert_entity_ref(filter_cfg.target),
+                    tag_id=tag_name_to_id[filter_cfg.tag],
+                )
+                cpp_near_filter.add_tag_filter(cpp_filter)
+
+
+def _convert_event_configs(
+    events: dict,
+    resource_name_to_id: dict,
+    limit_name_to_resource_ids: dict,
+    vibe_name_to_id: dict,
+    tag_name_to_id: dict,
+    type_id_by_type_name: dict,
+    collective_name_to_id: dict,
+) -> dict:
+    """Convert Python EventConfig dict to C++ EventConfig dict.
+
+    Args:
+        events: Dict mapping event name to EventConfig
+        resource_name_to_id: Dict mapping resource names to IDs
+        limit_name_to_resource_ids: Dict mapping limit names to lists of resource IDs
+        vibe_name_to_id: Dict mapping vibe names to IDs
+        tag_name_to_id: Dict mapping tag names to IDs
+        type_id_by_type_name: Dict mapping object type names to type IDs
+        collective_name_to_id: Dict mapping collective names to IDs
+
+    Returns:
+        Dict of event name -> CppEventConfig
+    """
+    cpp_events = {}
+
+    for event_name, event in events.items():
+        cpp_event = CppEventConfig(event.name)
+        cpp_event.timesteps = list(event.timesteps)
+        cpp_event.max_targets = event.max_targets if event.max_targets is not None else 0
+
+        # Set target_tag_id for efficient target lookup via TagIndex
+        if event.target_tag not in tag_name_to_id:
+            raise ValueError(
+                f"Event '{event_name}' has target_tag '{event.target_tag}' not found in tag mappings. "
+                f"Available tags: {sorted(tag_name_to_id.keys())}"
+            )
+        cpp_event.target_tag_id = tag_name_to_id[event.target_tag]
+
+        # Convert filters
+        _convert_event_filters(
+            event.filters,
+            cpp_event,
+            resource_name_to_id,
+            vibe_name_to_id,
+            tag_name_to_id,
+            collective_name_to_id,
+        )
+
+        # Convert mutations using shared utility
+        _convert_event_mutations(
+            event.mutations,
+            cpp_event,
+            resource_name_to_id,
+            limit_name_to_resource_ids,
+            tag_name_to_id,
+            collective_name_to_id,
+            context=f"event '{event_name}'",
+        )
+
+        cpp_events[event_name] = cpp_event
+
+    return cpp_events
+
+
+def _convert_event_filters(
+    filters,
+    cpp_target,
+    resource_name_to_id,
+    vibe_name_to_id,
+    tag_name_to_id,
+    collective_name_to_id,
+):
+    """Convert Python filters for events.
+
+    Uses standard filters: alignment, resource, vibe, tag, near.
+    """
+    for filter_config in filters:
+        filter_type = getattr(filter_config, "filter_type", None)
+
+        if filter_type == "alignment":
+            cpp_filter = CppAlignmentFilterConfig()
+            cpp_filter.condition = _convert_alignment_condition(filter_config.alignment)
+            # If collective is specified, set the collective_id for specific collective matching
+            collective = getattr(filter_config, "collective", None)
+            if collective is not None and collective in collective_name_to_id:
+                cpp_filter.collective_id = collective_name_to_id[collective]
+            cpp_target.add_alignment_filter(cpp_filter)
+
+        elif filter_type == "resource":
+            # Resource filter can have multiple resources - add one filter per resource
+            for resource_name, min_amount in filter_config.resources.items():
+                if resource_name in resource_name_to_id:
+                    cpp_filter = CppResourceFilterConfig()
+                    cpp_filter.entity = convert_entity_ref(filter_config.target)
+                    cpp_filter.resource_id = resource_name_to_id[resource_name]
+                    cpp_filter.min_amount = min_amount
+                    cpp_target.add_resource_filter(cpp_filter)
+
+        elif filter_type == "vibe":
+            if filter_config.vibe in vibe_name_to_id:
+                cpp_filter = CppVibeFilterConfig()
+                cpp_filter.entity = convert_entity_ref(filter_config.target)
+                cpp_filter.vibe_id = vibe_name_to_id[filter_config.vibe]
+                cpp_target.add_vibe_filter(cpp_filter)
+
+        elif filter_type == "tag":
+            if filter_config.tag in tag_name_to_id:
+                cpp_filter = CppTagFilterConfig()
+                cpp_filter.entity = convert_entity_ref(filter_config.target)
+                cpp_filter.tag_id = tag_name_to_id[filter_config.tag]
+                cpp_target.add_tag_filter(cpp_filter)
+
+        elif filter_type == "near":
+            # NearFilter requires a tag for efficient spatial lookup
+            tag_id = _resolve_near_tag_id(filter_config, tag_name_to_id, "event filters")
+            cpp_filter = CppNearFilterConfig()
+            cpp_filter.entity = convert_entity_ref(filter_config.target)
+            cpp_filter.radius = filter_config.radius
+            cpp_filter.target_tag = tag_id
+            # Convert and add filters
+            _add_filters_to_near_filter(
+                filter_config.filters,
+                cpp_filter,
+                resource_name_to_id,
+                vibe_name_to_id,
+                tag_name_to_id,
+                collective_name_to_id,
+            )
+            cpp_target.add_near_filter(cpp_filter)
+
+
+def _convert_event_mutations(
+    mutations,
+    cpp_target,
+    resource_name_to_id,
+    limit_name_to_resource_ids,
+    tag_name_to_id,
+    collective_name_to_id,
+    context: str,
+):
+    """Convert Python mutations for events, including event-specific mutation types.
+
+    Supports all standard mutations plus:
+    - AlignmentMutation with collective set: Align entity to a specific collective by ID
+    """
+    from mettagrid.config.mettagrid_c_mutations import convert_mutations
+    from mettagrid.config.mutation import AlignmentMutation
+
+    # Separate out AlignmentMutation with collective set - these need special handling
+    standard_mutations = []
+    collective_alignment_mutations = []
+
+    for mutation in mutations:
+        if isinstance(mutation, AlignmentMutation) and mutation.collective is not None:
+            collective_alignment_mutations.append(mutation)
+        else:
+            standard_mutations.append(mutation)
+
+    # Convert standard mutations (excluding collective alignments)
+    convert_mutations(
+        standard_mutations,
+        cpp_target,
+        resource_name_to_id,
+        limit_name_to_resource_ids,
+        tag_name_to_id,
+        context,
+    )
+
+    # Handle AlignmentMutation with collective set -> AlignmentMutationConfig with collective_id
+    for mutation in collective_alignment_mutations:
+        collective_name = mutation.collective
+        if collective_name in collective_name_to_id:
+            cpp_mut = CppAlignmentMutationConfig()
+            cpp_mut.align_to = CppAlignTo.none  # Ignored when collective_id is set
+            cpp_mut.collective_id = collective_name_to_id[collective_name]
+            cpp_target.add_alignment_mutation(cpp_mut)
+        else:
+            raise ValueError(f"Collective '{collective_name}' not found in collective_name_to_id mapping in {context}")
 
 
 def _convert_aoe_configs(
@@ -743,5 +1009,23 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         collectives_cpp[collective_name] = cpp_collective_config
 
     game_cpp_params["collectives"] = collectives_cpp
+
+    # Build collective_name_to_id mapping for events
+    # Collective IDs are assigned in SORTED order to ensure consistency between Python and C++
+    # (C++ unordered_map iteration order is unpredictable, but we sort in C++ before assignment)
+    collective_name_to_id = {name: idx for idx, name in enumerate(sorted(game_config.collectives.keys()))}
+
+    # Convert event configurations
+    if game_config.events:
+        events_cpp = _convert_event_configs(
+            game_config.events,
+            resource_name_to_id,
+            limit_name_to_resource_ids,
+            vibe_name_to_id,
+            tag_name_to_id,
+            type_id_by_type_name,
+            collective_name_to_id,
+        )
+        game_cpp_params["events"] = events_cpp
 
     return CppGameConfig(**game_cpp_params)

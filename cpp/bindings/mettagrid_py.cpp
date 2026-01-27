@@ -1,6 +1,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
+#include "handler/event_bindings.hpp"
 #include "actions/attack.hpp"
 #include "actions/change_vibe.hpp"
 #include "actions/move_config.hpp"
@@ -400,6 +401,9 @@ PYBIND11_MODULE(mettagrid_c, m) {
 
   // Handler bindings
   bind_handler_config(m);
+
+  // Event bindings
+  bind_event_config(m);
 
   // TagIndex binding
   py::class_<mettagrid::TagIndex>(m, "TagIndex")

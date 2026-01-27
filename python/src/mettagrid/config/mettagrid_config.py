@@ -25,15 +25,56 @@ from mettagrid.config.action_config import (  # noqa: F401 - re-exported for bac
     TransferActionConfig,
     VibeTransfer,
 )
+from mettagrid.config.event_config import EventConfig
+from mettagrid.config.filter import (
+    AlignmentFilter,
+    NearFilter,
+    ResourceFilter,
+    TagFilter,
+    VibeFilter,
+)
 from mettagrid.config.handler_config import (
     AOEConfig,
     Handler,
 )
 from mettagrid.config.id_map import IdMap
+from mettagrid.config.mutation import (
+    AddTagMutation,
+    AlignmentMutation,
+    AlignTo,
+    AttackMutation,
+    ClearInventoryMutation,
+    FreezeMutation,
+    RemoveTagMutation,
+    ResourceDeltaMutation,
+    ResourceTransferMutation,
+    StatsMutation,
+)
 from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig  # noqa: F401 - GlobalObsConfig re-exported
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.map_builder.map_builder import AnyMapBuilderConfig
 from mettagrid.map_builder.random_map import RandomMapBuilder
+
+# Rebuild EventConfig with forward references now that all filter/mutation classes are available
+EventConfig.model_rebuild(
+    _types_namespace={
+        "VibeFilter": VibeFilter,
+        "ResourceFilter": ResourceFilter,
+        "AlignmentFilter": AlignmentFilter,
+        "TagFilter": TagFilter,
+        "NearFilter": NearFilter,
+        "ResourceDeltaMutation": ResourceDeltaMutation,
+        "ResourceTransferMutation": ResourceTransferMutation,
+        "AlignmentMutation": AlignmentMutation,
+        "AlignTo": AlignTo,
+        "FreezeMutation": FreezeMutation,
+        "ClearInventoryMutation": ClearInventoryMutation,
+        "AttackMutation": AttackMutation,
+        "StatsMutation": StatsMutation,
+        "AddTagMutation": AddTagMutation,
+        "RemoveTagMutation": RemoveTagMutation,
+    }
+)
 
 # ===== Python Configuration Models =====
 
@@ -328,6 +369,12 @@ class GameConfig(Config):
     collectives: dict[str, CollectiveConfig] = Field(
         default_factory=dict,
         description="Collectives (shared inventories) that grid objects can belong to (name -> config)",
+    )
+
+    # Events - timestep-triggered effects that apply mutations to filtered objects
+    events: dict[str, EventConfig] = Field(
+        default_factory=dict,
+        description="Events that fire at specific timesteps, applying mutations to filtered objects.",
     )
 
     # Map builder configuration - accepts any MapBuilder config

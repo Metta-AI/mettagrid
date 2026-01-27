@@ -48,6 +48,7 @@ __all__ = [
     "isEnemy",
     "hasTag",
     "isA",
+    "typeTag",
     "isNear",
     "actorHas",
     "targetHas",

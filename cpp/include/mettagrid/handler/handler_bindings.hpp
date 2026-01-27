@@ -79,7 +79,9 @@ inline void bind_handler_config(py::module& m) {
              return cfg;
            }),
            py::arg("condition") = AlignmentCondition::same_collective)
-      .def_readwrite("condition", &AlignmentFilterConfig::condition);
+      .def_readwrite("entity", &AlignmentFilterConfig::entity)
+      .def_readwrite("condition", &AlignmentFilterConfig::condition)
+      .def_readwrite("collective_id", &AlignmentFilterConfig::collective_id);
 
   py::class_<TagFilterConfig>(m, "TagFilterConfig")
       .def(py::init<>())
@@ -171,7 +173,8 @@ inline void bind_handler_config(py::module& m) {
              return cfg;
            }),
            py::arg("align_to") = AlignTo::actor_collective)
-      .def_readwrite("align_to", &AlignmentMutationConfig::align_to);
+      .def_readwrite("align_to", &AlignmentMutationConfig::align_to)
+      .def_readwrite("collective_id", &AlignmentMutationConfig::collective_id);
 
   py::class_<FreezeMutationConfig>(m, "FreezeMutationConfig")
       .def(py::init<>())

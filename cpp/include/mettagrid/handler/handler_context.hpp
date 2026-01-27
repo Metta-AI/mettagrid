@@ -1,6 +1,9 @@
 #ifndef PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_HANDLER_CONTEXT_HPP_
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_HANDLER_CONTEXT_HPP_
 
+#include <memory>
+#include <vector>
+
 #include "core/grid_object.hpp"
 #include "core/tag_index.hpp"
 #include "handler/handler_config.hpp"
@@ -17,6 +20,7 @@ namespace mettagrid {
  * Context varies by handler type:
  *   - on_use: actor=agent performing action, target=object being used
  *   - aoe: actor=source object, target=affected object
+ *   - event: actor=nullptr, target=object being affected
  */
 class HandlerContext {
 public:
@@ -24,13 +28,28 @@ public:
   HasInventory* target = nullptr;
   StatsTracker* game_stats = nullptr;  // Game-level stats tracker (for StatsMutation)
   TagIndex* tag_index = nullptr;       // Tag index for NearFilter lookups
+  const std::vector<std::unique_ptr<Collective>>* collectives = nullptr;  // Collectives indexed by ID (for events)
+  bool skip_on_update_trigger = false;  // Skip triggering on_update handlers (prevent recursion)
 
   HandlerContext() = default;
-  HandlerContext(HasInventory* act, HasInventory* tgt) : actor(act), target(tgt) {}
-  HandlerContext(HasInventory* act, HasInventory* tgt, StatsTracker* stats)
-      : actor(act), target(tgt), game_stats(stats) {}
-  HandlerContext(HasInventory* act, HasInventory* tgt, StatsTracker* stats, TagIndex* tags)
-      : actor(act), target(tgt), game_stats(stats), tag_index(tags) {}
+  HandlerContext(HasInventory* act, HasInventory* tgt, bool skip_update = false)
+      : actor(act), target(tgt), skip_on_update_trigger(skip_update) {}
+  HandlerContext(HasInventory* act, HasInventory* tgt, StatsTracker* stats, bool skip_update = false)
+      : actor(act), target(tgt), game_stats(stats), skip_on_update_trigger(skip_update) {}
+  HandlerContext(HasInventory* act, HasInventory* tgt, StatsTracker* stats, TagIndex* tags, bool skip_update = false)
+      : actor(act), target(tgt), game_stats(stats), tag_index(tags), skip_on_update_trigger(skip_update) {}
+  HandlerContext(HasInventory* act,
+                 HasInventory* tgt,
+                 StatsTracker* stats,
+                 TagIndex* tags,
+                 const std::vector<std::unique_ptr<Collective>>* colls,
+                 bool skip_update = false)
+      : actor(act),
+        target(tgt),
+        game_stats(stats),
+        tag_index(tags),
+        collectives(colls),
+        skip_on_update_trigger(skip_update) {}
 
   // Resolve an EntityRef to the corresponding HasInventory*
   HasInventory* resolve(EntityRef ref) const {
@@ -92,6 +111,14 @@ public:
   ObservationType target_vibe() const {
     GridObject* grid_obj = target_grid_object();
     return grid_obj != nullptr ? grid_obj->vibe : 0;
+  }
+
+  // Look up a collective by ID (returns nullptr if not found)
+  Collective* get_collective_by_id(int collective_id) const {
+    if (collectives == nullptr || collective_id < 0 || static_cast<size_t>(collective_id) >= collectives->size()) {
+      return nullptr;
+    }
+    return (*collectives)[collective_id].get();
   }
 };
 

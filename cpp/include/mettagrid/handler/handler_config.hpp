@@ -213,6 +213,29 @@ struct AOEConfig : public HandlerConfig {
   }
 };
 
+// ============================================================================
+// Event Config - Timestep-based events
+// ============================================================================
+
+/**
+ * EventConfig - Configuration for timestep-based events.
+ *
+ * Events fire at specified timesteps and apply mutations to all objects
+ * that pass the configured filters. Unlike handlers (triggered by actions)
+ * or AOE (triggered by proximity), events are triggered by the game clock.
+ */
+struct EventConfig {
+  std::string name;                       // Unique name for this event
+  int target_tag_id = -1;                 // Tag ID for finding targets via TagIndex (required)
+  std::vector<int> timesteps;             // Timesteps when this event fires
+  std::vector<FilterConfig> filters;      // All must pass for event to affect object
+  std::vector<MutationConfig> mutations;  // Applied to matching objects
+  int max_targets = 0;                    // Maximum targets to apply to (0 = unlimited)
+
+  EventConfig() = default;
+  explicit EventConfig(const std::string& event_name) : name(event_name) {}
+};
+
 }  // namespace mettagrid
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_HANDLER_CONFIG_HPP_

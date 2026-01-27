@@ -14,7 +14,7 @@ Handler::Handler(const HandlerConfig& config, TagIndex* tag_index) : _name(confi
     }
   }
 
-  // Create mutations from config
+  // Create mutations from config using shared factory
   for (const auto& mutation_config : config.mutations) {
     auto mutation = create_mutation(mutation_config);
     if (mutation) {

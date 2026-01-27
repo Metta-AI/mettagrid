@@ -4,6 +4,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -11,6 +12,7 @@
 
 #include "config/observation_features.hpp"
 #include "core/types.hpp"
+#include "handler/handler_config.hpp"
 #include "objects/collective_config.hpp"
 
 // Forward declarations
@@ -54,6 +56,9 @@ struct GameConfig {
 
   // Observation encoding settings
   unsigned int token_value_base = 256;  // Base for multi-token inventory encoding (value per token: 0 to base-1)
+
+  // Events - timestep-triggered effects that apply mutations to filtered objects
+  std::map<std::string, mettagrid::EventConfig> events;
 };
 
 namespace py = pybind11;
@@ -101,7 +106,10 @@ inline void bind_game_config(py::module& m) {
                     unsigned int,
 
                     // Observation encoding
-                    unsigned int>(),
+                    unsigned int,
+
+                    // Events
+                    const std::map<std::string, mettagrid::EventConfig>&>(),
            py::arg("num_agents"),
            py::arg("max_steps"),
            py::arg("episode_truncates"),
@@ -127,7 +135,10 @@ inline void bind_game_config(py::module& m) {
            py::arg("inventory_regen_interval") = 0,
 
            // Observation encoding
-           py::arg("token_value_base") = 256)
+           py::arg("token_value_base") = 256,
+
+           // Events
+           py::arg("events") = std::map<std::string, mettagrid::EventConfig>())
       .def_readwrite("num_agents", &GameConfig::num_agents)
       .def_readwrite("max_steps", &GameConfig::max_steps)
       .def_readwrite("episode_truncates", &GameConfig::episode_truncates)
@@ -158,7 +169,10 @@ inline void bind_game_config(py::module& m) {
       .def_readwrite("inventory_regen_interval", &GameConfig::inventory_regen_interval)
 
       // Observation encoding
-      .def_readwrite("token_value_base", &GameConfig::token_value_base);
+      .def_readwrite("token_value_base", &GameConfig::token_value_base)
+
+      // Events
+      .def_readwrite("events", &GameConfig::events);
 }
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CONFIG_METTAGRID_CONFIG_HPP_

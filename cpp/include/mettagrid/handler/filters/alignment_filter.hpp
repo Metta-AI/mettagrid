@@ -23,21 +23,18 @@ class AlignmentFilter : public Filter {
 public:
   explicit AlignmentFilter(const AlignmentFilterConfig& config) : _config(config) {}
 
-  // Set the resolved collective pointer (called during handler setup for collective-specific checks)
-  void set_collective(Collective* coll) {
-    _resolved_collective = coll;
-  }
-
   bool passes(const HandlerContext& ctx) const override {
-    // If we have a resolved collective, check if entity belongs to that specific collective
-    if (_resolved_collective != nullptr) {
+    // If collective_id is set, check if entity belongs to that specific collective
+    if (_config.collective_id >= 0) {
       GridObject* grid_obj = dynamic_cast<GridObject*>(ctx.resolve(_config.entity));
       if (grid_obj == nullptr) {
         return false;
       }
 
       Collective* obj_collective = grid_obj->getCollective();
-      return obj_collective == _resolved_collective;
+      // Look up the target collective from context
+      Collective* target_collective = ctx.get_collective_by_id(_config.collective_id);
+      return obj_collective != nullptr && obj_collective == target_collective;
     }
 
     // Otherwise, use condition-based alignment checks
@@ -71,7 +68,6 @@ public:
 
 private:
   AlignmentFilterConfig _config;
-  Collective* _resolved_collective = nullptr;
 };
 
 }  // namespace mettagrid

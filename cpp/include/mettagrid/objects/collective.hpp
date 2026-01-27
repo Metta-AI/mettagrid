@@ -19,6 +19,7 @@ private:
   std::unordered_map<std::string, int> _aligned_counts;  // type_name -> count
 
 public:
+  int id = -1;  // Collective index/ID (set during environment setup)
   std::string name;
   StatsTracker stats;
 

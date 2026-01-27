@@ -27,6 +27,8 @@
 #include "objects/assembler.hpp"
 #include "objects/chest.hpp"
 #include "objects/collective.hpp"
+#include "core/aoe_tracker.hpp"
+#include "handler/event_scheduler.hpp"
 #include "systems/packed_coordinate.hpp"
 
 // Forward declarations of existing C++ classes
@@ -154,6 +156,7 @@ private:
 
   // Global systems
   std::unique_ptr<mettagrid::AOETracker> _aoe_tracker;
+  std::unique_ptr<mettagrid::EventScheduler> _event_scheduler;
 
   // Collective objects - owned by MettaGrid
   std::vector<std::unique_ptr<Collective>> _collectives;

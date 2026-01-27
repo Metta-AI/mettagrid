@@ -77,6 +77,7 @@ class AlignmentFilterConfig:
         condition: AlignmentCondition = ...,
     ) -> None: ...
     condition: AlignmentCondition
+    collective_id: int
 
 class TagFilterConfig:
     def __init__(
@@ -135,6 +136,7 @@ class AlignmentMutationConfig:
         align_to: AlignTo = ...,
     ) -> None: ...
     align_to: AlignTo
+    collective_id: int
 
 class FreezeMutationConfig:
     def __init__(
@@ -232,6 +234,15 @@ class AOEConfig(HandlerConfig):
     is_static: bool
     effect_self: bool
     presence_deltas: list[ResourceDelta]
+
+class EventConfig(HandlerConfig):
+    """Configuration for timestep-triggered events."""
+
+    def __init__(self, name: str = "") -> None: ...
+    name: str
+    target_tag_id: int
+    timesteps: list[int]
+    max_targets: int
 
 # Data types exported from C++
 dtype_observations: np.dtype

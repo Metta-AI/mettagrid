@@ -91,9 +91,19 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   _init_grid(game_config, map);
 
-  // Initialize collectives from config
-  for (const auto& [name, collective_cfg] : game_config.collectives) {
+  // Initialize collectives from config in SORTED order
+  // This ensures collective IDs match between Python and C++ (unordered_map iteration is unpredictable)
+  std::vector<std::string> collective_names;
+  collective_names.reserve(game_config.collectives.size());
+  for (const auto& [name, _] : game_config.collectives) {
+    collective_names.push_back(name);
+  }
+  std::sort(collective_names.begin(), collective_names.end());
+
+  for (const auto& name : collective_names) {
+    const auto& collective_cfg = game_config.collectives.at(name);
     auto collective = std::make_unique<Collective>(*collective_cfg, &resource_names);
+    collective->id = static_cast<int>(_collectives.size());  // Set ID to index (sorted order)
     _collectives_by_name[name] = collective.get();
     _collectives.push_back(std::move(collective));
   }
@@ -125,6 +135,12 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
         }
       }
     }
+  }
+
+  // Initialize EventScheduler from config
+  if (!game_config.events.empty()) {
+    _event_scheduler = std::make_unique<mettagrid::EventScheduler>(game_config.events, &_rng, &_tag_index);
+    _event_scheduler->set_collectives(&_collectives);
   }
 
   // Pre-compute goal_obs tokens for each agent
@@ -494,6 +510,11 @@ void MettaGrid::_step() {
 
   // Increment timestep and process events
   current_step++;
+
+  // Process events at current timestep
+  if (_event_scheduler) {
+    _event_scheduler->process_timestep(current_step, _tag_index);
+  }
 
   // Create and shuffle agent indices for randomized action order
   std::vector<size_t> agent_indices(_agents.size());

@@ -53,7 +53,9 @@ public:
         }
 
         // Create context with candidate as target and check all filters
-        HandlerContext inner_ctx(ctx.actor, candidate, ctx.game_stats);
+        // Include collectives from outer context for alignment filter lookups
+        HandlerContext inner_ctx(
+            ctx.actor, candidate, ctx.game_stats, ctx.tag_index, ctx.collectives, ctx.skip_on_update_trigger);
         bool passes_all_filters = true;
         for (const auto& filter : _filters) {
           if (!filter->passes(inner_ctx)) {

@@ -1,6 +1,8 @@
 #ifndef PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_MUTATIONS_ALIGNMENT_MUTATION_HPP_
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_MUTATIONS_ALIGNMENT_MUTATION_HPP_
 
+#include <algorithm>
+
 #include "core/grid_object.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
@@ -15,16 +17,11 @@ namespace mettagrid {
  * Extended to support:
  * - Aligning to actor's collective (align_to = actor_collective)
  * - Removing alignment (align_to = none)
- * - Aligning to a specific collective by name (collective_name)
+ * - Aligning to a specific collective by ID (collective_id)
  */
 class AlignmentMutation : public Mutation {
 public:
   explicit AlignmentMutation(const AlignmentMutationConfig& config) : _config(config) {}
-
-  // Set the resolved collective pointer (called during handler setup for named collectives)
-  void set_collective(Collective* coll) {
-    _resolved_collective = coll;
-  }
 
   void apply(HandlerContext& ctx) override {
     // All GridObjects are Alignable - try to cast target to GridObject
@@ -35,10 +32,11 @@ public:
 
     Collective* old_collective = target_obj->getCollective();
 
-    // If we have a resolved collective (from collective_name), use it
-    if (_resolved_collective != nullptr) {
-      if (old_collective != _resolved_collective) {
-        target_obj->setCollective(_resolved_collective);
+    // If collective_id is set, look it up from context and use it
+    if (_config.collective_id >= 0) {
+      Collective* target_collective = ctx.get_collective_by_id(_config.collective_id);
+      if (target_collective != nullptr && old_collective != target_collective) {
+        target_obj->setCollective(target_collective);
       }
     } else {
       // Otherwise, use align_to
@@ -61,7 +59,6 @@ public:
 
 private:
   AlignmentMutationConfig _config;
-  Collective* _resolved_collective = nullptr;
 };
 
 }  // namespace mettagrid
