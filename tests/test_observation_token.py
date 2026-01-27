@@ -55,46 +55,52 @@ class TestObservationTokenAccessors:
         return ObservationFeatureSpec(id=1, name="test", normalization=1.0)
 
     def test_row_col_from_packed_coordinate(self, feature):
-        """Token created from PackedCoordinate.unpack should have correct row/col."""
+        """Token extracts row/col from raw_token via PackedCoordinate."""
         row, col = 7, 3
         packed = PackedCoordinate.pack(row, col)
-        location = PackedCoordinate.unpack(packed)
 
         token = ObservationToken(
             feature=feature,
-            location=location,
             value=42,
             raw_token=(packed, 1, 42),
         )
 
-        # This is the key assertion: row() and col() should return the correct values
+        # location is extracted from raw_token[0] via PackedCoordinate.unpack()
         assert token.row() == row, f"Expected row={row}, got {token.row()}"
         assert token.col() == col, f"Expected col={col}, got {token.col()}"
 
-    def test_row_col_manual_construction(self, feature):
-        """Token with manually constructed location tuple should have correct row/col."""
+    def test_location_is_named_tuple(self, feature):
+        """Token.location returns a Location named tuple with row/col attributes."""
         row, col = 5, 9
+        packed = PackedCoordinate.pack(row, col)
 
-        # location tuple is (row, col) - matching PackedCoordinate.unpack() semantics
         token = ObservationToken(
             feature=feature,
-            location=(row, col),
             value=10,
-            raw_token=(0, 1, 10),
+            raw_token=(packed, 1, 10),
         )
 
-        assert token.row() == row, f"Expected row={row}, got {token.row()}"
-        assert token.col() == col, f"Expected col={col}, got {token.col()}"
+        # location is a named tuple with row/col attributes
+        assert token.location.row == row, f"Expected row={row}, got {token.location.row}"
+        assert token.location.col == col, f"Expected col={col}, got {token.location.col}"
 
     def test_location_tuple_indexing_matches_accessors(self, feature):
         """Verify relationship between location tuple indices and row/col accessors."""
+        row, col = 10, 12  # PackedCoordinate supports values 0-14
+        packed = PackedCoordinate.pack(row, col)
+
         token = ObservationToken(
             feature=feature,
-            location=(100, 200),
             value=0,
-            raw_token=(0, 1, 0),
+            raw_token=(packed, 1, 0),
         )
 
         # location is (row, col): location[0] -> row(), location[1] -> col()
         assert token.row() == token.location[0]
         assert token.col() == token.location[1]
+        # Also works with named attributes
+        assert token.row() == token.location.row
+        assert token.col() == token.location.col
+        # x/y aliases: x=col, y=row
+        assert token.location.x == col
+        assert token.location.y == row

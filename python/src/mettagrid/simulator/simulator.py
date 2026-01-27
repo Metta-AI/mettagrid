@@ -13,7 +13,6 @@ import mettagrid.config.mettagrid_config as mettagrid_config
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.map_builder.map_builder import GameMap, HasSeed, MapBuilderConfig
 from mettagrid.mettagrid_c import MettaGrid as MettaGridCpp
-from mettagrid.mettagrid_c import PackedCoordinate
 from mettagrid.profiling.stopwatch import Stopwatch, with_instance_timer
 from mettagrid.simulator.interface import AgentObservation, ObservationToken, SimulatorEventHandler
 from mettagrid.simulator.map_cache import SharedMapCache, get_shared_cache
@@ -371,7 +370,6 @@ class SimulationAgent:
             tokens.append(
                 ObservationToken(
                     feature=self._sim.get_feature(feature_id),
-                    location=PackedCoordinate.unpack(location) or (0, 0),
                     value=int(value),
                     raw_token=o,
                 )

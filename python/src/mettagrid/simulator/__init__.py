@@ -5,6 +5,7 @@ This module provides the main simulation interface for MettaGrid environments.
 
 from mettagrid.simulator.interface import (
     AgentObservation,
+    Location,
     ObservationToken,
     SimulatorEventHandler,
 )
@@ -21,6 +22,7 @@ __all__ = [
     # From interface
     "Action",
     "AgentObservation",
+    "Location",
     "ObservationToken",
     "SimulatorEventHandler",
     # From replay_log_writer

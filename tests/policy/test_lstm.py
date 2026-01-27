@@ -138,8 +138,9 @@ def test_stateful_agent_policy_requires_reset():
 
     # Create a minimal mock observation
     # For LSTM, the observation needs tokens with feature, location, and value
+    # raw_token is (packed_location, feature_id, value) - location (0,0) packs to 0x00
     feature = ObservationFeatureSpec(id=0, name="test_feature", normalization=1.0)
-    token = ObservationToken(feature=feature, location=(0, 0), value=1, raw_token=(255, 0, 0))
+    token = ObservationToken(feature=feature, value=1, raw_token=(0x00, 0, 1))
     obs = AgentObservation(agent_id=0, tokens=[token])
 
     # Verify that step() fails without reset()
