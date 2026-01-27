@@ -7,6 +7,7 @@ exports_files([
     "bindings/mettagrid_c.cpp",
     "bindings/mettagrid_c.hpp",
     "bindings/mettagrid_py.cpp",
+    "bindings/stats_obs_helper.hpp",
 ])
 
 # Compiler flags
@@ -44,12 +45,13 @@ pybind_extension(
         "bindings/mettagrid_c.cpp",
         "bindings/mettagrid_c.hpp",
         "bindings/mettagrid_py.cpp",
+        "bindings/stats_obs_helper.hpp",
     ] + glob([
         "src/mettagrid/**/*.cpp",
         "include/mettagrid/**/*.hpp",
     ]),
     copts = COPTS,
-    includes = ["include/mettagrid", "."],
+    includes = ["include/mettagrid", ".", "bindings"],
     visibility = ["//visibility:public"],
 )
 

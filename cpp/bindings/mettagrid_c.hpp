@@ -30,6 +30,7 @@
 #include "handler/event_scheduler.hpp"
 #include "core/aoe_tracker.hpp"
 #include "systems/packed_coordinate.hpp"
+#include "bindings/stats_obs_helper.hpp"
 
 // Forward declarations of existing C++ classes
 class Grid;
@@ -131,6 +132,7 @@ private:
 
   std::unique_ptr<ObservationEncoder> _obs_encoder;
   std::unique_ptr<StatsTracker> _stats;
+  std::unique_ptr<StatsObsHelper> _stats_obs_helper;
 
   size_t _num_observation_tokens;
 
@@ -170,6 +172,11 @@ private:
 
   void init_action_handlers();
   void _compute_agent_goal_obs_tokens(size_t agent_idx);
+  void _init_stat_obs();
+  size_t _emit_stat_tokens(StatsTracker& tracker,
+                           size_t agent_idx,
+                           size_t tokens_written,
+                           ObservationType global_location);
   void add_agent(Agent* agent);
   void _init_grid(const GameConfig& game_config, const py::list& map);
   void _make_buffers(unsigned int num_agents);

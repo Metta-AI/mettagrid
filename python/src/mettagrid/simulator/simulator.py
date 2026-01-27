@@ -341,6 +341,7 @@ class Simulator:
             "object_type_names": config.game.objects.keys(),
             "resource_names": config.game.resource_names,
             "vibe_names": config.game.vibe_names,
+            "stats_obs": [(sv.name, sv.source.value, sv.delta) for sv in config.game.obs.global_obs.stats_obs],
         }
 
 

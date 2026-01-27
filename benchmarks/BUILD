@@ -12,6 +12,7 @@ cc_binary(
         "//cpp:bindings/mettagrid_c.cpp",
         "//cpp:bindings/mettagrid_c.hpp",
         "//cpp:bindings/mettagrid_py.cpp",
+        "//cpp:bindings/stats_obs_helper.hpp",
     ],
     copts = [
         "-std=c++20",
@@ -20,6 +21,7 @@ cc_binary(
         "-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION",
         "-Icpp/include/mettagrid",  # To find actions/, objects/ headers
         "-Icpp",  # To find bindings/mettagrid_c.hpp
+        "-Icpp/bindings",  # To find stats_obs_helper.hpp
     ],
     linkstatic = True,
     deps = [

@@ -4,9 +4,27 @@ Feature IDs and names are managed by IdMap.
 Changing feature IDs will break models trained on old feature IDs.
 """
 
+from enum import Enum
+
 from pydantic import ConfigDict, Field
 
 from mettagrid.base_config import Config
+
+
+class StatsSource(Enum):
+    """Source of stats for observation."""
+
+    OWN = "own"  # Agent's personal stats
+    GLOBAL = "global"  # Game-level stats from StatsTracker
+    COLLECTIVE = "collective"  # Agent's collective stats
+
+
+class StatsValue(Config):
+    """Configuration for a stat value to observe."""
+
+    name: str  # Stat key, e.g. "carbon.gained"
+    source: StatsSource = StatsSource.OWN
+    delta: bool = False  # True = per-step change, False = cumulative
 
 
 class GlobalObsConfig(Config):
@@ -25,7 +43,8 @@ class GlobalObsConfig(Config):
     # Goal tokens that indicate rewarding resources
     goal_obs: bool = Field(default=False)
 
-    stats_obs: dict[str, bool] = Field(default_factory=dict)
+    # Stats to include as observations
+    stats_obs: list[StatsValue] = Field(default_factory=list)
 
 
 class ObsConfig(Config):

@@ -47,6 +47,43 @@ class ObservationFeatureSpec(BaseModel):
     normalization: float
 
 
+def make_token_feature(name: str, feature_id: int, normalization: float) -> tuple[ObservationFeatureSpec, int]:
+    """Create a single observation feature token.
+
+    Args:
+        name: Feature name (e.g. "vibe", "tag", "cooldown_remaining")
+        feature_id: Current feature ID
+        normalization: Normalization value for this feature
+
+    Returns:
+        Tuple of (feature spec, next available feature_id)
+    """
+    return ObservationFeatureSpec(id=feature_id, normalization=normalization, name=name), feature_id + 1
+
+
+def make_multi_token_features(
+    name: str, feature_id: int, normalization: float, num_tokens: int
+) -> tuple[list[ObservationFeatureSpec], int]:
+    """Create a multi-token feature set (base + power tokens).
+
+    Args:
+        name: Base feature name (e.g. "inv:gold", "stat:own:health:delta")
+        feature_id: Starting feature ID
+        normalization: Normalization value for all tokens
+        num_tokens: Total number of tokens (1 base + N-1 power tokens)
+
+    Returns:
+        Tuple of (list of feature specs, next available feature_id)
+    """
+    features = []
+    feat, feature_id = make_token_feature(name, feature_id, normalization)
+    features.append(feat)
+    for power in range(1, num_tokens):
+        feat, feature_id = make_token_feature(f"{name}:p{power}", feature_id, normalization)
+        features.append(feat)
+    return features, feature_id
+
+
 class IdMap:
     """Manages observation feature IDs and mappings for a MettaGrid configuration."""
 
@@ -112,52 +149,38 @@ class IdMap:
         features: list[ObservationFeatureSpec] = []
         feature_id = 0
 
-        # Core features (fixed set)
-        core_features = [
-            ("agent:group", 10.0),
-            ("agent:frozen", 1.0),
-        ]
+        def add_feature(name: str, normalization: float) -> None:
+            nonlocal feature_id
+            feat, feature_id = make_token_feature(name, feature_id, normalization)
+            features.append(feat)
 
-        for name, normalization in core_features:
-            features.append(ObservationFeatureSpec(id=feature_id, normalization=normalization, name=name))
-            feature_id += 1
+        # Core features (fixed set)
+        add_feature("agent:group", 10.0)
+        add_feature("agent:frozen", 1.0)
 
         # Global observation features (always included for feature_ids, config controls if populated)
-        features.append(ObservationFeatureSpec(id=feature_id, normalization=255.0, name="episode_completion_pct"))
-        feature_id += 1
-
-        features.append(ObservationFeatureSpec(id=feature_id, normalization=10.0, name="last_action"))
-        feature_id += 1
-
-        features.append(ObservationFeatureSpec(id=feature_id, normalization=100.0, name="last_reward"))
-        feature_id += 1
+        add_feature("episode_completion_pct", 255.0)
+        add_feature("last_action", 10.0)
+        add_feature("last_reward", 100.0)
 
         # Goal feature (for indicating rewarding resources)
-        features.append(ObservationFeatureSpec(id=feature_id, normalization=100.0, name="goal"))
-        feature_id += 1
+        add_feature("goal", 100.0)
 
         # Agent-specific features
-        features.append(ObservationFeatureSpec(id=feature_id, normalization=255.0, name="vibe"))
-        feature_id += 1
+        add_feature("vibe", 255.0)
 
         # Compass direction toward assembler
-        features.append(ObservationFeatureSpec(id=feature_id, normalization=1.0, name="agent:compass"))
-        feature_id += 1
+        add_feature("agent:compass", 1.0)
 
         # Tag feature (always included)
-        features.append(ObservationFeatureSpec(id=feature_id, normalization=10.0, name="tag"))
-        feature_id += 1
+        add_feature("tag", 10.0)
 
         # Object features
-        features.append(ObservationFeatureSpec(id=feature_id, normalization=255.0, name="cooldown_remaining"))
-        feature_id += 1
-
-        features.append(ObservationFeatureSpec(id=feature_id, normalization=255.0, name="remaining_uses"))
-        feature_id += 1
+        add_feature("cooldown_remaining", 255.0)
+        add_feature("remaining_uses", 255.0)
 
         # Collective ID (for aligned objects)
-        features.append(ObservationFeatureSpec(id=feature_id, normalization=10.0, name="collective"))
-        feature_id += 1
+        add_feature("collective", 10.0)
 
         # Inventory features using multi-token encoding with configurable base
         # inv:{resource} = amount % token_value_base (always emitted)
@@ -169,31 +192,26 @@ class IdMap:
         num_inv_tokens = num_inventory_tokens_needed(65535, token_value_base)
         normalization = float(token_value_base)
         for resource_name in self._config.resource_names:
-            # Base token (always present)
-            name = f"inv:{resource_name}"
-            features.append(ObservationFeatureSpec(id=feature_id, normalization=normalization, name=name))
-            feature_id += 1
-            # Higher-order tokens (p1, p2, etc.)
-            for power in range(1, num_inv_tokens):
-                features.append(
-                    ObservationFeatureSpec(
-                        id=feature_id, normalization=normalization, name=f"inv:{resource_name}:p{power}"
-                    )
-                )
-                feature_id += 1
+            token_features, feature_id = make_multi_token_features(
+                f"inv:{resource_name}", feature_id, normalization, num_inv_tokens
+            )
+            features.extend(token_features)
 
         # Protocol details features (if enabled)
         if self._config.protocol_details_obs:
             for resource_name in self._config.resource_names:
-                features.append(
-                    ObservationFeatureSpec(id=feature_id, normalization=100.0, name=f"protocol_input:{resource_name}")
-                )
-                feature_id += 1
+                add_feature(f"protocol_input:{resource_name}", 100.0)
 
             for resource_name in self._config.resource_names:
-                features.append(
-                    ObservationFeatureSpec(id=feature_id, normalization=100.0, name=f"protocol_output:{resource_name}")
-                )
-                feature_id += 1
+                add_feature(f"protocol_output:{resource_name}", 100.0)
+
+        # Stats observation features (multi-token encoding like inventory)
+        for stat_value in self._config.obs.global_obs.stats_obs:
+            prefix = f"stat:{stat_value.source.value}:{stat_value.name}"
+            if stat_value.delta:
+                prefix += ":delta"
+
+            token_features, feature_id = make_multi_token_features(prefix, feature_id, normalization, num_inv_tokens)
+            features.extend(token_features)
 
         return features

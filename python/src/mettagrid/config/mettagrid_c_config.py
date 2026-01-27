@@ -11,6 +11,7 @@ from mettagrid.config.mettagrid_config import (
     GridObjectConfig,
     WallConfig,
 )
+from mettagrid.config.obs_config import StatsSource
 from mettagrid.mettagrid_c import ActionConfig as CppActionConfig
 from mettagrid.mettagrid_c import AgentConfig as CppAgentConfig
 from mettagrid.mettagrid_c import AlignmentCondition as CppAlignmentCondition
@@ -36,6 +37,8 @@ from mettagrid.mettagrid_c import NearFilterConfig as CppNearFilterConfig
 from mettagrid.mettagrid_c import Protocol as CppProtocol
 from mettagrid.mettagrid_c import ResourceDelta as CppResourceDelta
 from mettagrid.mettagrid_c import ResourceFilterConfig as CppResourceFilterConfig
+from mettagrid.mettagrid_c import StatsSource as CppStatsSource
+from mettagrid.mettagrid_c import StatsValueConfig as CppStatsValueConfig
 from mettagrid.mettagrid_c import TagFilterConfig as CppTagFilterConfig
 from mettagrid.mettagrid_c import TransferActionConfig as CppTransferActionConfig
 from mettagrid.mettagrid_c import VibeFilterConfig as CppVibeFilterConfig
@@ -52,6 +55,16 @@ def _convert_alignment_condition(alignment) -> CppAlignmentCondition:
         AlignmentCondition.DIFFERENT_COLLECTIVE: CppAlignmentCondition.different_collective,
     }
     return mapping.get(alignment, CppAlignmentCondition.same_collective)
+
+
+def _convert_stats_source(source: StatsSource) -> CppStatsSource:
+    """Convert Python StatsSource to C++ StatsSource enum."""
+    mapping = {
+        StatsSource.OWN: CppStatsSource.own,
+        StatsSource.GLOBAL: CppStatsSource.global_,
+        StatsSource.COLLECTIVE: CppStatsSource.collective,
+    }
+    return mapping.get(source, CppStatsSource.own)
 
 
 def _resolve_near_tag_id(filter_config, tag_name_to_id: dict, context: str) -> int:
@@ -863,12 +876,28 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
 
     # Convert global_obs configuration
     global_obs_config = game_config.obs.global_obs
+
+    # Convert stats_obs with pre-computed feature IDs
+    stats_obs_cpp = []
+    for stat_value in global_obs_config.stats_obs:
+        cpp_stat = CppStatsValueConfig()
+        cpp_stat.name = stat_value.name
+        cpp_stat.source = _convert_stats_source(stat_value.source)
+        cpp_stat.delta = stat_value.delta
+        # Look up the base feature ID for this stat
+        feature_name = f"stat:{stat_value.source.value}:{stat_value.name}"
+        if stat_value.delta:
+            feature_name += ":delta"
+        cpp_stat.feature_id = game_cpp_params["feature_ids"][feature_name]
+        stats_obs_cpp.append(cpp_stat)
+
     global_obs_cpp = CppGlobalObsConfig(
         episode_completion_pct=global_obs_config.episode_completion_pct,
         last_action=global_obs_config.last_action,
         last_reward=global_obs_config.last_reward,
         compass=global_obs_config.compass,
         goal_obs=global_obs_config.goal_obs,
+        stats_obs=stats_obs_cpp,
     )
     game_cpp_params["global_obs"] = global_obs_cpp
 

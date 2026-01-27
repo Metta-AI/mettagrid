@@ -46,7 +46,13 @@ protected:
   const GameConfig* _game_config;
 
   bool _handle_action(Agent& actor, ActionArg arg) override {
-    actor.vibe = static_cast<ObservationType>(arg);  // ActionArg is int32 for puffer compatibility
+    ObservationType new_vibe = static_cast<ObservationType>(arg);
+    if (new_vibe != actor.vibe) {
+      actor.vibe = new_vibe;
+      if (actor.current_step_ptr) {
+        actor.vibe_set_step = *actor.current_step_ptr;
+      }
+    }
     return true;
   }
 };

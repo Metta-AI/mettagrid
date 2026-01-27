@@ -38,6 +38,12 @@ public:
   // Vibe ID 0 ("default") is used as fallback when agent's current vibe is not found
   std::unordered_map<ObservationType, std::unordered_map<InventoryItem, InventoryDelta>> inventory_regen_amounts;
 
+  // Vibe prediction: track when vibe was last set
+  unsigned int vibe_set_step = 0;
+
+  // Pointer to MettaGrid's current_step for vibe timestamp tracking
+  const unsigned int* current_step_ptr = nullptr;
+
   Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vector<std::string>* resource_names);
 
   void init(RewardType* reward_ptr);
@@ -54,6 +60,19 @@ public:
   bool onUse(Agent& actor, ActionArg arg) override;
 
   std::vector<PartialObservationToken> obs_features() const override;
+
+  // Set observation encoder for inventory feature ID lookup
+  void set_obs_encoder(const ObservationEncoder* encoder) {
+    this->obs_encoder = encoder;
+  }
+
+  // Set pointer to current step for vibe timestamp tracking
+  void set_current_step_ptr(const unsigned int* step_ptr) {
+    this->current_step_ptr = step_ptr;
+  }
+
+private:
+  const ObservationEncoder* obs_encoder = nullptr;
 };
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_OBJECTS_AGENT_HPP_

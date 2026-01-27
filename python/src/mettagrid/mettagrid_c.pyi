@@ -494,6 +494,18 @@ class ChangeVibeActionConfig(ActionConfig):
     ) -> None: ...
     number_of_vibes: int
 
+class StatsSource(Enum):
+    own = ...
+    global_ = ...
+    collective = ...
+
+class StatsValueConfig:
+    def __init__(self) -> None: ...
+    name: str
+    source: StatsSource
+    delta: bool
+    feature_id: int
+
 class GlobalObsConfig:
     def __init__(
         self,
@@ -502,12 +514,14 @@ class GlobalObsConfig:
         last_reward: bool = True,
         compass: bool = False,
         goal_obs: bool = False,
+        stats_obs: list[StatsValueConfig] = ...,
     ) -> None: ...
     episode_completion_pct: bool
     last_action: bool
     last_reward: bool
     compass: bool
     goal_obs: bool
+    stats_obs: list[StatsValueConfig]
 
 class GameConfig:
     def __init__(

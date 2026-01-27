@@ -84,6 +84,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   _stats = std::make_unique<StatsTracker>(&resource_names);
   _aoe_tracker->set_game_stats(_stats.get());
+  _stats_obs_helper = std::make_unique<StatsObsHelper>(_game_config.global_obs, _game_config.token_value_base);
 
   _action_success.resize(num_agents);
 
@@ -151,11 +152,15 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
     }
   }
 
+  // Initialize stats observation registrations (must be before _make_buffers which computes initial observations)
+  _stats_obs_helper->init(_agents, _stats.get(), _collectives);
+
   // Create buffers
   _make_buffers(num_agents);
 }
 
 MettaGrid::~MettaGrid() = default;
+
 
 void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map) {
   GridCoord height = static_cast<GridCoord>(py::len(map));
@@ -440,6 +445,21 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
     }
   }
 
+  // Stats observation tokens - collect from all sources and emit
+  attempted_tokens_written +=
+      _stats_obs_helper->emit(_agents[agent_idx]->stats, *_obs_encoder, _observations, agent_idx, tokens_written, global_location);
+  tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
+
+  attempted_tokens_written +=
+      _stats_obs_helper->emit(*_stats, *_obs_encoder, _observations, agent_idx, tokens_written, global_location);
+  tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
+
+  if (auto* collective = _agents[agent_idx]->getCollective()) {
+    attempted_tokens_written +=
+        _stats_obs_helper->emit(collective->stats, *_obs_encoder, _observations, agent_idx, tokens_written, global_location);
+    tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
+  }
+
   // Process locations in increasing manhattan distance order
   for (const auto& [r_offset, c_offset] : PackedCoordinate::ObservationPattern{observable_height, observable_width}) {
     int r = static_cast<int>(observer_row) + r_offset;
@@ -479,6 +499,10 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
 }
 
 void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_actions) {
+  // Precompute stats observation values once per timestep so all agents
+  // see the same delta values for shared (global/collective) trackers.
+  _stats_obs_helper->precompute(_agents, _stats.get(), _collectives);
+
   for (size_t idx = 0; idx < _agents.size(); idx++) {
     auto& agent = _agents[idx];
     ActionType action_idx = executed_actions[idx];

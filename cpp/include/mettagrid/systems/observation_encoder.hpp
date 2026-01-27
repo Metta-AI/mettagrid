@@ -10,6 +10,7 @@
 #include "config/mettagrid_config.hpp"
 #include "core/grid_object.hpp"
 #include "core/types.hpp"
+#include "systems/encoding_utils.hpp"
 
 class ObservationEncoder {
 public:
@@ -17,11 +18,9 @@ public:
                               const std::vector<std::string>& resource_names,
                               const std::unordered_map<std::string, ObservationType>& feature_ids,
                               unsigned int token_value_base = 256)
-      : protocol_details_obs(protocol_details_obs),
-        resource_count(resource_names.size()),
-        _token_value_base(token_value_base) {
+      : protocol_details_obs(protocol_details_obs), resource_count(resource_names.size()), _encoder(token_value_base) {
     // Compute number of tokens needed to encode max uint16_t value (65535)
-    _num_inventory_tokens = compute_num_tokens(65535, _token_value_base);
+    _num_inventory_tokens = compute_num_tokens(65535, _encoder.token_value_base());
 
     // Build feature ID maps for protocol details if enabled
     if (protocol_details_obs) {
@@ -158,29 +157,26 @@ public:
   }
 
   // Encode inventory amount using multi-token encoding with configurable base.
-  // inv:{resource} = amount % token_value_base (always emitted)
-  // inv:{resource}:p1 = (amount / token_value_base) % token_value_base (only emitted if amount >= token_value_base)
-  // inv:{resource}:p2 = (amount / token_value_base^2) % token_value_base (only emitted if amount >= token_value_base^2)
-  // etc.
+  // Delegates to ObservationTokenEncoder for the encoding math, then remaps
+  // feature IDs to the pre-assigned inventory feature IDs.
   void append_inventory_tokens(std::vector<PartialObservationToken>& features,
                                InventoryItem item,
                                InventoryQuantity amount) const {
-    // Base token (always emitted)
-    ObservationType base_value = static_cast<ObservationType>(amount % _token_value_base);
-    features.push_back({_inventory_feature_ids[item], base_value});
+    // Use shared encoder for the base-N decomposition
+    auto tokens = _encoder.encode(_inventory_feature_ids[item], amount);
 
-    // Higher power tokens (only emitted if needed)
-    InventoryQuantity remaining = amount / _token_value_base;
+    // Base token uses the correct feature ID already; push it directly
+    features.push_back(tokens[0]);
+
+    // Higher power tokens need remapped feature IDs from _inventory_power_feature_ids
     const auto& power_ids = _inventory_power_feature_ids[item];
-    for (size_t p = 0; p < power_ids.size() && remaining > 0; ++p) {
-      ObservationType power_value = static_cast<ObservationType>(remaining % _token_value_base);
-      features.push_back({power_ids[p], power_value});
-      remaining /= _token_value_base;
+    for (size_t p = 1; p < tokens.size() && (p - 1) < power_ids.size(); ++p) {
+      features.push_back({power_ids[p - 1], tokens[p].value});
     }
   }
 
   unsigned int get_token_value_base() const {
-    return _token_value_base;
+    return _encoder.token_value_base();
   }
 
   size_t get_num_inventory_tokens() const {
@@ -191,7 +187,7 @@ public:
 
 private:
   size_t resource_count;
-  unsigned int _token_value_base;
+  ObservationTokenEncoder _encoder;
   size_t _num_inventory_tokens;
   std::vector<ObservationType> _input_feature_ids;
   std::vector<ObservationType> _output_feature_ids;
