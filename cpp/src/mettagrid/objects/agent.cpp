@@ -21,6 +21,7 @@ Agent::Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vec
       current_stat_reward(0),
       reward(nullptr),
       prev_location(r, c),
+      spawn_location(r, c),
       steps_without_motion(0),
       inventory_regen_amounts(config.inventory_regen_amounts) {
   populate_initial_inventory(config.initial_inventory);

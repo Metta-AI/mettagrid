@@ -908,6 +908,7 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         last_reward=global_obs_config.last_reward,
         compass=global_obs_config.compass,
         goal_obs=global_obs_config.goal_obs,
+        local_position=global_obs_config.local_position,
         stats_obs=stats_obs_cpp,
     )
     game_cpp_params["global_obs"] = global_obs_cpp

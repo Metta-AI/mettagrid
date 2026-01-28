@@ -198,6 +198,12 @@ class IdMap:
         # Collective ID (for aligned objects)
         add_feature("collective", 10.0)
 
+        # Local position features (directional offset from spawn)
+        add_feature("lp:east", 255.0)
+        add_feature("lp:west", 255.0)
+        add_feature("lp:north", 255.0)
+        add_feature("lp:south", 255.0)
+
         # Inventory features using multi-token encoding with configurable base
         # inv:{resource} = amount % token_value_base (always emitted)
         # inv:{resource}:p1 = (amount / token_value_base) % token_value_base (emitted if amount >= token_value_base)

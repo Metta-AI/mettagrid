@@ -33,6 +33,7 @@ public:
   RewardType current_stat_reward;
   RewardType* reward;
   GridLocation prev_location;
+  GridLocation spawn_location;
   unsigned int steps_without_motion;
   // Vibe-dependent inventory regeneration: vibe_id -> resource_id -> amount (can be negative for decay)
   // Vibe ID 0 ("default") is used as fallback when agent's current vibe is not found

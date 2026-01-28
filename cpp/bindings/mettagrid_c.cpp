@@ -364,6 +364,27 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
         global_tokens.end(), _agent_goal_obs_tokens[agent_idx].begin(), _agent_goal_obs_tokens[agent_idx].end());
   }
 
+  // Local position: directional offset from spawn (at most 2 tokens, skip zero axes)
+  if (_global_obs_config.local_position) {
+    auto& agent = *_agents[agent_idx];
+    int dc = static_cast<int>(agent.location.c) - static_cast<int>(agent.spawn_location.c);
+    int dr = static_cast<int>(agent.spawn_location.r) - static_cast<int>(agent.location.r);
+    if (dc > 0) {
+      global_tokens.push_back(
+          {ObservationFeature::LpEast, static_cast<ObservationType>(std::min(dc, 255))});
+    } else if (dc < 0) {
+      global_tokens.push_back(
+          {ObservationFeature::LpWest, static_cast<ObservationType>(std::min(-dc, 255))});
+    }
+    if (dr > 0) {
+      global_tokens.push_back(
+          {ObservationFeature::LpNorth, static_cast<ObservationType>(std::min(dr, 255))});
+    } else if (dr < 0) {
+      global_tokens.push_back(
+          {ObservationFeature::LpSouth, static_cast<ObservationType>(std::min(-dr, 255))});
+    }
+  }
+
   // Global tokens are always at the center of the observation.
   uint8_t global_location =
       PackedCoordinate::pack(static_cast<uint8_t>(obs_height_radius), static_cast<uint8_t>(obs_width_radius));

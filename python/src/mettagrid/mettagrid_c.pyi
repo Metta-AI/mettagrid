@@ -515,6 +515,7 @@ class GlobalObsConfig:
         last_reward: bool = True,
         compass: bool = False,
         goal_obs: bool = False,
+        local_position: bool = False,
         stats_obs: list[StatsValueConfig] = ...,
     ) -> None: ...
     episode_completion_pct: bool
@@ -522,6 +523,7 @@ class GlobalObsConfig:
     last_reward: bool
     compass: bool
     goal_obs: bool
+    local_position: bool
     stats_obs: list[StatsValueConfig]
 
 class GameConfig:

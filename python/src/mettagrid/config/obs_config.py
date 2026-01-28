@@ -43,6 +43,9 @@ class GlobalObsConfig(Config):
     # Goal tokens that indicate rewarding resources
     goal_obs: bool = Field(default=False)
 
+    # Local position: offset from spawn as directional tokens (lp:east, lp:west, lp:north, lp:south)
+    local_position: bool = Field(default=False)
+
     # Stats to include as observations
     stats_obs: list[StatsValue] = Field(default_factory=list)
 
