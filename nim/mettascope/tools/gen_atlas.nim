@@ -7,8 +7,17 @@ generatePixelAtlas(
     "data/agents",
     "data/objects",
     "data/view",
-    "data/minimap"
   ],
   outputImagePath = "data/atlas.png",
   outputJsonPath = "data/atlas.json"
+)
+
+generatePixelAtlas(
+  size = 256,
+  margin = 4,
+  dirsToScan = @[
+    "data/minimap"
+  ],
+  outputImagePath = "data/atlas_mini.png",
+  outputJsonPath = "data/atlas_mini.json"
 )

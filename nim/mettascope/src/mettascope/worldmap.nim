@@ -11,6 +11,8 @@ proc foo() =
 const
   TILE_SIZE = 128
   TS = 1.0 / TILE_SIZE.float32 # Tile scale.
+  MINI_TILE_SIZE = 16
+  MTS = 1.0 / MINI_TILE_SIZE.float32 # Mini tile scale for minimap.
 
 proc centerAt*(zoomInfo: ZoomInfo, entity: Entity)
 
@@ -21,6 +23,7 @@ var
   visibilityMapLockFocus*: bool = false
   visibilityMap*: TileMap
   px*: Pixelator
+  pxMini*: Pixelator
   sq*: ShaderQuad
   previousPanelSize*: Vec2 = vec2(0, 0)
   worldHeatmap*: Heatmap
@@ -565,27 +568,32 @@ proc drawTerrain*() =
       dataDir / "atlas.png",
       dataDir / "atlas.json"
     )
+    pxMini = newPixelator(
+      dataDir / "atlas_mini.png",
+      dataDir / "atlas_mini.json"
+    )
 
   terrainMap.draw(getProjectionView(), 2.0f, 1.5f)
 
   bxy.exitRawOpenGLMode()
 
 proc drawObjectPips*() =
-  ## Draw the pips for the objects on the minimap.
+  ## Draw the pips for the objects on the minimap using the mini pixelator.
   for obj in replay.objects:
     if obj.typeName == "wall":
       continue
     let pipName = "minimap/" & obj.typeName
-    if pipName in px:
+    if pipName in pxMini:
       let loc = obj.location.at(step).xy
-      px.drawSprite(
+      pxMini.drawSprite(
         pipName,
-        loc.ivec2 * TILE_SIZE
+        loc.ivec2 * MINI_TILE_SIZE
       )
     else:
-      echo "pipName not found: ", pipName
+      echo "pipName not found in mini atlas: ", pipName
 
 proc drawWorldMini*() =
+  ## Draw the world map at minimap zoom level using pxMini.
 
   const wallTypeName = "wall"
   const agentTypeName = "agent"
@@ -620,7 +628,7 @@ proc drawWorldMini*() =
 
   drawObjectPips()
 
-  px.flush(getProjectionView() * scale(vec3(TS, TS, 1.0f)))
+  pxMini.flush(getProjectionView() * scale(vec3(MTS, MTS, 1.0f)))
 
 proc centerAt*(zoomInfo: ZoomInfo, entity: Entity) =
   ## Center the map on the given entity.
@@ -804,7 +812,7 @@ proc drawWorldMap*(zoomInfo: ZoomInfo) =
 
   agentControls()
 
-  if zoomInfo.zoom < 7:
+  if zoomInfo.zoom < 3:
     drawWorldMini()
   else:
     drawWorldMain()
