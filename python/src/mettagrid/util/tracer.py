@@ -73,13 +73,20 @@ _NULL_SPAN = NullSpan()
 class Tracer:
     """Lightweight tracer that streams spans to Chrome Trace Format JSON."""
 
+    # Agents use pid = agent_id so Perfetto displays "Agent 0", "Agent 1", etc.
+    # Environment uses a high pid to stay out of the agent range; tracing UIs
+    # will break well before we have 100k agents.
+    PID_ENV = 100000
+
     def __init__(self, output_path: Path | str):
         self._file: IO[str] = open(output_path, "w")
         self._file.write("[")
         self._first = True
         self._flushed = False
         self._gc_start_ns: int = 0
+        self._known_pids: set[int] = set()
         gc.callbacks.append(self._gc_callback)
+        self._write_process_name(self.PID_ENV, "Env", sort_index=-1)
 
     def _gc_callback(self, phase: str, info: dict) -> None:
         """Record GC events in the trace."""
@@ -98,31 +105,45 @@ class Tracer:
         """Create a span context manager for timing a block of code."""
         return Span(self, name, **metadata)
 
-    def _write_span(self, name: str, ts_ns: int, dur_ns: int, metadata: dict) -> None:
-        """Write a completed span in Chrome Trace Format."""
-
-        pid, tid = 0, 0
-        if name == "env_step":
-            pass
-            # pid, tid = 1, 1
-        elif name == "agent_step":
-            pass
-            # pid, tid = 2, 1+metadata.get("agent", 0)
-
-        event = {
-            "name": name,
-            "ph": "X",  # Complete event
-            "ts": ts_ns // 1000,  # Chrome Trace uses microseconds
-            "dur": dur_ns // 1000,
-            "pid": pid,
-            "tid": tid,
-            "args": metadata,
-        }
+    def _write_event(self, event: dict) -> None:
+        """Write a single event to the trace file."""
         if not self._first:
             self._file.write(",")
         self._first = False
         json.dump(event, self._file)
         self._file.write("\n")
+
+    def _write_process_name(self, pid: int, name: str, sort_index: int) -> None:
+        """Write process name and sort index metadata events."""
+        self._write_event({"name": "process_name", "ph": "M", "pid": pid, "tid": 0, "args": {"name": name}})
+        self._write_event(
+            {"name": "process_sort_index", "ph": "M", "pid": pid, "tid": 0, "args": {"sort_index": sort_index}}
+        )
+
+    def _write_span(self, name: str, ts_ns: int, dur_ns: int, metadata: dict) -> None:
+        """Write a completed span in Chrome Trace Format."""
+        # pid = agent_id for agents, PID_ENV for env_step and gc
+        pid = self.PID_ENV
+
+        if name == "agent_step":
+            agent_id = metadata.get("agent", 0)
+            pid = agent_id
+            # Emit process name on first occurrence of each agent
+            if pid not in self._known_pids:
+                self._known_pids.add(pid)
+                self._write_process_name(pid, "Agent", sort_index=agent_id)
+
+        self._write_event(
+            {
+                "name": name,
+                "ph": "X",  # Complete event
+                "ts": ts_ns // 1000,  # Chrome Trace uses microseconds
+                "dur": dur_ns // 1000,
+                "pid": pid,
+                "tid": 0,
+                "args": metadata,
+            }
+        )
 
     def flush(self) -> None:
         """Close the JSON array and ensure everything is written to disk.
