@@ -6,7 +6,7 @@ Changing feature IDs will break models trained on old feature IDs.
 
 from enum import Enum
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, field_serializer
 
 from mettagrid.base_config import Config
 
@@ -25,6 +25,10 @@ class StatsValue(Config):
     name: str  # Stat key, e.g. "carbon.gained"
     source: StatsSource = StatsSource.OWN
     delta: bool = False  # True = per-step change, False = cumulative
+
+    @field_serializer("source")
+    def serialize_source(self, value: StatsSource) -> str:
+        return value.value
 
 
 class GlobalObsConfig(Config):
