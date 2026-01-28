@@ -6,7 +6,6 @@ class MettascopeAction:
     action_name: str | bytes
     agent_id: int
 
-
 class MettascopeResponse:
     should_close: bool
     actions: Sequence[MettascopeAction] | None
