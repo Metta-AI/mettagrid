@@ -1,6 +1,6 @@
 import
   std/[tables],
-  replays, worldmap, common, panels, heatmap, heatmapshader
+  replays, worldmap, common, heatmap, heatmapshader, configs
 
 
 proc onReplayLoaded*() =
@@ -26,5 +26,8 @@ proc onReplayLoaded*() =
   initHeatmapShader()
 
   needsInitialFit = true
+
+  let config = loadConfig()
+  applyUIState(config)
 
   echo "Replay loaded: ", replay.fileName

@@ -26,11 +26,11 @@ proc playControls*() =
     stepFloat = step.float32
   if window.buttonPressed[KeyMinus]:
     playSpeed *= 0.5
-    playSpeed = clamp(playSpeed, 0.00001, 60.0)
+    playSpeed = clamp(playSpeed, 0.00001, 1000.0)
     play = true
   if window.buttonPressed[KeyEqual]:
     playSpeed *= 2
-    playSpeed = clamp(playSpeed, 0.00001, 60.0)
+    playSpeed = clamp(playSpeed, 0.00001, 1000.0)
     play = true
 
   if play:

@@ -1,8 +1,7 @@
 import
   os, genny, openGL, jsony, vmath, windy, silky,
   ../src/mettascope,
-  ../src/mettascope/[replays, common, worldmap, timeline, envconfig, vibes, replayloader, heatmap]
-
+  ../src/mettascope/[replays, common, worldmap, timeline, envconfig, vibes, replayloader, heatmap, configs]
 
 type
   ActionRequest* = object
@@ -30,9 +29,11 @@ proc init(dataDir: string, replay: string, autostart: bool = false): RenderRespo
     setDataDir(dataDir)
     play = autostart
     common.replay = loadReplayString(replay, "MettaScope")
+    let config = loadConfig()
+
     window = newWindow(
       "MettaScope",
-      ivec2(1200, 800),
+      ivec2(config.windowWidth, config.windowHeight),
       vsync = true
     )
     makeContextCurrent(window)
@@ -60,9 +61,11 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
     previousStep = currentStep
     requestPython = false
 
-    # If agents were just loaded for the first time, refit the world panel.
     if not hadAgentsBefore and common.replay.agents.len > 0:
+      # fit the game world to the screen and update the UI state for any agents that should be selected
       needsInitialFit = true
+      let config = loadConfig()
+      applyUIState(config)
     result = RenderResponse(shouldClose: false, actions: @[])
     while true:
       if window.closeRequested:

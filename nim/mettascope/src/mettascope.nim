@@ -1,8 +1,8 @@
 import
-  std/[strutils, strformat, os, parseopt],
+  std/[strutils, strformat, os, parseopt, tables],
   opengl, windy, bumpy, vmath, chroma, silky, boxy, webby,
   mettascope/[replays, common, worldmap, panels, objectinfo, envconfig, vibes,
-  footer, timeline, minimap, header, replayloader]
+  footer, timeline, minimap, header, replayloader, configs]
 
 proc buildSilkyAtlas*(imagePath, jsonPath: string) =
   ## Build the silky UI atlas.
@@ -16,13 +16,13 @@ proc buildSilkyAtlas*(imagePath, jsonPath: string) =
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "Default", 18.0)
   builder.write(imagePath, jsonPath)
 
-
 when isMainModule:
   buildSilkyAtlas(dataDir / "silky.atlas.png", dataDir / "silky.atlas.json")
+  let config = loadConfig()
 
   window = newWindow(
     "MettaScope",
-    ivec2(1200, 800),
+    ivec2(config.windowWidth, config.windowHeight),
     vsync = true
   )
   makeContextCurrent(window)
@@ -135,8 +135,8 @@ proc drawMinimap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: V
 
   glDisable(GL_SCISSOR_TEST)
 
-proc initPanels() =
-
+proc createDefaultPanelLayout() =
+  ## Create the default panel layout.
   rootArea = Area()
   rootArea.split(Vertical)
   rootArea.split = 0.22
@@ -154,6 +154,21 @@ proc initPanels() =
   rootArea.areas[0].areas[1].addPanel("Minimap", drawMinimap)
 
   rootArea.areas[1].areas[1].addPanel("Vibes", drawVibes)
+
+proc initPanels() =
+  ## Initialize panels, loading layout from config if available.
+  let config = loadConfig()
+  applyUIState(config)
+  createDefaultPanelLayout()
+
+  var layoutLoaded = false
+  if config.panelLayout.areas.len > 0 or config.panelLayout.panelNames.len > 0:
+    try:
+      rootArea = deserializeArea(config.panelLayout, rootArea)
+      if validateAreaStructure(rootArea, true):
+        layoutLoaded = true
+    except:
+      echo "Error loading panel layout from config, using default: ", getCurrentExceptionMsg()
 
 
 proc onFrame() =
@@ -188,8 +203,13 @@ proc onFrame() =
     window.cursor = sk.cursor
 
 proc initMettascope*() =
-
   window.onFrame = onFrame
+
+  window.onResize = proc() =
+    var currentConfig = loadConfig()
+    currentConfig.windowWidth = window.size.x.int32
+    currentConfig.windowHeight = window.size.y.int32
+    saveConfig(currentConfig)
 
   window.onFileDrop = proc(fileName: string, fileData: string) =
     echo "File dropped: ", fileName, " (", fileData.len, " bytes)"

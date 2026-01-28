@@ -1,7 +1,7 @@
 import
   std/strutils,
   silky, chroma, vmath,
-  common
+  ./[common, configs]
 
 const
   FooterColor = parseHtmlColor("#273646").rgbx
@@ -44,24 +44,33 @@ proc drawFooter*(pos, size: Vec2) =
         if i == 0:
           clickableIcon("ui/turtle", playSpeed >= speed):
             playSpeed = speed
+            saveUIState()
         elif i == len(Speeds) - 1:
           clickableIcon("ui/rabbit", playSpeed >= speed):
             playSpeed = speed
+            saveUIState()
         else:
           clickableIcon("ui/speed", playSpeed >= speed):
             playSpeed = speed
+            saveUIState()
 
     sk.at = pos + vec2(size.x - 240, 16)
     group(vec2(0, 0), LeftToRight):
       clickableIcon("ui/tack", settings.lockFocus):
         settings.lockFocus = not settings.lockFocus
+        saveUIState()
       clickableIcon("ui/heart", settings.showResources):
         settings.showResources = not settings.showResources
+        saveUIState()
       clickableIcon("ui/grid", settings.showGrid):
         settings.showGrid = not settings.showGrid
+        saveUIState()
       clickableIcon("ui/eye", settings.showVisualRange):
         settings.showVisualRange = not settings.showVisualRange
+        saveUIState()
       clickableIcon("ui/cloud", settings.showFogOfWar):
         settings.showFogOfWar = not settings.showFogOfWar
+        saveUIState()
       clickableIcon("ui/heatmap", settings.showHeatmap):
         settings.showHeatmap = not settings.showHeatmap
+        saveUIState()

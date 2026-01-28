@@ -3,28 +3,9 @@
 import
   std/[sequtils, strformat],
   bumpy, chroma, windy, boxy, silky,
-  common
+  ./[common, configs]
 
 type
-  AreaLayout* = enum
-    Horizontal
-    Vertical
-
-  Area* = ref object
-    layout*: AreaLayout
-    areas*: seq[Area]
-    panels*: seq[Panel]
-    split*: float32
-    selectedPanelNum*: int
-    rect*: Rect # Calculated during draw
-
-  PanelDraw = proc(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2)
-
-  Panel* = ref object
-    name*: string
-    parentArea*: Area
-    draw*: PanelDraw
-
   ZoomInfo* = ref object
     ## Used to track the zoom state of a world map and others.
     rect*: IRect
@@ -176,7 +157,6 @@ proc snapToPixels(rect: Rect): Rect =
   rect(rect.x.int.float32, rect.y.int.float32, rect.w.int.float32, rect.h.int.float32)
 
 var
-  rootArea*: Area
   dragArea: Area # For resizing splits
   dragPanel: Panel # For moving panels
   dropHighlight: Rect
@@ -439,6 +419,7 @@ proc drawAreaRecursive(area: Area, r: Rect) =
       if isHovered:
         if window.buttonPressed[MouseLeft]:
           area.selectedPanelNum = i
+          savePanelLayout()
           # Only start dragging if the mouse moves 10 pixels.
           maybeDragStartPos = window.mousePos.vec2
           maybeDragPanel = panel
@@ -477,7 +458,6 @@ proc drawAreaRecursive(area: Area, r: Rect) =
     activePanel.draw(activePanel, frameId, contentPos, contentSize)
 
 proc drawPanels*() =
-
   # Reset cursor
   sk.cursor = Cursor(kind: ArrowCursor)
 
@@ -485,6 +465,7 @@ proc drawPanels*() =
   if dragArea != nil:
     if not window.buttonDown[MouseLeft]:
       dragArea = nil
+      savePanelLayout()
     else:
       if dragArea.layout == Horizontal:
         sk.cursor = Cursor(kind: ResizeUpDownCursor)
@@ -525,6 +506,7 @@ proc drawPanels*() =
             targetArea.areas[1].movePanels(targetArea.panels)
 
         rootArea.removeBlankAreas()
+        savePanelLayout()
       dragPanel = nil
     else:
       # Dragging

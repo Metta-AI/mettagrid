@@ -16,6 +16,25 @@ type
     w*: int32
     h*: int32
 
+  AreaLayout* = enum
+    Horizontal
+    Vertical
+
+  Area* = ref object
+    layout*: AreaLayout
+    areas*: seq[Area]
+    panels*: seq[Panel]
+    split*: float32
+    selectedPanelNum*: int
+    rect*: Rect # Calculated during draw
+
+  PanelDraw* = proc(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2)
+
+  Panel* = ref object
+    name*: string
+    parentArea*: Area
+    draw*: PanelDraw
+
   Settings* = object
     showFogOfWar* = false
     showVisualRange* = true
@@ -55,6 +74,7 @@ var
   playSpeed*: float32 = 10.0
   lastSimTime*: float64 = epochTime()
   playMode* = Historical
+  rootArea*: Area
 
   ## Signals when we want to give control back to Python (DLL mode only).
   requestPython*: bool = false
@@ -156,3 +176,14 @@ proc getVibeName*(vibeId: int): string =
     result = replay.config.game.vibeNames[vibeId]
   else:
     raise newException(ValueError, "Vibe with ID " & $vibeId & " does not exist")
+
+proc getPanelByName*(area: Area, name: string): Panel =
+  ## Get a panel by name from the given area and its subareas. Returns nil if not found.
+  for panel in area.panels:
+    if panel.name == name:
+      return panel
+  for subarea in area.areas:
+    let panel = getPanelByName(subarea, name)
+    if panel != nil:
+      return panel
+  return nil

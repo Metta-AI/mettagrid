@@ -1,7 +1,7 @@
 import
   std/[os, json, algorithm, tables, sets, strutils, strformat],
   vmath, silky, windy,
-  common, panels, replays
+  common, panels, replays, configs
 
 const InventoryScale = 0.5f
 
@@ -248,3 +248,4 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
 
 proc selectObject*(obj: Entity) =
   selection = obj
+  saveUIState()
