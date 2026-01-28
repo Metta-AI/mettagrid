@@ -23,6 +23,8 @@ proc parseResourceLimits(mgConfig: JsonNode): seq[ResourceLimitGroup] =
   let agentConfig = mgConfig["game"]["agent"]
   if "resource_limits" notin agentConfig:
     return
+  if "inventory" notin agentConfig:
+    return
   let invConfig = agentConfig["inventory"]
   if "limits" notin invConfig:
     return
