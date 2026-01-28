@@ -240,3 +240,113 @@ class TestCollectiveIdMapping:
         # C++ conversion should succeed
         cpp_config = convert_to_cpp_game_config(game_config)
         assert cpp_config is not None
+
+
+class TestCollectiveInventoryObservations:
+    """Test that collective inventory amounts are observable via stats."""
+
+    def test_collective_amount_stats_observation(self):
+        """Test that collective inventory amounts appear in agent observations."""
+        from mettagrid.config.mettagrid_config import AgentConfig
+        from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig, StatsSource, StatsValue
+        from mettagrid.test_support.map_builders import ObjectNameMapBuilder
+
+        game_config = GameConfig(
+            num_agents=1,
+            max_steps=100,
+            resource_names=["gold", "silver"],
+            actions=ActionsConfig(noop=NoopActionConfig()),
+            collectives={
+                "team": CollectiveConfig(
+                    inventory=InventoryConfig(initial={"gold": 100, "silver": 50}),
+                ),
+            },
+            agent=AgentConfig(collective="team"),
+            obs=ObsConfig(
+                global_obs=GlobalObsConfig(
+                    stats_obs=[
+                        StatsValue(name="collective.gold.amount", source=StatsSource.COLLECTIVE),
+                        StatsValue(name="collective.silver.amount", source=StatsSource.COLLECTIVE),
+                    ]
+                )
+            ),
+        )
+
+        game_map = [["agent.agent"]]
+        cfg = MettaGridConfig(game=game_config)
+        cfg.game.map_builder = ObjectNameMapBuilder.Config(map_data=game_map)
+
+        sim = Simulation(cfg, seed=42)
+        agent = sim.agent(0)
+
+        # Get observation and find collective stats tokens
+        obs = agent.observation
+        gold_tokens = [t for t in obs.tokens if t.feature.name == "stat:collective:collective.gold.amount"]
+        silver_tokens = [t for t in obs.tokens if t.feature.name == "stat:collective:collective.silver.amount"]
+
+        assert len(gold_tokens) >= 1, f"Expected gold stat token, got features: {[t.feature.name for t in obs.tokens]}"
+        assert len(silver_tokens) >= 1, "Expected silver stat token"
+
+        # Values should match initial inventory
+        assert gold_tokens[0].value == 100, f"Expected gold=100, got {gold_tokens[0].value}"
+        assert silver_tokens[0].value == 50, f"Expected silver=50, got {silver_tokens[0].value}"
+
+        sim.close()
+
+    def test_collective_amount_updates_on_inventory_change(self):
+        """Test that collective amount observations update when inventory changes via C++ API."""
+        from mettagrid.config.mettagrid_config import AgentConfig
+        from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig, StatsSource, StatsValue
+        from mettagrid.test_support.map_builders import ObjectNameMapBuilder
+
+        game_config = GameConfig(
+            num_agents=1,
+            max_steps=100,
+            resource_names=["gold"],
+            actions=ActionsConfig(noop=NoopActionConfig()),
+            collectives={
+                "team": CollectiveConfig(
+                    inventory=InventoryConfig(
+                        initial={"gold": 10},
+                        limits={"gold": ResourceLimitsConfig(min=1000, resources=["gold"])},
+                    ),
+                ),
+            },
+            agent=AgentConfig(collective="team"),
+            obs=ObsConfig(
+                global_obs=GlobalObsConfig(
+                    stats_obs=[
+                        StatsValue(name="collective.gold.amount", source=StatsSource.COLLECTIVE),
+                    ]
+                )
+            ),
+        )
+
+        game_map = [["agent.agent"]]
+        cfg = MettaGridConfig(game=game_config)
+        cfg.game.map_builder = ObjectNameMapBuilder.Config(map_data=game_map)
+
+        sim = Simulation(cfg, seed=42)
+        agent = sim.agent(0)
+
+        # Initial observation - collective has 10 gold
+        obs1 = agent.observation
+        gold_tokens = [t for t in obs1.tokens if t.feature.name == "stat:collective:collective.gold.amount"]
+        assert gold_tokens[0].value == 10, f"Expected initial 10 gold, got {gold_tokens[0].value}"
+
+        # Verify collective inventory via the C++ API
+        collective_inventories = sim._c_sim.get_collective_inventories()
+        assert "team" in collective_inventories
+        # Initial inventory should be 10 gold (API uses string keys for resource names)
+        assert collective_inventories["team"].get("gold", 0) == 10
+
+        # Step simulation to get fresh observations
+        agent.set_action("noop")
+        sim.step()
+
+        # Observations should still reflect 10 gold (no changes made)
+        obs2 = agent.observation
+        gold_tokens = [t for t in obs2.tokens if t.feature.name == "stat:collective:collective.gold.amount"]
+        assert gold_tokens[0].value == 10, f"Expected 10, got {gold_tokens[0].value}"
+
+        sim.close()

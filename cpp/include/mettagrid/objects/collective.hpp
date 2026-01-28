@@ -29,6 +29,8 @@ public:
     for (const auto& [resource, amount] : cfg.initial_inventory) {
       if (amount > 0) {
         inventory.update(resource, amount, /*ignore_limits=*/true);
+        // Track initial amount for observations
+        stats.set("collective." + stats.resource_name(resource) + ".amount", static_cast<float>(amount));
       }
     }
   }
@@ -41,6 +43,7 @@ public:
       _members.push_back(obj);
       _aligned_counts[obj->type_name]++;
       stats.set("aligned." + obj->type_name, static_cast<float>(_aligned_counts[obj->type_name]));
+      stats.incr("aligned." + obj->type_name + ".gained");  // Track successful alignments
     }
   }
 
@@ -50,6 +53,7 @@ public:
     if (it != _members.end()) {
       _members.erase(it);
       _aligned_counts[obj->type_name]--;
+      stats.incr("aligned." + obj->type_name + ".lost");  // Track lost alignments
       if (_aligned_counts[obj->type_name] <= 0) {
         _aligned_counts.erase(obj->type_name);
         stats.set("aligned." + obj->type_name, 0.0f);
@@ -95,6 +99,8 @@ public:
     } else {
       stats.add("collective." + stats.resource_name(item) + ".withdrawn", -delta);
     }
+    // Track current amount for observations
+    stats.set("collective." + stats.resource_name(item) + ".amount", static_cast<float>(inventory.amount(item)));
   }
 };
 
