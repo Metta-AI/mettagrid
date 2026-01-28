@@ -20,7 +20,7 @@ proc ctrlCHandler() {.noconv.} =
     window.close()
   quit(0)
 
-proc init(dataDir: string, replay: string, autostart: bool): RenderResponse =
+proc init(dataDir: string, replay: string, autostart: bool = false): RenderResponse =
   try:
     echo "Initializing Mettascope..."
     if os.getEnv("METTASCOPE_DISABLE_CTRL_C", "") == "":
