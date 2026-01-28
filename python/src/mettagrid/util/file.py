@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def _is_presigned_s3_url(url: str) -> bool:
     """Check if URL is a presigned S3 URL (SigV4 or SigV2)."""
     parsed = urlparse(url)
-    if parsed.scheme != "https":
+    if parsed.scheme not in ("https", "http"):
         return False
     query_params = parse_qs(parsed.query)
     # SigV4 uses X-Amz-Algorithm, SigV2 uses AWSAccessKeyId

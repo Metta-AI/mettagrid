@@ -77,5 +77,5 @@ def test_is_presigned_s3_url_with_file_scheme():
 
 
 def test_is_presigned_s3_url_with_http():
-    # http (not https) should fail even with query params
-    assert not _is_presigned_s3_url("http://bucket.s3.amazonaws.com/key?X-Amz-Algorithm=AWS4-HMAC-SHA256")
+    # http presigned URLs are valid (e.g. localstack in local dev)
+    assert _is_presigned_s3_url("http://bucket.s3.amazonaws.com/key?X-Amz-Algorithm=AWS4-HMAC-SHA256")
