@@ -13,6 +13,7 @@ const
   TS = 1.0 / TILE_SIZE.float32 # Tile scale.
   MINI_TILE_SIZE = 16
   MTS = 1.0 / MINI_TILE_SIZE.float32 # Mini tile scale for minimap.
+  MINI_VIEW_ZOOM_THRESHOLD = 4.25f # Show mini/pip overlays at a less zoomed-out level.
 
 proc centerAt*(zoomInfo: ZoomInfo, entity: Entity)
 
@@ -812,7 +813,7 @@ proc drawWorldMap*(zoomInfo: ZoomInfo) =
 
   agentControls()
 
-  if zoomInfo.zoom < 3:
+  if zoomInfo.zoom < MINI_VIEW_ZOOM_THRESHOLD:
     drawWorldMini()
   else:
     drawWorldMain()
