@@ -71,7 +71,11 @@ common --color=yes
 common --show_progress_rate_limit=0.5
 
 # Local disk cache configuration
-build --disk_cache=~/.cache/bazel
+# On Linux, Bazel's default output_base is ~/.cache/bazel/_bazel_$USER. The disk_cache
+# cannot be a parent directory of the output_base, so we use ~/.cache/bazel-disk instead
+# of ~/.cache/bazel to avoid conflicts. (macOS uses ~/Library/Caches/bazel for output_base
+# so this wasn't caught until Linux devcontainer testing.)
+build --disk_cache=~/.cache/bazel-disk
 build --repository_cache=~/.cache/bazel-repo
 
 # Build execution optimization
