@@ -65,13 +65,18 @@ proc replaySwitch(replay: string) =
         echo "fetching replay from URL: ", commandLineReplay
         let req = startHttpRequest(commandLineReplay)
         req.onError = proc(msg: string) =
-          # TODO: Show error to user.
-          echo "onError: " & msg
-          echo getCurrentException().getStackTrace()
+          popupWarning = "Failed to load replay from URL.\nNetwork error: " & msg
         req.onResponse = proc(response: HttpResponse) =
           if response.code != 200:
-            # TODO: Show error to user.
-            echo "Error loading replay: HTTP ", response.code, " ", response.body
+            case response.code:
+            of 403:
+              popupWarning = "Access denied (403 Forbidden).\nThe replay requires authentication or you don't have permission to access it."
+            of 404:
+              popupWarning = "Replay not found (404).\nThe replay URL is invalid or the file has been moved."
+            of 500, 502, 503, 504:
+              popupWarning = "Server error (" & $response.code & ").\nThe replay server is experiencing issues. Please try again later."
+            else:
+              popupWarning = "Failed to load replay (HTTP " & $response.code & ").\n" & response.body
             return
           echo "replay fetched, loading..."
           common.replay = loadReplay(response.body, commandLineReplay)
@@ -191,6 +196,8 @@ proc onFrame() =
 
   drawPanels()
 
+  drawWarningPopup()
+
   when defined(profile):
     let ms = sk.avgFrameTime * 1000
     sk.at = sk.pos + vec2(sk.size.x - 250, 20)
@@ -219,9 +226,9 @@ proc initMettascope*() =
         onReplayLoaded()
         echo "Successfully loaded replay: ", fileName
       except:
-        echo "Error loading replay file: ", getCurrentExceptionMsg()
+        popupWarning = "Failed to load replay file.\n" & getCurrentExceptionMsg()
     else:
-      echo "Ignoring dropped file (not .json.z): ", fileName
+      popupWarning = "Unsupported file type.\nOnly .json.z replay files are supported."
 
   initPanels()
 

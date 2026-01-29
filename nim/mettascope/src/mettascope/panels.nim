@@ -531,3 +531,22 @@ proc drawPanels*() =
     let size = textSize + vec2(16, 8)
     sk.draw9Patch("tooltip.9patch", 4, window.mousePos.vec2 + vec2(10, 10), size, rgbx(255, 255, 255, 200))
     discard sk.drawText("Default", label, window.mousePos.vec2 + vec2(18, 14), rgbx(255, 255, 255, 255))
+
+proc drawWarningPopup*() =
+  ## Draw a warning popup if popupWarning is set.
+  if popupWarning.len == 0:
+    return
+
+  # Semi-transparent overlay covering entire screen
+  sk.drawRect(vec2(0, 0), sk.size, rgbx(0, 0, 0, 128))
+
+  let popupWidth = 400.0
+  let popupHeight = 150.0
+  let popupPos = vec2((sk.size.x - popupWidth) / 2, (sk.size.y - popupHeight) / 2)
+
+  sk.draw9Patch("header.9patch", 4, popupPos, vec2(popupWidth, popupHeight), rgbx(255, 255, 255, 255))
+
+  sk.at = popupPos + vec2(8, 4)
+  h1text("Error")
+  sk.at = popupPos + vec2(8, 48)
+  text(popupWarning)

@@ -82,6 +82,9 @@ var
   # Command line arguments.
   commandLineReplay*: string = ""
 
+  # Popup warning system.
+  popupWarning*: string = ""
+
 
 type
   ActionRequest* = object
