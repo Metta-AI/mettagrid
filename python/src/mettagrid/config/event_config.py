@@ -23,13 +23,15 @@ from pydantic import Field
 from mettagrid.config.handler_config import Handler
 
 
-def periodic(start: int, period: int, end: Optional[int] = None) -> list[int]:
+def periodic(start: int, period: int, end: Optional[int] = None, end_period: Optional[int] = None) -> list[int]:
     """Generate periodic timesteps.
 
     Args:
         start: First timestep to fire
-        period: Interval between firings
+        period: Interval between firings (at start if end_period is set)
         end: Last timestep to fire (inclusive). If None, generates up to 100000.
+        end_period: If set, interpolates the period from `period` to `end_period` over the
+            start-end time range.
 
     Returns:
         List of timesteps
@@ -38,7 +40,30 @@ def periodic(start: int, period: int, end: Optional[int] = None) -> list[int]:
         raise ValueError(f"period must be positive, got {period}")
     if end is None:
         end = 100000
-    return list(range(start, end + 1, period))
+    if end_period is not None and end_period <= 0:
+        raise ValueError(f"end_period must be positive, got {end_period}")
+
+    if end_period is None:
+        # Simple case: constant period
+        return list(range(start, end + 1, period))
+
+    # Interpolating period case
+    timesteps = []
+    t = start
+    total_duration = end - start
+    while t <= end:
+        timesteps.append(t)
+        if total_duration == 0:
+            break
+        # Calculate progress through the time range (0.0 to 1.0)
+        progress = (t - start) / total_duration
+        # Linearly interpolate between period and end_period
+        current_period = period + progress * (end_period - period)
+        # Round to integer and ensure at least 1
+        current_period = max(1, round(current_period))
+        t += current_period
+
+    return timesteps
 
 
 def once(timestep: int) -> list[int]:
