@@ -10,11 +10,7 @@ class MettascopeResponse:
     should_close: bool
     actions: Sequence[MettascopeAction] | None
 
-
 def init(data_dir: str, replay: str, autostart: bool = ...) -> MettascopeResponse: ...
-
-
 def render(step: int, replay_step: str) -> MettascopeResponse: ...
-
 
 class MettascopeError(Exception): ...
