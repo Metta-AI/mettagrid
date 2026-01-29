@@ -27,7 +27,10 @@ def parse_args() -> argparse.Namespace:
         type=str,
         choices=get_args(RenderMode),
         default="log",
-        help="Render mode: gui (mettascope), unicode (miniscope), log (logger), or none (headless)",
+        help=(
+            "Render mode: gui (mettascope), vibescope (vibescope), unicode (miniscope), "
+            "log (logger), or none (headless)"
+        ),
     )
     parser.add_argument(
         "--agents",

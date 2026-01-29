@@ -1,0 +1,19 @@
+{
+  "size": 256,
+  "entries": {
+    "minimap/miner_station": { "x": 86, "y": 45, "width": 33, "height": 33 },
+    "minimap/carbon_extractor": { "x": 4, "y": 4, "width": 33, "height": 33 },
+    "minimap/agent": { "x": 86, "y": 4, "width": 32, "height": 32 },
+    "minimap/aligner_station": { "x": 168, "y": 45, "width": 33, "height": 33 },
+    "minimap/assembler": { "x": 45, "y": 45, "width": 33, "height": 33 },
+    "minimap/oxygen_extractor": { "x": 126, "y": 4, "width": 33, "height": 33 },
+    "minimap/charger": { "x": 127, "y": 45, "width": 33, "height": 33 },
+    "minimap/silicon_extractor": { "x": 45, "y": 86, "width": 33, "height": 33 },
+    "minimap/scout_station": { "x": 208, "y": 4, "width": 33, "height": 33 },
+    "minimap/chest": { "x": 167, "y": 4, "width": 33, "height": 33 },
+    "minimap/hub": { "x": 45, "y": 4, "width": 33, "height": 33 },
+    "minimap/germanium_extractor": { "x": 4, "y": 45, "width": 33, "height": 33 },
+    "minimap/scrambler_station": { "x": 4, "y": 86, "width": 33, "height": 33 },
+    "minimap/junction": { "x": 209, "y": 45, "width": 33, "height": 33 }
+  }
+}

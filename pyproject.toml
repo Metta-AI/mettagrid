@@ -65,6 +65,10 @@ cache-keys = [
   { file = "nim/mettascope/nimby.lock" },
   { file = "bazel_build.py" },
   { file = "nim/mettascope/mettascope.nimble" },
+  { file = "nim/vibescope/src/**/*.{nim,nims}" },
+  { file = "nim/vibescope/bindings/bindings.nim" },
+  { file = "nim/vibescope/nimby.lock" },
+  { file = "nim/vibescope/vibescope.nimble" },
 ]
 
 [tool.setuptools.packages.find]
@@ -72,7 +76,15 @@ where = ["python/src"]
 include = ["mettagrid", "mettagrid.*"]
 
 [tool.setuptools.package-data]
-"mettagrid" = ["py.typed", "*.so", "*.pyi", "*.pyd", "*.dylib", "nim/mettascope/**/*"]
+"mettagrid" = [
+  "py.typed",
+  "*.so",
+  "*.pyi",
+  "*.pyd",
+  "*.dylib",
+  "nim/mettascope/**/*",
+  "nim/vibescope/**/*",
+]
 
 [tool.uv.sources]
 metta-common = { workspace = true }

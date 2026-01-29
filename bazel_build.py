@@ -26,15 +26,21 @@ from setuptools.build_meta import (
 from setuptools.dist import Distribution
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-METTASCOPE_DIR = PROJECT_ROOT / "nim" / "mettascope"
 PYTHON_PACKAGE_DIR = PROJECT_ROOT / "python" / "src" / "mettagrid"
+METTASCOPE_DIR = PROJECT_ROOT / "nim" / "mettascope"
+VIBESCOPE_DIR = PROJECT_ROOT / "nim" / "vibescope"
 METTASCOPE_PACKAGE_DIR = PYTHON_PACKAGE_DIR / "nim" / "mettascope"
+VIBESCOPE_PACKAGE_DIR = PYTHON_PACKAGE_DIR / "nim" / "vibescope"
+NIM_PACKAGES = {
+    "mettascope": (METTASCOPE_DIR, METTASCOPE_PACKAGE_DIR),
+    "vibescope": (VIBESCOPE_DIR, VIBESCOPE_PACKAGE_DIR),
+}
 
 
-def cmd(cmd_str: str, max_attempts: int = 1) -> None:
+def cmd(cmd_str: str, *, cwd: Path, max_attempts: int = 1) -> None:
     for attempt in range(1, max_attempts + 1):
         print(f"Running: {cmd_str}")
-        result = subprocess.run(cmd_str.split(), cwd=METTASCOPE_DIR, capture_output=True, text=True)
+        result = subprocess.run(cmd_str.split(), cwd=cwd, capture_output=True, text=True)
         print(result.stderr, file=sys.stderr)
         print(result.stdout, file=sys.stderr)
 
@@ -148,31 +154,29 @@ def _run_bazel_build() -> None:
             print(f"Copied {extension_file} to {dest}")
 
 
-def _nim_artifacts_up_to_date() -> bool:
+def _nim_artifacts_up_to_date(nim_dir: Path, module_name: str) -> bool:
     """Check whether Nim outputs are still current."""
 
     force_rebuild = os.environ.get("METTAGRID_FORCE_NIM_BUILD", "").lower() in {"1", "true", "yes"}
     if force_rebuild:
         return False
 
-    generated_dir = METTASCOPE_DIR / "bindings" / "generated"
+    generated_dir = nim_dir / "bindings" / "generated"
     if not generated_dir.exists():
         return False
 
-    existing_outputs = {
-        generated_dir / name
-        for name in (
-            "mettascope.py",
-            "libmettascope.dylib",
-            "libmettascope.so",
-            "libmettascope.dll",
-        )
-        if (generated_dir / name).exists()
-    }
-    if not existing_outputs:
+    output_names = (
+        f"{module_name}.py",
+        f"lib{module_name}.dylib",
+        f"lib{module_name}.so",
+        f"lib{module_name}.dll",
+    )
+    existing_outputs = {generated_dir / name for name in output_names if (generated_dir / name).exists()}
+    lib_outputs = [generated_dir / name for name in output_names[1:] if (generated_dir / name).exists()]
+    if not existing_outputs or not lib_outputs:
         return False
 
-    source_files = [path for pattern in ("*.nim", "*.nims") for path in METTASCOPE_DIR.rglob(pattern) if path.is_file()]
+    source_files = [path for pattern in ("*.nim", "*.nims") for path in nim_dir.rglob(pattern) if path.is_file()]
     if not source_files:
         return False
 
@@ -182,50 +186,51 @@ def _nim_artifacts_up_to_date() -> bool:
     return oldest_output_mtime >= latest_source_mtime
 
 
-def _copy_mettascope_python_bindings() -> None:
+def _copy_nim_python_bindings(nim_dir: Path, package_dir: Path) -> None:
     """Ensure Nim artifacts are vendored inside the Python package."""
 
-    destination_root = METTASCOPE_PACKAGE_DIR
+    destination_root = package_dir
     destination_root.parent.mkdir(parents=True, exist_ok=True)
 
     if destination_root.exists():
         shutil.rmtree(destination_root)
 
     shutil.copytree(
-        METTASCOPE_DIR,
+        nim_dir,
         destination_root,
         dirs_exist_ok=True,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "nimbledeps", "dist", "build"),
     )
 
 
-def _run_mettascope_build(copy_bindings: bool = False) -> None:
+def _run_nim_build(name: str, nim_dir: Path, package_dir: Path, *, copy_bindings: bool = False) -> None:
     """Build Nim artifacts when cache misses."""
 
-    if _nim_artifacts_up_to_date():
-        print("Skipping Nim build; artifacts up to date.")
+    if _nim_artifacts_up_to_date(nim_dir, name):
+        print(f"Skipping Nim build for {name}; artifacts up to date.")
         if not copy_bindings:
-            _copy_mettascope_python_bindings()
+            _copy_nim_python_bindings(nim_dir, package_dir)
         return
 
     for x in ["nim", "nimby"]:
         if shutil.which(x) is None:
             raise RuntimeError(f"{x} not found! Install from https://github.com/treeform/nimby.")
 
-    print(f"Building mettascope from {METTASCOPE_DIR}")
+    print(f"Building {name} from {nim_dir}")
 
-    cmd("nimby sync -g nimby.lock", max_attempts=3)
-    cmd("nim c bindings/bindings.nim")
+    cmd("nimby sync -g nimby.lock", cwd=nim_dir, max_attempts=3)
+    cmd("nim c bindings/bindings.nim", cwd=nim_dir)
 
-    print("Successfully built mettascope")
+    print(f"Successfully built {name}")
     if not copy_bindings:
-        _copy_mettascope_python_bindings()
+        _copy_nim_python_bindings(nim_dir, package_dir)
 
 
 def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
-    """Build a wheel, compiling the C++ extension with Bazel first, then mettascope."""
+    """Build a wheel, compiling the C++ extension with Bazel first, then Nim renderers."""
     _run_bazel_build()
-    _run_mettascope_build()
+    for name, (nim_dir, package_dir) in NIM_PACKAGES.items():
+        _run_nim_build(name, nim_dir, package_dir)
     # Ensure wheel is tagged as non-pure (platform-specific) since we bundle a native extension
     # Setuptools/wheel derive purity from Distribution.has_ext_modules(). Monkeypatch to force True.
     original_has_ext_modules = Distribution.has_ext_modules
@@ -237,9 +242,10 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
 
 
 def build_editable(wheel_directory, config_settings=None, metadata_directory=None):
-    """Build an editable install, compiling the C++ extension with Bazel first, then mettascope."""
+    """Build an editable install, compiling the C++ extension with Bazel first, then Nim renderers."""
     _run_bazel_build()
-    _run_mettascope_build(copy_bindings=True)  # Editable installs use source directly
+    for name, (nim_dir, package_dir) in NIM_PACKAGES.items():
+        _run_nim_build(name, nim_dir, package_dir, copy_bindings=True)  # Editable installs use source directly
     return _build_editable(wheel_directory, config_settings, metadata_directory)
 
 

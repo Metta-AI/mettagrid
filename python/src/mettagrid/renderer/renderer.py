@@ -7,7 +7,7 @@ from typing_extensions import override
 
 from mettagrid.simulator.interface import SimulatorEventHandler
 
-RenderMode = Literal["gui", "unicode", "log", "none"]
+RenderMode = Literal["gui", "vibescope", "unicode", "log", "none"]
 
 
 class Renderer(SimulatorEventHandler):
@@ -65,6 +65,11 @@ def create_renderer(render_mode: RenderMode, autostart: bool = False) -> Rendere
         from mettagrid.renderer.mettascope import MettascopeRenderer
 
         return MettascopeRenderer(autostart=autostart)
+    elif render_mode == "vibescope":
+        # GUI-based interactive rendering (vibescope)
+        from mettagrid.renderer.vibescope import VibescopeRenderer
+
+        return VibescopeRenderer(autostart=autostart)
     elif render_mode == "log":
         # Logger-based rendering for debugging
         from mettagrid.renderer.log_renderer import LogRenderer
