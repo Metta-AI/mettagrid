@@ -27,8 +27,14 @@ class AgentPolicy:
     This is what play.py and evaluation code use directly.
     """
 
-    def __init__(self, policy_env_info: PolicyEnvInterface):
+    def __init__(self, policy_env_info: PolicyEnvInterface, name: Optional[str] = None):
         self._policy_env_info = policy_env_info
+        existing_name = getattr(self, "_name", None)
+        self._name = name or existing_name or self.__class__.__name__
+
+    @property
+    def name(self) -> str:
+        return getattr(self, "_name", self.__class__.__name__)
 
     @property
     def policy_env_info(self) -> PolicyEnvInterface:
@@ -65,8 +71,16 @@ class MultiAgentPolicy(metaclass=PolicyRegistryMeta):
 
     short_names: list[str] | None = None
 
-    def __init__(self, policy_env_info: PolicyEnvInterface, device: str = "cpu", **kwargs: Any):
+    def __init__(
+        self,
+        policy_env_info: PolicyEnvInterface,
+        device: str = "cpu",
+        name: Optional[str] = None,
+        **kwargs: Any,
+    ):
         self._policy_env_info = policy_env_info
+        existing_name = getattr(self, "_name", None)
+        self._name = name or existing_name or self.__class__.__name__
 
     @abstractmethod
     def agent_policy(self, agent_id: int) -> AgentPolicy:
@@ -100,6 +114,10 @@ class MultiAgentPolicy(metaclass=PolicyRegistryMeta):
     @property
     def policy_env_info(self) -> PolicyEnvInterface:
         return self._policy_env_info
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     def reset(self) -> None:
         """Reset any policy state; default no-op."""
@@ -207,7 +225,7 @@ class _NimAgentPolicy(AgentPolicy):
     """Lightweight proxy that delegates to the shared Nim multi-policy."""
 
     def __init__(self, parent: NimMultiAgentPolicy, agent_id: int):
-        super().__init__(parent.policy_env_info)
+        super().__init__(parent.policy_env_info, name=parent.name)
         self._parent = parent
         self._agent_id = agent_id
 
@@ -231,6 +249,7 @@ class StatefulAgentPolicy(AgentPolicy, Generic[StateType]):
         base_policy: "StatefulPolicyImpl[StateType]",
         policy_env_info: PolicyEnvInterface,
         agent_id: Optional[int] = None,
+        name: Optional[str] = None,
     ):
         """Initialize stateful wrapper.
 
@@ -238,7 +257,7 @@ class StatefulAgentPolicy(AgentPolicy, Generic[StateType]):
             base_policy: The underlying stateful policy implementation
             policy_env_info: The policy environment information
         """
-        super().__init__(policy_env_info)
+        super().__init__(policy_env_info, name=name or base_policy.__class__.__name__)
         self._base_policy = base_policy
         self._state: Optional[StateType] = None
         self._agent_id = agent_id
