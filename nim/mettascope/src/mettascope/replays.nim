@@ -278,6 +278,45 @@ proc expand[T](data: JsonNode, numSteps: int, defaultValue: T): seq[T] =
     # A single value is a valid sequence.
     return @[data.to(T)]
 
+proc expandInventory(data: JsonNode, numSteps: int): seq[seq[seq[int]]] =
+  ## Expand inventory data, handling both static and time series formats.
+  ## Static: [[itemId, count], [itemId, count], ...]
+  ## Time series: [[step, [[itemId, count], ...]], [step, [[itemId, count], ...]], ...]
+  if data == nil or data.kind != JArray:
+    return @[]
+
+  if data.len == 0:
+    return @[newSeq[seq[int]]()]
+
+  # Check if this is time series format by looking at the structure.
+  var isTimeSeries = false
+  if data[0].kind == JArray and data[0].len >= 2:
+    let first = data[0][0]
+    let second = data[0][1]
+    if first.kind == JInt and second.kind == JArray:
+      # Looks like time series: [step, inventory_array].
+      isTimeSeries = true
+
+  if isTimeSeries:
+    # Time series format: use the standard expand function which handles carry-over correctly.
+    let expandedRaw = expand[seq[seq[int]]](data, numSteps, @[])  # Default to empty inventory.
+    return expandedRaw
+  else:
+    # Static format: same inventory for all steps.
+    var staticInventory: seq[seq[int]]
+    for itemAmount in data:
+      if itemAmount.kind == JArray and itemAmount.len >= 2:
+        let itemId = itemAmount[0]
+        let count = itemAmount[1]
+        if itemId.kind == JInt and count.kind == JInt:
+          staticInventory.add(@[itemId.getInt, count.getInt])
+
+    # Return the same static inventory for all steps.
+    var expandedInventory: seq[seq[seq[int]]]
+    for i in 0..<numSteps:
+      expandedInventory.add(staticInventory)
+    return expandedInventory
+
 proc getExpandedIntSeq*(obj: JsonNode, key: string, maxSteps: int, default: seq[int] = @[0]): seq[int] =
   ## Get an expanded integer sequence field from JsonNode with a default if key is missing.
   if key in obj: expand[int](obj[key], maxSteps, 0) else: default
@@ -318,7 +357,7 @@ proc convertReplayV1ToV2(replayData: JsonNode): JsonNode =
   var data = newJObject()
   data["version"] = newJInt(2)
 
-  # action_names (with renames)
+  # Action names (with renames).
   var actionNames = newJArray()
   let actionNamesArr = getArray(replayData, "action_names")
   if actionNamesArr != nil:
@@ -331,7 +370,7 @@ proc convertReplayV1ToV2(replayData: JsonNode): JsonNode =
       actionNames.add(newJString(name))
   data["action_names"] = actionNames
 
-  # item_names
+  # Item names.
   let invItems = getArray(replayData, "inventory_items")
   if invItems != nil and invItems.len > 0:
     data["item_names"] = invItems
@@ -349,7 +388,7 @@ proc convertReplayV1ToV2(replayData: JsonNode): JsonNode =
 
   let maxSteps = getInt(data, "max_steps", 0)
 
-  # Helpers
+  # Helpers.
   proc pair(a, b: JsonNode): JsonNode = (result = newJArray(); result.add(a); result.add(b))
 
   var objects = newJArray()
@@ -618,13 +657,13 @@ proc convertReplayV2ToV3*(replayData: JsonNode): JsonNode =
   ## V3: inventory as [[itemId, count], [itemId, count], ...] (compressed pairs)
   echo "Converting replay from version 2 to version 3..."
 
-  # Create a deep copy of the data
+  # Create a deep copy of the data.
   var data = replayData.copy()
 
-  # Update version to 3
+  # Update version to 3.
   data["version"] = newJInt(3)
 
-  # Convert inventory fields in all objects
+  # Convert inventory fields in all objects.
   if "objects" in data and data["objects"].kind == JArray:
     for obj in data["objects"].getElems():
       if obj.kind != JObject:
@@ -658,7 +697,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
 
   doAssert getInt(jsonObj, "version") == 3
 
-  # Check for validation issues and log them to console
+  # Check for validation issues and log them to console.
   let issues = validateReplay(jsonObj)
   if issues.len > 0:
     issues.prettyPrint()
@@ -702,14 +741,14 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
 
     var inventory: seq[seq[ItemAmount]]
     if "inventory" in obj:
-      let inventoryRaw = expand[seq[seq[int]]](obj["inventory"], replay.maxSteps, @[])
+      let inventoryRaw = expandInventory(obj["inventory"], replay.maxSteps)
       for i in 0 ..< inventoryRaw.len:
         var itemAmounts: seq[ItemAmount]
-        for j in 0 ..< inventoryRaw[i].len:
-          if inventoryRaw[i][j].len >= 2:
+        for itemPair in inventoryRaw[i]:
+          if itemPair.len >= 2:
             itemAmounts.add(ItemAmount(
-              itemId: inventoryRaw[i][j][0],
-              count: inventoryRaw[i][j][1]
+              itemId: itemPair[0],
+              count: itemPair[1]
             ))
         inventory.add(itemAmounts)
 
@@ -811,11 +850,11 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
 
     replay.objects.add(entity)
 
-    # Populate the agents field for agent entities
+    # Populate the agents field for agent entities.
     if "agent_id" in obj:
       replay.agents.add(entity)
 
-  # compute gain maps for static replays.
+  # Compute gain maps for static replays.
   computeGainMap(replay)
 
   # Cache common action IDs for fast lookup.
@@ -911,7 +950,7 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) =
   # Extend the max steps.
   replay.maxSteps = max(replay.maxSteps, step + 1)
 
-  # Populate the agents field for agent entities
+  # Populate the agents field for agent entities.
   if replay.agents.len == 0:
     for obj in replay.objects:
       if obj.typeName == agentTypeName:

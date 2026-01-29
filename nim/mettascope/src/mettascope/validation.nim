@@ -195,7 +195,7 @@ proc validateTimeSeries*(obj: JsonNode, key: string, fieldName: string, expected
 
   let data = obj[key]
 
-  # Check if it's a single value (field never changes)
+  # Check if it's a single value (field never changes).
   case expectedType
   of "int":
     if data.kind == JInt:
@@ -209,7 +209,7 @@ proc validateTimeSeries*(obj: JsonNode, key: string, fieldName: string, expected
   else:
     discard
 
-  # Check if it's a time series array (field changes on specific steps)
+  # Check if it's a time series array (field changes on specific steps).
   if data.kind == JArray:
     if data.len == 0:
       return
@@ -261,7 +261,7 @@ proc validateTimeSeries*(obj: JsonNode, key: string, fieldName: string, expected
       ))
     return
 
-  # Neither single value nor valid time series
+  # Neither single value nor valid time series.
   issues.add(ValidationIssue(
     message: &"'{fieldName}' must be {expectedType} or time series of [step, {expectedType}] pairs",
     field: fieldName
@@ -287,68 +287,100 @@ proc validateInventoryFormat*(obj: JsonNode, key: string, fieldName: string, iss
   if inventory.len == 0:
     return
 
-  # Check if this is a time series format [[step, inventory_array], ...]
-  # Time series: first element is [step, inventory_array] where step is int and inventory_array is array
-  let firstItem = inventory[0]
-  if firstItem.kind == JArray and firstItem.len == 2:
-    let step = firstItem[0]
-    let inventoryArray = firstItem[1]
-    if step.kind == JInt and step.getInt() >= 0 and inventoryArray.kind == JArray:
-      # This is time series format: [[step, [[itemId, count], [itemId, count], ...]], ...]
-      for item in inventory.getElems():
-        if item.kind != JArray or item.len != 2:
+  # Determine format by checking all items, not just the first one.
+  var isTimeSeries = true
+  var timeSeriesCount = 0
+  var staticFormatCount = 0
+
+  for item in inventory.getElems():
+    if item.kind == JArray and item.len == 2:
+      let first = item[0]
+      let second = item[1]
+      if first.kind == JInt and first.getInt() >= 0:
+        # Could be [step, inventory_array] or [itemId, count]
+        if second.kind == JArray:
+          # Looks like time series: [step, [itemId, count, ...]]
+          timeSeriesCount += 1
+        elif second.kind == JInt and second.getInt() >= 0:
+          # Could be static format: [itemId, count]
+          staticFormatCount += 1
+        else:
+          # Neither time series nor static format
+          isTimeSeries = false
+          break
+      else:
+        # Not a valid [int, something] format
+        isTimeSeries = false
+        break
+    else:
+      # Not a [something, something] array
+      isTimeSeries = false
+      break
+
+  # If we have mixed formats or unclear, assume static format but validate strictly.
+  if not isTimeSeries or timeSeriesCount > 0 and staticFormatCount > 0:
+    # Mixed or unclear format - validate as static but be strict
+    if timeSeriesCount > 0 and staticFormatCount > 0:
+      issues.add(ValidationIssue(
+        message: &"'{fieldName}' has mixed time series and static inventory formats - all items must be the same format",
+        field: fieldName
+      ))
+    elif not isTimeSeries:
+      issues.add(ValidationIssue(
+        message: &"'{fieldName}' items must be [step, inventory_array] for time series or [itemId, count] for static",
+        field: fieldName
+      ))
+    # Fall through to static validation
+
+  if isTimeSeries and timeSeriesCount > 0 and staticFormatCount == 0:
+    # Pure time series format: [[step, [[itemId, count], [itemId, count], ...]], ...]
+    for item in inventory.getElems():
+      let tsStep = item[0]
+      let tsInventory = item[1]
+
+      if tsStep.kind != JInt or tsStep.getInt() < 0:
+        issues.add(ValidationIssue(
+          message: &"'{fieldName}' time series step must be non-negative integer, got {tsStep}",
+          field: fieldName
+        ))
+
+      if tsInventory.kind != JArray:
+        issues.add(ValidationIssue(
+          message: &"'{fieldName}' time series value must be array of item amounts, got {tsInventory.kind}",
+          field: fieldName
+        ))
+        continue
+
+      # Validate the inventory array contents (compressed [itemId, count] format)
+      for itemAmount in tsInventory.getElems():
+        if itemAmount.kind != JArray or itemAmount.len != 2:
           issues.add(ValidationIssue(
-            message: &"'{fieldName}' time series items must be [step, inventory_array] pairs",
+            message: &"'{fieldName}' item amounts must be [itemId, count] pairs, got {itemAmount} ({itemAmount.kind})",
             field: fieldName
           ))
           continue
 
-        let tsStep = item[0]
-        let tsInventory = item[1]
+        let itemId = itemAmount[0]
+        let count = itemAmount[1]
 
-        if tsStep.kind != JInt or tsStep.getInt() < 0:
+        if itemId.kind != JInt or itemId.getInt() < 0:
           issues.add(ValidationIssue(
-            message: &"'{fieldName}' time series step must be non-negative integer",
+            message: &"'{fieldName}' item IDs must be non-negative integers, got {itemId} ({itemId.kind})",
             field: fieldName
           ))
 
-        if tsInventory.kind != JArray:
+        if count.kind != JInt or count.getInt() < 0:
           issues.add(ValidationIssue(
-            message: &"'{fieldName}' inventory must be array of item amounts, got {tsInventory.kind}",
+            message: &"'{fieldName}' item counts must be non-negative integers, got {count} ({count.kind})",
             field: fieldName
           ))
-          continue
-
-        # Validate the inventory array contents (compressed [itemId, count] format)
-        for itemAmount in tsInventory.getElems():
-          if itemAmount.kind != JArray or itemAmount.len != 2:
-            issues.add(ValidationIssue(
-              message: &"'{fieldName}' item amounts must be [itemId, count] pairs, got {itemAmount}",
-              field: fieldName
-            ))
-            continue
-
-          let itemId = itemAmount[0]
-          let count = itemAmount[1]
-
-          if itemId.kind != JInt or itemId.getInt() < 0:
-            issues.add(ValidationIssue(
-              message: &"'{fieldName}' item IDs must be non-negative integers, got {itemId}",
-              field: fieldName
-            ))
-
-          if count.kind != JInt or count.getInt() < 0:
-            issues.add(ValidationIssue(
-              message: &"'{fieldName}' item counts must be non-negative integers, got {count}",
-              field: fieldName
-            ))
-      return
+    return
 
   # Otherwise, treat as single inventory array that does not change over time: [[itemId, count], [itemId, count], ...]
   for itemAmount in inventory.getElems():
     if itemAmount.kind != JArray or itemAmount.len != 2:
       issues.add(ValidationIssue(
-        message: &"'{fieldName}' item amounts must be [itemId, count] pairs, got {itemAmount}",
+        message: &"'{fieldName}' static inventory must be array of [itemId, count] pairs, got {itemAmount} ({itemAmount.kind})",
         field: fieldName
       ))
       continue
@@ -358,13 +390,13 @@ proc validateInventoryFormat*(obj: JsonNode, key: string, fieldName: string, iss
 
     if itemId.kind != JInt or itemId.getInt() < 0:
       issues.add(ValidationIssue(
-        message: &"'{fieldName}' item IDs must be non-negative integers, got {itemId}",
+        message: &"'{fieldName}' item IDs must be non-negative integers, got {itemId} ({itemId.kind})",
         field: fieldName
       ))
 
     if count.kind != JInt or count.getInt() < 0:
       issues.add(ValidationIssue(
-        message: &"'{fieldName}' item counts must be non-negative integers, got {count}",
+        message: &"'{fieldName}' item counts must be non-negative integers, got {count} ({count.kind})",
         field: fieldName
       ))
 
@@ -379,8 +411,8 @@ proc validateLocation*(obj: JsonNode, key: string, fieldName: string, issues: va
 
   let location = obj[key]
 
-  # Check if it's a single location (never changed during replay)
-  # also make sure it's not a time series array
+  # Check if it's a single location (never changed during replay).
+  # Also make sure it's not a time series array.
   if location.kind == JArray and (location.len == 2 or location.len == 3):
     var allNumbers = true
     for coord in location.getElems():
@@ -390,7 +422,7 @@ proc validateLocation*(obj: JsonNode, key: string, fieldName: string, issues: va
     if allNumbers:
       return
 
-  # Check if it's a time series array (location changed during replay)
+  # Check if it's a time series array (location changed during replay).
   validateTypeValue(location, "array", fieldName, issues)
   if location.kind == JArray and location.len == 0:
     issues.add(ValidationIssue(
@@ -398,7 +430,7 @@ proc validateLocation*(obj: JsonNode, key: string, fieldName: string, issues: va
       field: fieldName
     ))
 
-  # Validate time series of [step, [x, y]] pairs
+  # Validate time series of [step, [x, y]] pairs.
   if location.kind == JArray:
     for stepData in location.getElems():
       if stepData.kind != JArray or stepData.len != 2:
@@ -451,7 +483,7 @@ proc validateActionIdRange*(obj: JsonNode, key: string, objName: string, actionN
     return
 
   let actionIds = obj[key]
-  # Handle single value case
+  # Handle single value case.
   if actionIds.kind == JInt:
     let actionId = actionIds.getInt()
     if actionId < 0 or actionId >= actionNames.len:
@@ -461,7 +493,7 @@ proc validateActionIdRange*(obj: JsonNode, key: string, objName: string, actionN
       ))
     return
 
-  # Handle time series case
+  # Handle time series case.
   if actionIds.kind == JArray:
     for stepData in actionIds.getElems():
       if stepData.kind == JArray and stepData.len == 2:
@@ -504,7 +536,7 @@ proc validateAgentFields*(obj: JsonNode, objName: string, replayData: JsonNode, 
   validateTimeSeries(obj, "action_success", objName & ".action_success", "bool", issues)
   validateTimeSeries(obj, "current_reward", objName & ".current_reward", "float", issues)
   validateTimeSeries(obj, "total_reward", objName & ".total_reward", "float", issues)
-  # validate optional agent fields
+  # Validate optional agent fields.
   if "action_param" in obj:
     validateTimeSeries(obj, "action_param", objName & ".action_param", "int", issues)
   if "action_parameter" in obj:
@@ -526,24 +558,24 @@ proc validateProtocol*(protocol: JsonNode, protocolIndex: int, objName: string, 
   ## Validate a single protocol within an assembler.
   let protocolName = &"{objName}.protocols[{protocolIndex}]"
 
-  # Protocol must be an object
+  # Protocol must be an object.
   validateTypeValue(protocol, "object", protocolName, issues)
 
   if protocol.kind != JObject:
     return
 
-  # Check required fields
+  # Check required fields.
   let requiredFields = ["minAgents", "vibes", "inputs", "outputs", "cooldown"]
   requireFields(protocol, requiredFields, protocolName, issues)
 
-  # Validate field types
+  # Validate field types.
   validateType(protocol, "minAgents", "int", protocolName & ".minAgents", issues)
   validateType(protocol, "vibes", "array", protocolName & ".vibes", issues)
   validateType(protocol, "inputs", "array", protocolName & ".inputs", issues)
   validateType(protocol, "outputs", "array", protocolName & ".outputs", issues)
   validateType(protocol, "cooldown", "int", protocolName & ".cooldown", issues)
 
-  # Validate non-negative values
+  # Validate non-negative values.
   if "minAgents" in protocol and protocol["minAgents"].kind == JInt and protocol["minAgents"].getInt() < 0:
     issues.add(ValidationIssue(
       message: &"{protocolName}.minAgents must be non-negative",
@@ -556,12 +588,12 @@ proc validateProtocol*(protocol: JsonNode, protocolIndex: int, objName: string, 
       field: protocolName & ".cooldown"
     ))
 
-  # Validate vibes array contains integers
+  # Validate vibes array contains integers.
   if "vibes" in protocol and protocol["vibes"].kind == JArray:
     for i, vibe in protocol["vibes"].getElems():
       validateTypeValue(vibe, "int", &"{protocolName}.vibes[{i}]", issues)
 
-  # Validate inputs and outputs arrays
+  # Validate inputs and outputs arrays.
   if "inputs" in protocol and protocol["inputs"].kind == JArray:
     for i, itemAmount in protocol["inputs"].getElems():
       if itemAmount.kind == JArray and itemAmount.len == 2:
@@ -614,7 +646,7 @@ proc validateAssemblerFields*(obj: JsonNode, objName: string, issues: var seq[Va
 
   validateStaticValue(obj, "allow_partial_usage", "bool", objName & ".allow_partial_usage", issues)
 
-  # Validate protocols array
+  # Validate protocols array.
   validateType(obj, "protocols", "array", objName & ".protocols", issues)
   if "protocols" in obj and obj["protocols"].kind == JArray:
     let protocols = obj["protocols"]

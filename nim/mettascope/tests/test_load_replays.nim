@@ -3,10 +3,22 @@ import
   vmath,
   ../src/mettascope/[replays, common]
 
+# Check for command line argument specifying which replay to load
+let targetReplay = if paramCount() >= 1:
+  paramStr(1)
+else:
+  ""
+
+if targetReplay.len == 0:
+  echo "Usage: nim r test_load_replays.nim [replay_name]"
+  echo "  replay_name: Partial filename to match (e.g., '42c5386e' or full filename)"
+  echo "  If no argument provided, loads all replays"
+  echo ""
+
 proc drawAsciiMap(replay: Replay): string =
   ## Draw the map in ASCII and save to file.
 
-  # Determine bounds
+  # Determine bounds.
   var minX = 0
   var maxX = replay.mapSize[0] - 1
   var minY = 0
@@ -15,7 +27,7 @@ proc drawAsciiMap(replay: Replay): string =
 
   var map = initTable[(int, int), string]()
 
-  # Populate map
+  # Populate map.
   for obj in replay.objects:
     if obj.location.len > 0:
       let loc = obj.location[0]
@@ -69,7 +81,8 @@ proc drawAsciiMap(replay: Replay): string =
 let replayDir = "tests" / "data" / "replays"
 var count = 0
 for file in walkDirRec(replayDir):
-  if file.endsWith(".json.gz") or file.endsWith(".json.z") or file.endsWith(".json"):
+  if (file.endsWith(".json.gz") or file.endsWith(".json.z") or file.endsWith(".json")) and
+     (targetReplay.len == 0 or targetReplay in file.extractFilename):
     echo "Loading ", file.extractFilename
 
     let r = loadReplay(file)
