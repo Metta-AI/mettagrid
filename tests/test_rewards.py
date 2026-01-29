@@ -1,11 +1,12 @@
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
     AgentConfig,
-    AgentRewards,
     AssemblerConfig,
     AttackActionConfig,
     ChangeVibeActionConfig,
+    CollectiveConfig,
     GameConfig,
+    GridObjectConfig,
     InventoryConfig,
     MettaGridConfig,
     MoveActionConfig,
@@ -13,6 +14,7 @@ from mettagrid.config.mettagrid_config import (
     ProtocolConfig,
     WallConfig,
 )
+from mettagrid.config.reward_config import inventoryReward, statReward
 from mettagrid.simulator import Action, Simulation
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
 from mettagrid.test_support.orientation import Orientation
@@ -56,7 +58,10 @@ def create_heart_reward_test_env(max_steps=50, num_agents=NUM_AGENTS):
                 ],
             ),
         },
-        agent=AgentConfig(inventory=InventoryConfig(default_limit=10), rewards=AgentRewards(inventory={"heart": 1.0})),
+        agent=AgentConfig(
+            inventory=InventoryConfig(default_limit=10),
+            rewards={"heart": inventoryReward("heart")},
+        ),
     )
 
     # Create MettaGridConfig wrapper
@@ -176,4 +181,165 @@ class TestRewards:
         # Verify rewards accumulated
         assert reward_after_second > reward_after_first, (
             f"Total reward should accumulate: {reward_after_second} vs {reward_after_first}"
+        )
+
+
+class TestRewardWithMaxCap:
+    """Test rewards with max cap functionality."""
+
+    def test_inventory_reward_respects_max_cap(self):
+        """Test that inventory rewards are capped at the max value."""
+        game_map = [
+            ["wall", "wall", "wall", "wall", "wall", "wall"],
+            ["wall", "agent.red", "empty", "assembler", "empty", "wall"],
+            ["wall", "empty", "empty", "empty", "empty", "wall"],
+            ["wall", "wall", "wall", "wall", "wall", "wall"],
+        ]
+
+        game_config = GameConfig(
+            max_steps=100,
+            num_agents=1,
+            resource_names=["heart"],
+            actions=ActionsConfig(
+                noop=NoopActionConfig(enabled=True),
+                move=MoveActionConfig(enabled=True),
+            ),
+            objects={
+                "wall": WallConfig(),
+                "assembler": AssemblerConfig(
+                    name="assembler",
+                    protocols=[ProtocolConfig(input_resources={}, output_resources={"heart": 10}, cooldown=1)],
+                ),
+            },
+            agent=AgentConfig(
+                inventory=InventoryConfig(default_limit=100),
+                # Cap reward at 5.0, even if hearts * weight would be higher
+                rewards={"heart": inventoryReward("heart", weight=1.0, max=5.0)},
+            ),
+        )
+
+        cfg = MettaGridConfig(game=game_config)
+        cfg.game.map_builder = ObjectNameMapBuilder.Config(map_data=game_map)
+        sim = Simulation(cfg, seed=42)
+        agent = sim.agent(0)
+
+        # Move to assembler and collect many hearts
+        agent.set_action(Action(name=get_action_name("move", Orientation.EAST)))
+        sim.step()
+
+        # Wait for assembler to produce hearts
+        for _ in range(5):
+            agent.set_action(Action(name="noop"))
+            sim.step()
+
+        # Collect hearts
+        agent.set_action(Action(name=get_action_name("move", Orientation.EAST)))
+        sim.step()
+
+        # Episode reward should be capped at 5.0
+        # Even though agent has many hearts, reward is capped
+        assert agent.episode_reward <= 5.0, f"Reward should be capped at 5.0, got {agent.episode_reward}"
+        # But should have some reward
+        assert agent.episode_reward > 0, "Should have positive reward"
+
+
+class TestStatReward:
+    """Test statReward helper function integration."""
+
+    def test_stat_reward_tracks_stat_changes(self):
+        """Test that statReward correctly tracks stat changes."""
+        game_map = [
+            ["wall", "wall", "wall"],
+            ["wall", "agent.red", "wall"],
+            ["wall", "wall", "wall"],
+        ]
+
+        game_config = GameConfig(
+            max_steps=100,
+            num_agents=1,
+            resource_names=["gold"],
+            actions=ActionsConfig(
+                noop=NoopActionConfig(enabled=True),
+            ),
+            collectives={
+                "team": CollectiveConfig(inventory=InventoryConfig()),
+            },
+            objects={
+                "wall": WallConfig(),
+            },
+            agent=AgentConfig(
+                collective="team",
+                inventory=InventoryConfig(initial={"gold": 5}),
+                # Reward based on gold amount stat
+                rewards={
+                    "gold": statReward("gold.amount", weight=0.1),
+                },
+            ),
+        )
+
+        cfg = MettaGridConfig(game=game_config)
+        cfg.game.map_builder = ObjectNameMapBuilder.Config(map_data=game_map)
+        sim = Simulation(cfg, seed=42)
+        agent = sim.agent(0)
+
+        # Take a step
+        agent.set_action(Action(name="noop"))
+        sim.step()
+
+        # Should have reward from initial gold (5 * 0.1 = 0.5)
+        assert agent.episode_reward > 0, "Should have positive reward from gold stat"
+
+
+class TestMultipleRewardTypes:
+    """Test multiple reward types in a single agent config."""
+
+    def test_multiple_rewards_accumulate(self):
+        """Test that multiple reward types all contribute to total reward."""
+        game_map = [
+            ["wall", "wall", "wall", "wall", "wall"],
+            ["wall", "agent.red", "empty", "junction", "wall"],
+            ["wall", "wall", "wall", "wall", "wall"],
+        ]
+
+        game_config = GameConfig(
+            max_steps=100,
+            num_agents=1,
+            resource_names=["gold", "silver"],
+            actions=ActionsConfig(
+                noop=NoopActionConfig(enabled=True),
+            ),
+            collectives={
+                "team": CollectiveConfig(inventory=InventoryConfig()),
+            },
+            objects={
+                "wall": WallConfig(),
+                "junction": GridObjectConfig(name="junction", collective="team"),
+            },
+            agent=AgentConfig(
+                collective="team",
+                inventory=InventoryConfig(initial={"gold": 10, "silver": 5}),
+                rewards={
+                    # Multiple reward sources
+                    "gold": inventoryReward("gold", weight=0.1),
+                    "silver": inventoryReward("silver", weight=0.2),
+                },
+            ),
+        )
+
+        cfg = MettaGridConfig(game=game_config)
+        cfg.game.map_builder = ObjectNameMapBuilder.Config(map_data=game_map)
+        sim = Simulation(cfg, seed=42)
+        agent = sim.agent(0)
+
+        # Take a step
+        agent.set_action(Action(name="noop"))
+        sim.step()
+
+        # Should have rewards from both gold and silver
+        # gold: 10 * 0.1 = 1.0
+        # silver: 5 * 0.2 = 1.0
+        # total: 2.0
+        expected = 10 * 0.1 + 5 * 0.2
+        assert abs(agent.episode_reward - expected) < 0.01, (
+            f"Expected reward around {expected}, got {agent.episode_reward}"
         )

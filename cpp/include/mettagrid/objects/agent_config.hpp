@@ -13,6 +13,7 @@
 #include "core/grid_object.hpp"
 #include "core/types.hpp"
 #include "objects/inventory_config.hpp"
+#include "objects/reward_config.hpp"
 
 struct AgentConfig : public GridObjectConfig {
   AgentConfig(TypeId type_id,
@@ -22,8 +23,7 @@ struct AgentConfig : public GridObjectConfig {
               unsigned char freeze_duration = 0,
               ObservationType initial_vibe = 0,
               const InventoryConfig& inventory_config = InventoryConfig(),
-              const std::unordered_map<std::string, RewardType>& stat_rewards = {},
-              const std::unordered_map<std::string, RewardType>& stat_reward_max = {},
+              const RewardConfig& reward_config = RewardConfig(),
               const std::unordered_map<InventoryItem, InventoryQuantity>& initial_inventory = {},
               const std::unordered_map<ObservationType, std::unordered_map<InventoryItem, InventoryDelta>>&
                   inventory_regen_amounts = {})
@@ -32,8 +32,7 @@ struct AgentConfig : public GridObjectConfig {
         group_name(group_name),
         freeze_duration(freeze_duration),
         inventory_config(inventory_config),
-        stat_rewards(stat_rewards),
-        stat_reward_max(stat_reward_max),
+        reward_config(reward_config),
         initial_inventory(initial_inventory),
         inventory_regen_amounts(inventory_regen_amounts) {}
 
@@ -41,8 +40,7 @@ struct AgentConfig : public GridObjectConfig {
   std::string group_name;
   short freeze_duration;
   InventoryConfig inventory_config;
-  std::unordered_map<std::string, RewardType> stat_rewards;
-  std::unordered_map<std::string, RewardType> stat_reward_max;
+  RewardConfig reward_config;
   std::unordered_map<InventoryItem, InventoryQuantity> initial_inventory;
   // Vibe-dependent inventory regeneration: vibe_id -> resource_id -> amount (can be negative for decay)
   // Vibe ID 0 ("default") is used as fallback when agent's current vibe is not found
@@ -60,8 +58,7 @@ inline void bind_agent_config(py::module& m) {
                     unsigned char,
                     ObservationType,
                     const InventoryConfig&,
-                    const std::unordered_map<std::string, RewardType>&,
-                    const std::unordered_map<std::string, RewardType>&,
+                    const RewardConfig&,
                     const std::unordered_map<InventoryItem, InventoryQuantity>&,
                     const std::unordered_map<ObservationType, std::unordered_map<InventoryItem, InventoryDelta>>&>(),
            py::arg("type_id"),
@@ -71,8 +68,7 @@ inline void bind_agent_config(py::module& m) {
            py::arg("freeze_duration") = 0,
            py::arg("initial_vibe") = 0,
            py::arg("inventory_config") = InventoryConfig(),
-           py::arg("stat_rewards") = std::unordered_map<std::string, RewardType>(),
-           py::arg("stat_reward_max") = std::unordered_map<std::string, RewardType>(),
+           py::arg("reward_config") = RewardConfig(),
            py::arg("initial_inventory") = std::unordered_map<InventoryItem, InventoryQuantity>(),
            py::arg("inventory_regen_amounts") =
                std::unordered_map<ObservationType, std::unordered_map<InventoryItem, InventoryDelta>>())
@@ -84,8 +80,7 @@ inline void bind_agent_config(py::module& m) {
       .def_readwrite("group_id", &AgentConfig::group_id)
       .def_readwrite("freeze_duration", &AgentConfig::freeze_duration)
       .def_readwrite("inventory_config", &AgentConfig::inventory_config)
-      .def_readwrite("stat_rewards", &AgentConfig::stat_rewards)
-      .def_readwrite("stat_reward_max", &AgentConfig::stat_reward_max)
+      .def_readwrite("reward_config", &AgentConfig::reward_config)
       .def_readwrite("initial_inventory", &AgentConfig::initial_inventory)
       .def_readwrite("inventory_regen_amounts", &AgentConfig::inventory_regen_amounts);
 }

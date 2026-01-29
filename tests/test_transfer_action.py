@@ -10,7 +10,6 @@ import pytest
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
     AgentConfig,
-    AgentRewards,
     ChangeVibeActionConfig,
     GameConfig,
     InventoryConfig,
@@ -69,7 +68,6 @@ def create_two_agent_sim(
             ),
         ),
         agent=AgentConfig(
-            rewards=AgentRewards(),
             inventory=InventoryConfig(initial=initial_inventory or {"energy": 100, "heart": 10}),
         ),
         objects={

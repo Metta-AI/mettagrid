@@ -21,6 +21,7 @@
 #include "objects/inventory.hpp"
 #include "objects/inventory_config.hpp"
 #include "objects/protocol.hpp"
+#include "objects/reward_config.hpp"
 #include "objects/wall.hpp"
 #include "systems/stats_tracker.hpp"
 
@@ -109,6 +110,10 @@ protected:
     return {TestItemStrings::ORE, TestItemStrings::LASER, TestItemStrings::ARMOR, TestItemStrings::HEART};
   }
 
+  RewardConfig create_test_reward_config() {
+    return RewardConfig(create_test_stats_rewards(), create_test_stats_reward_max());
+  }
+
   AgentConfig create_test_agent_config() {
     return AgentConfig(0,                               // type_id
                        "agent",                         // type_name
@@ -117,9 +122,7 @@ protected:
                        100,                             // freeze_duration
                        0,                               // initial_vibe
                        create_test_inventory_config(),  // inventory_config
-                       create_test_stats_rewards(),     // stat_rewards
-                       create_test_stats_reward_max(),  // stat_reward_max
-                       {});                             // initial_inventory
+                       create_test_reward_config());    // reward_config
   }
 
   std::vector<std::string> resource_names;
@@ -133,11 +136,12 @@ TEST_F(MettaGridCppTest, AgentRewards) {
   auto resource_names = create_test_resource_names();
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
 
-  // Test reward values
-  EXPECT_FLOAT_EQ(agent->stat_rewards[std::string(TestItemStrings::ORE) + ".amount"], 0.125f);
-  EXPECT_FLOAT_EQ(agent->stat_rewards[std::string(TestItemStrings::LASER) + ".amount"], 0.0f);
-  EXPECT_FLOAT_EQ(agent->stat_rewards[std::string(TestItemStrings::ARMOR) + ".amount"], 0.0f);
-  EXPECT_FLOAT_EQ(agent->stat_rewards[std::string(TestItemStrings::HEART) + ".amount"], 1.0f);
+  // Test reward values via reward_computer.config
+  const auto& stat_rewards = agent->reward_computer.config.stat_rewards;
+  EXPECT_FLOAT_EQ(stat_rewards.at(std::string(TestItemStrings::ORE) + ".amount"), 0.125f);
+  EXPECT_FLOAT_EQ(stat_rewards.at(std::string(TestItemStrings::LASER) + ".amount"), 0.0f);
+  EXPECT_FLOAT_EQ(stat_rewards.at(std::string(TestItemStrings::ARMOR) + ".amount"), 0.0f);
+  EXPECT_FLOAT_EQ(stat_rewards.at(std::string(TestItemStrings::HEART) + ".amount"), 1.0f);
 }
 
 TEST_F(MettaGridCppTest, AgentRewardsWithAdditionalStatsTracker) {
@@ -148,7 +152,8 @@ TEST_F(MettaGridCppTest, AgentRewardsWithAdditionalStatsTracker) {
   auto stats_reward_max = create_test_stats_reward_max();
   stats_reward_max["chest.heart.amount"] = 5.0f;
 
-  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, create_test_inventory_config(), rewards, stats_reward_max);
+  RewardConfig reward_cfg(rewards, stats_reward_max);
+  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, create_test_inventory_config(), reward_cfg);
   auto resource_names = create_test_resource_names();
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
 
@@ -190,7 +195,8 @@ TEST_F(MettaGridCppTest, AgentRewardsFromCollectiveStats) {
   auto stats_reward_max = create_test_stats_reward_max();
   stats_reward_max["collective.ore_red.deposited"] = 10.0f;
 
-  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, create_test_inventory_config(), rewards, stats_reward_max);
+  RewardConfig reward_cfg(rewards, stats_reward_max);
+  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, create_test_inventory_config(), reward_cfg);
   auto resource_names = create_test_resource_names();
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
 
@@ -368,7 +374,8 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate_RewardCappingBehavior) {
   std::unordered_map<std::string, RewardType> stats_reward_max;
   stats_reward_max[std::string(TestItemStrings::ORE) + ".amount"] = 2.0f;  // Cap at 2.0 instead of 10.0
 
-  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, inventory_config, rewards, stats_reward_max);
+  RewardConfig reward_cfg(rewards, stats_reward_max);
+  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, inventory_config, reward_cfg);
 
   auto resource_names = create_test_resource_names();
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
@@ -435,7 +442,8 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate_MultipleItemCaps) {
   stats_reward_max[std::string(TestItemStrings::HEART) + ".amount"] = 30.0f;  // Cap for HEART
   // LASER and ARMOR have no caps
 
-  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, inventory_config, rewards, stats_reward_max);
+  RewardConfig reward_cfg(rewards, stats_reward_max);
+  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, inventory_config, reward_cfg);
 
   auto resource_names = create_test_resource_names();
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
@@ -492,7 +500,8 @@ TEST_F(MettaGridCppTest, SharedInventoryLimits) {
   auto rewards = create_test_stats_rewards();
   auto stats_reward_max = create_test_stats_reward_max();
 
-  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, inventory_config, rewards, stats_reward_max);
+  RewardConfig reward_cfg(rewards, stats_reward_max);
+  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, inventory_config, reward_cfg);
 
   auto resource_names = create_test_resource_names();
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
@@ -1020,7 +1029,7 @@ TEST_F(MettaGridCppTest, AssemblerMaxUses) {
   auto resource_names = create_test_resource_names();
   Agent* agent = new Agent(4, 5, agent_cfg, &resource_names);
   float agent_reward = 0.0f;
-  agent->reward = &agent_reward;
+  agent->init(&agent_reward);
   grid.add_object(agent);
 
   // Test 1: Verify initial state
@@ -1147,7 +1156,7 @@ TEST_F(MettaGridCppTest, AssemblerMinAgentsProtocolSelection) {
         agent_cfg.initial_inventory[TestItems::ORE] = 10;
         Agent* agent = new Agent(positions[i].first, positions[i].second, agent_cfg, &resource_names);
         float agent_reward = 0.0f;
-        agent->reward = &agent_reward;
+        agent->init(&agent_reward);
         grid.add_object(agent);
         current_count++;
       }
@@ -1229,7 +1238,7 @@ TEST_F(MettaGridCppTest, AssemblerWontProduceOutputIfAgentsCantReceive) {
 
   Agent* agent = new Agent(4, 5, agent_cfg, &resource_names);
   float agent_reward = 0.0f;
-  agent->reward = &agent_reward;
+  agent->init(&agent_reward);
   grid.add_object(agent);
 
   // Test 1: Agent with full inventory for output item - should fail
@@ -1301,7 +1310,7 @@ TEST_F(MettaGridCppTest, AssemblerWontProduceOutputIfAgentsCantReceive) {
 
   Agent* agent2 = new Agent(4, 6, agent_cfg2, &resource_names);
   float reward2 = 0.0f;
-  agent2->reward = &reward2;
+  agent2->init(&reward2);
   grid.add_object(agent2);
 
   // Both agents have full inventory

@@ -272,7 +272,7 @@ void MettaGrid::_compute_agent_goal_obs_tokens(size_t agent_idx) {
   std::unordered_set<std::string> added_resources;
 
   // Iterate through stat_rewards to find rewarding resources
-  for (const auto& [stat_name, reward_value] : agent->stat_rewards) {
+  for (const auto& [stat_name, reward_value] : agent->reward_computer.config.stat_rewards) {
     // Extract resource name from stat name (e.g., "carbon.amount" -> "carbon", "carbon.gained" -> "carbon")
     size_t dot_pos = stat_name.find('.');
     if (dot_pos != std::string::npos) {
@@ -605,7 +605,7 @@ void MettaGrid::_step() {
 
   // Compute stat-based rewards for all agents
   for (auto& agent : _agents) {
-    agent->compute_stat_rewards(_stats.get());
+    agent->compute_stat_rewards(_stats.get(), &_tag_index);
   }
 
   // Update episode rewards

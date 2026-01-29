@@ -326,6 +326,19 @@ class InventoryConfig:
     def __init__(self) -> None: ...
     limit_defs: list[LimitDef]
 
+class RewardConfig:
+    def __init__(
+        self,
+        stat_rewards: dict[str, float] = {},
+        stat_reward_max: dict[str, float] = {},
+        stat_reward_denoms: dict[str, int] = {},
+        stat_reward_stat_denoms: dict[str, str] = {},
+    ) -> None: ...
+    stat_rewards: dict[str, float]
+    stat_reward_max: dict[str, float]
+    stat_reward_denoms: dict[str, int]
+    stat_reward_stat_denoms: dict[str, str]
+
 class WallConfig(GridObjectConfig):
     def __init__(self, type_id: int, type_name: str, initial_vibe: int = 0): ...
     type_id: int
@@ -343,8 +356,7 @@ class AgentConfig(GridObjectConfig):
         freeze_duration: int = 0,
         initial_vibe: int = 0,
         inventory_config: InventoryConfig = ...,
-        stat_rewards: dict[str, float] = {},
-        stat_reward_max: dict[str, float] = {},
+        reward_config: RewardConfig = ...,
         initial_inventory: dict[int, int] = {},
         inventory_regen_amounts: dict[int, dict[int, int]] | None = None,
     ) -> None: ...
@@ -356,8 +368,7 @@ class AgentConfig(GridObjectConfig):
     group_name: str
     freeze_duration: int
     inventory_config: InventoryConfig
-    stat_rewards: dict[str, float]
-    stat_reward_max: dict[str, float]
+    reward_config: RewardConfig
     initial_inventory: dict[int, int]
     inventory_regen_amounts: dict[int, dict[int, int]]
 

@@ -8,9 +8,11 @@
 #include <string>
 #include <vector>
 
+#include "core/tag_index.hpp"
 #include "core/types.hpp"
 #include "objects/agent_config.hpp"
 #include "objects/constants.hpp"
+#include "systems/reward.hpp"
 #include "systems/stats_tracker.hpp"
 
 class ObservationEncoder;
@@ -20,18 +22,12 @@ public:
   ObservationType group;
   short frozen;
   short freeze_duration;
-  // inventory is a map of item to amount.
-  // keys should be deleted when the amount is 0, to keep iteration faster.
-  // however, this should not be relied on for correctness.
-  std::unordered_map<std::string, RewardType> stat_rewards;
-  std::unordered_map<std::string, RewardType> stat_reward_max;
+  RewardComputer reward_computer;
   std::string group_name;
   // Despite being a GridObjectId, this is different from the `id` property.
   // This is the index into MettaGrid._agents (std::vector<Agent*>)
   GridObjectId agent_id;
   StatsTracker stats;
-  RewardType current_stat_reward;
-  RewardType* reward;
   GridLocation prev_location;
   GridLocation spawn_location;
   unsigned int steps_without_motion;
@@ -55,7 +51,7 @@ public:
 
   void on_inventory_change(InventoryItem item, InventoryDelta delta) override;
 
-  void compute_stat_rewards(StatsTracker* game_stats_tracker = nullptr);
+  void compute_stat_rewards(StatsTracker* game_stats_tracker = nullptr, mettagrid::TagIndex* tag_index = nullptr);
 
   // Implementation of Usable interface
   bool onUse(Agent& actor, ActionArg arg) override;

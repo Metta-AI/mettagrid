@@ -1,7 +1,9 @@
 from typing import Any
 
+from mettagrid.config.game_value import StatsSource
 from mettagrid.config.handler_config import AlignmentCondition
 from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_mutations
+from mettagrid.config.mettagrid_c_reward import convert_agent_rewards_to_stat_rewards
 from mettagrid.config.mettagrid_config import (
     AgentConfig,
     AssemblerConfig,
@@ -10,7 +12,6 @@ from mettagrid.config.mettagrid_config import (
     GridObjectConfig,
     WallConfig,
 )
-from mettagrid.config.obs_config import StatsSource
 from mettagrid.config.tag import typeTag
 from mettagrid.mettagrid_c import ActionConfig as CppActionConfig
 from mettagrid.mettagrid_c import AgentConfig as CppAgentConfig
@@ -37,6 +38,7 @@ from mettagrid.mettagrid_c import NearFilterConfig as CppNearFilterConfig
 from mettagrid.mettagrid_c import Protocol as CppProtocol
 from mettagrid.mettagrid_c import ResourceDelta as CppResourceDelta
 from mettagrid.mettagrid_c import ResourceFilterConfig as CppResourceFilterConfig
+from mettagrid.mettagrid_c import RewardConfig as CppRewardConfig
 from mettagrid.mettagrid_c import StatsSource as CppStatsSource
 from mettagrid.mettagrid_c import StatsValueConfig as CppStatsValueConfig
 from mettagrid.mettagrid_c import TagFilterConfig as CppTagFilterConfig
@@ -585,7 +587,7 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
     if len(sorted_tags) > 256:
         raise ValueError(f"Too many unique tags ({len(sorted_tags)}). Maximum supported is 256 due to uint8 limit.")
 
-    tag_name_to_id = {tag: tag_id_offset + i for i, tag in enumerate(sorted_tags)}
+    tag_name_to_id: dict[str, int] = {str(tag): tag_id_offset + i for i, tag in enumerate(sorted_tags)}
     tag_id_to_name = {id: name for name, id in tag_name_to_id.items()}
 
     # Group agents by team_id to create groups
@@ -614,30 +616,14 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
                     f"Tags are currently applied per-team, not per-agent."
                 )
 
-        rewards_config = agent_props.get("rewards", {})
-
-        # Process stats rewards
-        stat_rewards = rewards_config.get("stats", {})
-        stat_reward_max = rewards_config.get("stats_max", {})
-
-        # Add collective_stats rewards (rewarded based on collective's stats)
-        for k, v in rewards_config.get("collective_stats", {}).items():
-            assert k not in stat_rewards, f"Stat reward {k} already exists"
-            stat_rewards[k] = v
-        for k, v in rewards_config.get("collective_stats_max", {}).items():
-            assert k not in stat_reward_max, f"Stat reward max {k} already exists"
-            stat_reward_max[k] = v
-
-        for k, v in rewards_config.get("inventory", {}).items():
-            assert k in resource_name_to_id, f"Inventory reward {k} not in resource_names"
-            stat_name = k + ".amount"
-            assert stat_name not in stat_rewards, f"Stat reward {stat_name} already exists"
-            stat_rewards[stat_name] = v
-        for k, v in rewards_config.get("inventory_max", {}).items():
-            assert k in resource_name_to_id, f"Inventory reward max {k} not in resource_names"
-            stat_name = k + ".amount"
-            assert stat_name not in stat_reward_max, f"Stat reward max {stat_name} already exists"
-            stat_reward_max[stat_name] = v
+        # Convert rewards dict to legacy stat_rewards format for C++
+        stat_rewards, stat_reward_max, stat_reward_denoms, stat_reward_stat_denoms = (
+            convert_agent_rewards_to_stat_rewards(
+                first_agent.rewards,
+                resource_name_to_id,
+                tag_name_to_id,
+            )
+        )
 
         # Get inventory config
         inv_config = agent_props.get("inventory", {})
@@ -690,6 +676,13 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         inventory_config = CppInventoryConfig()
         inventory_config.limit_defs = limit_defs
 
+        reward_config = CppRewardConfig(
+            stat_rewards=stat_rewards,
+            stat_reward_max=stat_reward_max,
+            stat_reward_denoms=stat_reward_denoms,
+            stat_reward_stat_denoms=stat_reward_stat_denoms,
+        )
+
         cpp_agent_config = CppAgentConfig(
             type_id=type_id_by_type_name[first_agent.name],
             type_name=first_agent.name,
@@ -698,8 +691,7 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             freeze_duration=agent_props["freeze_duration"],
             initial_vibe=agent_props["vibe"],
             inventory_config=inventory_config,
-            stat_rewards=stat_rewards,
-            stat_reward_max=stat_reward_max,
+            reward_config=reward_config,
             initial_inventory=initial_inventory,
             inventory_regen_amounts=inventory_regen_amounts,
         )

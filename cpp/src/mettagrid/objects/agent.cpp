@@ -13,13 +13,10 @@ Agent::Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vec
       group(config.group_id),
       frozen(0),
       freeze_duration(config.freeze_duration),
-      stat_rewards(config.stat_rewards),
-      stat_reward_max(config.stat_reward_max),
+      reward_computer(config.reward_config),
       group_name(config.group_name),
       agent_id(0),
       stats(resource_names),
-      current_stat_reward(0),
-      reward(nullptr),
       prev_location(r, c),
       spawn_location(r, c),
       steps_without_motion(0),
@@ -29,7 +26,7 @@ Agent::Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vec
 }
 
 void Agent::init(RewardType* reward_ptr) {
-  this->reward = reward_ptr;
+  this->reward_computer.init(reward_ptr);
 }
 
 void Agent::populate_initial_inventory(const std::unordered_map<InventoryItem, InventoryQuantity>& initial_inventory) {
@@ -70,35 +67,8 @@ void Agent::on_inventory_change(InventoryItem item, InventoryDelta delta) {
   }
 }
 
-void Agent::compute_stat_rewards(StatsTracker* game_stats_tracker) {
-  if (this->stat_rewards.empty()) {
-    return;
-  }
-
-  float new_stat_reward = 0;
-
-  for (const auto& [stat_name, reward_per_unit] : this->stat_rewards) {
-    float stat_value = this->stats.get(stat_name);
-    if (game_stats_tracker) {
-      stat_value += game_stats_tracker->get(stat_name);
-    }
-    if (this->getCollective()) {
-      stat_value += this->getCollective()->stats.get(stat_name);
-    }
-    float stats_reward = stat_value * reward_per_unit;
-    if (this->stat_reward_max.count(stat_name) > 0) {
-      stats_reward = std::min(stats_reward, this->stat_reward_max.at(stat_name));
-    }
-
-    new_stat_reward += stats_reward;
-  }
-
-  // Update the agent's reward with the difference
-  float reward_delta = new_stat_reward - this->current_stat_reward;
-  if (reward_delta != 0.0f) {
-    *this->reward += reward_delta;
-    this->current_stat_reward = new_stat_reward;
-  }
+void Agent::compute_stat_rewards(StatsTracker* game_stats_tracker, mettagrid::TagIndex* tag_index) {
+  this->reward_computer.compute(&this->stats, game_stats_tracker, tag_index, this->getCollective());
 }
 
 bool Agent::onUse(Agent& actor, ActionArg arg) {

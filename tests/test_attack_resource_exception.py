@@ -6,7 +6,6 @@ from mettagrid.config.mettagrid_c_config import convert_to_cpp_game_config
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
     AgentConfig,
-    AgentRewards,
     AttackActionConfig,
     ChangeVibeActionConfig,
     GameConfig,
@@ -44,7 +43,7 @@ def test_exception_when_laser_not_in_inventory():
             change_vibe=ChangeVibeActionConfig(enabled=False, vibes=[]),
         ),
         objects={"wall": WallConfig()},
-        agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=5, rewards=AgentRewards()),
+        agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=5),
         agents=[
             AgentConfig(team_id=0, inventory=InventoryConfig(default_limit=10), freeze_duration=5),  # red
             AgentConfig(team_id=1, inventory=InventoryConfig(default_limit=10), freeze_duration=5),  # blue
@@ -84,7 +83,7 @@ def test_no_exception_when_resources_in_inventory():
             change_vibe=ChangeVibeActionConfig(enabled=False, vibes=[]),
         ),
         objects={"wall": WallConfig()},
-        agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=5, rewards=AgentRewards()),
+        agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=5),
         agents=[
             AgentConfig(team_id=0, inventory=InventoryConfig(default_limit=10), freeze_duration=5),  # red
             AgentConfig(team_id=1, inventory=InventoryConfig(default_limit=10), freeze_duration=5),  # blue

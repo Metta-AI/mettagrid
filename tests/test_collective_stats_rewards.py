@@ -1,15 +1,15 @@
 """Test collective stats rewards (e.g., aligned.junction.held) for mettagrid.
 
 These tests verify that:
-1. collective_stats rewards in AgentRewards are properly converted to C++ stat_rewards
+1. Collective stats rewards are properly converted to C++ stat_rewards
 2. update_held_stats() is called during simulation steps to track holding duration
 3. Agents receive rewards based on their collective's held stats
 """
 
+from mettagrid.config.game_value import StatsSource
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
     AgentConfig,
-    AgentRewards,
     CollectiveConfig,
     GameConfig,
     GridObjectConfig,
@@ -19,6 +19,7 @@ from mettagrid.config.mettagrid_config import (
     NoopActionConfig,
     WallConfig,
 )
+from mettagrid.config.reward_config import inventoryReward, reward, stat
 from mettagrid.simulator import Action, Simulation
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
 
@@ -30,7 +31,7 @@ class TestCollectiveStatsRewardsConversion:
         """Test that collective_stats rewards are included in C++ stat_rewards.
 
         This would have caught the bug where collective_stats were defined in
-        AgentRewards but never converted to C++ stat_rewards.
+        rewards but never converted to C++ stat_rewards.
 
         We test this via integration - create an env with collective_stats reward
         and verify the agent actually receives rewards.
@@ -56,10 +57,13 @@ class TestCollectiveStatsRewardsConversion:
             },
             agent=AgentConfig(
                 collective="cogs",
-                rewards=AgentRewards(
+                rewards={
                     # This tests collective_stats conversion - agent is member of collective
-                    collective_stats={"aligned.agent.held": 0.1},
-                ),
+                    "aligned.agent.held": reward(
+                        stat("aligned.agent.held", source=StatsSource.COLLECTIVE),
+                        weight=0.1,
+                    ),
+                },
             ),
         )
 
@@ -105,12 +109,15 @@ class TestCollectiveStatsRewardsConversion:
             agent=AgentConfig(
                 collective="cogs",
                 inventory=InventoryConfig(initial={"gold": 10}),
-                rewards=AgentRewards(
+                rewards={
                     # Regular inventory reward
-                    inventory={"gold": 0.1},
+                    "gold": inventoryReward("gold", weight=0.1),
                     # Collective stats reward
-                    collective_stats={"aligned.agent.held": 0.1},
-                ),
+                    "aligned.agent.held": reward(
+                        stat("aligned.agent.held", source=StatsSource.COLLECTIVE),
+                        weight=0.1,
+                    ),
+                },
             ),
         )
 
@@ -168,10 +175,13 @@ class TestCollectiveHeldStatsIntegration:
             },
             agent=AgentConfig(
                 collective="cogs",
-                rewards=AgentRewards(
+                rewards={
                     # Reward for each step a junction is held by the collective
-                    collective_stats={"aligned.junction.held": 0.01},
-                ),
+                    "aligned.junction.held": reward(
+                        stat("aligned.junction.held", source=StatsSource.COLLECTIVE),
+                        weight=0.01,
+                    ),
+                },
             ),
         )
 
@@ -269,12 +279,16 @@ class TestMultipleCollectiveTypes:
             },
             agent=AgentConfig(
                 collective="team",
-                rewards=AgentRewards(
-                    collective_stats={
-                        "aligned.junction.held": 0.01,
-                        "aligned.charger.held": 0.02,
-                    },
-                ),
+                rewards={
+                    "aligned.junction.held": reward(
+                        stat("aligned.junction.held", source=StatsSource.COLLECTIVE),
+                        weight=0.01,
+                    ),
+                    "aligned.charger.held": reward(
+                        stat("aligned.charger.held", source=StatsSource.COLLECTIVE),
+                        weight=0.02,
+                    ),
+                },
             ),
         )
 
@@ -326,9 +340,12 @@ class TestNoRewardWithoutAlignment:
             },
             agent=AgentConfig(
                 collective="cogs",
-                rewards=AgentRewards(
-                    collective_stats={"aligned.junction.held": 0.01},
-                ),
+                rewards={
+                    "aligned.junction.held": reward(
+                        stat("aligned.junction.held", source=StatsSource.COLLECTIVE),
+                        weight=0.01,
+                    ),
+                },
             ),
         )
 
@@ -377,10 +394,13 @@ class TestAgentHeldStats:
             },
             agent=AgentConfig(
                 collective="cogs",
-                rewards=AgentRewards(
+                rewards={
                     # Reward for each step an agent is in the collective
-                    collective_stats={"aligned.agent.held": 0.01},
-                ),
+                    "aligned.agent.held": reward(
+                        stat("aligned.agent.held", source=StatsSource.COLLECTIVE),
+                        weight=0.01,
+                    ),
+                },
             ),
         )
 

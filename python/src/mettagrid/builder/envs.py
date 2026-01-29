@@ -7,7 +7,6 @@ from mettagrid.builder import building, empty_assemblers
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
     AgentConfig,
-    AgentRewards,
     AttackActionConfig,
     ChangeVibeActionConfig,
     GameConfig,
@@ -17,6 +16,7 @@ from mettagrid.config.mettagrid_config import (
     NoopActionConfig,
     ResourceLimitsConfig,
 )
+from mettagrid.config.reward_config import inventoryReward
 from mettagrid.map_builder.map_builder import MapBuilderConfig
 from mettagrid.map_builder.perimeter_incontext import PerimeterInContextMapBuilder
 from mettagrid.map_builder.random_map import RandomMapBuilder
@@ -87,11 +87,7 @@ def make_arena(
                         "heart": ResourceLimitsConfig(min=255, resources=["heart"]),
                     },
                 ),
-                rewards=AgentRewards(
-                    inventory={
-                        "heart": 1,
-                    },
-                ),
+                rewards={"heart": inventoryReward("heart")},
             ),
             map_builder=map_builder,
         ),
@@ -117,11 +113,7 @@ def make_navigation(num_agents: int) -> MettaGridConfig:
                 noop=NoopActionConfig(enabled=True),
             ),
             agent=AgentConfig(
-                rewards=AgentRewards(
-                    inventory={
-                        "heart": 1,
-                    },
-                ),
+                rewards={"heart": inventoryReward("heart")},
             ),
             # Always provide a concrete map builder config so tests can set width/height
             map_builder=RandomMapBuilder.Config(agents=num_agents),
@@ -167,11 +159,7 @@ def make_assembly_lines(
                 move=MoveActionConfig(),
             ),
             agent=AgentConfig(
-                rewards=AgentRewards(
-                    inventory={
-                        "heart": 1,
-                    },
-                ),
+                rewards={"heart": inventoryReward("heart")},
                 inventory=InventoryConfig(
                     default_limit=1,
                     limits={"heart": ResourceLimitsConfig(min=15, resources=["heart"])},

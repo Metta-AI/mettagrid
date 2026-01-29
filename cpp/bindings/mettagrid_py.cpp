@@ -11,12 +11,14 @@
 #include "core/tag_index.hpp"
 #include "handler/handler_bindings.hpp"
 #include "objects/agent.hpp"
+#include "objects/reward_config.hpp"
 #include "objects/assembler.hpp"
 #include "objects/chest.hpp"
 #include "objects/collective.hpp"
 #include "objects/protocol.hpp"
 #include "objects/wall.hpp"
 #include "systems/packed_coordinate.hpp"
+#include "systems/reward.hpp"
 #include "systems/stats_tracker.hpp"
 
 namespace py = pybind11;
@@ -115,7 +117,7 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
       obj_dict["freeze_duration"] = agent->freeze_duration;
       obj_dict["vibe"] = agent->vibe;
       obj_dict["agent_id"] = agent->agent_id;
-      obj_dict["current_stat_reward"] = agent->current_stat_reward;
+      obj_dict["current_stat_reward"] = agent->reward_computer.current_stat_reward;
       obj_dict["steps_without_motion"] = agent->steps_without_motion;
 
       // We made resource limits more complicated than this, and need to review how to expose them.
@@ -387,6 +389,7 @@ PYBIND11_MODULE(mettagrid_c, m) {
   // We're, like 80% sure on this reasoning.
 
   bind_inventory_config(m);
+  bind_reward_config(m);
   bind_collective_config(m);
   bind_agent_config(m);
   bind_assembler_config(m);

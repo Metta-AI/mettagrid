@@ -5,7 +5,6 @@ import pytest
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
     AgentConfig,
-    AgentRewards,
     AttackActionConfig,
     AttackOutcome,
     ChangeVibeActionConfig,
@@ -63,7 +62,7 @@ def base_config():
         objects={
             "wall": WallConfig(),
         },
-        agent=AgentConfig(rewards=AgentRewards()),
+        agent=AgentConfig(),
     )
 
 

@@ -1,8 +1,9 @@
 """Tests for StatsValue config."""
 
+from mettagrid.config.game_value import StatsSource, StatsValue
 from mettagrid.config.mettagrid_c_config import convert_to_cpp_game_config
 from mettagrid.config.mettagrid_config import GameConfig, MettaGridConfig
-from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig, StatsSource, StatsValue
+from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig
 from mettagrid.simulator.simulator import Simulation, Simulator
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
 

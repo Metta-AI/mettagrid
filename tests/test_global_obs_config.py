@@ -3,7 +3,6 @@
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
     AgentConfig,
-    AgentRewards,
     GameConfig,
     GlobalObsConfig,
     InventoryConfig,
@@ -25,7 +24,7 @@ def create_test_sim(global_obs_config: dict[str, bool]) -> Simulation:
         obs=ObsConfig(width=11, height=11, num_tokens=100, global_obs=GlobalObsConfig(**global_obs_config)),
         max_steps=100,
         resource_names=["item1", "item2"],
-        agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=0, rewards=AgentRewards()),
+        agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=0),
         actions=ActionsConfig(noop=NoopActionConfig(enabled=True), move=MoveActionConfig(enabled=True)),
         objects={"wall": WallConfig()},
     )
@@ -125,7 +124,7 @@ def test_global_obs_default_values():
         max_steps=100,
         resource_names=["item1"],
         # No global_obs specified - should use defaults
-        agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=0, rewards=AgentRewards()),
+        agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=0),
         actions=ActionsConfig(noop=NoopActionConfig(enabled=True)),
         objects={"wall": WallConfig()},
     )

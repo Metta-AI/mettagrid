@@ -25,35 +25,32 @@ from mettagrid.config.action_config import (  # noqa: F401 - re-exported for bac
     VibeTransfer,
 )
 from mettagrid.config.event_config import EventConfig
+from mettagrid.config.game_value import (  # noqa: F401 - re-exported
+    AnyGameValue,
+    CollectiveInventory,
+    GameValue,
+    Inventory,
+    NumObjects,
+    NumTaggedObjects,
+    StatsSource,
+    StatsValue,
+)
 from mettagrid.config.handler_config import (
     AOEConfig,
     Handler,
 )
 from mettagrid.config.id_map import IdMap
-from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig  # noqa: F401 - GlobalObsConfig re-exported
+from mettagrid.config.obs_config import (  # noqa: F401 - re-exported
+    GlobalObsConfig,
+    ObsConfig,
+)
+from mettagrid.config.reward_config import AgentReward
 from mettagrid.config.tag import Tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.map_builder.map_builder import AnyMapBuilderConfig
 from mettagrid.map_builder.random_map import RandomMapBuilder
 
 # ===== Python Configuration Models =====
-
-
-class AgentRewards(Config):
-    """Agent reward configuration with separate inventory and stats rewards."""
-
-    # inventory rewards get merged into stats rewards in the C++ environment. The advantage of using inventory rewards
-    # is that it's easier for us to assert that these inventory items exist, and thus catch typos.
-    inventory: dict[str, float] = Field(default_factory=dict)
-    inventory_max: dict[str, float] = Field(default_factory=dict)
-    # collective_inventory rewards agents based on the inventory of the collective they belong to
-    collective_inventory: dict[str, float] = Field(default_factory=dict)
-    collective_inventory_max: dict[str, float] = Field(default_factory=dict)
-    # collective_stats rewards agents based on stats of the collective they belong to (e.g., aligned.charger.held)
-    collective_stats: dict[str, float] = Field(default_factory=dict)
-    collective_stats_max: dict[str, float] = Field(default_factory=dict)
-    stats: dict[str, float] = Field(default_factory=dict)
-    stats_max: dict[str, float] = Field(default_factory=dict)
 
 
 class ResourceLimitsConfig(Config):
@@ -179,7 +176,7 @@ class AgentConfig(GridObjectConfig):
 
     name: str = Field(default="agent")
     team_id: int = Field(default=0, ge=0, description="Team ID for grouping agents")
-    rewards: AgentRewards = Field(default_factory=AgentRewards)
+    rewards: dict[str, AgentReward] = Field(default_factory=dict)
     freeze_duration: int = Field(default=10, ge=-1)
 
 
