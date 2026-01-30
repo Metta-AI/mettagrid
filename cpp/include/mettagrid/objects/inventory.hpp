@@ -69,6 +69,9 @@ public:
   // Enforce all limits - drop excess items when limits decrease (e.g., after losing gear modifiers)
   void enforce_all_limits();
 
+  // Check if the inventory is completely empty (all items have 0 quantity)
+  bool is_empty() const;
+
   // Check if an item is a modifier for any limit
   bool is_modifier(InventoryItem item) const;
 };

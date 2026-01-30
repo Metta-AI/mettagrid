@@ -1,6 +1,11 @@
 #ifndef PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_MUTATIONS_RESOURCE_MUTATION_HPP_
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_MUTATIONS_RESOURCE_MUTATION_HPP_
 
+#include <cassert>
+
+#include "core/grid.hpp"
+#include "core/grid_object.hpp"
+#include "core/tag_index.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
 #include "handler/mutations/mutation.hpp"
@@ -55,6 +60,18 @@ public:
                                      amount,
                                      false  // Don't destroy untransferred resources
     );
+
+    // Remove source from grid and tag index when its inventory is depleted
+    if (_config.remove_source_when_empty && source->inventory.is_empty()) {
+      GridObject* grid_obj = dynamic_cast<GridObject*>(source);
+      if (grid_obj != nullptr) {
+        assert(ctx.grid != nullptr && "HandlerContext.grid must be set when remove_source_when_empty is used");
+        assert(ctx.tag_index != nullptr &&
+               "HandlerContext.tag_index must be set when remove_source_when_empty is used");
+        ctx.grid->remove_from_grid(*grid_obj);
+        ctx.tag_index->unregister_object(grid_obj);
+      }
+    }
   }
 
 private:

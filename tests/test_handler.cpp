@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "core/grid.hpp"
 #include "core/grid_object.hpp"
 #include "core/tag_index.hpp"
 #include "handler/filters/alignment_filter.hpp"
@@ -928,6 +929,178 @@ void test_near_filter_passes_with_inner_filters() {
   std::cout << "✓ NearFilter passes when inner filters match" << std::endl;
 }
 
+// ============================================================================
+// Remove Source When Empty Tests
+// ============================================================================
+
+void test_resource_transfer_remove_source_when_empty() {
+  std::cout << "Testing ResourceTransferMutation remove_source_when_empty..." << std::endl;
+
+  // Create a grid and place a target object on it
+  Grid grid(10, 10);
+  TagIndex tag_index;
+
+  TestActivationObject actor("actor");
+  actor.location.r = 0;
+  actor.location.c = 0;
+
+  // Create target (extractor) with 10 gold, place on grid
+  auto* target = new TestActivationObject("extractor");
+  target->location.r = 1;
+  target->location.c = 1;
+  target->inventory.update(2, 10);  // 10 gold
+  target->tag_ids.insert(42);
+  grid.add_object(target);
+  tag_index.register_object(target);
+
+  // Verify target is on grid and in tag index
+  assert(grid.object_at(GridLocation(1, 1)) == target);
+  assert(tag_index.count_objects_with_tag(42) == 1);
+
+  // Transfer all gold from target to actor, with remove_source_when_empty=true
+  HandlerContext ctx(&actor, target, nullptr, &tag_index);
+  ctx.grid = &grid;
+
+  ResourceTransferMutationConfig config;
+  config.source = EntityRef::target;
+  config.destination = EntityRef::actor;
+  config.resource_id = 2;
+  config.amount = -1;  // Transfer all
+  config.remove_source_when_empty = true;
+
+  ResourceTransferMutation mutation(config);
+  mutation.apply(ctx);
+
+  // Gold transferred
+  assert(actor.inventory.amount(2) == 10);
+  assert(target->inventory.amount(2) == 0);
+
+  // Target should be removed from grid and tag index
+  assert(grid.object_at(GridLocation(1, 1)) == nullptr);
+  assert(tag_index.count_objects_with_tag(42) == 0);
+
+  std::cout << "✓ ResourceTransferMutation remove_source_when_empty test passed" << std::endl;
+}
+
+void test_resource_transfer_remove_source_not_empty_yet() {
+  std::cout << "Testing ResourceTransferMutation remove_source_when_empty (not empty yet)..." << std::endl;
+
+  Grid grid(10, 10);
+  TagIndex tag_index;
+
+  TestActivationObject actor("actor");
+  actor.location.r = 0;
+  actor.location.c = 0;
+
+  auto* target = new TestActivationObject("extractor");
+  target->location.r = 1;
+  target->location.c = 1;
+  target->inventory.update(2, 10);  // 10 gold
+  grid.add_object(target);
+  tag_index.register_object(target);
+
+  HandlerContext ctx(&actor, target, nullptr, &tag_index);
+  ctx.grid = &grid;
+
+  // Transfer only 5 gold - target still has 5 remaining
+  ResourceTransferMutationConfig config;
+  config.source = EntityRef::target;
+  config.destination = EntityRef::actor;
+  config.resource_id = 2;
+  config.amount = 5;
+  config.remove_source_when_empty = true;
+
+  ResourceTransferMutation mutation(config);
+  mutation.apply(ctx);
+
+  assert(actor.inventory.amount(2) == 5);
+  assert(target->inventory.amount(2) == 5);
+
+  // Target should still be on grid (not empty yet)
+  assert(grid.object_at(GridLocation(1, 1)) == target);
+
+  std::cout << "✓ ResourceTransferMutation not empty yet test passed" << std::endl;
+}
+
+void test_resource_transfer_remove_source_flag_off() {
+  std::cout << "Testing ResourceTransferMutation without remove flag..." << std::endl;
+
+  Grid grid(10, 10);
+  TagIndex tag_index;
+
+  TestActivationObject actor("actor");
+  actor.location.r = 0;
+  actor.location.c = 0;
+
+  auto* target = new TestActivationObject("extractor");
+  target->location.r = 1;
+  target->location.c = 1;
+  target->inventory.update(2, 10);
+  grid.add_object(target);
+
+  HandlerContext ctx(&actor, target, nullptr, &tag_index);
+  ctx.grid = &grid;
+
+  // Transfer all but without the flag
+  ResourceTransferMutationConfig config;
+  config.source = EntityRef::target;
+  config.destination = EntityRef::actor;
+  config.resource_id = 2;
+  config.amount = -1;
+  config.remove_source_when_empty = false;  // Flag off
+
+  ResourceTransferMutation mutation(config);
+  mutation.apply(ctx);
+
+  assert(target->inventory.amount(2) == 0);
+
+  // Target should still be on grid (flag is off)
+  assert(grid.object_at(GridLocation(1, 1)) == target);
+
+  std::cout << "✓ ResourceTransferMutation without remove flag test passed" << std::endl;
+}
+
+void test_resource_transfer_remove_source_multiple_resources() {
+  std::cout << "Testing remove_source_when_empty with multiple resources..." << std::endl;
+
+  Grid grid(10, 10);
+  TagIndex tag_index;
+
+  TestActivationObject actor("actor");
+  actor.location.r = 0;
+  actor.location.c = 0;
+
+  auto* target = new TestActivationObject("extractor");
+  target->location.r = 1;
+  target->location.c = 1;
+  target->inventory.update(1, 5);   // 5 energy
+  target->inventory.update(2, 10);  // 10 gold
+  grid.add_object(target);
+
+  HandlerContext ctx(&actor, target, nullptr, &tag_index);
+  ctx.grid = &grid;
+
+  // Transfer all gold - but target still has energy
+  ResourceTransferMutationConfig config;
+  config.source = EntityRef::target;
+  config.destination = EntityRef::actor;
+  config.resource_id = 2;
+  config.amount = -1;
+  config.remove_source_when_empty = true;
+
+  ResourceTransferMutation mutation(config);
+  mutation.apply(ctx);
+
+  // Gold gone, energy remains
+  assert(target->inventory.amount(2) == 0);
+  assert(target->inventory.amount(1) == 5);
+
+  // Target should still be on grid (still has energy)
+  assert(grid.object_at(GridLocation(1, 1)) == target);
+
+  std::cout << "✓ remove_source_when_empty with multiple resources test passed" << std::endl;
+}
+
 int main() {
   std::cout << "Running Handler tests..." << std::endl;
   std::cout << "================================================" << std::endl;
@@ -969,6 +1142,12 @@ int main() {
   test_activation_handler_filters_fail();
   test_activation_handler_multiple_mutations();
   test_activation_handler_check_filters_only();
+
+  // Remove source when empty tests
+  test_resource_transfer_remove_source_when_empty();
+  test_resource_transfer_remove_source_not_empty_yet();
+  test_resource_transfer_remove_source_flag_off();
+  test_resource_transfer_remove_source_multiple_resources();
 
   std::cout << "================================================" << std::endl;
   std::cout << "All Handler tests passed! ✓" << std::endl;

@@ -133,6 +133,7 @@ def convert_mutations(
                     destination=convert_entity_ref(mutation.to_target),
                     resource_id=resource_name_to_id[resource_name],
                     amount=amount,
+                    remove_source_when_empty=mutation.remove_source_when_empty,
                 )
                 target_obj.add_resource_transfer_mutation(cpp_mutation)
 

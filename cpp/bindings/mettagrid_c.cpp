@@ -113,6 +113,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   if (!game_config.events.empty()) {
     _event_scheduler = std::make_unique<mettagrid::EventScheduler>(game_config.events, &_rng, &_tag_index);
     _event_scheduler->set_collectives(&_collectives);
+    _event_scheduler->set_grid(_grid.get());
   }
 
   // Pre-compute goal_obs tokens for each agent
@@ -575,6 +576,7 @@ void MettaGrid::_step() {
     ctx.target = agent;
     ctx.game_stats = _stats.get();
     ctx.tag_index = &_tag_index;
+    ctx.grid = _grid.get();
     ctx.collectives = &_collectives;
     agent->apply_on_tick(ctx);
   }

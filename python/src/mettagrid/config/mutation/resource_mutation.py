@@ -30,18 +30,28 @@ class ResourceTransferMutation(Mutation):
         default_factory=dict,
         description="Resources to transfer (amount, -1 = all available)",
     )
+    remove_source_when_empty: bool = Field(
+        default=False,
+        description="Remove source from grid when its inventory is fully depleted",
+    )
 
 
 # ===== Helper Mutation Functions =====
 
 
-def withdraw(resources: dict[str, int]) -> ResourceTransferMutation:
+def withdraw(resources: dict[str, int], *, remove_when_empty: bool = False) -> ResourceTransferMutation:
     """Mutation: transfer resources from target to actor.
 
     Args:
         resources: Map of resource name to amount. Use -1 for "all available".
+        remove_when_empty: If True, remove source from grid when its inventory is fully depleted.
     """
-    return ResourceTransferMutation(from_target=EntityTarget.TARGET, to_target=EntityTarget.ACTOR, resources=resources)
+    return ResourceTransferMutation(
+        from_target=EntityTarget.TARGET,
+        to_target=EntityTarget.ACTOR,
+        resources=resources,
+        remove_source_when_empty=remove_when_empty,
+    )
 
 
 def deposit(resources: dict[str, int]) -> ResourceTransferMutation:

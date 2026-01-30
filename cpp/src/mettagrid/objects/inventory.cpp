@@ -113,6 +113,11 @@ std::unordered_map<InventoryItem, InventoryQuantity> Inventory::get() const {
   return this->_inventory;
 }
 
+// Check if the inventory is completely empty
+bool Inventory::is_empty() const {
+  return this->_inventory.empty();
+}
+
 // Check if an item is a modifier for any limit
 bool Inventory::is_modifier(InventoryItem item) const {
   for (const auto& [_, limit] : this->_limits) {

@@ -43,6 +43,7 @@ const std::vector<mettagrid::AOEConfig>& GridObject::aoe_configs() const {
 
 bool GridObject::onUse(Agent& actor, ActionArg /*arg*/) {
   mettagrid::HandlerContext ctx(&actor, this, nullptr, _tag_index);
+  ctx.grid = _grid;
   // Try each on_use handler in order until one succeeds
   for (auto& handler : _on_use_handlers) {
     if (handler->try_apply(ctx)) {
