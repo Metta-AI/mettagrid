@@ -30,7 +30,7 @@ class TestAOEMutations:
                 ["#", ".", "S", ".", "#"],  # AOE source
                 ["#", "#", "#", "#", "#"],
             ],
-            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "S": "charger"},
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "S": "junction"},
         )
 
         cfg.game.resource_names = ["energy"]
@@ -42,9 +42,9 @@ class TestAOEMutations:
         cfg.game.actions.noop.enabled = True
 
         # AOE source that gives energy each tick
-        cfg.game.objects["charger"] = GridObjectConfig(
-            name="charger",
-            map_name="charger",
+        cfg.game.objects["junction"] = GridObjectConfig(
+            name="junction",
+            map_name="junction",
             aoes={
                 "default": AOEConfig(
                     radius=2,

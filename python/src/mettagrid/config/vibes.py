@@ -14,7 +14,7 @@ class Vibe:
 
 TRAINING_VIBES = [
     Vibe("😐", "default", category="emotion"),  # neutral
-    Vibe("🔋", "charger", category="resource"),  # energy / charge
+    Vibe("🔋", "junction", category="resource"),  # energy / charge
     Vibe("⚫", "carbon_a", category="resource"),  # C — Carbon
     Vibe("⬛", "carbon_b", category="resource"),
     Vibe("⚪", "oxygen_a", category="resource"),  # O — Oxygen
@@ -35,7 +35,7 @@ TRAINING_VIBES = [
 VIBES = [
     Vibe("😐", "default", category="emotion"),  # neutral
     # Resources
-    Vibe("🔋", "charger", category="resource"),  # energy / charge
+    Vibe("🔋", "junction", category="resource"),  # energy / charge
     Vibe("⚫", "carbon_a", category="resource"),  # C — Carbon
     Vibe("⬛", "carbon_b", category="resource"),
     Vibe("⚪", "oxygen_a", category="resource"),  # O — Oxygen

@@ -72,10 +72,10 @@ class TestTagFilter:
 
     def test_has_tag_helper(self):
         """Test hasTag helper function."""
-        f = hasTag(Tag("type:charger"))
+        f = hasTag(Tag("type:junction"))
         assert isinstance(f, TagFilter)
         assert f.filter_type == "tag"
-        assert f.tag == Tag("type:charger")
+        assert f.tag == Tag("type:junction")
 
     def test_tag_filter_serialization(self):
         """Test TagFilter serialization."""
@@ -212,7 +212,7 @@ class TestEventConfig:
             name="test_event",
             target_tag="type:wall",
             timesteps=[100, 200, 300],
-            filters=[hasTag(Tag("type:charger"))],
+            filters=[hasTag(Tag("type:junction"))],
             mutations=[logStat("event.test")],
         )
         assert event.name == "test_event"
@@ -314,7 +314,7 @@ class TestEventsInGameConfig:
                     name="test_event",
                     target_tag="type:wall",
                     timesteps=[100],
-                    filters=[hasTag(Tag("type:charger"))],
+                    filters=[hasTag(Tag("type:junction"))],
                     mutations=[logStat("event.test")],
                 )
             },
@@ -353,9 +353,9 @@ class TestFilterPolymorphism:
             target_tag="type:wall",
             timesteps=[100],
             filters=[
-                hasTag(Tag("type:charger")),
+                hasTag(Tag("type:junction")),
                 isAlignedTo("cogs"),
-                isNear("charger", [isAlignedTo("team_b")], radius=2),
+                isNear("junction", [isAlignedTo("team_b")], radius=2),
             ],
             mutations=[],
         )
@@ -372,9 +372,9 @@ class TestFilterPolymorphism:
             target_tag="type:wall",
             timesteps=[100],
             filters=[
-                hasTag(Tag("type:charger")),
+                hasTag(Tag("type:junction")),
                 isAlignedTo("cogs"),
-                isNear("charger", [isAlignedTo("team_a")], radius=1),
+                isNear("junction", [isAlignedTo("team_a")], radius=1),
             ],
             mutations=[],
         )

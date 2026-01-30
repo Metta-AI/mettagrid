@@ -23,7 +23,7 @@ def targetVibe(vibe: str) -> VibeFilter:
     """Filter: target has the specified vibe.
 
     Args:
-        vibe: The vibe name to check for (e.g., "charger", "up", "down")
+        vibe: The vibe name to check for (e.g., "junction", "up", "down")
     """
     return VibeFilter(target=HandlerTarget.TARGET, vibe=vibe)
 
@@ -32,6 +32,6 @@ def actorVibe(vibe: str) -> VibeFilter:
     """Filter: actor has the specified vibe.
 
     Args:
-        vibe: The vibe name to check for (e.g., "charger", "up", "down")
+        vibe: The vibe name to check for (e.g., "junction", "up", "down")
     """
     return VibeFilter(target=HandlerTarget.ACTOR, vibe=vibe)

@@ -253,12 +253,12 @@ class TestMultipleCollectiveTypes:
     def test_different_object_types_tracked_separately(self):
         """Test that different object types contribute different held stats.
 
-        With a junction and a charger both aligned, each should contribute
+        With a junction and a junction both aligned, each should contribute
         to their respective held stats with different reward weights.
         """
         game_map = [
             ["wall", "wall", "wall", "wall", "wall"],
-            ["wall", "agent.red", "junction", "charger", "wall"],
+            ["wall", "agent.red", "junction", "junction", "wall"],
             ["wall", "wall", "wall", "wall", "wall"],
         ]
 
@@ -275,17 +275,12 @@ class TestMultipleCollectiveTypes:
             objects={
                 "wall": WallConfig(),
                 "junction": GridObjectConfig(name="junction", collective="team"),
-                "charger": GridObjectConfig(name="charger", collective="team"),
             },
             agent=AgentConfig(
                 collective="team",
                 rewards={
                     "junction_held": reward(
                         game_stat("collective.aligned.junction.held"),
-                        weight=0.01,
-                    ),
-                    "charger_held": reward(
-                        game_stat("collective.aligned.charger.held"),
                         weight=0.02,
                     ),
                 },

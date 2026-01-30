@@ -49,14 +49,14 @@ class TestVibeFilterOnAOE:
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
-        # AOE source with vibe filter - only affects agents with "charger" vibe
+        # AOE source with vibe filter - only affects agents with "junction" vibe
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
             map_name="aoe_source",
             aoes={
                 "default": AOEConfig(
                     radius=2,
-                    filters=[targetVibe("charger")],
+                    filters=[targetVibe("junction")],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
                 )
             },
@@ -64,27 +64,27 @@ class TestVibeFilterOnAOE:
 
         sim = Simulation(cfg)
 
-        # Step without charger vibe - should NOT get energy
+        # Step without junction vibe - should NOT get energy
         sim.agent(0).set_action("noop")
         sim.step()
 
         energy = sim.agent(0).inventory.get("energy", 0)
-        assert energy == 0, f"Should NOT get energy without charger vibe, got {energy}"
+        assert energy == 0, f"Should NOT get energy without junction vibe, got {energy}"
 
-        # Change vibe to charger - AOE fires at end of this step too (agent now has charger vibe)
-        sim.agent(0).set_action("change_vibe_charger")
+        # Change vibe to junction - AOE fires at end of this step too (agent now has junction vibe)
+        sim.agent(0).set_action("change_vibe_junction")
         sim.step()
 
         # After changing vibe, the AOE should have fired once (during change_vibe step)
         energy = sim.agent(0).inventory.get("energy", 0)
-        assert energy == 10, f"Should get energy after changing to charger vibe, got {energy}"
+        assert energy == 10, f"Should get energy after changing to junction vibe, got {energy}"
 
-        # Step with charger vibe - should get more energy
+        # Step with junction vibe - should get more energy
         sim.agent(0).set_action("noop")
         sim.step()
 
         energy = sim.agent(0).inventory.get("energy", 0)
-        assert energy == 20, f"Should have 20 energy after second step with charger vibe, got {energy}"
+        assert energy == 20, f"Should have 20 energy after second step with junction vibe, got {energy}"
 
     def test_aoe_handler_without_vibe_filter_affects_all(self):
         """AOE handler without vibe filter should affect all entities in range."""
@@ -150,14 +150,14 @@ class TestVibeFilterOnAOE:
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
-        # AOE source that requires "charger" vibe
+        # AOE source that requires "junction" vibe
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
             map_name="aoe_source",
             aoes={
                 "default": AOEConfig(
                     radius=2,
-                    filters=[targetVibe("charger")],
+                    filters=[targetVibe("junction")],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
                 )
             },
@@ -165,11 +165,11 @@ class TestVibeFilterOnAOE:
 
         sim = Simulation(cfg)
 
-        # Change to "up" vibe (not charger)
+        # Change to "up" vibe (not junction)
         sim.agent(0).set_action("change_vibe_up")
         sim.step()
 
-        # Step with "up" vibe - should NOT get energy (filter requires "charger")
+        # Step with "up" vibe - should NOT get energy (filter requires "junction")
         sim.agent(0).set_action("noop")
         sim.step()
 

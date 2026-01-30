@@ -16,7 +16,7 @@ In MettaGrid, agents navigate a gridworld and interact with various objects to m
 engage in combat, and cooperate with other agents. The key dynamics include:
 
 - **Energy Management**: Agents must efficiently manage their energy, which is required for all actions. They can
-  harvest resources and convert them to energy at charger stations.
+  harvest resources and convert them to energy at junction stations.
 - **Resource Gathering**: Agents can gather resources from generator objects scattered throughout the environment.
 - **Cooperation and Sharing**: Agents have the ability to share resources with other agents.
 - **Combat**: Agents can attack other agents to temporarily freeze them and steal their resources. They can also use
