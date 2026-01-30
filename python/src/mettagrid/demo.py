@@ -75,14 +75,13 @@ def main():
     # Define objects used in the map
     cfg.game.objects = {
         "wall": building.wall,
-        "assembler": building.assembler_assembler,
     }
 
     cfg.game.map_builder = RandomMapBuilder.Config(
         agents=args.agents,
         width=args.width,
         height=args.height,
-        objects={"wall": 10, "assembler": 1},
+        objects={"wall": 10},
         border_width=1,
         border_object="wall",
     )

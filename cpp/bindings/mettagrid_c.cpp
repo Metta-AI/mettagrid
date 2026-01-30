@@ -26,8 +26,6 @@
 #include "handler/handler_bindings.hpp"
 #include "objects/agent.hpp"
 #include "objects/alignable.hpp"
-#include "objects/assembler.hpp"
-#include "objects/assembler_config.hpp"
 #include "objects/chest.hpp"
 #include "objects/collective.hpp"
 #include "objects/collective_config.hpp"
@@ -407,7 +405,7 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
    * Some missions opt in to a lightweight "compass" hint by enabling the global_obs.compass flag.
    * Rather than mutate the world, we inject a synthetic observation token that occupies one of the
    * eight neighbor slots around the agent inside its egocentric window. The location byte alone
-   * communicates the direction: it is offset one step toward the assembler hub (which always sits
+   * communicates the direction: it is offset one step toward the hub (which always sits
    * in the map center for CvC missions). The token value is a simple sentinel (currently 1).
    * When the agent is already at the hub there is no direction to emit, and although the offset
    * should always land inside the observation window, we keep the bounds check as a defensive guard.

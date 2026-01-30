@@ -85,7 +85,7 @@ type
     cooldownProgress*: seq[int]
     cooldownTime*: int
 
-    # Assembler specific keys.
+    # Hub specific keys.
     cooldownRemaining*: seq[int]
     cooldownDuration*: int
     usesCount*: seq[int]
@@ -169,7 +169,7 @@ type
     cooldownProgress*: int
     cooldownTime*: int
 
-    # Assembler specific keys.
+    # Hub specific keys.
     cooldownRemaining*: int
     cooldownDuration*: int
     usesCount*: int

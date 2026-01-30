@@ -42,8 +42,8 @@ public:
     if (obj && std::find(_members.begin(), _members.end(), obj) == _members.end()) {
       _members.push_back(obj);
       _aligned_counts[obj->type_name]++;
-      stats.set(obj->type_name, static_cast<float>(_aligned_counts[obj->type_name]));
-      stats.incr(obj->type_name + ".gained");  // Track successful alignments
+      stats.set("aligned." + obj->type_name, static_cast<float>(_aligned_counts[obj->type_name]));
+      stats.incr("aligned." + obj->type_name + ".gained");  // Track successful alignments
     }
   }
 
@@ -53,12 +53,12 @@ public:
     if (it != _members.end()) {
       _members.erase(it);
       _aligned_counts[obj->type_name]--;
-      stats.incr(obj->type_name + ".lost");  // Track lost alignments
+      stats.incr("aligned." + obj->type_name + ".lost");  // Track lost alignments
       if (_aligned_counts[obj->type_name] <= 0) {
         _aligned_counts.erase(obj->type_name);
-        stats.set(obj->type_name, 0.0f);
+        stats.set("aligned." + obj->type_name, 0.0f);
       } else {
-        stats.set(obj->type_name, static_cast<float>(_aligned_counts[obj->type_name]));
+        stats.set("aligned." + obj->type_name, static_cast<float>(_aligned_counts[obj->type_name]));
       }
     }
   }
@@ -66,7 +66,7 @@ public:
   // Update held duration stats (call once per tick)
   void update_held_stats() {
     for (const auto& [type_name, count] : _aligned_counts) {
-      stats.add(type_name + ".held", static_cast<float>(count));
+      stats.add("aligned." + type_name + ".held", static_cast<float>(count));
     }
   }
 

@@ -60,7 +60,7 @@ class TestCollectiveStatsRewardsConversion:
                 rewards={
                     # This tests collective_stats conversion - agent is member of collective
                     "agent_held": reward(
-                        game_stat("collective.agent.held"),
+                        game_stat("collective.aligned.agent.held"),
                         weight=0.1,
                     ),
                 },
@@ -114,7 +114,7 @@ class TestCollectiveStatsRewardsConversion:
                     "gold": inventoryReward("gold", weight=0.1),
                     # Collective stats reward
                     "agent_held": reward(
-                        game_stat("collective.agent.held"),
+                        game_stat("collective.aligned.agent.held"),
                         weight=0.1,
                     ),
                 },
@@ -178,7 +178,7 @@ class TestCollectiveHeldStatsIntegration:
                 rewards={
                     # Reward for each step a junction is held by the collective
                     "junction_held": reward(
-                        game_stat("collective.junction.held"),
+                        game_stat("collective.aligned.junction.held"),
                         weight=0.01,
                     ),
                 },
@@ -281,11 +281,11 @@ class TestMultipleCollectiveTypes:
                 collective="team",
                 rewards={
                     "junction_held": reward(
-                        game_stat("collective.junction.held"),
+                        game_stat("collective.aligned.junction.held"),
                         weight=0.01,
                     ),
                     "charger_held": reward(
-                        game_stat("collective.charger.held"),
+                        game_stat("collective.aligned.charger.held"),
                         weight=0.02,
                     ),
                 },
@@ -342,7 +342,7 @@ class TestNoRewardWithoutAlignment:
                 collective="cogs",
                 rewards={
                     "junction_held": reward(
-                        game_stat("collective.junction.held"),
+                        game_stat("collective.aligned.junction.held"),
                         weight=0.01,
                     ),
                 },
@@ -397,7 +397,7 @@ class TestAgentHeldStats:
                 rewards={
                     # Reward for each step an agent is in the collective
                     "agent_held": reward(
-                        game_stat("collective.agent.held"),
+                        game_stat("collective.aligned.agent.held"),
                         weight=0.01,
                     ),
                 },

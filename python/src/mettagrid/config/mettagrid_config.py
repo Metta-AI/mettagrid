@@ -185,33 +185,6 @@ class ProtocolConfig(Config):
     cooldown: int = Field(ge=0, default=0)
 
 
-class AssemblerConfig(GridObjectConfig):
-    """Python assembler configuration."""
-
-    # This is used to discriminate between different GridObjectConfig subclasses in Pydantic.
-    # See AnyGridObjectConfig.
-    # Please don't use this for anything game related.
-    pydantic_type: Literal["assembler"] = "assembler"
-    # No default name -- we want to make sure that meaningful names are provided.
-    protocols: list[ProtocolConfig] = Field(
-        default_factory=list,
-        description="Protocols in reverse order of priority.",
-    )
-    allow_partial_usage: bool = Field(
-        default=False,
-        description=(
-            "Allow assembler to be used during cooldown with scaled resource requirements/outputs. "
-            "This makes less sense if the assembler has multiple protocols."
-        ),
-    )
-    max_uses: int = Field(default=0, ge=0, description="Maximum number of uses (0 = unlimited)")
-    chest_search_distance: int = Field(
-        default=0,
-        ge=0,
-        description="Distance within which assembler can use inventories from chests",
-    )
-
-
 class ChestConfig(GridObjectConfig):
     """Python chest configuration for multi-resource chests."""
 
@@ -259,7 +232,6 @@ class CollectiveConfig(Config):
 # that only need handlers/aoes without specialized features like protocols or inventory.
 AnyGridObjectConfig = Union[
     WallConfig,
-    AssemblerConfig,
     ChestConfig,
     CollectiveChestConfig,
     GridObjectConfig,

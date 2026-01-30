@@ -7,7 +7,7 @@ import gymnasium as gym
 from pydantic import BaseModel, Field
 
 from mettagrid.config.id_map import ObservationFeatureSpec
-from mettagrid.config.mettagrid_config import AssemblerConfig, MettaGridConfig, ProtocolConfig
+from mettagrid.config.mettagrid_config import MettaGridConfig
 from mettagrid.mettagrid_c import dtype_observations
 
 
@@ -35,10 +35,6 @@ class PolicyEnvInterface(BaseModel):
     egocentric_shape: tuple[int, int] = Field(
         description="(height, width) of the egocentric observation window in grid cells. "
         "Agents observe a rectangular region centered on themselves."
-    )
-    assembler_protocols: list[ProtocolConfig] = Field(
-        default_factory=list,
-        description="List of assembler recipes.",
     )
 
     @property
@@ -76,12 +72,6 @@ class PolicyEnvInterface(BaseModel):
         Returns:
             A PolicyEnvInterface instance with environment information
         """
-        # Extract assembler protocols if available
-        assembler_protocols: list[ProtocolConfig] = []
-        assembler_config = mg_cfg.game.objects.get("assembler")
-        if assembler_config and isinstance(assembler_config, AssemblerConfig):
-            assembler_protocols = list(assembler_config.protocols)
-
         id_map = mg_cfg.game.id_map()
         tag_names_list = id_map.tag_names()
         actions_list = mg_cfg.game.actions.actions()
@@ -96,7 +86,6 @@ class PolicyEnvInterface(BaseModel):
             num_agents=mg_cfg.game.num_agents,
             observation_shape=(mg_cfg.game.obs.num_tokens, mg_cfg.game.obs.token_dim),
             egocentric_shape=(mg_cfg.game.obs.height, mg_cfg.game.obs.width),
-            assembler_protocols=assembler_protocols,
             move_energy_cost=move_energy_cost,
         )
 
@@ -108,5 +97,4 @@ class PolicyEnvInterface(BaseModel):
         payload["obs_height"] = self.obs_height
         payload["actions"] = self.action_names
         payload["obs_features"] = [feature.model_dump(mode="json") for feature in self.obs_features]
-        payload["assembler_protocols"] = [proto.model_dump() for proto in self.assembler_protocols]
         return json.dumps(payload)

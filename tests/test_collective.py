@@ -3,7 +3,6 @@
 from mettagrid.config.mettagrid_c_config import convert_to_cpp_game_config
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
-    AssemblerConfig,
     ChestConfig,
     CollectiveConfig,
     GameConfig,
@@ -11,12 +10,10 @@ from mettagrid.config.mettagrid_config import (
     MettaGridConfig,
     MoveActionConfig,
     NoopActionConfig,
-    ProtocolConfig,
     ResourceLimitsConfig,
     WallConfig,
 )
 from mettagrid.map_builder.ascii import AsciiMapBuilder
-from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Simulation
 
 
@@ -157,47 +154,6 @@ class TestCollectiveIntegration:
         assert len(cpp_config.collectives) == 2
         assert "team_red_vault" in cpp_config.collectives
         assert "team_blue_vault" in cpp_config.collectives
-
-    def test_collective_with_assembler(self):
-        """Test that assemblers can be associated with a collective."""
-        cfg = MettaGridConfig(
-            game=GameConfig(
-                num_agents=1,
-                max_steps=100,
-                resource_names=["ore", "metal"],
-                actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
-                collectives={
-                    "factory_storage": CollectiveConfig(
-                        inventory=InventoryConfig(initial={"ore": 100}),
-                    ),
-                },
-                objects={
-                    "wall": WallConfig(),
-                    "smelter": AssemblerConfig(
-                        name="smelter",
-                        collective="factory_storage",
-                        protocols=[
-                            ProtocolConfig(input_resources={"ore": 1}, output_resources={"metal": 1}, cooldown=5)
-                        ],
-                    ),
-                },
-                map_builder=AsciiMapBuilder.Config(
-                    map_data=[
-                        ["#", "#", "#"],
-                        ["#", "@", "#"],
-                        ["#", "#", "#"],
-                    ],
-                    char_to_map_name=DEFAULT_CHAR_TO_NAME,
-                ),
-            )
-        )
-
-        # Verify collective is set on assembler
-        assert cfg.game.objects["smelter"].collective == "factory_storage"
-
-        # Create simulation
-        sim = Simulation(cfg)
-        assert sim is not None
 
 
 class TestCollectiveIdMapping:

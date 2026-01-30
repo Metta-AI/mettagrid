@@ -26,7 +26,7 @@ TRAINING_VIBES = [
     Vibe("❤️", "heart_a", category="resource"),  # reward / health
     Vibe("💟", "heart_b", category="resource"),
     Vibe("⚙️", "gear", category="gear"),
-    Vibe("⭐", "assembler", category="station"),
+    Vibe("⭐", "hub", category="station"),
     Vibe("📦", "chest", category="station"),
     # Vibe("⬛", "wall", category="station"),
     Vibe("❤️", "red-heart"),
@@ -49,7 +49,7 @@ VIBES = [
     # Gear
     Vibe("⚙️", "gear", category="gear"),
     # Stations
-    Vibe("⭐", "assembler", category="station"),
+    Vibe("⭐", "hub", category="station"),
     Vibe("📦", "chest", category="station"),
     Vibe("⬛", "wall", category="station"),
     # Identity

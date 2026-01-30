@@ -24,7 +24,7 @@ proc drawAsciiMap(replay: Replay): string =
       # Logic to determine cell string based on typeName
       case obj.typeName:
       of "agent": cell = "@@"
-      of "assembler": cell = "As"
+      of "hub": cell = "As"
       of "carbon_extractor": cell = "Ca"
       of "charger": cell = "En"
       of "chest": cell = "Ch"

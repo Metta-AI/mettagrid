@@ -5,13 +5,11 @@ from mettagrid.config.mettagrid_c_config import convert_to_cpp_game_config
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
     AgentConfig,
-    AssemblerConfig,
     GameConfig,
     MettaGridConfig,
     MoveActionConfig,
     NoopActionConfig,
     ObsConfig,
-    ProtocolConfig,
     WallConfig,
 )
 from mettagrid.config.tag import Tag, typeTag
@@ -370,63 +368,6 @@ class TestTags:
             f"Expected tag IDs {{alpha, beta, type:wall}}, got {tags1}"
         )
 
-    def test_assembler_with_tags(self):
-        """Test that assembler objects can have tags."""
-        cfg = MettaGridConfig(
-            game=GameConfig(
-                num_agents=1,
-                obs=ObsConfig(width=3, height=3, num_tokens=200),
-                max_steps=100,
-                actions=ActionsConfig(noop=NoopActionConfig()),
-                objects={
-                    "assembler": AssemblerConfig(
-                        name="assembler",
-                        protocols=[
-                            ProtocolConfig(input_resources={"wood": 1}, output_resources={"coal": 1}, cooldown=5)
-                        ],
-                        max_uses=10,
-                        tags=[Tag("machine"), Tag("industrial")],
-                    ),
-                    "wall": WallConfig(tags=[Tag("solid")]),
-                },
-                resource_names=["wood", "coal"],
-                map_builder=AsciiMapBuilder.Config(
-                    map_data=[
-                        ["#", "#", "#"],
-                        ["#", "@", "#"],
-                        ["#", "#", "#"],
-                    ],
-                    char_to_map_name=DEFAULT_CHAR_TO_NAME,
-                ),
-            )
-        )
-
-        # The test verifies that assembler config accepts tags without errors
-        sim = Simulation(cfg)
-        obs = sim._c_sim.observations()
-
-        # Get tag feature ID from environment
-        tag_feature_id = sim.config.game.id_map().feature_id("tag")
-
-        assert obs is not None
-
-        # We can verify walls have their tags to ensure the system works
-        agent_obs = obs[0]
-
-        # Find wall locations from map data (no TypeId feature)
-        wall_locations = _positions_with_char(sim, "#")
-
-        # Find tag IDs at wall locations
-        wall_tag_ids = set()
-        for token in agent_obs:
-            if token[0] in wall_locations and token[1] == tag_feature_id:
-                wall_tag_ids.add(token[2])  # token[2] contains the tag ID
-
-        # Walls should have the "solid" tag present in the tag mapping
-        id_map = sim.config.game.id_map()
-        tag_values = id_map.tag_names()
-        assert "solid" in tag_values, "Expected 'solid' in tag mapping"
-
     def test_agent_with_tags(self):
         """Test that agents can have tags."""
         cfg = MettaGridConfig(
@@ -665,12 +606,6 @@ def test_tag_mapping_in_id_map():
             actions=ActionsConfig(noop=NoopActionConfig()),
             objects={
                 "wall": WallConfig(tags=[Tag("solid"), Tag("blocking")]),
-                "assembler": AssemblerConfig(
-                    name="assembler",
-                    protocols=[ProtocolConfig(input_resources={"wood": 1}, output_resources={"coal": 1}, cooldown=5)],
-                    max_uses=10,
-                    tags=[Tag("machine"), Tag("industrial")],
-                ),
             },
             # Note: game_config.agent is a template for default agents when agents list is empty.
             # When agents list is explicitly specified (as here), only tags from the agents list are used.
@@ -704,13 +639,10 @@ def test_tag_mapping_in_id_map():
     expected_tags = sorted(
         [
             "blocking",
-            "industrial",
-            "machine",
             "mobile",
             "player",
             "solid",
             typeTag("agent"),
-            typeTag("assembler"),
             typeTag("wall"),
         ]
     )

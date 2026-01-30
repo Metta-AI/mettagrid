@@ -98,7 +98,7 @@ public:
   GridObjectId id{};
   GridLocation location{};
   TypeId type_id{};
-  std::string type_name;  // Class type (e.g., "assembler")
+  std::string type_name;  // Class type (e.g., "hub")
   std::string name;       // Instance name (e.g., "carbon_extractor"), defaults to type_name
   std::set<int> tag_ids;
 

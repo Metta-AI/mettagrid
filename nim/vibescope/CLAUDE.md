@@ -227,7 +227,7 @@ for obj in replay.objects:
 ```nim
 Entity* = ref object
   id*: int                      # Unique object ID
-  typeName*: string             # "agent", "wall", "assembler", etc.
+  typeName*: string             # "agent", "wall", "hub", etc.
   location*: seq[IVec2]         # Time series of positions
   orientation*: seq[int]        # Time series of rotations
   inventory*: seq[seq[ItemAmount]]

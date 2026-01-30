@@ -9,7 +9,6 @@ from dataclasses import dataclass
 class TokenTypes:
     # Object type IDs
     WALL_TYPE_ID: int = 1
-    assembler_TYPE_ID: int = 10
 
     # empty token
     EMPTY_TOKEN = [0xFF, 0xFF, 0xFF]

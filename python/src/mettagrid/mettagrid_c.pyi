@@ -430,32 +430,6 @@ class ActionConfig:
     required_resources: dict[int, int]
     consumed_resources: dict[int, int]
 
-class Protocol:
-    def __init__(self) -> None: ...
-    min_agents: int
-    vibes: list[int]
-    input_resources: dict[int, int]
-    output_resources: dict[int, int]
-    cooldown: int
-
-class AssemblerConfig(GridObjectConfig):
-    def __init__(
-        self,
-        type_id: int,
-        type_name: str,
-        initial_vibe: int = 0,
-    ) -> None: ...
-    type_id: int
-    type_name: str
-    tag_ids: list[int]
-    protocols: list[Protocol]
-    allow_partial_usage: bool
-    max_uses: int
-    clip_immune: bool
-    start_clipped: bool
-    chest_search_distance: int
-    initial_vibe: int
-
 class ChestConfig(GridObjectConfig):
     def __init__(
         self,
@@ -470,13 +444,6 @@ class ChestConfig(GridObjectConfig):
     initial_inventory: dict[int, int]
     inventory_config: InventoryConfig
     initial_vibe: int
-
-class ClipperConfig:
-    def __init__(self) -> None: ...
-    unclipping_protocols: list[Protocol]
-    length_scale: int
-    scaled_cutoff_distance: int
-    clip_period: int
 
 class CollectiveConfig:
     def __init__(self, name: str = "") -> None: ...
@@ -598,7 +565,6 @@ class GameConfig:
         collectives: dict[str, CollectiveConfig] | None = None,
         protocol_details_obs: bool = True,
         reward_estimates: Optional[dict[str, float]] = None,
-        clipper: Optional[ClipperConfig] = None,
         token_value_base: int = 256,
     ) -> None: ...
     num_agents: int
@@ -616,7 +582,6 @@ class GameConfig:
     # FEATURE FLAGS
     protocol_details_obs: bool
     reward_estimates: Optional[dict[str, float]]
-    clipper: Optional[ClipperConfig]
     token_value_base: int
 
 class MettaGrid:

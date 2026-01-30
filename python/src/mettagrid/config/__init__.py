@@ -34,7 +34,6 @@ from .game_value import (
 from .mettagrid_c_config import convert_to_cpp_game_config
 from .mettagrid_config import (
     AgentConfig,
-    AssemblerConfig,
     GameConfig,
     MettaGridConfig,
     ProtocolConfig,
@@ -70,7 +69,6 @@ __all__ = [
     "AgentConfig",
     "AgentReward",
     "AnyGameValue",
-    "AssemblerConfig",
     "AttackActionConfig",
     "AttackOutcome",
     "CardinalDirection",

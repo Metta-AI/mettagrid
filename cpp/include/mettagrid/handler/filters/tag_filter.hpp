@@ -11,7 +11,7 @@ namespace mettagrid {
  * TagFilter: Check if entity has a specific tag
  *
  * Used by handlers and events to filter by tag.
- * Tags are specified in "name:value" format in config (e.g., "type:assembler").
+ * Tags are specified in "name:value" format in config (e.g., "type:hub").
  */
 class TagFilter : public Filter {
 public:

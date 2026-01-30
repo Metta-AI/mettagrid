@@ -25,8 +25,8 @@ def test_stat_value_defaults():
 
 def test_stat_value_with_all_fields():
     """Test StatValue with all fields specified."""
-    sv = StatValue(name="assembler.held", scope=Scope.COLLECTIVE, delta=True)
-    assert sv.name == "assembler.held"
+    sv = StatValue(name="aligned.hub.held", scope=Scope.COLLECTIVE, delta=True)
+    assert sv.name == "aligned.hub.held"
     assert sv.scope == Scope.COLLECTIVE
     assert sv.delta is True
 
