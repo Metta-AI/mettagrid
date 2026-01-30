@@ -24,7 +24,11 @@ proc drawHeader*() =
     sk.at = sk.pos + vec2(sk.size.x - 100, 16)
     iconButton("ui/help"):
       openUrl("https://github.com/Metta-AI/metta/blob/main/packages/mettagrid/nim/mettascope/README.md")
+    if sk.shouldShowTooltip:
+      tooltip("Help & Documentation")
     iconButton("ui/share"):
       let baseUrl = "https://metta-ai.github.io/metta/mettascope/mettascope.html?replay="
       let url = baseUrl & commandLineReplay
       openUrl(url)
+    if sk.shouldShowTooltip:
+      tooltip("Share Replay Link")
