@@ -31,8 +31,12 @@ public:
   // Count objects with a specific tag
   size_t count_objects_with_tag(int tag_id) const;
 
+  // Get pointer to the float count for a tag (creates entry if not exists)
+  float* get_count_ptr(int tag_id);
+
 private:
   std::unordered_map<int, std::vector<GridObject*>> _objects_by_tag;
+  std::unordered_map<int, float> _counts_by_tag;
   static const std::vector<GridObject*> _empty;
 };
 

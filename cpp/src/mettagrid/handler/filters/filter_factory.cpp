@@ -3,6 +3,7 @@
 #include <type_traits>
 
 #include "handler/filters/alignment_filter.hpp"
+#include "handler/filters/game_value_filter.hpp"
 #include "handler/filters/near_filter.hpp"
 #include "handler/filters/resource_filter.hpp"
 #include "handler/filters/tag_filter.hpp"
@@ -31,6 +32,8 @@ std::unique_ptr<Filter> create_filter(const FilterConfig& config, TagIndex* tag_
             }
           }
           return std::make_unique<NearFilter>(cfg, std::move(filters));
+        } else if constexpr (std::is_same_v<T, GameValueFilterConfig>) {
+          return std::make_unique<GameValueFilter>(cfg);
         } else {
           return nullptr;
         }

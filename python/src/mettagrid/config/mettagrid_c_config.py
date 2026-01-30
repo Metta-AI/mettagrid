@@ -1,9 +1,9 @@
 from typing import Any
 
-from mettagrid.config.game_value import StatsSource
+from mettagrid.config.game_value import Scope
 from mettagrid.config.handler_config import AlignmentCondition
 from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_mutations
-from mettagrid.config.mettagrid_c_reward import convert_agent_rewards_to_stat_rewards
+from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mettagrid_config import (
     AgentConfig,
     AssemblerConfig,
@@ -28,6 +28,7 @@ from mettagrid.mettagrid_c import ChestConfig as CppChestConfig
 from mettagrid.mettagrid_c import CollectiveConfig as CppCollectiveConfig
 from mettagrid.mettagrid_c import EventConfig as CppEventConfig
 from mettagrid.mettagrid_c import GameConfig as CppGameConfig
+from mettagrid.mettagrid_c import GameValueFilterConfig as CppGameValueFilterConfig
 from mettagrid.mettagrid_c import GlobalObsConfig as CppGlobalObsConfig
 from mettagrid.mettagrid_c import GridObjectConfig as CppGridObjectConfig
 from mettagrid.mettagrid_c import HandlerConfig as CppHandlerConfig
@@ -35,12 +36,12 @@ from mettagrid.mettagrid_c import InventoryConfig as CppInventoryConfig
 from mettagrid.mettagrid_c import LimitDef as CppLimitDef
 from mettagrid.mettagrid_c import MoveActionConfig as CppMoveActionConfig
 from mettagrid.mettagrid_c import NearFilterConfig as CppNearFilterConfig
+from mettagrid.mettagrid_c import ObsValueConfig as CppObsValueConfig
 from mettagrid.mettagrid_c import Protocol as CppProtocol
 from mettagrid.mettagrid_c import ResourceDelta as CppResourceDelta
 from mettagrid.mettagrid_c import ResourceFilterConfig as CppResourceFilterConfig
 from mettagrid.mettagrid_c import RewardConfig as CppRewardConfig
-from mettagrid.mettagrid_c import StatsSource as CppStatsSource
-from mettagrid.mettagrid_c import StatsValueConfig as CppStatsValueConfig
+from mettagrid.mettagrid_c import RewardEntry as CppRewardEntry
 from mettagrid.mettagrid_c import TagFilterConfig as CppTagFilterConfig
 from mettagrid.mettagrid_c import TransferActionConfig as CppTransferActionConfig
 from mettagrid.mettagrid_c import VibeFilterConfig as CppVibeFilterConfig
@@ -59,14 +60,9 @@ def _convert_alignment_condition(alignment) -> CppAlignmentCondition:
     return mapping.get(alignment, CppAlignmentCondition.same_collective)
 
 
-def _convert_stats_source(source: StatsSource) -> CppStatsSource:
-    """Convert Python StatsSource to C++ StatsSource enum."""
-    mapping = {
-        StatsSource.OWN: CppStatsSource.own,
-        StatsSource.GLOBAL: CppStatsSource.global_,
-        StatsSource.COLLECTIVE: CppStatsSource.collective,
-    }
-    return mapping.get(source, CppStatsSource.own)
+def _scope_to_feature_str(scope: Scope) -> str:
+    """Get the scope string for feature name construction."""
+    return {Scope.AGENT: "own", Scope.GAME: "global", Scope.COLLECTIVE: "collective"}[scope]
 
 
 def _resolve_near_tag_id(filter_config, tag_name_to_id: dict, context: str) -> int:
@@ -196,6 +192,22 @@ def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, 
                 tag_name_to_id,
             )
             cpp_target.add_near_filter(cpp_filter)
+
+        elif filter_type == "game_value":
+            from mettagrid.config.mettagrid_c_value_config import resolve_game_value
+
+            mappings = {
+                "resource_name_to_id": resource_name_to_id,
+                "stat_name_to_id": {},  # Stat IDs resolved at C++ init time
+                "tag_name_to_id": tag_name_to_id,
+            }
+            cpp_gv_cfg = resolve_game_value(filter_config.value, mappings)
+            cpp_filter = CppGameValueFilterConfig(
+                value=cpp_gv_cfg,
+                threshold=float(filter_config.min),
+                entity=convert_entity_ref(filter_config.target),
+            )
+            cpp_target.add_game_value_filter(cpp_filter)
 
 
 def _add_filters_to_near_filter(
@@ -616,14 +628,26 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
                     f"Tags are currently applied per-team, not per-agent."
                 )
 
-        # Convert rewards dict to legacy stat_rewards format for C++
-        stat_rewards, stat_reward_max, stat_reward_denoms, stat_reward_stat_denoms = (
-            convert_agent_rewards_to_stat_rewards(
-                first_agent.rewards,
-                resource_name_to_id,
-                tag_name_to_id,
-            )
-        )
+        # Convert rewards to RewardEntry list for C++ v2 pipeline
+        mappings = {
+            "resource_name_to_id": resource_name_to_id,
+            "tag_name_to_id": tag_name_to_id,
+        }
+        reward_entries = []
+        for reward_name, agent_reward in first_agent.rewards.items():
+            entry = CppRewardEntry()
+            if len(agent_reward.nums) != 1:
+                raise ValueError(
+                    f"Reward '{reward_name}' has {len(agent_reward.nums)} numerators, "
+                    "but only a single numerator per reward is supported."
+                )
+            entry.numerator = resolve_game_value(agent_reward.nums[0], mappings)
+            entry.denominators = [resolve_game_value(d, mappings) for d in agent_reward.denoms]
+            entry.weight = agent_reward.weight
+            if agent_reward.max is not None:
+                entry.max_value = agent_reward.max
+                entry.has_max = True
+            reward_entries.append(entry)
 
         # Get inventory config
         inv_config = agent_props.get("inventory", {})
@@ -666,12 +690,8 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         inventory_config = CppInventoryConfig()
         inventory_config.limit_defs = limit_defs
 
-        reward_config = CppRewardConfig(
-            stat_rewards=stat_rewards,
-            stat_reward_max=stat_reward_max,
-            stat_reward_denoms=stat_reward_denoms,
-            stat_reward_stat_denoms=stat_reward_stat_denoms,
-        )
+        reward_config = CppRewardConfig()
+        reward_config.entries = reward_entries
 
         cpp_agent_config = CppAgentConfig(
             type_id=type_id_by_type_name[first_agent.name],
@@ -879,19 +899,27 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
     # Convert global_obs configuration
     global_obs_config = game_config.obs.global_obs
 
-    # Convert stats_obs with pre-computed feature IDs
-    stats_obs_cpp = []
-    for stat_value in global_obs_config.stats_obs:
-        cpp_stat = CppStatsValueConfig()
-        cpp_stat.name = stat_value.name
-        cpp_stat.source = _convert_stats_source(stat_value.source)
-        cpp_stat.delta = stat_value.delta
-        # Look up the base feature ID for this stat
-        feature_name = f"stat:{stat_value.source.value}:{stat_value.name}"
-        if stat_value.delta:
-            feature_name += ":delta"
-        cpp_stat.feature_id = game_cpp_params["feature_ids"][feature_name]
-        stats_obs_cpp.append(cpp_stat)
+    # Convert obs with pre-computed feature IDs using GameValueConfig
+    from mettagrid.config.game_value import InventoryValue, StatValue
+
+    resource_name_to_id = {name: idx for idx, name in enumerate(game_config.resource_names)}
+    mappings = {"resource_name_to_id": resource_name_to_id, "tag_name_to_id": tag_name_to_id}
+
+    obs_cpp = []
+    for game_value in global_obs_config.obs:
+        cpp_obs = CppObsValueConfig()
+        cpp_obs.value = resolve_game_value(game_value, mappings)
+        # Compute feature name for ID lookup
+        if isinstance(game_value, StatValue):
+            feature_name = f"stat:{_scope_to_feature_str(game_value.scope)}:{game_value.name}"
+            if game_value.delta:
+                feature_name += ":delta"
+        elif isinstance(game_value, InventoryValue):
+            feature_name = f"inv:{_scope_to_feature_str(game_value.scope)}:{game_value.item}"
+        else:
+            raise ValueError(f"Unsupported GameValue type for obs: {type(game_value)}")
+        cpp_obs.feature_id = game_cpp_params["feature_ids"][feature_name]
+        obs_cpp.append(cpp_obs)
 
     global_obs_cpp = CppGlobalObsConfig(
         episode_completion_pct=global_obs_config.episode_completion_pct,
@@ -900,7 +928,7 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         compass=global_obs_config.compass,
         goal_obs=global_obs_config.goal_obs,
         local_position=global_obs_config.local_position,
-        stats_obs=stats_obs_cpp,
+        obs=obs_cpp,
     )
     game_cpp_params["global_obs"] = global_obs_cpp
 

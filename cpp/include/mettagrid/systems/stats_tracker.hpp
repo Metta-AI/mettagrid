@@ -22,7 +22,11 @@ struct ObservationValue {
 
 class StatsTracker {
 private:
-  std::unordered_map<std::string, float> _stats;
+  // New: indexed storage for pointer-based access
+  std::vector<float> _values;
+  std::unordered_map<std::string, uint16_t> _name_to_id;
+  static constexpr size_t MAX_STATS = 1024;
+
   // StatsTracker holds a reference to resource_names to make it easier to track stats for each resource.
   // The environment owns this reference, so it should live as long as we're going to use it.
   const std::vector<std::string>* _resource_names;
@@ -41,10 +45,27 @@ private:
   friend class StatsTrackerTest;
 
 public:
-  explicit StatsTracker(const std::vector<std::string>* resource_names) : _stats(), _resource_names(resource_names) {
+  explicit StatsTracker(const std::vector<std::string>* resource_names) : _resource_names(resource_names) {
     if (resource_names == nullptr) {
       throw std::invalid_argument("resource_names cannot be null");
     }
+    _values.reserve(MAX_STATS);
+  }
+
+  uint16_t get_or_create_id(const std::string& name) {
+    auto it = _name_to_id.find(name);
+    if (it != _name_to_id.end()) return it->second;
+    if (_values.size() >= MAX_STATS) {
+      throw std::runtime_error("Exceeded maximum number of stats (MAX_STATS)");
+    }
+    uint16_t id = static_cast<uint16_t>(_values.size());
+    _name_to_id[name] = id;
+    _values.push_back(0.0f);
+    return id;
+  }
+
+  float* get_ptr(uint16_t id) {
+    return &_values[id];
   }
 
   const std::string& resource_name(InventoryItem item) const {
@@ -52,7 +73,8 @@ public:
   }
 
   void add(const std::string& key, float amount) {
-    _stats[key] += amount;
+    uint16_t id = get_or_create_id(key);
+    _values[id] += amount;
   }
 
   // Increment by 1 (convenience method)
@@ -61,25 +83,31 @@ public:
   }
 
   void set(const std::string& key, float value) {
-    _stats[key] = value;
+    uint16_t id = get_or_create_id(key);
+    _values[id] = value;
   }
 
   float get(const std::string& key) const {
-    auto it = _stats.find(key);
-    if (it == _stats.end()) {
+    auto it = _name_to_id.find(key);
+    if (it == _name_to_id.end()) {
       return 0.0f;
     }
-    return it->second;
+    return _values[it->second];
   }
 
   // Convert to map for Python API
-  const std::unordered_map<std::string, float>& to_dict() const {
-    return _stats;
+  std::unordered_map<std::string, float> to_dict() const {
+    std::unordered_map<std::string, float> result;
+    for (const auto& [name, id] : _name_to_id) {
+      result[name] = _values[id];
+    }
+    return result;
   }
 
   // Reset all statistics
   void reset() {
-    _stats.clear();
+    // Reset vector values but keep name mappings
+    std::fill(_values.begin(), _values.end(), 0.0f);
   }
 
   // Register a single stat to observe

@@ -8,12 +8,11 @@ from pydantic import Field
 from mettagrid.base_config import Config
 from mettagrid.config.game_value import (
     AnyGameValue,
-    CollectiveInventory,
-    Inventory,
-    NumObjects,
-    NumTaggedObjects,
-    StatsSource,
-    StatsValue,
+    InventoryValue,
+    NumObjectsValue,
+    Scope,
+    StatValue,
+    TagCountValue,
 )
 
 
@@ -54,9 +53,13 @@ def reward(
     return AgentReward(nums=[value], denoms=denoms or [], weight=weight, max=max)
 
 
-def stat(name: str, source: StatsSource = StatsSource.OWN, delta: bool = False) -> StatsValue:
-    """Create a StatsValue for reward/observation config."""
-    return StatsValue(name=name, source=source, delta=delta)
+def stat(
+    name: str,
+    delta: bool = False,
+    scope: Scope = Scope.AGENT,
+) -> StatValue:
+    """Create a StatValue for reward/observation config."""
+    return StatValue(name=name, scope=scope, delta=delta)
 
 
 def inventoryReward(
@@ -72,7 +75,7 @@ def inventoryReward(
         inventoryReward("heart", weight=0.5)
         inventoryReward("ore_red", max=10)
     """
-    return AgentReward(nums=[Inventory(item=item)], denoms=denoms or [], weight=weight, max=max)
+    return AgentReward(nums=[InventoryValue(item=item, scope=Scope.AGENT)], denoms=denoms or [], weight=weight, max=max)
 
 
 def collectiveInventoryReward(
@@ -87,16 +90,18 @@ def collectiveInventoryReward(
     Examples:
         collectiveInventoryReward("heart", weight=0.5)
     """
-    return AgentReward(nums=[CollectiveInventory(item=item)], denoms=denoms or [], weight=weight, max=max)
+    return AgentReward(
+        nums=[InventoryValue(item=item, scope=Scope.COLLECTIVE)], denoms=denoms or [], weight=weight, max=max
+    )
 
 
-def numObjects(object_type: str) -> NumObjects:
+def numObjects(object_type: str) -> NumObjectsValue:
     """Count of objects by type for use in denoms.
 
     Examples:
-        statReward("aligned.junction.held", denoms=[numObjects("junction")])
+        statReward("junction.held", denoms=[numObjects("junction")])
     """
-    return NumObjects(object_type=object_type)
+    return NumObjectsValue(object_type=object_type)
 
 
 def numObjectsReward(
@@ -111,7 +116,7 @@ def numObjectsReward(
     Examples:
         numObjectsReward("junction", weight=0.1)
     """
-    return AgentReward(nums=[NumObjects(object_type=object_type)], denoms=denoms or [], weight=weight, max=max)
+    return AgentReward(nums=[NumObjectsValue(object_type=object_type)], denoms=denoms or [], weight=weight, max=max)
 
 
 def numTaggedReward(
@@ -126,13 +131,13 @@ def numTaggedReward(
     Examples:
         numTaggedReward("vibe:aligned", weight=0.5)
     """
-    return AgentReward(nums=[NumTaggedObjects(tag=tag)], denoms=denoms or [], weight=weight, max=max)
+    return AgentReward(nums=[TagCountValue(tag=tag)], denoms=denoms or [], weight=weight, max=max)
 
 
 def statReward(
     name: str,
     *,
-    source: StatsSource = StatsSource.OWN,
+    scope: Scope = Scope.AGENT,
     delta: bool = False,
     weight: float = 1.0,
     max: float | None = None,
@@ -142,10 +147,10 @@ def statReward(
 
     Examples:
         statReward("a.b.c", max=10)
-        statReward("aligned.junction.held", source=StatsSource.COLLECTIVE, denoms=[NumObjects(object_type="junction")])
+        statReward("junction.held", scope=Scope.COLLECTIVE, denoms=[numObjects("junction")])
     """
     return AgentReward(
-        nums=[StatsValue(name=name, source=source, delta=delta)],
+        nums=[StatValue(name=name, scope=scope, delta=delta)],
         denoms=denoms or [],
         weight=weight,
         max=max,

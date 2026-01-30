@@ -7,13 +7,12 @@ import pytest
 
 from mettagrid.config.game_value import (
     AnyGameValue,
-    CollectiveInventory,
     GameValue,
-    Inventory,
-    NumObjects,
-    NumTaggedObjects,
-    StatsSource,
-    StatsValue,
+    InventoryValue,
+    NumObjectsValue,
+    Scope,
+    StatValue,
+    TagCountValue,
 )
 from mettagrid.config.reward_config import (
     AgentReward,
@@ -32,22 +31,22 @@ from mettagrid.config.reward_config import (
 # =============================================================================
 
 
-class TestStatsSource:
-    """Test StatsSource enum."""
+class TestScope:
+    """Test Scope enum."""
 
     def test_enum_values(self):
-        """Test that StatsSource has expected values."""
-        assert StatsSource.OWN.value == "own"
-        assert StatsSource.GLOBAL.value == "global"
-        assert StatsSource.COLLECTIVE.value == "collective"
+        """Test that Scope has expected values."""
+        assert Scope.AGENT.value == "agent"
+        assert Scope.GAME.value == "game"
+        assert Scope.COLLECTIVE.value == "collective"
 
-    def test_all_sources(self):
-        """Test that all expected sources exist."""
-        sources = list(StatsSource)
-        assert len(sources) == 3
-        assert StatsSource.OWN in sources
-        assert StatsSource.GLOBAL in sources
-        assert StatsSource.COLLECTIVE in sources
+    def test_all_scopes(self):
+        """Test that all expected scopes exist."""
+        scopes = list(Scope)
+        assert len(scopes) == 3
+        assert Scope.AGENT in scopes
+        assert Scope.GAME in scopes
+        assert Scope.COLLECTIVE in scopes
 
 
 class TestGameValueInheritance:
@@ -55,20 +54,19 @@ class TestGameValueInheritance:
 
     def test_all_types_inherit_from_game_value(self):
         """Test that all GameValue types inherit from GameValue base."""
-        assert issubclass(StatsValue, GameValue)
-        assert issubclass(Inventory, GameValue)
-        assert issubclass(CollectiveInventory, GameValue)
-        assert issubclass(NumObjects, GameValue)
-        assert issubclass(NumTaggedObjects, GameValue)
+        assert issubclass(InventoryValue, GameValue)
+        assert issubclass(StatValue, GameValue)
+        assert issubclass(NumObjectsValue, GameValue)
+        assert issubclass(TagCountValue, GameValue)
 
     def test_instances_are_game_values(self):
         """Test that instances are GameValue instances."""
         values = [
-            StatsValue(name="test"),
-            Inventory(item="heart"),
-            CollectiveInventory(item="gold"),
-            NumObjects(object_type="junction"),
-            NumTaggedObjects(tag="vibe:aligned"),
+            StatValue(name="test"),
+            InventoryValue(item="heart"),
+            InventoryValue(item="gold", scope=Scope.COLLECTIVE),
+            NumObjectsValue(object_type="junction"),
+            TagCountValue(tag="vibe:aligned"),
         ]
         for v in values:
             assert isinstance(v, GameValue)
@@ -80,11 +78,11 @@ class TestAnyGameValueUnion:
     def test_union_accepts_all_types(self):
         """Test that AnyGameValue union accepts all GameValue types."""
         values: list[AnyGameValue] = [
-            StatsValue(name="test"),
-            Inventory(item="heart"),
-            CollectiveInventory(item="gold"),
-            NumObjects(object_type="junction"),
-            NumTaggedObjects(tag="vibe:aligned"),
+            StatValue(name="test"),
+            InventoryValue(item="heart"),
+            InventoryValue(item="gold", scope=Scope.COLLECTIVE),
+            NumObjectsValue(object_type="junction"),
+            TagCountValue(tag="vibe:aligned"),
         ]
         assert len(values) == 5
 
@@ -107,17 +105,17 @@ class TestAgentReward:
 
     def test_with_single_numerator(self):
         """Test AgentReward with a single numerator."""
-        ar = AgentReward(nums=[StatsValue(name="carbon.gained")])
+        ar = AgentReward(nums=[StatValue(name="carbon.gained")])
         assert len(ar.nums) == 1
-        assert isinstance(ar.nums[0], StatsValue)
+        assert isinstance(ar.nums[0], StatValue)
         assert ar.nums[0].name == "carbon.gained"
 
     def test_with_multiple_numerators(self):
         """Test AgentReward with multiple numerators."""
         ar = AgentReward(
             nums=[
-                StatsValue(name="a.b"),
-                Inventory(item="heart"),
+                StatValue(name="a.b"),
+                InventoryValue(item="heart"),
             ]
         )
         assert len(ar.nums) == 2
@@ -125,23 +123,23 @@ class TestAgentReward:
     def test_with_denominator(self):
         """Test AgentReward with denominator."""
         ar = AgentReward(
-            nums=[StatsValue(name="aligned.junction.held")],
-            denoms=[NumObjects(object_type="junction")],
+            nums=[StatValue(name="junction.held")],
+            denoms=[NumObjectsValue(object_type="junction")],
         )
         assert len(ar.denoms) == 1
-        assert isinstance(ar.denoms[0], NumObjects)
+        assert isinstance(ar.denoms[0], NumObjectsValue)
 
     def test_with_weight_and_max(self):
         """Test AgentReward with custom weight and max cap."""
-        ar = AgentReward(nums=[Inventory(item="heart")], weight=0.5, max=10.0)
+        ar = AgentReward(nums=[InventoryValue(item="heart")], weight=0.5, max=10.0)
         assert ar.weight == 0.5
         assert ar.max == 10.0
 
     def test_full_config(self):
         """Test AgentReward with all fields."""
         ar = AgentReward(
-            nums=[StatsValue(name="aligned.junction.held", source=StatsSource.COLLECTIVE)],
-            denoms=[NumObjects(object_type="junction")],
+            nums=[StatValue(name="junction.held", scope=Scope.COLLECTIVE)],
+            denoms=[NumObjectsValue(object_type="junction")],
             weight=0.1,
             max=5.0,
         )
@@ -153,7 +151,7 @@ class TestAgentReward:
     def test_serialization(self):
         """Test AgentReward serialization."""
         ar = AgentReward(
-            nums=[Inventory(item="heart")],
+            nums=[InventoryValue(item="heart")],
             weight=0.5,
             max=10.0,
         )
@@ -175,29 +173,29 @@ class TestStatHelper:
     def test_basic_stat(self):
         """Test basic stat creation."""
         s = stat("carbon.gained")
-        assert isinstance(s, StatsValue)
+        assert isinstance(s, StatValue)
         assert s.name == "carbon.gained"
-        assert s.source == StatsSource.OWN
+        assert s.scope == Scope.AGENT
         assert s.delta is False
 
-    def test_stat_with_source(self):
-        """Test stat with custom source."""
-        s = stat("aligned.junction.held", source=StatsSource.COLLECTIVE)
-        assert s.source == StatsSource.COLLECTIVE
+    def test_stat_with_scope(self):
+        """Test stat with custom scope."""
+        s = stat("junction.held", scope=Scope.COLLECTIVE)
+        assert s.scope == Scope.COLLECTIVE
 
     def test_stat_with_delta(self):
         """Test stat with delta flag."""
         s = stat("score", delta=True)
         assert s.delta is True
 
-    def test_stats_value_serialization_round_trip(self):
-        """Test StatsValue serialization/deserialization."""
-        original = StatsValue(name="carbon.gained", source=StatsSource.COLLECTIVE, delta=True)
+    def test_stat_value_serialization_round_trip(self):
+        """Test StatValue serialization/deserialization."""
+        original = StatValue(name="carbon.gained", scope=Scope.COLLECTIVE, delta=True)
         data = original.model_dump()
-        restored = StatsValue.model_validate(data)
+        restored = StatValue.model_validate(data)
 
         assert restored.name == original.name
-        assert restored.source == original.source
+        assert restored.scope == original.scope
         assert restored.delta == original.delta
 
 
@@ -206,7 +204,7 @@ class TestRewardHelper:
 
     def test_basic_reward(self):
         """Test basic reward creation."""
-        r = reward(StatsValue(name="test"))
+        r = reward(StatValue(name="test"))
         assert isinstance(r, AgentReward)
         assert len(r.nums) == 1
         assert r.weight == 1.0
@@ -215,10 +213,10 @@ class TestRewardHelper:
     def test_reward_with_weight_max_denoms(self):
         """Test reward with all options."""
         r = reward(
-            StatsValue(name="aligned.junction.held"),
+            StatValue(name="junction.held"),
             weight=0.5,
             max=10.0,
-            denoms=[NumObjects(object_type="junction")],
+            denoms=[NumObjectsValue(object_type="junction")],
         )
         assert r.weight == 0.5
         assert r.max == 10.0
@@ -228,10 +226,10 @@ class TestRewardHelper:
 # Parameterized tests for reward helper functions
 REWARD_HELPER_TEST_CASES = [
     # (helper_fn, args, expected_num_type, expected_field, expected_field_value)
-    ("inventoryReward", ("heart",), Inventory, "item", "heart"),
-    ("collectiveInventoryReward", ("gold",), CollectiveInventory, "item", "gold"),
-    ("numObjectsReward", ("junction",), NumObjects, "object_type", "junction"),
-    ("numTaggedReward", ("vibe:aligned",), NumTaggedObjects, "tag", "vibe:aligned"),
+    ("inventoryReward", ("heart",), InventoryValue, "item", "heart"),
+    ("collectiveInventoryReward", ("gold",), InventoryValue, "item", "gold"),
+    ("numObjectsReward", ("junction",), NumObjectsValue, "object_type", "junction"),
+    ("numTaggedReward", ("vibe:aligned",), TagCountValue, "tag", "vibe:aligned"),
 ]
 
 
@@ -289,14 +287,14 @@ class TestNumObjectsHelper:
     def test_basic_num_objects(self):
         """Test basic numObjects creation."""
         no = numObjects("junction")
-        assert isinstance(no, NumObjects)
+        assert isinstance(no, NumObjectsValue)
         assert no.object_type == "junction"
 
     def test_serialization_round_trip(self):
-        """Test NumObjects serialization/deserialization."""
-        original = NumObjects(object_type="charger")
+        """Test NumObjectsValue serialization/deserialization."""
+        original = NumObjectsValue(object_type="charger")
         data = original.model_dump()
-        restored = NumObjects.model_validate(data)
+        restored = NumObjectsValue.model_validate(data)
         assert restored.object_type == original.object_type
 
 
@@ -308,14 +306,14 @@ class TestStatReward:
         r = statReward("carbon.gained")
         assert isinstance(r, AgentReward)
         assert len(r.nums) == 1
-        assert isinstance(r.nums[0], StatsValue)
+        assert isinstance(r.nums[0], StatValue)
         assert r.nums[0].name == "carbon.gained"
-        assert r.nums[0].source == StatsSource.OWN
+        assert r.nums[0].scope == Scope.AGENT
 
-    def test_stat_reward_with_source(self):
-        """Test stat reward with custom source."""
-        r = statReward("aligned.junction.held", source=StatsSource.COLLECTIVE)
-        assert r.nums[0].source == StatsSource.COLLECTIVE
+    def test_stat_reward_with_scope(self):
+        """Test stat reward with custom scope."""
+        r = statReward("junction.held", scope=Scope.COLLECTIVE)
+        assert r.nums[0].scope == Scope.COLLECTIVE
 
     def test_stat_reward_with_delta(self):
         """Test stat reward with delta flag."""
@@ -325,15 +323,15 @@ class TestStatReward:
     def test_stat_reward_full_config(self):
         """Test stat reward with all options."""
         r = statReward(
-            "aligned.junction.held",
-            source=StatsSource.COLLECTIVE,
+            "junction.held",
+            scope=Scope.COLLECTIVE,
             delta=False,
             weight=0.1,
             max=5.0,
-            denoms=[NumObjects(object_type="junction")],
+            denoms=[NumObjectsValue(object_type="junction")],
         )
-        assert r.nums[0].name == "aligned.junction.held"
-        assert r.nums[0].source == StatsSource.COLLECTIVE
+        assert r.nums[0].name == "junction.held"
+        assert r.nums[0].scope == Scope.COLLECTIVE
         assert r.nums[0].delta is False
         assert r.weight == 0.1
         assert r.max == 5.0
@@ -361,11 +359,11 @@ class TestRewardConfigSerialization:
     def test_round_trip_complex_reward(self):
         """Test serialization round-trip for complex reward with denoms."""
         original = statReward(
-            "aligned.junction.held",
-            source=StatsSource.COLLECTIVE,
+            "junction.held",
+            scope=Scope.COLLECTIVE,
             weight=0.1,
             max=5.0,
-            denoms=[NumObjects(object_type="junction")],
+            denoms=[NumObjectsValue(object_type="junction")],
         )
         data = original.model_dump()
         restored = AgentReward.model_validate(data)
@@ -378,10 +376,10 @@ class TestRewardConfigSerialization:
     @pytest.mark.parametrize(
         "game_value",
         [
-            Inventory(item="heart"),
-            CollectiveInventory(item="gold"),
-            NumObjects(object_type="junction"),
-            NumTaggedObjects(tag="vibe:aligned"),
+            InventoryValue(item="heart"),
+            InventoryValue(item="gold", scope=Scope.COLLECTIVE),
+            NumObjectsValue(object_type="junction"),
+            TagCountValue(tag="vibe:aligned"),
         ],
     )
     def test_game_value_round_trip(self, game_value):

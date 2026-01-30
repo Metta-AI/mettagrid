@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "config/observation_features.hpp"
+#include "core/game_value_config.hpp"
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
 #include "objects/collective_config.hpp"
@@ -21,16 +22,11 @@
 
 using ObservationCoord = ObservationType;
 
-enum class StatsSource : uint8_t {
-  Own = 0,
-  Global = 1,
-  Collective = 2
-};
-
-struct StatsValueConfig {
-  std::string name;
-  StatsSource source = StatsSource::Own;
-  bool delta = false;
+// ObsValueConfig: a GameValueConfig + feature_id for observation emission.
+// Replaces the old StatsValueConfig by using GameValueConfig which properly
+// distinguishes INVENTORY vs STAT types and resolves them correctly.
+struct ObsValueConfig {
+  GameValueConfig value;
   ObservationType feature_id = 0;  // Pre-computed base feature ID
 };
 
@@ -41,7 +37,7 @@ struct GlobalObsConfig {
   bool compass = false;
   bool goal_obs = false;
   bool local_position = false;
-  std::vector<StatsValueConfig> stats_obs;
+  std::vector<ObsValueConfig> obs;
 };
 
 struct GameConfig {
@@ -75,40 +71,31 @@ struct GameConfig {
 
 namespace py = pybind11;
 
-inline void bind_stats_source(py::module& m) {
-  py::enum_<StatsSource>(m, "StatsSource")
-      .value("own", StatsSource::Own)
-      .value("global_", StatsSource::Global)
-      .value("collective", StatsSource::Collective);
-}
-
-inline void bind_stats_value_config(py::module& m) {
-  py::class_<StatsValueConfig>(m, "StatsValueConfig")
+inline void bind_obs_value_config(py::module& m) {
+  py::class_<ObsValueConfig>(m, "ObsValueConfig")
       .def(py::init<>())
-      .def_readwrite("name", &StatsValueConfig::name)
-      .def_readwrite("source", &StatsValueConfig::source)
-      .def_readwrite("delta", &StatsValueConfig::delta)
-      .def_readwrite("feature_id", &StatsValueConfig::feature_id);
+      .def_readwrite("value", &ObsValueConfig::value)
+      .def_readwrite("feature_id", &ObsValueConfig::feature_id);
 }
 
 inline void bind_global_obs_config(py::module& m) {
   py::class_<GlobalObsConfig>(m, "GlobalObsConfig")
       .def(py::init<>())
-      .def(py::init<bool, bool, bool, bool, bool, bool, std::vector<StatsValueConfig>>(),
+      .def(py::init<bool, bool, bool, bool, bool, bool, std::vector<ObsValueConfig>>(),
            py::arg("episode_completion_pct") = true,
            py::arg("last_action") = true,
            py::arg("last_reward") = true,
            py::arg("compass") = false,
            py::arg("goal_obs") = false,
            py::arg("local_position") = false,
-           py::arg("stats_obs") = std::vector<StatsValueConfig>())
+           py::arg("obs") = std::vector<ObsValueConfig>())
       .def_readwrite("episode_completion_pct", &GlobalObsConfig::episode_completion_pct)
       .def_readwrite("last_action", &GlobalObsConfig::last_action)
       .def_readwrite("last_reward", &GlobalObsConfig::last_reward)
       .def_readwrite("compass", &GlobalObsConfig::compass)
       .def_readwrite("goal_obs", &GlobalObsConfig::goal_obs)
       .def_readwrite("local_position", &GlobalObsConfig::local_position)
-      .def_readwrite("stats_obs", &GlobalObsConfig::stats_obs);
+      .def_readwrite("obs", &GlobalObsConfig::obs);
 }
 
 inline void bind_game_config(py::module& m) {

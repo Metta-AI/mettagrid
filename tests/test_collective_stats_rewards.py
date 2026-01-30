@@ -1,4 +1,4 @@
-"""Test collective stats rewards (e.g., aligned.junction.held) for mettagrid.
+"""Test collective stats rewards (e.g., junction.held) for mettagrid.
 
 These tests verify that:
 1. Collective stats rewards are properly converted to C++ stat_rewards
@@ -6,7 +6,7 @@ These tests verify that:
 3. Agents receive rewards based on their collective's held stats
 """
 
-from mettagrid.config.game_value import StatsSource
+from mettagrid.config.game_value import stat as game_stat
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
     AgentConfig,
@@ -19,7 +19,7 @@ from mettagrid.config.mettagrid_config import (
     NoopActionConfig,
     WallConfig,
 )
-from mettagrid.config.reward_config import inventoryReward, reward, stat
+from mettagrid.config.reward_config import inventoryReward, reward
 from mettagrid.simulator import Action, Simulation
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
 
@@ -59,8 +59,8 @@ class TestCollectiveStatsRewardsConversion:
                 collective="cogs",
                 rewards={
                     # This tests collective_stats conversion - agent is member of collective
-                    "aligned.agent.held": reward(
-                        stat("aligned.agent.held", source=StatsSource.COLLECTIVE),
+                    "agent_held": reward(
+                        game_stat("collective.agent.held"),
                         weight=0.1,
                     ),
                 },
@@ -113,8 +113,8 @@ class TestCollectiveStatsRewardsConversion:
                     # Regular inventory reward
                     "gold": inventoryReward("gold", weight=0.1),
                     # Collective stats reward
-                    "aligned.agent.held": reward(
-                        stat("aligned.agent.held", source=StatsSource.COLLECTIVE),
+                    "agent_held": reward(
+                        game_stat("collective.agent.held"),
                         weight=0.1,
                     ),
                 },
@@ -143,7 +143,7 @@ class TestCollectiveHeldStatsIntegration:
     """Test that held stats are properly tracked and rewarded during simulation.
 
     These tests would have caught the bug where update_held_stats() was never
-    called in the simulation step loop, causing aligned.*.held stats to always be 0.
+    called in the simulation step loop, causing *.held stats to always be 0.
     """
 
     def _create_pre_aligned_junction_env(self, max_steps=100):
@@ -177,8 +177,8 @@ class TestCollectiveHeldStatsIntegration:
                 collective="cogs",
                 rewards={
                     # Reward for each step a junction is held by the collective
-                    "aligned.junction.held": reward(
-                        stat("aligned.junction.held", source=StatsSource.COLLECTIVE),
+                    "junction_held": reward(
+                        game_stat("collective.junction.held"),
                         weight=0.01,
                     ),
                 },
@@ -280,12 +280,12 @@ class TestMultipleCollectiveTypes:
             agent=AgentConfig(
                 collective="team",
                 rewards={
-                    "aligned.junction.held": reward(
-                        stat("aligned.junction.held", source=StatsSource.COLLECTIVE),
+                    "junction_held": reward(
+                        game_stat("collective.junction.held"),
                         weight=0.01,
                     ),
-                    "aligned.charger.held": reward(
-                        stat("aligned.charger.held", source=StatsSource.COLLECTIVE),
+                    "charger_held": reward(
+                        game_stat("collective.charger.held"),
                         weight=0.02,
                     ),
                 },
@@ -341,8 +341,8 @@ class TestNoRewardWithoutAlignment:
             agent=AgentConfig(
                 collective="cogs",
                 rewards={
-                    "aligned.junction.held": reward(
-                        stat("aligned.junction.held", source=StatsSource.COLLECTIVE),
+                    "junction_held": reward(
+                        game_stat("collective.junction.held"),
                         weight=0.01,
                     ),
                 },
@@ -396,8 +396,8 @@ class TestAgentHeldStats:
                 collective="cogs",
                 rewards={
                     # Reward for each step an agent is in the collective
-                    "aligned.agent.held": reward(
-                        stat("aligned.agent.held", source=StatsSource.COLLECTIVE),
+                    "agent_held": reward(
+                        game_stat("collective.agent.held"),
                         weight=0.01,
                     ),
                 },

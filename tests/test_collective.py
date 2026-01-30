@@ -247,7 +247,7 @@ class TestCollectiveInventoryObservations:
 
     def test_collective_amount_stats_observation(self):
         """Test that collective inventory amounts appear in agent observations."""
-        from mettagrid.config.game_value import StatsSource, StatsValue
+        from mettagrid.config.game_value import stat
         from mettagrid.config.mettagrid_config import AgentConfig
         from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig
         from mettagrid.test_support.map_builders import ObjectNameMapBuilder
@@ -265,9 +265,9 @@ class TestCollectiveInventoryObservations:
             agent=AgentConfig(collective="team"),
             obs=ObsConfig(
                 global_obs=GlobalObsConfig(
-                    stats_obs=[
-                        StatsValue(name="collective.gold.amount", source=StatsSource.COLLECTIVE),
-                        StatsValue(name="collective.silver.amount", source=StatsSource.COLLECTIVE),
+                    obs=[
+                        stat("collective.gold.amount"),
+                        stat("collective.silver.amount"),
                     ]
                 )
             ),
@@ -282,8 +282,8 @@ class TestCollectiveInventoryObservations:
 
         # Get observation and find collective stats tokens
         obs = agent.observation
-        gold_tokens = [t for t in obs.tokens if t.feature.name == "stat:collective:collective.gold.amount"]
-        silver_tokens = [t for t in obs.tokens if t.feature.name == "stat:collective:collective.silver.amount"]
+        gold_tokens = [t for t in obs.tokens if t.feature.name == "stat:collective:gold.amount"]
+        silver_tokens = [t for t in obs.tokens if t.feature.name == "stat:collective:silver.amount"]
 
         assert len(gold_tokens) >= 1, f"Expected gold stat token, got features: {[t.feature.name for t in obs.tokens]}"
         assert len(silver_tokens) >= 1, "Expected silver stat token"
@@ -296,7 +296,7 @@ class TestCollectiveInventoryObservations:
 
     def test_collective_amount_updates_on_inventory_change(self):
         """Test that collective amount observations update when inventory changes via C++ API."""
-        from mettagrid.config.game_value import StatsSource, StatsValue
+        from mettagrid.config.game_value import stat
         from mettagrid.config.mettagrid_config import AgentConfig
         from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig
         from mettagrid.test_support.map_builders import ObjectNameMapBuilder
@@ -317,8 +317,8 @@ class TestCollectiveInventoryObservations:
             agent=AgentConfig(collective="team"),
             obs=ObsConfig(
                 global_obs=GlobalObsConfig(
-                    stats_obs=[
-                        StatsValue(name="collective.gold.amount", source=StatsSource.COLLECTIVE),
+                    obs=[
+                        stat("collective.gold.amount"),
                     ]
                 )
             ),
@@ -333,7 +333,7 @@ class TestCollectiveInventoryObservations:
 
         # Initial observation - collective has 10 gold
         obs1 = agent.observation
-        gold_tokens = [t for t in obs1.tokens if t.feature.name == "stat:collective:collective.gold.amount"]
+        gold_tokens = [t for t in obs1.tokens if t.feature.name == "stat:collective:gold.amount"]
         assert gold_tokens[0].value == 10, f"Expected initial 10 gold, got {gold_tokens[0].value}"
 
         # Verify collective inventory via the C++ API
@@ -348,7 +348,7 @@ class TestCollectiveInventoryObservations:
 
         # Observations should still reflect 10 gold (no changes made)
         obs2 = agent.observation
-        gold_tokens = [t for t in obs2.tokens if t.feature.name == "stat:collective:collective.gold.amount"]
+        gold_tokens = [t for t in obs2.tokens if t.feature.name == "stat:collective:gold.amount"]
         assert gold_tokens[0].value == 10, f"Expected 10, got {gold_tokens[0].value}"
 
         sim.close()

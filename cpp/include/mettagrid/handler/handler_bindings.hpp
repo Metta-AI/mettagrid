@@ -4,6 +4,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include "core/game_value_config.hpp"
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
 
@@ -11,6 +12,27 @@ namespace py = pybind11;
 
 inline void bind_handler_config(py::module& m) {
   using namespace mettagrid;
+
+  // GameValueType enum
+  py::enum_<GameValueType>(m, "GameValueType")
+      .value("INVENTORY", GameValueType::INVENTORY)
+      .value("STAT", GameValueType::STAT)
+      .value("TAG_COUNT", GameValueType::TAG_COUNT);
+
+  // GameValueScope enum
+  py::enum_<GameValueScope>(m, "GameValueScope")
+      .value("AGENT", GameValueScope::AGENT)
+      .value("COLLECTIVE", GameValueScope::COLLECTIVE)
+      .value("GAME", GameValueScope::GAME);
+
+  // GameValueConfig struct
+  py::class_<GameValueConfig>(m, "GameValueConfig")
+      .def(py::init<>())
+      .def_readwrite("type", &GameValueConfig::type)
+      .def_readwrite("scope", &GameValueConfig::scope)
+      .def_readwrite("id", &GameValueConfig::id)
+      .def_readwrite("delta", &GameValueConfig::delta)
+      .def_readwrite("stat_name", &GameValueConfig::stat_name);
 
   // EntityRef enum
   py::enum_<EntityRef>(m, "EntityRef")
@@ -95,6 +117,22 @@ inline void bind_handler_config(py::module& m) {
            py::arg("tag_id") = 0)
       .def_readwrite("entity", &TagFilterConfig::entity)
       .def_readwrite("tag_id", &TagFilterConfig::tag_id);
+
+  py::class_<GameValueFilterConfig>(m, "GameValueFilterConfig")
+      .def(py::init<>())
+      .def(py::init([](GameValueConfig value, float threshold, EntityRef entity) {
+             GameValueFilterConfig cfg;
+             cfg.value = value;
+             cfg.threshold = threshold;
+             cfg.entity = entity;
+             return cfg;
+           }),
+           py::arg("value") = GameValueConfig(),
+           py::arg("threshold") = 0.0f,
+           py::arg("entity") = EntityRef::target)
+      .def_readwrite("value", &GameValueFilterConfig::value)
+      .def_readwrite("threshold", &GameValueFilterConfig::threshold)
+      .def_readwrite("entity", &GameValueFilterConfig::entity);
 
   py::class_<NearFilterConfig>(m, "NearFilterConfig")
       .def(py::init<>())
@@ -273,6 +311,22 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("entity", &RemoveTagMutationConfig::entity)
       .def_readwrite("tag_id", &RemoveTagMutationConfig::tag_id);
 
+  py::class_<GameValueMutationConfig>(m, "GameValueMutationConfig")
+      .def(py::init<>())
+      .def(py::init([](GameValueConfig value, float delta, EntityRef entity) {
+             GameValueMutationConfig cfg;
+             cfg.value = value;
+             cfg.delta = delta;
+             cfg.entity = entity;
+             return cfg;
+           }),
+           py::arg("value") = GameValueConfig(),
+           py::arg("delta") = 0.0f,
+           py::arg("entity") = EntityRef::target)
+      .def_readwrite("value", &GameValueMutationConfig::value)
+      .def_readwrite("delta", &GameValueMutationConfig::delta)
+      .def_readwrite("entity", &GameValueMutationConfig::entity);
+
   // HandlerConfig with methods to add filters and mutations
   py::class_<HandlerConfig, std::shared_ptr<HandlerConfig>>(m, "HandlerConfig")
       .def(py::init<>())
@@ -299,6 +353,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_near_filter",
           [](HandlerConfig& self, const NearFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_game_value_filter",
+          [](HandlerConfig& self, const GameValueFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       // Add mutation methods - each type wraps into the variant
       .def(
@@ -336,6 +394,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_remove_tag_mutation",
           [](HandlerConfig& self, const RemoveTagMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_game_value_mutation",
+          [](HandlerConfig& self, const GameValueMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"));
 
   // ResourceDelta for presence_deltas

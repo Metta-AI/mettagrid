@@ -5,19 +5,50 @@ Used for rewards (numerators/denominators) and observations.
 """
 
 from enum import Enum
-from typing import Union
+from typing import Set, Tuple, Union
 
 from pydantic import field_serializer
 
 from mettagrid.base_config import Config
 
 
-class StatsSource(Enum):
-    """Source of stats for observation."""
+class Scope(Enum):
+    """Scope for a game value."""
 
-    OWN = "own"  # Agent's personal stats
-    GLOBAL = "global"  # Game-level stats from StatsTracker
-    COLLECTIVE = "collective"  # Agent's collective stats
+    AGENT = "agent"
+    COLLECTIVE = "collective"
+    GAME = "game"
+
+
+_SCOPE_ALIASES: dict[str, Scope] = {
+    "agent": Scope.AGENT,
+    "collective": Scope.COLLECTIVE,
+    "game": Scope.GAME,
+}
+
+
+def _parse_scope(s: str, allowed: Set[Scope], default: Scope = Scope.AGENT) -> Tuple[Scope, str]:
+    """Parse an optional 'scope.' prefix from *s*.
+
+    Returns (scope, remainder). If the first dotted segment matches a known
+    scope name (or alias), that scope is used; otherwise *default* is returned
+    and the full string is the remainder.
+    """
+    dot = s.find(".")
+    if dot != -1:
+        prefix = s[:dot].lower()
+        if prefix in _SCOPE_ALIASES:
+            scope = _SCOPE_ALIASES[prefix]
+            if scope not in allowed:
+                allowed_str = sorted(sc.value for sc in allowed)
+                raise ValueError(f"Scope '{prefix}' is not allowed here (allowed: {allowed_str})")
+            return scope, s[dot + 1 :]
+    return default, s
+
+
+# ---------------------------------------------------------------------------
+# Base class
+# ---------------------------------------------------------------------------
 
 
 class GameValue(Config):
@@ -26,48 +57,110 @@ class GameValue(Config):
     pass
 
 
-class StatsValue(GameValue):
-    """Stat value from agent, collective, or global tracker."""
+class InventoryValue(GameValue):
+    """Inventory item count with explicit scope."""
 
-    name: str  # Stat key, e.g. "carbon.gained"
-    source: StatsSource = StatsSource.OWN
-    delta: bool = False  # True = per-step change, False = cumulative
+    item: str
+    scope: Scope = Scope.AGENT
 
-    @field_serializer("source")
-    def serialize_source(self, value: StatsSource) -> str:
+    @field_serializer("scope")
+    def serialize_scope(self, value: Scope) -> str:
         return value.value
 
 
-class Inventory(GameValue):
-    """Agent's own inventory item count."""
+class StatValue(GameValue):
+    """Stat value with explicit scope."""
 
-    item: str
+    name: str
+    scope: Scope = Scope.AGENT
+    delta: bool = False
 
-
-class CollectiveInventory(GameValue):
-    """Agent's collective inventory item count."""
-
-    item: str
-
-
-class NumObjects(GameValue):
-    """Count of objects by type.
-
-    Shorthand for NumTaggedObjects with the type tag.
-    E.g., NumObjects("junction") counts objects with tag "type:junction".
-    """
-
-    object_type: str  # e.g., "junction"
+    @field_serializer("scope")
+    def serialize_scope(self, value: Scope) -> str:
+        return value.value
 
 
-class NumTaggedObjects(GameValue):
-    """Count of objects with an arbitrary tag.
+class NumObjectsValue(GameValue):
+    """Count of objects by type."""
 
-    E.g., NumTaggedObjects("vibe:aligned") counts all aligned objects.
-    """
-
-    tag: str  # e.g., "type:junction", "vibe:aligned", "collective:cogs"
+    object_type: str
 
 
-# Union type for all GameValue types (useful for type hints)
-AnyGameValue = Union[StatsValue, Inventory, CollectiveInventory, NumObjects, NumTaggedObjects]
+class TagCountValue(GameValue):
+    """Count of objects with a given tag."""
+
+    tag: str
+
+
+# ---------------------------------------------------------------------------
+# Union of all GameValue types
+# ---------------------------------------------------------------------------
+
+AnyGameValue = Union[
+    InventoryValue,
+    StatValue,
+    NumObjectsValue,
+    TagCountValue,
+]
+
+
+# ---------------------------------------------------------------------------
+# String-parsing helper constructors
+# ---------------------------------------------------------------------------
+
+
+def inv(s: str) -> InventoryValue:
+    """Parse 'item' or 'scope.item' into InventoryValue."""
+    scope, name = _parse_scope(s, allowed={Scope.AGENT, Scope.COLLECTIVE})
+    return InventoryValue(item=name, scope=scope)
+
+
+def stat(s: str, delta: bool = False) -> StatValue:
+    """Parse 'name' or 'scope.name' into StatValue."""
+    scope, name = _parse_scope(s, allowed={Scope.AGENT, Scope.COLLECTIVE, Scope.GAME})
+    return StatValue(name=name, scope=scope, delta=delta)
+
+
+def num(s: str) -> NumObjectsValue:
+    """Create a NumObjectsValue."""
+    return NumObjectsValue(object_type=s)
+
+
+def tag(s: str) -> TagCountValue:
+    """Create a TagCountValue."""
+    return TagCountValue(tag=s)
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatibility aliases for old type names
+# ---------------------------------------------------------------------------
+
+
+class StatsValue(StatValue):
+    """Deprecated alias for StatValue."""
+
+    pass
+
+
+class Inventory(InventoryValue):
+    """Deprecated alias for InventoryValue (agent scope)."""
+
+    pass
+
+
+class CollectiveInventory(InventoryValue):
+    """Deprecated alias for InventoryValue (collective scope)."""
+
+    pass
+
+
+class NumObjects(NumObjectsValue):
+    """Deprecated alias for NumObjectsValue."""
+
+    pass
+
+
+class NumTaggedObjects(TagCountValue):
+    """Deprecated alias for TagCountValue."""
+
+    pass

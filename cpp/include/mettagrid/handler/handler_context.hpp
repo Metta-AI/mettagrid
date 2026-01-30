@@ -2,8 +2,10 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_HANDLER_CONTEXT_HPP_
 
 #include <memory>
+#include <string>
 #include <vector>
 
+#include "core/game_value_config.hpp"
 #include "core/grid.hpp"
 #include "core/grid_object.hpp"
 #include "core/tag_index.hpp"
@@ -11,6 +13,8 @@
 #include "objects/collective.hpp"
 #include "objects/has_inventory.hpp"
 #include "systems/stats_tracker.hpp"
+
+class Agent;
 
 namespace mettagrid {
 
@@ -114,6 +118,12 @@ public:
     GridObject* grid_obj = target_grid_object();
     return grid_obj != nullptr ? grid_obj->vibe : 0;
   }
+
+  // Resolve a GameValueConfig to its current float value for a given entity
+  float resolve_game_value(const GameValueConfig& cfg, EntityRef entity_ref) const;
+
+  // Resolve a stats tracker for a given scope and entity
+  StatsTracker* resolve_stats_tracker(GameValueScope scope, HasInventory* entity) const;
 
   // Look up a collective by ID (returns nullptr if not found)
   Collective* get_collective_by_id(int collective_id) const {

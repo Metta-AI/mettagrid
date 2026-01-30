@@ -20,6 +20,7 @@
 #include "actions/transfer.hpp"
 #include "config/observation_features.hpp"
 #include "core/grid.hpp"
+#include "handler/handler_context.hpp"
 #include "core/grid_object_factory.hpp"
 #include "core/types.hpp"
 #include "handler/handler_bindings.hpp"
@@ -83,7 +84,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   _stats = std::make_unique<StatsTracker>(&resource_names);
   _aoe_tracker->set_game_stats(_stats.get());
-  _stats_obs_helper = std::make_unique<StatsObsHelper>(_game_config.global_obs, _game_config.token_value_base);
+  _token_encoder = std::make_unique<ObservationTokenEncoder>(_game_config.token_value_base);
 
   _action_success.resize(num_agents);
 
@@ -124,8 +125,10 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
     }
   }
 
-  // Initialize stats observation registrations (must be before _make_buffers which computes initial observations)
-  _stats_obs_helper->init(_agents, _stats.get(), _collectives);
+  // Initialize reward entries (resolve stat names to IDs, get pointers)
+  for (auto* agent : _agents) {
+    agent->init_reward(_stats.get(), &_tag_index, &resource_names);
+  }
 
   // Create buffers
   _make_buffers(num_agents);
@@ -271,26 +274,31 @@ void MettaGrid::_compute_agent_goal_obs_tokens(size_t agent_idx) {
   // Track which resources we've already added goal tokens for
   std::unordered_set<std::string> added_resources;
 
-  // Iterate through stat_rewards to find rewarding resources
-  for (const auto& [stat_name, reward_value] : agent->reward_computer.config.stat_rewards) {
-    // Extract resource name from stat name (e.g., "carbon.amount" -> "carbon", "carbon.gained" -> "carbon")
-    size_t dot_pos = stat_name.find('.');
-    if (dot_pos != std::string::npos) {
-      std::string resource_name = stat_name.substr(0, dot_pos);
-      // Only add one goal token per resource
-      if (added_resources.find(resource_name) == added_resources.end()) {
-        // Find the resource index in resource_names
-        for (size_t i = 0; i < resource_names.size(); i++) {
-          if (resource_names[i] == resource_name) {
-            // Get the inventory feature ID for this resource
-            ObservationType inventory_feature_id =
-                _obs_encoder->get_inventory_feature_id(static_cast<InventoryItem>(i));
-            // Add a goal token with the resource's inventory feature ID as the value
-            goal_tokens.push_back({ObservationFeature::Goal, inventory_feature_id});
-            added_resources.insert(resource_name);
-            break;
-          }
-        }
+  // Helper to add a goal token for a resource name
+  auto add_resource_goal = [&](const std::string& resource_name) {
+    if (added_resources.find(resource_name) != added_resources.end()) return;  // already added
+    for (size_t i = 0; i < resource_names.size(); i++) {
+      if (resource_names[i] == resource_name) {
+        ObservationType inventory_feature_id =
+            _obs_encoder->get_inventory_feature_id(static_cast<InventoryItem>(i));
+        goal_tokens.push_back({ObservationFeature::Goal, inventory_feature_id});
+        added_resources.insert(resource_name);
+        break;
+      }
+    }
+  };
+
+  // Extract resource info from reward entries for goal observation tokens
+  for (const auto& entry : agent->reward_helper.config.entries) {
+    const auto& num = entry.numerator;
+    if (num.type == GameValueType::INVENTORY && num.id < resource_names.size()) {
+      add_resource_goal(resource_names[num.id]);
+    } else if (num.type == GameValueType::STAT) {
+      // Extract resource name from stat_name (e.g., "carbon.gained" -> "carbon")
+      const std::string& sn = num.stat_name;
+      size_t dot_pos = sn.find('.');
+      if (dot_pos != std::string::npos) {
+        add_resource_goal(sn.substr(0, dot_pos));
       }
     }
   }
@@ -440,20 +448,10 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
     }
   }
 
-  // Stats observation tokens - collect from all sources and emit
+  // Emit obs tokens - resolve each GameValueConfig inline
   attempted_tokens_written +=
-      _stats_obs_helper->emit(_agents[agent_idx]->stats, *_obs_encoder, _observations, agent_idx, tokens_written, global_location);
+      _emit_obs_value_tokens(agent_idx, tokens_written, global_location);
   tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
-
-  attempted_tokens_written +=
-      _stats_obs_helper->emit(*_stats, *_obs_encoder, _observations, agent_idx, tokens_written, global_location);
-  tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
-
-  if (auto* collective = _agents[agent_idx]->getCollective()) {
-    attempted_tokens_written +=
-        _stats_obs_helper->emit(collective->stats, *_obs_encoder, _observations, agent_idx, tokens_written, global_location);
-    tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
-  }
 
   // Process locations in increasing manhattan distance order
   for (const auto& [r_offset, c_offset] : PackedCoordinate::ObservationPattern{observable_height, observable_width}) {
@@ -494,10 +492,6 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
 }
 
 void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_actions) {
-  // Precompute stats observation values once per timestep so all agents
-  // see the same delta values for shared (global/collective) trackers.
-  _stats_obs_helper->precompute(_agents, _stats.get(), _collectives);
-
   for (size_t idx = 0; idx < _agents.size(); idx++) {
     auto& agent = _agents[idx];
     ActionType action_idx = executed_actions[idx];
@@ -597,9 +591,9 @@ void MettaGrid::_step() {
   // Compute observations for next step
   _compute_observations(executed_actions);
 
-  // Compute stat-based rewards for all agents
+  // Compute rewards for all agents
   for (auto& agent : _agents) {
-    agent->compute_stat_rewards(_stats.get(), &_tag_index);
+    agent->reward_helper.compute_entries();
   }
 
   // Update episode rewards
@@ -694,4 +688,56 @@ void MettaGrid::step() {
   }
 
   _step();
+}
+
+size_t MettaGrid::_emit_obs_value_tokens(size_t agent_idx,
+                                          size_t tokens_written,
+                                          ObservationType global_location) {
+  auto observation_view = _observations.mutable_unchecked<3>();
+  auto* agent = _agents[agent_idx];
+
+  // Build a HandlerContext so we can use resolve_game_value
+  mettagrid::HandlerContext ctx;
+  ctx.actor = agent;
+  ctx.target = agent;
+  ctx.game_stats = _stats.get();
+  ctx.tag_index = &_tag_index;
+  ctx.collectives = &_collectives;
+
+  size_t total_written = 0;
+
+  for (const auto& obs_cfg : _game_config.global_obs.obs) {
+    if (tokens_written + total_written >= static_cast<size_t>(observation_view.shape(1))) {
+      break;
+    }
+
+    float raw_value = 0.0f;
+    const auto& gv = obs_cfg.value;
+
+    // For COLLECTIVE scope, resolve from the agent's collective directly,
+    // since HandlerContext::resolve_game_value routes via entity_ref which
+    // doesn't handle collective-as-entity for stats resolution.
+    if (gv.scope == GameValueScope::COLLECTIVE) {
+      auto* collective = agent->getCollective();
+      if (collective != nullptr) {
+        if (gv.type == GameValueType::INVENTORY) {
+          raw_value = static_cast<float>(collective->inventory.amount(gv.id));
+        } else if (gv.type == GameValueType::STAT) {
+          raw_value = !gv.stat_name.empty() ? collective->stats.get(gv.stat_name)
+                                            : *collective->stats.get_ptr(gv.id);
+        }
+      }
+    } else {
+      raw_value = ctx.resolve_game_value(gv, mettagrid::EntityRef::actor);
+    }
+
+    auto tokens = _token_encoder->encode(obs_cfg.feature_id, static_cast<uint32_t>(raw_value));
+    ObservationToken* ptr = reinterpret_cast<ObservationToken*>(
+        observation_view.mutable_data(agent_idx, tokens_written + total_written, 0));
+    ObservationTokens obs_tokens(
+        ptr, static_cast<size_t>(observation_view.shape(1)) - tokens_written - total_written);
+    total_written += _obs_encoder->append_tokens_if_room_available(obs_tokens, tokens, global_location);
+  }
+
+  return total_written;
 }

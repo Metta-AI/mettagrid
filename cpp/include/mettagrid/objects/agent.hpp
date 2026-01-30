@@ -24,7 +24,7 @@ public:
   ObservationType group;
   short frozen;
   short freeze_duration;
-  RewardComputer reward_computer;
+  RewardHelper reward_helper;
   std::string group_name;
   // Despite being a GridObjectId, this is different from the `id` property.
   // This is the index into MettaGrid._agents (std::vector<Agent*>)
@@ -46,14 +46,15 @@ public:
   Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vector<std::string>* resource_names);
 
   void init(RewardType* reward_ptr);
+  void init_reward(StatsTracker* game_stats,
+                   mettagrid::TagIndex* tag_index,
+                   const std::vector<std::string>* resource_names);
 
   void populate_initial_inventory(const std::unordered_map<InventoryItem, InventoryQuantity>& initial_inventory);
 
   void set_inventory(const std::unordered_map<InventoryItem, InventoryQuantity>& inventory);
 
   void on_inventory_change(InventoryItem item, InventoryDelta delta) override;
-
-  void compute_stat_rewards(StatsTracker* game_stats_tracker = nullptr, mettagrid::TagIndex* tag_index = nullptr);
 
   // Implementation of Usable interface
   bool onUse(Agent& actor, ActionArg arg) override;
