@@ -21,11 +21,13 @@ proc drawVibes*(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Ve
       if sk.at.x + buttonWidth > sk.pos.x + sk.size.x - m:
         sk.at.x = startX
         sk.at.y += 32 + m
+
+      let vibeName = vibe.split("/")[1]
+
       iconButton(vibe):
         if selection == nil or not selection.isAgent:
           return
 
-        let vibeName = vibe.split("/")[1]
         let vibeActionId = replay.actionNames.find("change_vibe_" & vibeName)
         if vibeActionId == -1:
           echo "vibe action not found: change_vibe_", vibeName
@@ -57,3 +59,5 @@ proc drawVibes*(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Ve
         else:
           # Execute immediately.
           sendAction(selection.agentId, replay.actionNames[vibeActionId])
+      if sk.shouldShowTooltip:
+        tooltip(vibeName)
