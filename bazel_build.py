@@ -219,7 +219,7 @@ def _run_nim_build(name: str, nim_dir: Path, package_dir: Path, *, copy_bindings
     print(f"Building {name} from {nim_dir}")
 
     cmd("nimby sync -g nimby.lock", cwd=nim_dir, max_attempts=3)
-    cmd("nim c bindings/bindings.nim", cwd=nim_dir)
+    cmd("nim c --skipProjCfg:on bindings/bindings.nim", cwd=nim_dir)
 
     print(f"Successfully built {name}")
     if not copy_bindings:
