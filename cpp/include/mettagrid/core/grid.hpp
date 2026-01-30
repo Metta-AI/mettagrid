@@ -18,6 +18,7 @@ public:
   const GridCoord height;
   const GridCoord width;
   vector<std::unique_ptr<GridObject>> objects;
+  vector<std::unique_ptr<GridObject>> removed;
 
 private:
   GridType grid;
@@ -103,6 +104,14 @@ public:
       return nullptr;
     }
     return grid[loc.r][loc.c];
+  }
+
+  inline void remove_from_grid(GridObject& obj) {
+    grid[obj.location.r][obj.location.c] = nullptr;
+    // Move ownership from objects to removed list
+    auto& slot = objects[obj.id];
+    removed.push_back(std::move(slot));
+    // slot is now nullptr, so object() returns null for this id
   }
 
   inline bool is_empty(GridCoord row, GridCoord col) const {

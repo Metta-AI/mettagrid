@@ -124,11 +124,13 @@ class ResourceTransferMutationConfig:
         destination: EntityRef = ...,
         resource_id: int = 0,
         amount: int = -1,
+        remove_source_when_empty: bool = False,
     ) -> None: ...
     source: EntityRef
     destination: EntityRef
     resource_id: int
     amount: int
+    remove_source_when_empty: bool
 
 class AlignmentMutationConfig:
     def __init__(

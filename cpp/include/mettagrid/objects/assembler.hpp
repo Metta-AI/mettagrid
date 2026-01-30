@@ -32,7 +32,7 @@ private:
       for (int j = -1; j <= 1; ++j) {
         if (i == 0 && j == 0) continue;  // skip center
         GridLocation position = {static_cast<GridCoord>(r + i), static_cast<GridCoord>(c + j)};
-        if (grid->is_valid_location(position)) {
+        if (_grid->is_valid_location(position)) {
           positions.emplace_back(static_cast<GridCoord>(r + i), static_cast<GridCoord>(c + j));
         }
       }
@@ -44,7 +44,7 @@ private:
   // Get surrounding agents in upper-left-to-lower-right order starting from the given agent's position
   std::vector<Agent*> get_surrounding_agents(const Agent* starting_agent) const {
     std::vector<Agent*> agents;
-    if (!grid) return agents;
+    if (!_grid) return agents;
 
     std::vector<std::pair<GridCoord, GridCoord>> positions = get_surrounding_positions();
 
@@ -74,8 +74,8 @@ private:
     for (const auto& pos : positions) {
       GridCoord check_r = pos.first;
       GridCoord check_c = pos.second;
-      if (check_r < grid->height && check_c < grid->width) {
-        GridObject* obj = grid->object_at(GridLocation(check_r, check_c));
+      if (check_r < _grid->height && check_c < _grid->width) {
+        GridObject* obj = _grid->object_at(GridLocation(check_r, check_c));
         if (obj) {
           Agent* agent = dynamic_cast<Agent*>(obj);
           if (agent) {
@@ -92,7 +92,7 @@ private:
   // Returns empty vector if chest_search_distance is 0
   std::vector<Chest*> get_surrounding_chests() const {
     std::vector<Chest*> chests;
-    if (!grid || chest_search_distance == 0) return chests;
+    if (!_grid || chest_search_distance == 0) return chests;
 
     GridCoord r = location.r;
     GridCoord c = location.c;
@@ -106,8 +106,8 @@ private:
         GridCoord check_c = c + dc;
         GridLocation check_location(check_r, check_c);
 
-        if (grid->is_valid_location(check_location)) {
-          if (Chest* chest = dynamic_cast<Chest*>(grid->object_at(check_location))) {
+        if (_grid->is_valid_location(check_location)) {
+          if (Chest* chest = dynamic_cast<Chest*>(_grid->object_at(check_location))) {
             chests.push_back(chest);
           }
         }
@@ -243,8 +243,7 @@ public:
   unsigned int uses_count;  // Current number of times used
   unsigned int max_uses;    // Maximum number of uses (0 = unlimited)
 
-  // Grid access for finding surrounding agents
-  class Grid* grid;
+  // Grid access for finding surrounding agents (uses _grid from GridObject base class)
 
   // Game-level stats tracker (shared across environment)
   StatsTracker* stats_tracker;
@@ -264,7 +263,6 @@ public:
         cooldown_duration(0),
         uses_count(0),
         max_uses(cfg.max_uses),
-        grid(nullptr),
         stats_tracker(stats),
         current_timestep_ptr(nullptr),
         allow_partial_usage(cfg.allow_partial_usage),
@@ -272,11 +270,6 @@ public:
     GridObject::init(cfg.type_id, cfg.type_name, GridLocation(r, c), cfg.tag_ids, cfg.initial_vibe);
   }
   virtual ~Assembler() = default;
-
-  // Set grid access
-  void set_grid(class Grid* grid_ptr) {
-    this->grid = grid_ptr;
-  }
 
   // Set current timestep pointer
   void set_current_timestep_ptr(unsigned int* timestep_ptr) {
@@ -320,7 +313,7 @@ public:
   // Helper function to get the "local vibe" based on vibes of surrounding agents
   // Returns a 64-bit number created from sorted vibes of surrounding agents
   GroupVibe get_local_vibe() const {
-    if (!grid) return 0;
+    if (!_grid) return 0;
 
     std::vector<uint8_t> vibes;
     std::vector<std::pair<GridCoord, GridCoord>> positions = get_surrounding_positions();
@@ -329,8 +322,8 @@ public:
       GridCoord check_r = positions[i].first;
       GridCoord check_c = positions[i].second;
 
-      if (check_r < grid->height && check_c < grid->width) {
-        GridObject* obj = grid->object_at(GridLocation(check_r, check_c));
+      if (check_r < _grid->height && check_c < _grid->width) {
+        GridObject* obj = _grid->object_at(GridLocation(check_r, check_c));
         if (obj) {
           Agent* agent = dynamic_cast<Agent*>(obj);
           if (agent && agent->vibe != 0) {
@@ -345,7 +338,7 @@ public:
 
   // Get current protocol based on local vibe from surrounding agent vibes
   const Protocol* get_current_protocol() const {
-    if (!grid) return nullptr;
+    if (!_grid) return nullptr;
     GroupVibe vibe = get_local_vibe();
     size_t num_agents = get_surrounding_agents(nullptr).size();
 
@@ -402,7 +395,7 @@ public:
   }
 
   virtual bool onUse(Agent& actor, ActionArg /*arg*/) override {
-    if (!grid || !current_timestep_ptr) {
+    if (!_grid || !current_timestep_ptr) {
       return false;
     }
 

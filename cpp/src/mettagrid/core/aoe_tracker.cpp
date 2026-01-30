@@ -50,6 +50,7 @@ bool AOESource::try_apply(GridObject* target, StatsTracker* game_stats) {
   // Create context: actor=source, target=affected object
   // Include game_stats for StatsMutation support
   HandlerContext ctx(source, target, game_stats);
+  ctx.grid = source->grid();
 
   // Check all filters
   for (const auto& filter : filters) {
@@ -68,6 +69,7 @@ bool AOESource::try_apply(GridObject* target, StatsTracker* game_stats) {
 
 bool AOESource::passes_filters(GridObject* target) const {
   HandlerContext ctx(source, target);
+  ctx.grid = source->grid();
   for (const auto& filter : filters) {
     if (!filter->passes(ctx)) {
       return false;

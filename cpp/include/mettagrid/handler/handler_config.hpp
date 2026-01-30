@@ -105,7 +105,8 @@ struct ResourceTransferMutationConfig {
   EntityRef source = EntityRef::actor;
   EntityRef destination = EntityRef::target;
   InventoryItem resource_id = 0;
-  InventoryDelta amount = -1;  // -1 means transfer all available
+  InventoryDelta amount = -1;             // -1 means transfer all available
+  bool remove_source_when_empty = false;  // Remove source from grid when its inventory is empty
 };
 
 struct AlignmentMutationConfig {

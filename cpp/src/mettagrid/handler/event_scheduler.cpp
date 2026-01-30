@@ -69,4 +69,10 @@ void EventScheduler::set_collectives(const std::vector<std::unique_ptr<Collectiv
   }
 }
 
+void EventScheduler::set_grid(Grid* grid) {
+  for (auto& [name, event] : _events) {
+    event->set_grid(grid);
+  }
+}
+
 }  // namespace mettagrid

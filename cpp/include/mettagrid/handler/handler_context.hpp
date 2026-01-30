@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+#include "core/grid.hpp"
 #include "core/grid_object.hpp"
 #include "core/tag_index.hpp"
 #include "handler/handler_config.hpp"
@@ -28,6 +29,7 @@ public:
   HasInventory* target = nullptr;
   StatsTracker* game_stats = nullptr;  // Game-level stats tracker (for StatsMutation)
   TagIndex* tag_index = nullptr;       // Tag index for NearFilter lookups
+  Grid* grid = nullptr;                // Grid for removing objects from cells
   const std::vector<std::unique_ptr<Collective>>* collectives = nullptr;  // Collectives indexed by ID (for events)
   bool skip_on_update_trigger = false;  // Skip triggering on_update handlers (prevent recursion)
 

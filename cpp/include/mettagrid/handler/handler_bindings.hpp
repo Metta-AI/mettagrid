@@ -148,22 +148,29 @@ inline void bind_handler_config(py::module& m) {
 
   py::class_<ResourceTransferMutationConfig>(m, "ResourceTransferMutationConfig")
       .def(py::init<>())
-      .def(py::init([](EntityRef source, EntityRef destination, InventoryItem resource_id, InventoryDelta amount) {
+      .def(py::init([](EntityRef source,
+                       EntityRef destination,
+                       InventoryItem resource_id,
+                       InventoryDelta amount,
+                       bool remove_source_when_empty) {
              ResourceTransferMutationConfig cfg;
              cfg.source = source;
              cfg.destination = destination;
              cfg.resource_id = resource_id;
              cfg.amount = amount;
+             cfg.remove_source_when_empty = remove_source_when_empty;
              return cfg;
            }),
            py::arg("source") = EntityRef::actor,
            py::arg("destination") = EntityRef::target,
            py::arg("resource_id") = 0,
-           py::arg("amount") = -1)
+           py::arg("amount") = -1,
+           py::arg("remove_source_when_empty") = false)
       .def_readwrite("source", &ResourceTransferMutationConfig::source)
       .def_readwrite("destination", &ResourceTransferMutationConfig::destination)
       .def_readwrite("resource_id", &ResourceTransferMutationConfig::resource_id)
-      .def_readwrite("amount", &ResourceTransferMutationConfig::amount);
+      .def_readwrite("amount", &ResourceTransferMutationConfig::amount)
+      .def_readwrite("remove_source_when_empty", &ResourceTransferMutationConfig::remove_source_when_empty);
 
   py::class_<AlignmentMutationConfig>(m, "AlignmentMutationConfig")
       .def(py::init<>())

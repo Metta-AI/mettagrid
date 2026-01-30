@@ -148,9 +148,20 @@ public:
 
   const ObservationEncoder* obs_encoder = nullptr;
 
+  // Set grid access (used for removing depleted objects from grid)
+  void set_grid(class Grid* grid_ptr) {
+    _grid = grid_ptr;
+  }
+
+  // Get grid pointer
+  class Grid* grid() const {
+    return _grid;
+  }
+
 protected:
   std::vector<std::shared_ptr<mettagrid::Handler>> _on_use_handlers;
   std::vector<mettagrid::AOEConfig> _aoe_configs;
+  class Grid* _grid = nullptr;
 
 private:
   mettagrid::TagIndex* _tag_index = nullptr;

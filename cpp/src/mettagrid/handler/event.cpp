@@ -67,6 +67,7 @@ bool Event::try_apply(HasInventory* target) {
   // For events, there's no actor - the target is the only entity
   // Pass collectives in context for runtime resolution
   HandlerContext ctx(nullptr, target, nullptr, _tag_index, _collectives);
+  ctx.grid = _grid;
 
   if (!check_filters(target)) {
     return false;
@@ -83,6 +84,7 @@ bool Event::check_filters(HasInventory* target) const {
   // For events, there's no actor - the target is the only entity
   // Pass collectives in context for runtime resolution
   HandlerContext ctx(nullptr, target, nullptr, _tag_index, _collectives);
+  ctx.grid = _grid;
 
   for (const auto& filter : _filters) {
     if (!filter->passes(ctx)) {

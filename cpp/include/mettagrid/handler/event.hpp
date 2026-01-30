@@ -56,6 +56,11 @@ public:
     _collectives = collectives;
   }
 
+  // Set grid pointer for context-based grid removal
+  void set_grid(Grid* grid) {
+    _grid = grid;
+  }
+
   // Execute this event: find targets, apply mutations, return number of targets affected.
   // If no targets match and a fallback is set, executes the fallback instead.
   int execute(TagIndex& tag_index, std::mt19937* rng);
@@ -74,6 +79,7 @@ private:
   std::string _fallback_name;        // Fallback event name (for initialization)
   Event* _fallback_event = nullptr;  // Pointer to fallback event (resolved at init)
   TagIndex* _tag_index = nullptr;    // Tag index for NearFilter lookups
+  Grid* _grid = nullptr;             // Grid for removing objects from cells
   const std::vector<std::unique_ptr<Collective>>* _collectives = nullptr;  // Collectives for context lookup
   std::vector<std::unique_ptr<Filter>> _filters;
   std::vector<std::unique_ptr<Mutation>> _mutations;

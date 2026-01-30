@@ -16,8 +16,9 @@
 #include "handler/handler_config.hpp"
 #include "objects/collective.hpp"
 
-// Forward declaration
+// Forward declarations
 class Collective;
+class Grid;
 
 namespace mettagrid {
 
@@ -52,6 +53,9 @@ public:
 
   // Set collectives vector for context-based resolution in all events
   void set_collectives(const std::vector<std::unique_ptr<Collective>>* collectives);
+
+  // Set grid pointer for context-based grid removal in all events
+  void set_grid(Grid* grid);
 
   // Check if there are any events scheduled
   bool has_events() const {

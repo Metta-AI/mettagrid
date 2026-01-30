@@ -62,14 +62,8 @@ public:
   // vibe -> resource -> delta
   std::unordered_map<ObservationType, std::unordered_map<InventoryItem, int>> vibe_transfers;
 
-  // Grid access for finding agent positions
-  class Grid* grid;
-
   Chest(GridCoord r, GridCoord c, const ChestConfig& cfg, StatsTracker* stats_tracker)
-      : GridObject(cfg.inventory_config),
-        stats_tracker(stats_tracker),
-        vibe_transfers(cfg.vibe_transfers),
-        grid(nullptr) {
+      : GridObject(cfg.inventory_config), stats_tracker(stats_tracker), vibe_transfers(cfg.vibe_transfers) {
     GridObject::init(cfg.type_id, cfg.type_name, GridLocation(r, c), cfg.tag_ids, cfg.initial_vibe);
     // Set initial inventory for all configured resources (ignore limits for initial setup)
     for (const auto& [resource, amount] : cfg.initial_inventory) {
@@ -81,14 +75,9 @@ public:
 
   virtual ~Chest() = default;
 
-  // Set grid access
-  void set_grid(class Grid* grid_ptr) {
-    this->grid = grid_ptr;
-  }
-
   // Implement pure virtual method from Usable
   virtual bool onUse(Agent& actor, ActionArg arg) override {
-    if (!grid) {
+    if (!_grid) {
       return false;
     }
 
