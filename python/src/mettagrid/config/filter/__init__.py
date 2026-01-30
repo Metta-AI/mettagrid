@@ -14,6 +14,7 @@ from mettagrid.config.filter.alignment_filter import (
     isNotAlignedToActor,
 )
 from mettagrid.config.filter.filter import AnyFilter, Filter, HandlerTarget
+from mettagrid.config.filter.game_value_filter import GameValueFilter
 from mettagrid.config.filter.near_filter import NearFilter, isNear
 from mettagrid.config.filter.resource_filter import (
     ResourceFilter,
@@ -28,6 +29,7 @@ from mettagrid.config.tag import Tag, typeTag
 
 # Rebuild models with forward references now that all filter classes are defined
 NearFilter.model_rebuild()
+GameValueFilter.model_rebuild()
 
 __all__ = [
     # Enums
@@ -40,6 +42,7 @@ __all__ = [
     "AlignmentFilter",
     "TagFilter",
     "NearFilter",
+    "GameValueFilter",
     "AnyFilter",
     # Filter helpers
     "isAlignedToActor",

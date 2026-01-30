@@ -117,7 +117,7 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
       obj_dict["freeze_duration"] = agent->freeze_duration;
       obj_dict["vibe"] = agent->vibe;
       obj_dict["agent_id"] = agent->agent_id;
-      obj_dict["current_stat_reward"] = agent->reward_computer.current_stat_reward;
+      obj_dict["current_stat_reward"] = agent->reward_helper._current_reward;
       obj_dict["steps_without_motion"] = agent->steps_without_motion;
 
       // We made resource limits more complicated than this, and need to review how to expose them.
@@ -400,8 +400,7 @@ PYBIND11_MODULE(mettagrid_c, m) {
   bind_transfer_action_config(m);
   bind_change_vibe_action_config(m);
   bind_move_action_config(m);
-  bind_stats_source(m);
-  bind_stats_value_config(m);
+  bind_obs_value_config(m);
   bind_global_obs_config(m);
   bind_game_config(m);
 

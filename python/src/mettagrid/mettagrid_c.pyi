@@ -6,6 +6,30 @@ import numpy as np
 # Type alias for clarity
 StatsDict: TypeAlias = dict[str, float]
 
+# GameValue enums and config
+
+class GameValueType(Enum):
+    """Type of game value."""
+
+    INVENTORY = ...
+    STAT = ...
+    TAG_COUNT = ...
+
+class GameValueScope(Enum):
+    """Scope of game value."""
+
+    AGENT = ...
+    COLLECTIVE = ...
+    GAME = ...
+
+class GameValueConfig:
+    def __init__(self) -> None: ...
+    type: GameValueType
+    scope: GameValueScope
+    id: int
+    delta: bool
+    stat_name: str
+
 # Handler enums from handler_config.hpp
 
 class EntityRef(Enum):
@@ -87,6 +111,17 @@ class TagFilterConfig:
     ) -> None: ...
     entity: EntityRef
     tag_id: int
+
+class GameValueFilterConfig:
+    def __init__(
+        self,
+        value: GameValueConfig = ...,
+        threshold: float = 0.0,
+        entity: EntityRef = ...,
+    ) -> None: ...
+    value: GameValueConfig
+    threshold: float
+    entity: EntityRef
 
 class NearFilterConfig:
     def __init__(
@@ -191,6 +226,17 @@ class AddTagMutationConfig:
     entity: EntityRef
     tag_id: int
 
+class GameValueMutationConfig:
+    def __init__(
+        self,
+        value: GameValueConfig = ...,
+        delta: float = 0.0,
+        entity: EntityRef = ...,
+    ) -> None: ...
+    value: GameValueConfig
+    delta: float
+    entity: EntityRef
+
 class RemoveTagMutationConfig:
     def __init__(
         self,
@@ -214,6 +260,7 @@ class HandlerConfig:
     def add_vibe_filter(self, filter: VibeFilterConfig) -> None: ...
     def add_tag_filter(self, filter: TagFilterConfig) -> None: ...
     def add_near_filter(self, filter: NearFilterConfig) -> None: ...
+    def add_game_value_filter(self, filter: GameValueFilterConfig) -> None: ...
     def add_resource_delta_mutation(self, mutation: ResourceDeltaMutationConfig) -> None: ...
     def add_resource_transfer_mutation(self, mutation: ResourceTransferMutationConfig) -> None: ...
     def add_alignment_mutation(self, mutation: AlignmentMutationConfig) -> None: ...
@@ -223,6 +270,7 @@ class HandlerConfig:
     def add_stats_mutation(self, mutation: StatsMutationConfig) -> None: ...
     def add_add_tag_mutation(self, mutation: AddTagMutationConfig) -> None: ...
     def add_remove_tag_mutation(self, mutation: RemoveTagMutationConfig) -> None: ...
+    def add_game_value_mutation(self, mutation: GameValueMutationConfig) -> None: ...
 
 class ResourceDelta:
     def __init__(self, resource_id: int = 0, delta: int = 0) -> None: ...
@@ -328,18 +376,17 @@ class InventoryConfig:
     def __init__(self) -> None: ...
     limit_defs: list[LimitDef]
 
+class RewardEntry:
+    def __init__(self) -> None: ...
+    numerator: GameValueConfig
+    denominators: list[GameValueConfig]
+    weight: float
+    max_value: float
+    has_max: bool
+
 class RewardConfig:
-    def __init__(
-        self,
-        stat_rewards: dict[str, float] = {},
-        stat_reward_max: dict[str, float] = {},
-        stat_reward_denoms: dict[str, int] = {},
-        stat_reward_stat_denoms: dict[str, str] = {},
-    ) -> None: ...
-    stat_rewards: dict[str, float]
-    stat_reward_max: dict[str, float]
-    stat_reward_denoms: dict[str, int]
-    stat_reward_stat_denoms: dict[str, str]
+    def __init__(self) -> None: ...
+    entries: list[RewardEntry]
 
 class WallConfig(GridObjectConfig):
     def __init__(self, type_id: int, type_name: str, initial_vibe: int = 0): ...
@@ -508,16 +555,9 @@ class ChangeVibeActionConfig(ActionConfig):
     ) -> None: ...
     number_of_vibes: int
 
-class StatsSource(Enum):
-    own = ...
-    global_ = ...
-    collective = ...
-
-class StatsValueConfig:
+class ObsValueConfig:
     def __init__(self) -> None: ...
-    name: str
-    source: StatsSource
-    delta: bool
+    value: GameValueConfig
     feature_id: int
 
 class GlobalObsConfig:
@@ -529,7 +569,7 @@ class GlobalObsConfig:
         compass: bool = False,
         goal_obs: bool = False,
         local_position: bool = False,
-        stats_obs: list[StatsValueConfig] = ...,
+        obs: list[ObsValueConfig] = ...,
     ) -> None: ...
     episode_completion_pct: bool
     last_action: bool
@@ -537,7 +577,7 @@ class GlobalObsConfig:
     compass: bool
     goal_obs: bool
     local_position: bool
-    stats_obs: list[StatsValueConfig]
+    obs: list[ObsValueConfig]
 
 class GameConfig:
     def __init__(

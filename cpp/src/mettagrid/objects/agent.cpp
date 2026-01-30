@@ -13,7 +13,7 @@ Agent::Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vec
       group(config.group_id),
       frozen(0),
       freeze_duration(config.freeze_duration),
-      reward_computer(config.reward_config),
+      reward_helper(config.reward_config),
       group_name(config.group_name),
       agent_id(0),
       stats(resource_names),
@@ -25,7 +25,15 @@ Agent::Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vec
 }
 
 void Agent::init(RewardType* reward_ptr) {
-  this->reward_computer.init(reward_ptr);
+  this->reward_helper.init(reward_ptr);
+}
+
+void Agent::init_reward(StatsTracker* game_stats,
+                        mettagrid::TagIndex* tag_index,
+                        const std::vector<std::string>* resource_names) {
+  Collective* collective = this->getCollective();
+  StatsTracker* collective_stats = collective ? &collective->stats : nullptr;
+  this->reward_helper.init_entries(&this->stats, game_stats, collective_stats, tag_index, resource_names);
 }
 
 void Agent::set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers) {
@@ -74,10 +82,6 @@ void Agent::on_inventory_change(InventoryItem item, InventoryDelta delta) {
     }
     this->stats.set(this->stats.resource_name(item) + ".amount", amount);
   }
-}
-
-void Agent::compute_stat_rewards(StatsTracker* game_stats_tracker, mettagrid::TagIndex* tag_index) {
-  this->reward_computer.compute(&this->stats, game_stats_tracker, tag_index, this->getCollective());
 }
 
 bool Agent::onUse(Agent& actor, ActionArg arg) {

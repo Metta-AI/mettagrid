@@ -1,5 +1,6 @@
 """Shared mutation conversion utilities for Python-to-C++ config conversion."""
 
+from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mutation import (
     AddTagMutation,
     AlignmentEntityTarget,
@@ -21,6 +22,7 @@ from mettagrid.mettagrid_c import AlignTo as CppAlignTo
 from mettagrid.mettagrid_c import ClearInventoryMutationConfig as CppClearInventoryMutationConfig
 from mettagrid.mettagrid_c import EntityRef as CppEntityRef
 from mettagrid.mettagrid_c import FreezeMutationConfig as CppFreezeMutationConfig
+from mettagrid.mettagrid_c import GameValueMutationConfig as CppGameValueMutationConfig
 from mettagrid.mettagrid_c import RemoveTagMutationConfig as CppRemoveTagMutationConfig
 from mettagrid.mettagrid_c import ResourceDeltaMutationConfig as CppResourceDeltaMutationConfig
 from mettagrid.mettagrid_c import ResourceTransferMutationConfig as CppResourceTransferMutationConfig
@@ -192,3 +194,17 @@ def convert_mutations(
                 tag_id=tag_name_to_id[mutation.tag],
             )
             target_obj.add_remove_tag_mutation(cpp_mutation)
+
+        elif hasattr(mutation, "mutation_type") and mutation.mutation_type == "set_game_value":
+            mappings = {
+                "resource_name_to_id": resource_name_to_id,
+                "stat_name_to_id": {},  # Stat IDs resolved at C++ init time
+                "tag_name_to_id": tag_name_to_id,
+            }
+            cpp_gv_cfg = resolve_game_value(mutation.value, mappings)
+            cpp_mutation = CppGameValueMutationConfig(
+                value=cpp_gv_cfg,
+                delta=float(mutation.delta),
+                entity=convert_entity_ref(mutation.target),
+            )
+            target_obj.add_game_value_mutation(cpp_mutation)

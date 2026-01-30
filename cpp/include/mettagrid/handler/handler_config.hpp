@@ -6,6 +6,7 @@
 #include <variant>
 #include <vector>
 
+#include "core/game_value_config.hpp"
 #include "core/types.hpp"
 
 namespace mettagrid {
@@ -77,12 +78,22 @@ struct TagFilterConfig {
   int tag_id = 0;  // Single tag ID that must be present on the object
 };
 
+struct GameValueFilterConfig {
+  GameValueConfig value;
+  float threshold = 0.0f;
+  EntityRef entity = EntityRef::target;
+};
+
 // Forward declaration for recursive filter config
 struct NearFilterConfig;
 
 // Variant type for all filter configs (defined early so NearFilterConfig can reference it)
-using FilterConfig =
-    std::variant<VibeFilterConfig, ResourceFilterConfig, AlignmentFilterConfig, TagFilterConfig, NearFilterConfig>;
+using FilterConfig = std::variant<VibeFilterConfig,
+                                  ResourceFilterConfig,
+                                  AlignmentFilterConfig,
+                                  TagFilterConfig,
+                                  NearFilterConfig,
+                                  GameValueFilterConfig>;
 
 struct NearFilterConfig {
   EntityRef entity = EntityRef::target;
@@ -149,6 +160,12 @@ struct RemoveTagMutationConfig {
   int tag_id = -1;
 };
 
+struct GameValueMutationConfig {
+  GameValueConfig value;
+  float delta = 0.0f;
+  EntityRef entity = EntityRef::target;
+};
+
 // Variant type for all mutation configs
 using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     ResourceTransferMutationConfig,
@@ -158,7 +175,8 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     AttackMutationConfig,
                                     StatsMutationConfig,
                                     AddTagMutationConfig,
-                                    RemoveTagMutationConfig>;
+                                    RemoveTagMutationConfig,
+                                    GameValueMutationConfig>;
 
 // ============================================================================
 // Handler Config

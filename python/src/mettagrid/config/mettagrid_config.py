@@ -27,13 +27,12 @@ from mettagrid.config.action_config import (  # noqa: F401 - re-exported for bac
 from mettagrid.config.event_config import EventConfig
 from mettagrid.config.game_value import (  # noqa: F401 - re-exported
     AnyGameValue,
-    CollectiveInventory,
     GameValue,
-    Inventory,
-    NumObjects,
-    NumTaggedObjects,
-    StatsSource,
-    StatsValue,
+    InventoryValue,
+    NumObjectsValue,
+    Scope,
+    StatValue,
+    TagCountValue,
 )
 from mettagrid.config.handler_config import (
     AOEConfig,

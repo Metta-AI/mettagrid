@@ -11,6 +11,7 @@ from mettagrid.base_config import Config
 
 if TYPE_CHECKING:
     from mettagrid.config.filter.alignment_filter import AlignmentFilter
+    from mettagrid.config.filter.game_value_filter import GameValueFilter
     from mettagrid.config.filter.near_filter import NearFilter
     from mettagrid.config.filter.resource_filter import ResourceFilter
     from mettagrid.config.filter.tag_filter import TagFilter
@@ -39,6 +40,7 @@ AnyFilter = Annotated[
         Annotated["AlignmentFilter", Tag("alignment")],
         Annotated["TagFilter", Tag("tag")],
         Annotated["NearFilter", Tag("near")],
+        Annotated["GameValueFilter", Tag("game_value")],
     ],
     Discriminator("filter_type"),
 ]

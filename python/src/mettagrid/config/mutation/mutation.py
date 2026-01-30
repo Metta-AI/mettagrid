@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from mettagrid.config.mutation.attack_mutation import AttackMutation
     from mettagrid.config.mutation.clear_inventory_mutation import ClearInventoryMutation
     from mettagrid.config.mutation.freeze_mutation import FreezeMutation
+    from mettagrid.config.mutation.game_value_mutation import SetGameValueMutation
     from mettagrid.config.mutation.resource_mutation import ResourceDeltaMutation, ResourceTransferMutation
     from mettagrid.config.mutation.stats_mutation import StatsMutation
     from mettagrid.config.mutation.tag_mutation import AddTagMutation, RemoveTagMutation
@@ -52,6 +53,7 @@ AnyMutation = Annotated[
         Annotated["StatsMutation", Tag("stats")],
         Annotated["AddTagMutation", Tag("add_tag")],
         Annotated["RemoveTagMutation", Tag("remove_tag")],
+        Annotated["SetGameValueMutation", Tag("set_game_value")],
     ],
     Discriminator("mutation_type"),
 ]

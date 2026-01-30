@@ -43,7 +43,6 @@ filegroup(
         "//cpp:bindings/mettagrid_c.cpp",
         "//cpp:bindings/mettagrid_c.hpp",
         "//cpp:bindings/mettagrid_py.cpp",
-        "//cpp:bindings/stats_obs_helper.hpp",
     ],
 )
 

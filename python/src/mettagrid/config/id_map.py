@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
+from mettagrid.config.game_value import InventoryValue, NumObjectsValue, Scope, StatValue, TagCountValue
 from mettagrid.config.tag import typeTag
 
 # This breaks a circular dependency: id_map <-> mettagrid_config
@@ -227,11 +228,24 @@ class IdMap:
             for resource_name in self._config.resource_names:
                 add_feature(f"protocol_output:{resource_name}", 100.0)
 
-        # Stats observation features (multi-token encoding like inventory)
-        for stat_value in self._config.obs.global_obs.stats_obs:
-            prefix = f"stat:{stat_value.source.value}:{stat_value.name}"
-            if stat_value.delta:
-                prefix += ":delta"
+        # Game value observation features (multi-token encoding like inventory)
+        for game_value in self._config.obs.global_obs.obs:
+            if isinstance(game_value, StatValue):
+                source_str = {Scope.AGENT: "own", Scope.GAME: "global", Scope.COLLECTIVE: "collective"}[
+                    game_value.scope
+                ]
+                prefix = f"stat:{source_str}:{game_value.name}"
+                if game_value.delta:
+                    prefix += ":delta"
+            elif isinstance(game_value, InventoryValue):
+                source_str = {Scope.AGENT: "own", Scope.COLLECTIVE: "collective"}[game_value.scope]
+                prefix = f"inv:{source_str}:{game_value.item}"
+            elif isinstance(game_value, NumObjectsValue):
+                prefix = f"num_objects:{game_value.object_type}"
+            elif isinstance(game_value, TagCountValue):
+                prefix = f"tag_count:{game_value.tag}"
+            else:
+                raise ValueError(f"Unknown GameValue type in obs: {type(game_value)}")
 
             token_features, feature_id = make_multi_token_features(prefix, feature_id, normalization, num_inv_tokens)
             features.extend(token_features)

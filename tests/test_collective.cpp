@@ -247,24 +247,24 @@ void test_collective_stats_tracking() {
   obj3.setCollective(&collective);
 
   // Check stats for aligned counts
-  assert(collective.stats.get("aligned.agent") == 2.0f);
-  assert(collective.stats.get("aligned.assembler") == 1.0f);
+  assert(collective.stats.get("agent") == 2.0f);
+  assert(collective.stats.get("assembler") == 1.0f);
 
   // Simulate ticks and check held stats
   collective.update_held_stats();
-  assert(collective.stats.get("aligned.agent.held") == 2.0f);
-  assert(collective.stats.get("aligned.assembler.held") == 1.0f);
+  assert(collective.stats.get("agent.held") == 2.0f);
+  assert(collective.stats.get("assembler.held") == 1.0f);
 
   collective.update_held_stats();
-  assert(collective.stats.get("aligned.agent.held") == 4.0f);      // 2 agents * 2 ticks
-  assert(collective.stats.get("aligned.assembler.held") == 2.0f);  // 1 assembler * 2 ticks
+  assert(collective.stats.get("agent.held") == 4.0f);      // 2 agents * 2 ticks
+  assert(collective.stats.get("assembler.held") == 2.0f);  // 1 assembler * 2 ticks
 
   // Remove one agent and check stats update
   obj1.clearCollective();
-  assert(collective.stats.get("aligned.agent") == 1.0f);
+  assert(collective.stats.get("agent") == 1.0f);
 
   collective.update_held_stats();
-  assert(collective.stats.get("aligned.agent.held") == 5.0f);  // 4 + 1 (now only 1 agent)
+  assert(collective.stats.get("agent.held") == 5.0f);  // 4 + 1 (now only 1 agent)
 
   std::cout << "✓ Collective stats tracking test passed" << std::endl;
 }
@@ -277,19 +277,19 @@ void test_collective_inventory_stats() {
 
   // Deposit resources
   collective.inventory.update(0, 10);
-  assert(collective.stats.get("collective.gold.deposited") == 10.0f);
+  assert(collective.stats.get("gold.deposited") == 10.0f);
 
   // Deposit more
   collective.inventory.update(0, 5);
-  assert(collective.stats.get("collective.gold.deposited") == 15.0f);
+  assert(collective.stats.get("gold.deposited") == 15.0f);
 
   // Withdraw resources
   collective.inventory.update(0, -3);
-  assert(collective.stats.get("collective.gold.withdrawn") == 3.0f);
+  assert(collective.stats.get("gold.withdrawn") == 3.0f);
 
   // Deposit second resource type
   collective.inventory.update(1, 20);
-  assert(collective.stats.get("collective.energy.deposited") == 20.0f);
+  assert(collective.stats.get("energy.deposited") == 20.0f);
 
   std::cout << "✓ Collective inventory stats tracking test passed" << std::endl;
 }

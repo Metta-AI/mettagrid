@@ -5,6 +5,7 @@
 #include "handler/mutations/alignment_mutation.hpp"
 #include "handler/mutations/attack_mutation.hpp"
 #include "handler/mutations/freeze_mutation.hpp"
+#include "handler/mutations/game_value_mutation.hpp"
 #include "handler/mutations/resource_mutation.hpp"
 #include "handler/mutations/stats_mutation.hpp"
 #include "handler/mutations/tag_mutation.hpp"
@@ -33,6 +34,8 @@ std::unique_ptr<Mutation> create_mutation(const MutationConfig& config) {
           return std::make_unique<AddTagMutation>(cfg);
         } else if constexpr (std::is_same_v<T, RemoveTagMutationConfig>) {
           return std::make_unique<RemoveTagMutation>(cfg);
+        } else if constexpr (std::is_same_v<T, GameValueMutationConfig>) {
+          return std::make_unique<GameValueMutation>(cfg);
         } else {
           return nullptr;
         }
