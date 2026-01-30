@@ -1,0 +1,8 @@
+# ignore build artifacts
+/build-debug
+/build-release
+/benchmark_output
+/Testing
+
+# nim/ copied here during wheel build; source of truth is packages/mettagrid/nim/
+/python/src/mettagrid/nim/
