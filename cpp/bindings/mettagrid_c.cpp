@@ -48,8 +48,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
       resource_names(game_config.resource_names),
       _global_obs_config(game_config.global_obs),
       _game_config(game_config),
-      _num_observation_tokens(game_config.num_observation_tokens),
-      _inventory_regen_interval(game_config.inventory_regen_interval) {
+      _num_observation_tokens(game_config.num_observation_tokens) {
   _seed = seed;
   _rng = std::mt19937(seed);
 
@@ -569,22 +568,15 @@ void MettaGrid::_step() {
     }
   }
 
-  // Handle per-agent inventory regeneration (global interval check, vibe-dependent amounts)
-  if (_inventory_regen_interval > 0 && current_step % _inventory_regen_interval == 0) {
-    for (auto* agent : _agents) {
-      if (!agent->inventory_regen_amounts.empty()) {
-        // Look up regen amounts for agent's current vibe, fall back to "default" (vibe ID 0)
-        auto vibe_it = agent->inventory_regen_amounts.find(agent->vibe);
-        if (vibe_it == agent->inventory_regen_amounts.end()) {
-          vibe_it = agent->inventory_regen_amounts.find(0);  // "default" is vibe ID 0
-        }
-        if (vibe_it != agent->inventory_regen_amounts.end()) {
-          for (const auto& [item, amount] : vibe_it->second) {
-            agent->inventory.update(item, amount);
-          }
-        }
-      }
-    }
+  // Apply per-agent on_tick handlers
+  for (auto* agent : _agents) {
+    mettagrid::HandlerContext ctx;
+    ctx.actor = agent;
+    ctx.target = agent;
+    ctx.game_stats = _stats.get();
+    ctx.tag_index = &_tag_index;
+    ctx.collectives = &_collectives;
+    agent->apply_on_tick(ctx);
   }
 
   // Apply fixed AOE effects to all agents at their current location

@@ -38,8 +38,7 @@ class TestTagFilter:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Add tags to agent (type:agent is auto-generated from agent name)
@@ -85,8 +84,7 @@ class TestTagFilter:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Agent has "mobile" tag but not "type:structure"

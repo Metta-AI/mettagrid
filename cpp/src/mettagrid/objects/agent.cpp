@@ -19,14 +19,23 @@ Agent::Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vec
       stats(resource_names),
       prev_location(r, c),
       spawn_location(r, c),
-      steps_without_motion(0),
-      inventory_regen_amounts(config.inventory_regen_amounts) {
+      steps_without_motion(0) {
   populate_initial_inventory(config.initial_inventory);
   GridObject::init(config.type_id, config.type_name, GridLocation(r, c), config.tag_ids, config.initial_vibe);
 }
 
 void Agent::init(RewardType* reward_ptr) {
   this->reward_computer.init(reward_ptr);
+}
+
+void Agent::set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers) {
+  _on_tick = std::move(handlers);
+}
+
+void Agent::apply_on_tick(mettagrid::HandlerContext& ctx) {
+  for (auto& handler : _on_tick) {
+    handler->try_apply(ctx);
+  }
 }
 
 void Agent::populate_initial_inventory(const std::unordered_map<InventoryItem, InventoryQuantity>& initial_inventory) {

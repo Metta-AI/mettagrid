@@ -358,7 +358,7 @@ class AgentConfig(GridObjectConfig):
         inventory_config: InventoryConfig = ...,
         reward_config: RewardConfig = ...,
         initial_inventory: dict[int, int] = {},
-        inventory_regen_amounts: dict[int, dict[int, int]] | None = None,
+        on_tick: list[HandlerConfig] | None = None,
     ) -> None: ...
     type_id: int
     type_name: str
@@ -370,7 +370,7 @@ class AgentConfig(GridObjectConfig):
     inventory_config: InventoryConfig
     reward_config: RewardConfig
     initial_inventory: dict[int, int]
-    inventory_regen_amounts: dict[int, dict[int, int]]
+    on_tick: list[HandlerConfig]
 
 class ActionConfig:
     def __init__(
@@ -556,7 +556,6 @@ class GameConfig:
         collectives: dict[str, CollectiveConfig] | None = None,
         protocol_details_obs: bool = True,
         reward_estimates: Optional[dict[str, float]] = None,
-        inventory_regen_interval: int = 0,
         clipper: Optional[ClipperConfig] = None,
         token_value_base: int = 256,
     ) -> None: ...
@@ -575,7 +574,6 @@ class GameConfig:
     # FEATURE FLAGS
     protocol_details_obs: bool
     reward_estimates: Optional[dict[str, float]]
-    inventory_regen_interval: int
     clipper: Optional[ClipperConfig]
     token_value_base: int
 

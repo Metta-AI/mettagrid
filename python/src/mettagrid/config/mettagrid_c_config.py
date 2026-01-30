@@ -638,16 +638,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         agent_tags = list(first_agent.tags) + [typeTag(first_agent.name)]
         tag_ids = [tag_name_to_id[tag] for tag in agent_tags]
 
-        # Convert vibe-keyed inventory regeneration amounts from names to IDs
-        # Format: {vibe_name: {resource_name: amount}} -> {vibe_id: {resource_id: amount}}
-        inventory_regen_amounts = {}
-        for vibe_name, resource_amounts in inv_config.get("regen_amounts", {}).items():
-            vibe_id = vibe_name_to_id[vibe_name]
-            resource_amounts_cpp = {
-                resource_name_to_id[resource_name]: amount for resource_name, amount in resource_amounts.items()
-            }
-            inventory_regen_amounts[vibe_id] = resource_amounts_cpp
-
         # Build inventory config with support for grouped limits and modifiers
         limit_defs = []
 
@@ -693,7 +683,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             inventory_config=inventory_config,
             reward_config=reward_config,
             initial_inventory=initial_inventory,
-            inventory_regen_amounts=inventory_regen_amounts,
         )
         cpp_agent_config.tag_ids = tag_ids
 
@@ -705,6 +694,16 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         if first_agent.aoes:
             cpp_agent_config.aoe_configs = _convert_aoe_configs(
                 first_agent.aoes,
+                resource_name_to_id,
+                limit_name_to_resource_ids,
+                vibe_name_to_id,
+                tag_name_to_id,
+            )
+
+        # Convert agent on_tick (dict[str, Handler]) to C++ HandlerConfig list
+        if first_agent.on_tick:
+            cpp_agent_config.on_tick = _convert_handlers(
+                first_agent.on_tick,
                 resource_name_to_id,
                 limit_name_to_resource_ids,
                 vibe_name_to_id,
@@ -1012,9 +1011,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
 
     game_cpp_params["actions"] = actions_cpp_params
     game_cpp_params["objects"] = objects_cpp_params
-
-    # Add inventory regeneration interval
-    game_cpp_params["inventory_regen_interval"] = game_config.inventory_regen_interval
 
     # Add tag mappings for C++ debugging/display
     game_cpp_params["tag_id_map"] = tag_id_to_name

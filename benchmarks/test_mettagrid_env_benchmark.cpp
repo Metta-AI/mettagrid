@@ -94,7 +94,6 @@ GameConfig CreateBenchmarkConfig(size_t num_agents) {
                     std::unordered_map<std::string, std::shared_ptr<CollectiveConfig>>(),
                     false,
                     std::unordered_map<std::string, float>(),
-                    0,
                     256);
 }
 

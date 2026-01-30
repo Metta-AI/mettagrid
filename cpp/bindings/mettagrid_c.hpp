@@ -153,8 +153,6 @@ private:
   std::mt19937 _rng;
   unsigned int _seed;
 
-  // Inventory regeneration
-  unsigned int _inventory_regen_interval;
 
   // Global systems
   std::unique_ptr<mettagrid::AOETracker> _aoe_tracker;

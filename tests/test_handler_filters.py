@@ -46,8 +46,7 @@ class TestVibeFilterOnAOE:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # AOE source with vibe filter - only affects agents with "charger" vibe
@@ -105,8 +104,7 @@ class TestVibeFilterOnAOE:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # AOE source without vibe filter - affects all agents
@@ -149,8 +147,7 @@ class TestVibeFilterOnAOE:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # AOE source that requires "charger" vibe
@@ -202,8 +199,7 @@ class TestAlignmentFilterOnAOE:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Define collectives
@@ -260,8 +256,7 @@ class TestAlignmentFilterOnAOE:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Define collectives
@@ -321,8 +316,7 @@ class TestAlignmentFilterOnAOE:
         cfg.game.agent.inventory.limits = {
             "hp": ResourceLimitsConfig(min=1000, resources=["hp"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Define collectives

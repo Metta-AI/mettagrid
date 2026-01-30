@@ -50,8 +50,7 @@ class TestAOEBasicFunctionality:
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
             "influence": ResourceLimitsConfig(min=1000, resources=["influence"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}  # No passive regen
-        cfg.game.inventory_regen_interval = 0  # Disable passive regen
+        # No on_tick set — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Create an AOE source that gives +10 energy and +5 influence per tick
@@ -116,8 +115,7 @@ class TestAOEBasicFunctionality:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # AOE source with radius 2 - agent is ~4 cells away (outside range)
@@ -167,8 +165,7 @@ class TestAOEWithAlignmentFilters:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # AOE source that only affects same_collective agents
@@ -228,8 +225,7 @@ class TestAOEWithAlignmentFilters:
         cfg.game.agent.inventory.limits = {
             "hp": ResourceLimitsConfig(min=1000, resources=["hp"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Enemy AOE source that damages different_collective agents
@@ -295,8 +291,7 @@ class TestAOEMultipleSources:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Each AOE source gives +5 energy

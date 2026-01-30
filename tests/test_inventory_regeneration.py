@@ -1,4 +1,9 @@
+from mettagrid.config.filter.filter import HandlerTarget
+from mettagrid.config.filter.vibe_filter import VibeFilter
+from mettagrid.config.handler_config import Handler
 from mettagrid.config.mettagrid_config import MettaGridConfig, ResourceLimitsConfig
+from mettagrid.config.mutation.mutation import EntityTarget
+from mettagrid.config.mutation.resource_mutation import ResourceDeltaMutation
 from mettagrid.simulator import Action, Simulation
 
 
@@ -18,11 +23,16 @@ class TestVibeDependentRegeneration:
 
         cfg.game.resource_names = ["energy"]
         # Different regen rates for different vibes
-        cfg.game.agent.inventory.regen_amounts = {
-            "default": {"energy": 2},  # Default vibe: regenerate 2 energy
-            "charger": {"energy": 10},  # Charger vibe: regenerate 10 energy
+        cfg.game.agent.on_tick = {
+            "regen_default": Handler(
+                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="default")],
+                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 2})],
+            ),
+            "regen_charger": Handler(
+                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="charger")],
+                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 10})],
+            ),
         }
-        cfg.game.inventory_regen_interval = 1  # Every timestep
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.actions.noop.enabled = True
         cfg.game.actions.change_vibe.enabled = True
@@ -58,8 +68,8 @@ class TestVibeDependentRegeneration:
         energy = sim.agent(0).inventory.get("energy", 0)
         assert energy == 24, f"With default vibe, energy should be 24 (22+2), got {energy}"
 
-    def test_vibe_dependent_regen_fallback_to_default(self):
-        """Test that unconfigured vibes fall back to 'default' regen."""
+    def test_vibe_dependent_regen_no_filter_acts_as_fallback(self):
+        """Test that a handler with no VibeFilter runs for all vibes (fallback behavior)."""
         cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
             [
                 ["#", "#", "#"],
@@ -70,11 +80,12 @@ class TestVibeDependentRegeneration:
         )
 
         cfg.game.resource_names = ["energy"]
-        # Only configure default vibe - other vibes should fall back to it
-        cfg.game.agent.inventory.regen_amounts = {
-            "default": {"energy": 5},
+        # No VibeFilter means it runs for ALL vibes
+        cfg.game.agent.on_tick = {
+            "regen": Handler(
+                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 5})],
+            ),
         }
-        cfg.game.inventory_regen_interval = 1
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.actions.noop.enabled = True
         cfg.game.actions.change_vibe.enabled = True
@@ -88,22 +99,22 @@ class TestVibeDependentRegeneration:
         energy = sim.agent(0).inventory.get("energy", 0)
         assert energy == 5, f"With default vibe, energy should be 5, got {energy}"
 
-        # Step 2: Change to charger vibe (not configured - should fall back to default)
+        # Step 2: Change to charger vibe - handler has no filter, still runs
         sim.agent(0).set_action("change_vibe_charger")
         sim.step()
 
         energy = sim.agent(0).inventory.get("energy", 0)
-        assert energy == 10, f"Unconfigured charger vibe should fall back to default (5+5=10), got {energy}"
+        assert energy == 10, f"With charger vibe (no filter), energy should be 10 (5+5), got {energy}"
 
-        # Step 3: Change to another unconfigured vibe
+        # Step 3: Change to another vibe - still runs
         sim.agent(0).set_action("change_vibe_carbon_a")
         sim.step()
 
         energy = sim.agent(0).inventory.get("energy", 0)
-        assert energy == 15, f"Unconfigured vibe should fall back to default (10+5=15), got {energy}"
+        assert energy == 15, f"With carbon_a vibe (no filter), energy should be 15 (10+5), got {energy}"
 
-    def test_vibe_dependent_regen_no_default(self):
-        """Test that vibes without config and no default get no regen."""
+    def test_vibe_dependent_regen_no_matching_handler(self):
+        """Test that vibes without a matching handler get no regen."""
         cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
             [
                 ["#", "#", "#"],
@@ -114,18 +125,20 @@ class TestVibeDependentRegeneration:
         )
 
         cfg.game.resource_names = ["energy"]
-        # Only configure charger vibe - no default fallback
-        cfg.game.agent.inventory.regen_amounts = {
-            "charger": {"energy": 10},
+        # Only configure charger vibe - no handler for default
+        cfg.game.agent.on_tick = {
+            "regen_charger": Handler(
+                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="charger")],
+                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 10})],
+            ),
         }
-        cfg.game.inventory_regen_interval = 1
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.actions.noop.enabled = True
         cfg.game.actions.change_vibe.enabled = True
 
         sim = Simulation(cfg)
 
-        # Step 1: Default vibe (not configured, no fallback) - no regeneration
+        # Step 1: Default vibe (no matching handler) - no regeneration
         sim.agent(0).set_action(Action(name="noop"))
         sim.step()
 
@@ -162,11 +175,11 @@ class TestNegativeRegeneration:
         )
 
         cfg.game.resource_names = ["energy"]
-        # Negative regen - energy decays by 3 per interval
-        cfg.game.agent.inventory.regen_amounts = {
-            "default": {"energy": -3},
+        cfg.game.agent.on_tick = {
+            "decay": Handler(
+                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": -3})],
+            ),
         }
-        cfg.game.inventory_regen_interval = 1  # Every timestep
         cfg.game.agent.inventory.initial = {"energy": 20}
         cfg.game.actions.noop.enabled = True
 
@@ -205,11 +218,11 @@ class TestNegativeRegeneration:
         )
 
         cfg.game.resource_names = ["energy"]
-        # Large negative regen to test floor at zero
-        cfg.game.agent.inventory.regen_amounts = {
-            "default": {"energy": -10},
+        cfg.game.agent.on_tick = {
+            "decay": Handler(
+                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": -10})],
+            ),
         }
-        cfg.game.inventory_regen_interval = 1
         cfg.game.agent.inventory.initial = {"energy": 5}
         cfg.game.actions.noop.enabled = True
 
@@ -241,12 +254,16 @@ class TestNegativeRegeneration:
         )
 
         cfg.game.resource_names = ["energy"]
-        # Different decay rates for different vibes
-        cfg.game.agent.inventory.regen_amounts = {
-            "default": {"energy": -2},  # Slow decay
-            "charger": {"energy": 5},  # Actually regenerates
+        cfg.game.agent.on_tick = {
+            "decay_default": Handler(
+                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="default")],
+                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": -2})],
+            ),
+            "regen_charger": Handler(
+                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="charger")],
+                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 5})],
+            ),
         }
-        cfg.game.inventory_regen_interval = 1
         cfg.game.agent.inventory.initial = {"energy": 20}
         cfg.game.actions.noop.enabled = True
         cfg.game.actions.change_vibe.enabled = True
@@ -279,7 +296,7 @@ class TestInventoryRegeneration:
     """Test inventory regeneration functionality."""
 
     def test_energy_regeneration_basic(self):
-        """Test that energy regenerates at the specified interval."""
+        """Test that energy regenerates every tick with on_tick."""
         # Create a simple environment with energy regeneration
         cfg = MettaGridConfig.EmptyRoom(num_agents=2, with_walls=True).with_ascii_map(
             [
@@ -292,14 +309,15 @@ class TestInventoryRegeneration:
 
         # Add energy to resources and configure regeneration
         cfg.game.resource_names = ["energy", "heart", "battery_blue"]
-        cfg.game.agent.inventory.regen_amounts = {"default": {"energy": 5}}  # Regenerate 5 energy
-        cfg.game.inventory_regen_interval = 3  # Every 3 timesteps
+        cfg.game.agent.on_tick = {
+            "regen": Handler(
+                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 5})],
+            ),
+        }
         cfg.game.agent.inventory.initial = {"energy": 10}  # Start with 10 energy
         cfg.game.actions.noop.enabled = True
 
         sim = Simulation(cfg)
-
-        # Reset environment
 
         # Get initial energy levels
         grid_objects = sim.grid_objects()
@@ -315,64 +333,35 @@ class TestInventoryRegeneration:
         for agent in agents:
             assert agent["inventory"][energy_idx] == 10, "Each agent should start with 10 energy"
 
-        # Take steps and verify regeneration using SimulationAgent API
-
-        # Step 1: No regeneration yet
+        # on_tick run every step, so energy increases by 5 each step
         for i in range(sim.num_agents):
             sim.agent(i).set_action(Action(name="noop"))
         sim.step()
 
         for i in range(sim.num_agents):
             energy = sim.agent(i).inventory.get("energy", 0)
-            assert energy == 10, f"Agent {i} energy should not regenerate at step 1, got {energy}"
+            assert energy == 15, f"Agent {i} energy should be 15 at step 1, got {energy}"
 
-        # Step 2: No regeneration yet
+        # Step 2
         for i in range(sim.num_agents):
             sim.agent(i).set_action(Action(name="noop"))
         sim.step()
 
         for i in range(sim.num_agents):
             energy = sim.agent(i).inventory.get("energy", 0)
-            assert energy == 10, f"Agent {i} energy should not regenerate at step 2, got {energy}"
+            assert energy == 20, f"Agent {i} energy should be 20 at step 2, got {energy}"
 
-        # Step 3: Regeneration should occur (current_step % 3 == 0)
+        # Step 3
         for i in range(sim.num_agents):
             sim.agent(i).set_action(Action(name="noop"))
         sim.step()
 
         for i in range(sim.num_agents):
             energy = sim.agent(i).inventory.get("energy", 0)
-            assert energy == 15, f"Agent {i} energy should regenerate to 15 at step 3, got {energy}"
+            assert energy == 25, f"Agent {i} energy should be 25 at step 3, got {energy}"
 
-        # Step 4: No regeneration
-        for i in range(sim.num_agents):
-            sim.agent(i).set_action(Action(name="noop"))
-        sim.step()
-
-        for i in range(sim.num_agents):
-            energy = sim.agent(i).inventory.get("energy", 0)
-            assert energy == 15, f"Agent {i} energy should remain at 15 at step 4, got {energy}"
-
-        # Step 5: No regeneration
-        for i in range(sim.num_agents):
-            sim.agent(i).set_action(Action(name="noop"))
-        sim.step()
-
-        for i in range(sim.num_agents):
-            energy = sim.agent(i).inventory.get("energy", 0)
-            assert energy == 15, f"Agent {i} energy should remain at 15 at step 5, got {energy}"
-
-        # Step 6: Regeneration should occur again
-        for i in range(sim.num_agents):
-            sim.agent(i).set_action(Action(name="noop"))
-        sim.step()
-
-        for i in range(sim.num_agents):
-            energy = sim.agent(i).inventory.get("energy", 0)
-            assert energy == 20, f"Agent {i} energy should regenerate to 20 at step 6, got {energy}"
-
-    def test_regeneration_disabled_with_zero_interval(self):
-        """Test that regeneration is disabled when interval is 0."""
+    def test_regeneration_disabled_no_handlers(self):
+        """Test that regeneration is disabled when no on_tick are set."""
         cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
             [
                 ["#", "#", "#"],
@@ -383,8 +372,7 @@ class TestInventoryRegeneration:
         )
 
         cfg.game.resource_names = ["energy"]
-        cfg.game.agent.inventory.regen_amounts = {"default": {"energy": 5}}
-        cfg.game.inventory_regen_interval = 0  # Disabled
+        # No on_tick set — regen disabled
         cfg.game.agent.inventory.initial = {"energy": 10}
         cfg.game.actions.noop.enabled = True
 
@@ -395,7 +383,7 @@ class TestInventoryRegeneration:
             sim.agent(0).set_action(Action(name="noop"))
             sim.step()
             energy = sim.agent(0).inventory.get("energy", 0)
-            assert energy == 10, f"Energy should not regenerate with interval=0, got {energy}"
+            assert energy == 10, f"Energy should not regenerate with no handlers, got {energy}"
 
     def test_regeneration_with_resource_limits(self):
         """Test that regeneration respects resource limits."""
@@ -409,8 +397,11 @@ class TestInventoryRegeneration:
         )
 
         cfg.game.resource_names = ["energy"]
-        cfg.game.agent.inventory.regen_amounts = {"default": {"energy": 10}}  # Try to add 10
-        cfg.game.inventory_regen_interval = 1  # Every timestep
+        cfg.game.agent.on_tick = {
+            "regen": Handler(
+                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 10})],
+            ),
+        }
         cfg.game.agent.inventory.initial = {"energy": 95}
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=100, resources=["energy"]),  # Max 100 energy

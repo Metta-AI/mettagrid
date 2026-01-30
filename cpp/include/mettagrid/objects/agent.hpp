@@ -10,6 +10,8 @@
 
 #include "core/tag_index.hpp"
 #include "core/types.hpp"
+#include "handler/handler.hpp"
+#include "handler/handler_context.hpp"
 #include "objects/agent_config.hpp"
 #include "objects/constants.hpp"
 #include "systems/reward.hpp"
@@ -31,9 +33,9 @@ public:
   GridLocation prev_location;
   GridLocation spawn_location;
   unsigned int steps_without_motion;
-  // Vibe-dependent inventory regeneration: vibe_id -> resource_id -> amount (can be negative for decay)
-  // Vibe ID 0 ("default") is used as fallback when agent's current vibe is not found
-  std::unordered_map<ObservationType, std::unordered_map<InventoryItem, InventoryDelta>> inventory_regen_amounts;
+  std::vector<std::shared_ptr<mettagrid::Handler>> _on_tick;
+  void set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers);
+  void apply_on_tick(mettagrid::HandlerContext& ctx);
 
   // Vibe prediction: track when vibe was last set
   unsigned int vibe_set_step = 0;

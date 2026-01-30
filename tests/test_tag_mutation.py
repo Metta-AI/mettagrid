@@ -156,8 +156,7 @@ class TestAddTagMutationEndToEnd:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Tagger adds "blessed" tag
@@ -278,8 +277,7 @@ class TestRemoveTagMutationEndToEnd:
         cfg.game.agent.inventory.limits = {
             "hp": ResourceLimitsConfig(min=1000, resources=["hp"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Cleanser removes "vulnerable" tag

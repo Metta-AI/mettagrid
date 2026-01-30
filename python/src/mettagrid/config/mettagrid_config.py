@@ -86,14 +86,6 @@ class InventoryConfig(Config):
         description="Resource-specific limits",
     )
     initial: dict[str, int] = Field(default_factory=dict, description="Initial inventory")
-    regen_amounts: dict[str, dict[str, int]] = Field(
-        default_factory=dict,
-        description=(
-            "Vibe-dependent inventory regeneration. Maps vibe name to resource amounts. "
-            "Use 'default' for fallback when agent's vibe isn't specified. "
-            "Example: {'default': {'energy': 1}, 'weapon': {'energy': 2}}"
-        ),
-    )
 
     def get_limit(self, resource_name: str) -> int:
         """Get the base resource limit for a given resource name (without modifiers)."""
@@ -178,6 +170,10 @@ class AgentConfig(GridObjectConfig):
     team_id: int = Field(default=0, ge=0, description="Team ID for grouping agents")
     rewards: dict[str, AgentReward] = Field(default_factory=dict)
     freeze_duration: int = Field(default=10, ge=-1)
+    on_tick: dict[str, Handler] = Field(
+        default_factory=dict,
+        description="Handlers run every tick with actor=target=this agent (name -> handler)",
+    )
 
 
 class ProtocolConfig(Config):
@@ -310,11 +306,6 @@ class GameConfig(Config):
     # E.g., templates can use params as a place  where values are expected to be written,
     # and other parts of the template can read from there.
     params: Optional[Any] = None
-
-    # Inventory regeneration interval (global check timing)
-    inventory_regen_interval: int = Field(
-        default=0, ge=0, description="Interval in timesteps between regenerations (0 = disabled)"
-    )
 
     # Collectives - shared inventories that grid objects can belong to
     collectives: dict[str, CollectiveConfig] = Field(

@@ -38,8 +38,7 @@ class TestAOEMutations:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # AOE source that gives energy each tick
@@ -95,8 +94,7 @@ class TestPresenceDeltas:
         cfg.game.agent.inventory.limits = {
             "shield": ResourceLimitsConfig(min=1000, resources=["shield"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
         cfg.game.actions.move.enabled = True  # Enable movement
 
@@ -155,8 +153,7 @@ class TestPresenceDeltas:
         cfg.game.agent.inventory.limits = {
             "shield": ResourceLimitsConfig(min=1000, resources=["shield"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
         cfg.game.actions.move.enabled = True  # Enable movement
 
@@ -212,8 +209,7 @@ class TestAgentAOE:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Agent AOE - mobile AOE that gives energy to nearby agents
@@ -267,8 +263,7 @@ class TestEffectSelf:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Agent AOE with effect_self=True
@@ -309,8 +304,7 @@ class TestEffectSelf:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Agent AOE with effect_self=False
@@ -356,8 +350,7 @@ class TestMobileVsStatic:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.agent.inventory.regen_amounts = {}
-        cfg.game.inventory_regen_interval = 0
+        # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
 
         # Static AOE source (default is_static=True)

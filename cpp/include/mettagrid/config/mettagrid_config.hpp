@@ -66,9 +66,6 @@ struct GameConfig {
   bool protocol_details_obs = true;
   std::unordered_map<std::string, float> reward_estimates = {};
 
-  // Inventory regeneration interval (global check timing)
-  unsigned int inventory_regen_interval = 0;  // Interval in timesteps (0 = disabled)
-
   // Observation encoding settings
   unsigned int token_value_base = 256;  // Base for multi-token inventory encoding (value per token: 0 to base-1)
 
@@ -137,9 +134,6 @@ inline void bind_game_config(py::module& m) {
                     bool,
                     const std::unordered_map<std::string, float>&,
 
-                    // Inventory regeneration
-                    unsigned int,
-
                     // Observation encoding
                     unsigned int,
 
@@ -165,9 +159,6 @@ inline void bind_game_config(py::module& m) {
            // FEATURE FLAGS
            py::arg("protocol_details_obs") = true,
            py::arg("reward_estimates") = std::unordered_map<std::string, float>(),
-
-           // Inventory regeneration
-           py::arg("inventory_regen_interval") = 0,
 
            // Observation encoding
            py::arg("token_value_base") = 256,
@@ -199,9 +190,6 @@ inline void bind_game_config(py::module& m) {
       // FEATURE FLAGS
       .def_readwrite("protocol_details_obs", &GameConfig::protocol_details_obs)
       .def_readwrite("reward_estimates", &GameConfig::reward_estimates)
-
-      // Inventory regeneration
-      .def_readwrite("inventory_regen_interval", &GameConfig::inventory_regen_interval)
 
       // Observation encoding
       .def_readwrite("token_value_base", &GameConfig::token_value_base)

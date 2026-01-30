@@ -34,6 +34,21 @@ static void _set_up_handlers(GridObject* obj, const GridObjectConfig* config, Ta
 
   // AOE configs - just copy them, AOETracker will instantiate filters/mutations
   obj->set_aoe_configs(config->aoe_configs);
+
+  // on_tick handlers (agent-only)
+  if (const auto* agent_config = dynamic_cast<const AgentConfig*>(config)) {
+    if (!agent_config->on_tick.empty()) {
+      auto* agent = dynamic_cast<Agent*>(obj);
+      if (agent) {
+        std::vector<std::shared_ptr<Handler>> on_tick;
+        on_tick.reserve(agent_config->on_tick.size());
+        for (const auto& handler_config : agent_config->on_tick) {
+          on_tick.push_back(std::make_shared<Handler>(handler_config, tag_index));
+        }
+        agent->set_on_tick(std::move(on_tick));
+      }
+    }
+  }
 }
 
 // Create a GridObject from config (without handlers)
