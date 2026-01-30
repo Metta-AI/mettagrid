@@ -20,6 +20,6 @@ char_to_map_name:
   "#": wall
   "n": generator_red
   ".": empty
-  "_": assembler
+  "_": hub
   "@": agent.agent
   "m": mine_red

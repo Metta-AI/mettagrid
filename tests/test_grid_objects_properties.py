@@ -5,63 +5,16 @@ import pytest
 
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
-    AssemblerConfig,
-    ChangeVibeActionConfig,
     ChestConfig,
     GameConfig,
     MettaGridConfig,
     MoveActionConfig,
     NoopActionConfig,
     ObsConfig,
-    ProtocolConfig,
     WallConfig,
 )
-from mettagrid.config.vibes import Vibe
 from mettagrid.map_builder.random_map import RandomMapBuilder
 from mettagrid.simulator import BoundingBox, Simulation
-
-
-@pytest.fixture
-def sim_with_assembler():
-    """Create simulation with an assembler to test assembler properties."""
-    config = MettaGridConfig(
-        game=GameConfig(
-            num_agents=2,
-            obs=ObsConfig(width=5, height=5, num_tokens=100),
-            max_steps=100,
-            resource_names=["iron", "steel"],
-            actions=ActionsConfig(
-                noop=NoopActionConfig(),
-                move=MoveActionConfig(),
-                change_vibe=ChangeVibeActionConfig(
-                    vibes=[
-                        Vibe("😐", "neutral"),
-                        Vibe("📥", "deposit"),
-                        Vibe("📤", "withdraw"),
-                    ]
-                ),
-            ),
-            objects={
-                "wall": WallConfig(),
-                "assembler": AssemblerConfig(
-                    name="assembler",
-                    protocols=[
-                        ProtocolConfig(input_resources={"iron": 10}, output_resources={"steel": 5}, cooldown=20)
-                    ],
-                    max_uses=10,
-                    allow_partial_usage=True,
-                ),
-            },
-            map_builder=RandomMapBuilder.Config(
-                width=10,
-                height=10,
-                agents=2,
-                objects={"assembler": 1},  # Add one assembler
-                seed=42,
-            ),
-        )
-    )
-    return Simulation(config)
 
 
 @pytest.fixture
@@ -178,81 +131,6 @@ class TestIgnoreTypes:
         wall_count = sum(1 for obj in bbox_objects.values() if obj.get("type_name") == "wall")
 
         assert len(bbox_objects) - len(bbox_no_walls) == wall_count
-
-
-class TestAssemblerProperties:
-    """Test assembler-specific properties in grid_objects."""
-
-    def test_assembler_basic_properties(self, sim_with_assembler):
-        """Test that basic assembler properties are exposed."""
-
-        objects = sim_with_assembler.grid_objects()
-
-        # Find an assembler
-        assembler = next((obj for obj in objects.values() if obj.get("type_name") == "assembler"), None)
-
-        if assembler:
-            # Check basic properties exist
-            assert "cooldown_remaining" in assembler
-            assert "cooldown_duration" in assembler
-            assert "uses_count" in assembler
-            assert "max_uses" in assembler
-            assert "allow_partial_usage" in assembler
-
-            # Check initial values
-            assert assembler["cooldown_remaining"] == 0, "Should start with no cooldown"
-            assert assembler["uses_count"] == 0, "Should start with zero uses"
-            assert assembler["max_uses"] == 10, "Max uses should match config"
-            assert assembler["allow_partial_usage"] is True, "Should match config"
-
-    def test_assembler_current_protocol(self, sim_with_assembler):
-        """Test that current protocol is exposed."""
-
-        objects = sim_with_assembler.grid_objects()
-
-        # Find an assembler
-        assembler = next((obj for obj in objects.values() if obj.get("type_name") == "assembler"), None)
-
-        if assembler:
-            # Protocol properties may or may not exist depending on whether agents are nearby
-            if "current_protocol_inputs" in assembler:
-                assert isinstance(assembler["current_protocol_inputs"], dict)
-
-            if "current_protocol_outputs" in assembler:
-                assert isinstance(assembler["current_protocol_outputs"], dict)
-
-            # If protocol exists, verify structure
-            if "current_protocol_inputs" in assembler:
-                assert isinstance(assembler["current_protocol_inputs"], dict)
-                assert "current_protocol_outputs" in assembler
-                assert isinstance(assembler["current_protocol_outputs"], dict)
-                assert "current_protocol_cooldown" in assembler
-                assert isinstance(assembler["current_protocol_cooldown"], int)
-
-    def test_assembler_all_protocols(self, sim_with_assembler):
-        """Test that all protocols are exposed."""
-
-        objects = sim_with_assembler.grid_objects()
-
-        # Find an assembler
-        assembler = next((obj for obj in objects.values() if obj.get("type_name") == "assembler"), None)
-
-        if assembler:
-            # Check that protocols list exists (formatter converts protocols to protocols)
-            assert "protocols" in assembler
-            assert isinstance(assembler["protocols"], list)
-
-            # Check that at least one protocol exists (we defined one in the fixture)
-            assert len(assembler["protocols"]) > 0
-
-            # Verify structure of first protocol
-            protocol = assembler["protocols"][0]
-            assert "inputs" in protocol
-            assert "outputs" in protocol
-            assert "cooldown" in protocol
-            assert isinstance(protocol["inputs"], dict)  # C++ exposes as dict
-            assert isinstance(protocol["outputs"], dict)  # C++ exposes as dict
-            assert isinstance(protocol["cooldown"], int)
 
 
 class TestChestProperties:

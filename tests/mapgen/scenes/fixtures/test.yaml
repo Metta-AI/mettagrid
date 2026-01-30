@@ -1,4 +1,4 @@
 type: mettagrid.mapgen.scenes.random.Random.Config
 objects:
-  assembler: 3
+  hub: 3
   temple: 2

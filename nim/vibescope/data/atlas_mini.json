@@ -5,7 +5,7 @@
     "minimap/carbon_extractor": { "x": 4, "y": 4, "width": 33, "height": 33 },
     "minimap/agent": { "x": 86, "y": 4, "width": 32, "height": 32 },
     "minimap/aligner_station": { "x": 168, "y": 45, "width": 33, "height": 33 },
-    "minimap/assembler": { "x": 45, "y": 45, "width": 33, "height": 33 },
+    "minimap/hub": { "x": 45, "y": 45, "width": 33, "height": 33 },
     "minimap/oxygen_extractor": { "x": 126, "y": 4, "width": 33, "height": 33 },
     "minimap/charger": { "x": 127, "y": 45, "width": 33, "height": 33 },
     "minimap/silicon_extractor": { "x": 45, "y": 86, "width": 33, "height": 33 },

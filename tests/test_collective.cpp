@@ -64,7 +64,7 @@ void test_collective_add_member() {
   Collective collective(config, &test_resource_names);
 
   TestGridObject obj1("agent");
-  TestGridObject obj2("assembler");
+  TestGridObject obj2("hub");
 
   collective.addMember(&obj1);
   assert(collective.memberCount() == 1);
@@ -72,7 +72,7 @@ void test_collective_add_member() {
 
   collective.addMember(&obj2);
   assert(collective.memberCount() == 2);
-  assert(collective.get_aligned_count("assembler") == 1);
+  assert(collective.get_aligned_count("hub") == 1);
 
   // Adding same member again should not duplicate
   collective.addMember(&obj1);
@@ -213,7 +213,7 @@ void test_multiple_objects_share_collective() {
   Collective collective(config, &test_resource_names);
 
   TestGridObject obj1("agent");
-  TestGridObject obj2("assembler");
+  TestGridObject obj2("hub");
   obj1.setCollective(&collective);
   obj2.setCollective(&collective);
 
@@ -227,7 +227,7 @@ void test_multiple_objects_share_collective() {
 
   // Check aligned counts for different types
   assert(collective.get_aligned_count("agent") == 1);
-  assert(collective.get_aligned_count("assembler") == 1);
+  assert(collective.get_aligned_count("hub") == 1);
 
   std::cout << "✓ Multiple objects sharing collective test passed" << std::endl;
 }
@@ -240,31 +240,31 @@ void test_collective_stats_tracking() {
 
   TestGridObject obj1("agent");
   TestGridObject obj2("agent");
-  TestGridObject obj3("assembler");
+  TestGridObject obj3("hub");
 
   obj1.setCollective(&collective);
   obj2.setCollective(&collective);
   obj3.setCollective(&collective);
 
   // Check stats for aligned counts
-  assert(collective.stats.get("agent") == 2.0f);
-  assert(collective.stats.get("assembler") == 1.0f);
+  assert(collective.stats.get("aligned.agent") == 2.0f);
+  assert(collective.stats.get("aligned.hub") == 1.0f);
 
   // Simulate ticks and check held stats
   collective.update_held_stats();
-  assert(collective.stats.get("agent.held") == 2.0f);
-  assert(collective.stats.get("assembler.held") == 1.0f);
+  assert(collective.stats.get("aligned.agent.held") == 2.0f);
+  assert(collective.stats.get("aligned.hub.held") == 1.0f);
 
   collective.update_held_stats();
-  assert(collective.stats.get("agent.held") == 4.0f);      // 2 agents * 2 ticks
-  assert(collective.stats.get("assembler.held") == 2.0f);  // 1 assembler * 2 ticks
+  assert(collective.stats.get("aligned.agent.held") == 4.0f);  // 2 agents * 2 ticks
+  assert(collective.stats.get("aligned.hub.held") == 2.0f);    // 1 hub * 2 ticks
 
   // Remove one agent and check stats update
   obj1.clearCollective();
-  assert(collective.stats.get("agent") == 1.0f);
+  assert(collective.stats.get("aligned.agent") == 1.0f);
 
   collective.update_held_stats();
-  assert(collective.stats.get("agent.held") == 5.0f);  // 4 + 1 (now only 1 agent)
+  assert(collective.stats.get("aligned.agent.held") == 5.0f);  // 4 + 1 (now only 1 agent)
 
   std::cout << "✓ Collective stats tracking test passed" << std::endl;
 }

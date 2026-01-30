@@ -19,7 +19,7 @@ def test_objects():
             (1, 1),
         )
         w_count += (scene.grid == "wall").sum()
-        a_count += (scene.grid == "assembler").sum()
+        a_count += (scene.grid == "hub").sum()
 
     assert w_count > 0
     assert a_count > 0

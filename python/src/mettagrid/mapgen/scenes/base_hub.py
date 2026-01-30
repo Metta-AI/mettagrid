@@ -11,7 +11,7 @@ DEFAULT_EXTRACTORS: tuple[str, str, str, str] = (
 
 
 class BaseHubConfig(SceneConfig):
-    assembler_object: str = "assembler"
+    hub_object: str = "hub"
     corner_generator: str | None = None
     spawn_symbol: str = "agent.agent"
     # If set, place at least this many spawn pads (best-effort) in the hub
@@ -42,7 +42,7 @@ class BaseHubConfig(SceneConfig):
 class BaseHub(Scene[BaseHubConfig]):
     """
     Build a symmetric 11x11 base:
-    - Center cell: assembler with charger two cells above
+    - Center cell: hub with charger two cells above
     - Four corner generators with one empty cell of clearance on all sides
     - Symmetric L-shaped empty corridors at each corner to form 4 exits
     - Spawn pads around center with empty clearance
@@ -229,9 +229,9 @@ class BaseHub(Scene[BaseHubConfig]):
         grid[1 : h - 1, x0:x1] = "empty"
         grid[y0:y1, 1 : w - 1] = "empty"
 
-        # Place central assembler, charger, and chest after carving so they persist
+        # Place central hub, charger, and chest after carving so they persist
         if 1 <= cx < w - 1 and 1 <= cy < h - 1:
-            grid[cy, cx] = cfg.assembler_object
+            grid[cy, cx] = cfg.hub_object
 
             charger_y = cy - 3
             if 1 <= charger_y < h - 1:
@@ -330,7 +330,7 @@ class BaseHub(Scene[BaseHubConfig]):
             building_positions.append((x, y))
 
         if 1 <= cx < w - 1 and 1 <= cy < h - 1:
-            place_building(cx, cy, cfg.assembler_object)
+            place_building(cx, cy, cfg.hub_object)
 
         charger_y = cy - 2
         if 1 <= cx < w - 1 and 1 <= charger_y < h - 1:

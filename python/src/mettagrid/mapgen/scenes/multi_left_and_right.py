@@ -9,32 +9,32 @@ from mettagrid.mapgen.scenes.room_grid import RoomGrid
 class MultiLeftAndRightConfig(SceneConfig):
     rows: int
     columns: int
-    assembler_ratio: float
-    total_assemblers: int
+    hub_ratio: float
+    total_hubs: int
 
 
 class MultiLeftAndRight(Scene[MultiLeftAndRightConfig]):
     """
     Produce multiple left-or-right maps in a grid, with agents assigned randomly
-    to teams, and rooms all identical otherwise. assemblers are placed asymmetrically
-    with configurable total count and ratio between sides. The side with more assemblers
+    to teams, and rooms all identical otherwise. hubs are placed asymmetrically
+    with configurable total count and ratio between sides. The side with more hubs
     is randomly determined at the start of each episode.
     """
 
     def get_children(self):
         # Pregenerate seeds so that we could make rooms deterministic.
         agent_seed = random.randint(0, int(1e9))
-        assembler_seed = random.randint(0, int(1e9))
-        assembler_distribution_seed = random.randint(0, int(1e9))
+        hub_seed = random.randint(0, int(1e9))
+        hub_distribution_seed = random.randint(0, int(1e9))
 
-        # Calculate assembler counts based on ratio
-        more_assemblers = int(self.config.total_assemblers * self.config.assembler_ratio)
-        less_assemblers = self.config.total_assemblers - more_assemblers
+        # Calculate hub counts based on ratio
+        more_hubs = int(self.config.total_hubs * self.config.hub_ratio)
+        less_hubs = self.config.total_hubs - more_hubs
 
-        # Randomly determine which side gets more assemblers
-        random.seed(assembler_distribution_seed)
-        left_assemblers = more_assemblers if random.random() < 0.5 else less_assemblers
-        right_assemblers = self.config.total_assemblers - left_assemblers
+        # Randomly determine which side gets more hubs
+        random.seed(hub_distribution_seed)
+        left_hubs = more_hubs if random.random() < 0.5 else less_hubs
+        right_hubs = self.config.total_hubs - left_hubs
 
         agent_groups = [
             "team_1",
@@ -57,13 +57,13 @@ class MultiLeftAndRight(Scene[MultiLeftAndRightConfig]):
                                 border_width=0,
                                 layout=[
                                     [
-                                        "maybe_assemblers_left",
+                                        "maybe_hubs_left",
                                         "empty",
                                         "empty",
                                         "agents",
                                         "empty",
                                         "empty",
-                                        "maybe_assemblers_right",
+                                        "maybe_hubs_right",
                                     ],
                                 ],
                                 children=[
@@ -78,17 +78,17 @@ class MultiLeftAndRight(Scene[MultiLeftAndRightConfig]):
                                     ),
                                     ChildrenAction(
                                         scene=Random.Config(
-                                            objects={"assembler": left_assemblers},
-                                            seed=assembler_seed,
+                                            objects={"hub": left_hubs},
+                                            seed=hub_seed,
                                         ),
-                                        where=AreaWhere(tags=["maybe_assemblers_left"]),
+                                        where=AreaWhere(tags=["maybe_hubs_left"]),
                                     ),
                                     ChildrenAction(
                                         scene=Random.Config(
-                                            objects={"assembler": right_assemblers},
-                                            seed=assembler_seed + 1,
+                                            objects={"hub": right_hubs},
+                                            seed=hub_seed + 1,
                                         ),
-                                        where=AreaWhere(tags=["maybe_assemblers_right"]),
+                                        where=AreaWhere(tags=["maybe_hubs_right"]),
                                     ),
                                 ],
                             ),

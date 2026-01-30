@@ -66,9 +66,9 @@ class TestTagFilter:
 
     def test_tag_filter_creation(self):
         """Test creating TagFilter directly."""
-        f = TagFilter(target=HandlerTarget.TARGET, tag=Tag("type:assembler"))
+        f = TagFilter(target=HandlerTarget.TARGET, tag=Tag("type:hub"))
         assert f.filter_type == "tag"
-        assert f.tag == Tag("type:assembler")
+        assert f.tag == Tag("type:hub")
 
     def test_has_tag_helper(self):
         """Test hasTag helper function."""
@@ -116,10 +116,10 @@ class TestNearFilter:
 
     def test_is_near_helper(self):
         """Test isNear helper function."""
-        f = isNear("assembler", [isAlignedTo("cogs")], radius=3)
+        f = isNear("hub", [isAlignedTo("cogs")], radius=3)
         assert isinstance(f, NearFilter)
         assert f.filter_type == "near"
-        assert f.target_tag == "assembler"
+        assert f.target_tag == "hub"
         assert len(f.filters) == 1
         assert f.radius == 3
 
@@ -296,7 +296,7 @@ class TestEventsInGameConfig:
                     name="proximity_check",
                     target_tag="type:wall",
                     timesteps=once(250),
-                    filters=[isA("assembler"), isNear("assembler", [isAlignedTo("team_a")], radius=2)],
+                    filters=[isA("hub"), isNear("hub", [isAlignedTo("team_a")], radius=2)],
                     mutations=[alignTo(None)],  # None removes alignment
                 ),
             },

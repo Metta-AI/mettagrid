@@ -12,7 +12,6 @@
 #include "handler/handler_bindings.hpp"
 #include "objects/agent.hpp"
 #include "objects/reward_config.hpp"
-#include "objects/assembler.hpp"
 #include "objects/chest.hpp"
 #include "objects/collective.hpp"
 #include "objects/protocol.hpp"
@@ -126,62 +125,6 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
       //   resource_limits_dict[py::int_(resource)] = quantity;
       // }
       // obj_dict["resource_limits"] = resource_limits_dict;
-    }
-
-    // Add assembler-specific info
-    if (auto* assembler = dynamic_cast<Assembler*>(obj)) {
-      obj_dict["cooldown_remaining"] = assembler->cooldown_remaining();
-      obj_dict["cooldown_duration"] = assembler->cooldown_duration;
-      obj_dict["uses_count"] = assembler->uses_count;
-      obj_dict["max_uses"] = assembler->max_uses;
-      obj_dict["allow_partial_usage"] = assembler->allow_partial_usage;
-
-      // Add current protocol ID (pattern byte)
-      obj_dict["current_protocol_id"] = static_cast<int>(assembler->get_local_vibe());
-
-      // Add current protocol information
-      const Protocol* current_protocol = assembler->get_current_protocol();
-      if (current_protocol) {
-        py::dict input_resources_dict;
-        for (const auto& [resource, quantity] : current_protocol->input_resources) {
-          input_resources_dict[py::int_(resource)] = quantity;
-        }
-        obj_dict["current_protocol_inputs"] = input_resources_dict;
-
-        py::dict output_resources_dict;
-        for (const auto& [resource, quantity] : current_protocol->output_resources) {
-          output_resources_dict[py::int_(resource)] = quantity;
-        }
-        obj_dict["current_protocol_outputs"] = output_resources_dict;
-        obj_dict["current_protocol_cooldown"] = current_protocol->cooldown;
-      }
-
-      // Add all protocols information
-      const std::unordered_map<GroupVibe, vector<std::shared_ptr<Protocol>>>& active_protocols = assembler->protocols;
-      py::list protocols_list;
-
-      for (const auto& [vibe, protocols] : active_protocols) {
-        for (const auto& protocol : protocols) {
-          py::dict protocol_dict;
-
-          py::dict input_resources_dict;
-          for (const auto& [resource, quantity] : protocol->input_resources) {
-            input_resources_dict[py::int_(resource)] = quantity;
-          }
-          protocol_dict["inputs"] = input_resources_dict;
-
-          py::dict output_resources_dict;
-          for (const auto& [resource, quantity] : protocol->output_resources) {
-            output_resources_dict[py::int_(resource)] = quantity;
-          }
-          protocol_dict["outputs"] = output_resources_dict;
-          protocol_dict["cooldown"] = protocol->cooldown;
-          protocol_dict["min_agents"] = protocol->min_agents;
-          protocol_dict["vibes"] = protocol->vibes;
-          protocols_list.append(protocol_dict);
-        }
-      }
-      obj_dict["protocols"] = protocols_list;
     }
 
     // Add chest-specific info
@@ -392,7 +335,6 @@ PYBIND11_MODULE(mettagrid_c, m) {
   bind_reward_config(m);
   bind_collective_config(m);
   bind_agent_config(m);
-  bind_assembler_config(m);
   bind_chest_config(m);
   bind_action_config(m);
   bind_attack_action_config(m);

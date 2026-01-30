@@ -6,7 +6,6 @@ from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_m
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mettagrid_config import (
     AgentConfig,
-    AssemblerConfig,
     ChestConfig,
     GameConfig,
     GridObjectConfig,
@@ -20,7 +19,6 @@ from mettagrid.mettagrid_c import AlignmentFilterConfig as CppAlignmentFilterCon
 from mettagrid.mettagrid_c import AlignmentMutationConfig as CppAlignmentMutationConfig
 from mettagrid.mettagrid_c import AlignTo as CppAlignTo
 from mettagrid.mettagrid_c import AOEConfig as CppAOEConfig
-from mettagrid.mettagrid_c import AssemblerConfig as CppAssemblerConfig
 from mettagrid.mettagrid_c import AttackActionConfig as CppAttackActionConfig
 from mettagrid.mettagrid_c import AttackOutcome as CppAttackOutcome
 from mettagrid.mettagrid_c import ChangeVibeActionConfig as CppChangeVibeActionConfig
@@ -37,7 +35,6 @@ from mettagrid.mettagrid_c import LimitDef as CppLimitDef
 from mettagrid.mettagrid_c import MoveActionConfig as CppMoveActionConfig
 from mettagrid.mettagrid_c import NearFilterConfig as CppNearFilterConfig
 from mettagrid.mettagrid_c import ObsValueConfig as CppObsValueConfig
-from mettagrid.mettagrid_c import Protocol as CppProtocol
 from mettagrid.mettagrid_c import ResourceDelta as CppResourceDelta
 from mettagrid.mettagrid_c import ResourceFilterConfig as CppResourceFilterConfig
 from mettagrid.mettagrid_c import RewardConfig as CppRewardConfig
@@ -751,48 +748,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
 
         if isinstance(object_config, WallConfig):
             cpp_config = CppWallConfig(type_id=type_id, type_name=object_type, initial_vibe=object_config.vibe)
-        elif isinstance(object_config, AssemblerConfig):
-            protocols = []
-            seen_vibes_and_min_agents = []
-
-            for protocol_config in reversed(object_config.protocols):
-                # Convert vibe names to IDs (validate all vibe names exist)
-                for vibe in protocol_config.vibes:
-                    if vibe not in vibe_name_to_id:
-                        raise ValueError(f"Unknown vibe name '{vibe}' in assembler '{object_type}' protocol")
-                vibe_ids = sorted([vibe_name_to_id[vibe] for vibe in protocol_config.vibes])
-                # Check for duplicate vibes
-                if (vibe_ids, protocol_config.min_agents) in seen_vibes_and_min_agents:
-                    raise ValueError(
-                        f"Protocol with vibes {protocol_config.vibes} and min_agents {protocol_config.min_agents} "
-                        f"already exists in {object_type}"
-                    )
-                seen_vibes_and_min_agents.append((vibe_ids, protocol_config.min_agents))
-                # Ensure keys and values are explicitly Python ints for C++ binding
-                # Build dict item-by-item to ensure pybind11 recognizes it as dict[int, int]
-                input_res = {}
-                for k, v in protocol_config.input_resources.items():
-                    key = int(resource_name_to_id[k])
-                    val = int(v)
-                    input_res[key] = val
-                output_res = {}
-                for k, v in protocol_config.output_resources.items():
-                    key = int(resource_name_to_id[k])
-                    val = int(v)
-                    output_res[key] = val
-                cpp_protocol = CppProtocol()
-                cpp_protocol.min_agents = protocol_config.min_agents
-                cpp_protocol.vibes = vibe_ids
-                cpp_protocol.input_resources = input_res
-                cpp_protocol.output_resources = output_res
-                cpp_protocol.cooldown = protocol_config.cooldown
-                protocols.append(cpp_protocol)
-
-            cpp_config = CppAssemblerConfig(type_id=type_id, type_name=object_type, initial_vibe=object_config.vibe)
-            cpp_config.protocols = protocols
-            cpp_config.allow_partial_usage = object_config.allow_partial_usage
-            cpp_config.max_uses = object_config.max_uses
-            cpp_config.chest_search_distance = object_config.chest_search_distance
         elif isinstance(object_config, ChestConfig):
             # Convert vibe_transfers: vibe -> resource -> delta
             vibe_transfers_map = {}

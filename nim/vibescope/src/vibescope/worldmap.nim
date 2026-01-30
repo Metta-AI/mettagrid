@@ -961,13 +961,13 @@ proc drawWorldMap*(zoomInfo: ZoomInfo) =
         echo "Applied pos: (", zoomInfo.pos.x, ", ", zoomInfo.pos.y, ")"
       hasPendingViewState = false
     else:
-      # Default: fit full map and center on assembler or map center
+      # Default: fit full map and center on hub or map center
       fitFullMap(zoomInfo)
       var baseEntity: Entity = nil
       let numObjs = replay.objects.len
       for j in 0 ..< numObjs:
         let obj = replay.objects[j]
-        if obj.typeName == "assembler":
+        if obj.typeName == "hub":
           baseEntity = obj
           break
       if baseEntity != nil:

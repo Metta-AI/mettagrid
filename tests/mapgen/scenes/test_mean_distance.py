@@ -7,7 +7,7 @@ from mettagrid.test_support.mapgen import render_scene
 def test_basic():
     """Test basic functionality of MeanDistance scene."""
     scene = render_scene(
-        MeanDistance.Config(mean_distance=3.0, objects={"assembler": 2, "enemy": 1}),
+        MeanDistance.Config(mean_distance=3.0, objects={"hub": 2, "enemy": 1}),
         (11, 11),
     )
 
@@ -16,10 +16,10 @@ def test_basic():
     assert scene.grid[agent_pos] == "agent.agent"
 
     # Count objects
-    assembler_count = (scene.grid == "assembler").sum()
+    hub_count = (scene.grid == "hub").sum()
     enemy_count = (scene.grid == "enemy").sum()
 
-    assert assembler_count == 2
+    assert hub_count == 2
     assert enemy_count == 1
 
     # Objects should not overlap with agent
@@ -29,19 +29,19 @@ def test_basic():
 def test_object_placement():
     """Test that objects are placed at reasonable distances from agent."""
     scene = render_scene(
-        MeanDistance.Config(mean_distance=2.0, objects={"assembler": 5}),
+        MeanDistance.Config(mean_distance=2.0, objects={"hub": 5}),
         (101, 101),
     )
 
     agent_pos = (50, 50)  # center of 101x101 grid
     assert scene.grid[agent_pos] == "agent.agent"
 
-    # Find all assembler positions and calculate distances
-    assembler_positions = np.where(scene.grid == "assembler")
+    # Find all hub positions and calculate distances
+    hub_positions = np.where(scene.grid == "hub")
     distances = []
 
-    for i in range(len(assembler_positions[0])):
-        pos = (assembler_positions[0][i], assembler_positions[1][i])
+    for i in range(len(hub_positions[0])):
+        pos = (hub_positions[0][i], hub_positions[1][i])
         # Calculate Euclidean distance from agent
         dist = np.sqrt((pos[0] - agent_pos[0]) ** 2 + (pos[1] - agent_pos[1]) ** 2)
         distances.append(dist)
@@ -56,12 +56,12 @@ def test_object_placement():
 def test_multiple_object_types():
     """Test placement of multiple different object types."""
     scene = render_scene(
-        MeanDistance.Config(mean_distance=4.0, objects={"assembler": 3, "enemy": 2, "key": 1}),
+        MeanDistance.Config(mean_distance=4.0, objects={"hub": 3, "enemy": 2, "key": 1}),
         (21, 21),
     )
 
     # Check all objects are placed
-    assert (scene.grid == "assembler").sum() == 3
+    assert (scene.grid == "hub").sum() == 3
     assert (scene.grid == "enemy").sum() == 2
     assert (scene.grid == "key").sum() == 1
 
@@ -73,7 +73,7 @@ def test_multiple_object_types():
 def test_small_grid():
     """Test behavior with a smaller grid where placement might be constrained."""
     scene = render_scene(
-        MeanDistance.Config(mean_distance=2.0, objects={"assembler": 2}),
+        MeanDistance.Config(mean_distance=2.0, objects={"hub": 2}),
         (7, 7),
     )
 
@@ -82,6 +82,6 @@ def test_small_grid():
     assert scene.grid[agent_pos] == "agent.agent"
 
     # Some objects should be placed (might be fewer than requested due to space constraints)
-    assembler_count = (scene.grid == "assembler").sum()
-    assert assembler_count <= 2  # At most the requested number
-    assert assembler_count >= 0  # At least 0 if no space
+    hub_count = (scene.grid == "hub").sum()
+    assert hub_count <= 2  # At most the requested number
+    assert hub_count >= 0  # At least 0 if no space

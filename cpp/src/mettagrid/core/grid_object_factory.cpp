@@ -11,8 +11,6 @@
 #include "objects/agent.hpp"
 #include "objects/agent_config.hpp"
 #include "objects/alignable.hpp"
-#include "objects/assembler.hpp"
-#include "objects/assembler_config.hpp"
 #include "objects/chest.hpp"
 #include "objects/chest_config.hpp"
 #include "objects/collective.hpp"
@@ -69,13 +67,6 @@ static GridObject* _create_object(GridCoord r,
 
   if (const auto* agent_config = dynamic_cast<const AgentConfig*>(config)) {
     return new Agent(r, c, *agent_config, resource_names);
-  }
-
-  if (const auto* assembler_config = dynamic_cast<const AssemblerConfig*>(config)) {
-    auto* obj = new Assembler(r, c, *assembler_config, stats);
-    obj->set_grid(grid);
-    obj->set_current_timestep_ptr(current_timestep_ptr);
-    return obj;
   }
 
   if (const auto* chest_config = dynamic_cast<const ChestConfig*>(config)) {

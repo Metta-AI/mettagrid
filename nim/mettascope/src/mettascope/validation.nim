@@ -555,7 +555,7 @@ proc validateAgentFields*(obj: JsonNode, objName: string, replayData: JsonNode, 
     validateActionIdRange(obj, "action_id", objName, replayData["action_names"].to(seq[string]), issues)
 
 proc validateProtocol*(protocol: JsonNode, protocolIndex: int, objName: string, issues: var seq[ValidationIssue]) =
-  ## Validate a single protocol within an assembler.
+  ## Validate a single protocol within an hub.
   let protocolName = &"{objName}.protocols[{protocolIndex}]"
 
   # Protocol must be an object.
@@ -630,14 +630,14 @@ proc validateProtocol*(protocol: JsonNode, protocolIndex: int, objName: string, 
           field: &"{protocolName}.outputs[{i}]"
         ))
 
-proc validateAssemblerFields*(obj: JsonNode, objName: string, issues: var seq[ValidationIssue]) =
-  ## Validate all assembler-specific fields.
-  let assemblerFields = [
+proc validateHubFields*(obj: JsonNode, objName: string, issues: var seq[ValidationIssue]) =
+  ## Validate all hub-specific fields.
+  let hubFields = [
     "protocols", "uses_count", "max_uses", "allow_partial_usage"
   ]
-  requireFields(obj, assemblerFields, objName, issues)
+  requireFields(obj, hubFields, objName, issues)
 
-  # Validate static assembler fields.
+  # Validate static hub fields.
   validateStaticValue(obj, "max_uses", "int", objName & ".max_uses", issues)
   validateNonNegativeNumber(obj, "max_uses", objName & ".max_uses", issues)
 
@@ -655,7 +655,7 @@ proc validateAssemblerFields*(obj: JsonNode, objName: string, issues: var seq[Va
       if protocol.kind == JObject:
         validateProtocol(protocol, i, objName, issues)
 
-  # Validate dynamic assembler fields (time series).
+  # Validate dynamic hub fields (time series).
   validateTimeSeries(obj, "uses_count", objName & ".uses_count", "int", issues)
 
 proc validateBuildingFields*(obj: JsonNode, objName: string, issues: var seq[ValidationIssue]) =
@@ -726,7 +726,7 @@ proc validateObject*(obj: JsonNode, objIndex: int, replayData: JsonNode, issues:
   if obj.getOrDefault("is_agent").getBool() or "agent_id" in obj:
     validateAgentFields(obj, objName, replayData, issues)
   elif "protocols" in obj:
-    validateAssemblerFields(obj, objName, issues)
+    validateHubFields(obj, objName, issues)
   elif "input_resources" in obj:
     validateBuildingFields(obj, objName, issues)
 

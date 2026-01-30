@@ -51,7 +51,7 @@ include a numeric `type_id`, but new data should rely on the string `type_name` 
 ```json
 {
   ...
-  "type_names": ["agent", "wall", "assembler", ... ],
+  "type_names": ["agent", "wall", "hub", ... ],
   "action_names": ["noop", "move", "rotate", ... ],
   "item_names": ["hearts", "coconuts", ... ],
   "group_names": ["group1", "group2", ... ],
@@ -160,21 +160,21 @@ Agent specific keys:
 - `frozen_time` - How many steps does it take to unfreeze the agent.
 - `group_id` - The id of the group the object belongs to.
 
-Assembler specific keys:
+Hub specific keys:
 
-- `protocols` - Array of protocol objects that define what the assembler can do. Each protocol contains:
+- `protocols` - Array of protocol objects that define what the hub can do. Each protocol contains:
   - `minAgents`: Minimum number of agents required to activate this protocol
   - `vibes`: Array of required vibe IDs that agents must have to participate
   - `inputs`: Array of `[item_id, count]` pairs required as input
   - `outputs`: Array of `[item_id, count]` pairs produced as output
-  - `cooldown`: Number of steps the assembler must wait after using this protocol
+  - `cooldown`: Number of steps the hub must wait after using this protocol
 - `current_recipe_id` - Index into the `protocols` array indicating which protocol is currently active.
-- `cooldown_remaining` - Time series of remaining cooldown steps before the assembler can be used again.
+- `cooldown_remaining` - Time series of remaining cooldown steps before the hub can be used again.
 - `cooldown_duration` - Total cooldown time in steps.
-- `uses_count` - Time series of how many times the assembler has been used.
-- `max_uses` - Maximum number of times the assembler can be used before exhaustion.
+- `uses_count` - Time series of how many times the hub has been used.
+- `max_uses` - Maximum number of times the hub can be used before exhaustion.
 - `allow_partial_usage` - Boolean indicating if partial usage is allowed.
-- `exhaustion` - Time series boolean indicating if the assembler is exhausted.
+- `exhaustion` - Time series boolean indicating if the hub is exhausted.
 - `cooldown_multiplier` - Time series float multiplier applied to cooldown duration.
 
 Keys are allowed to be missing. If a key is missing, missing keys are always 0, false, or []. Extra keys are ignored but

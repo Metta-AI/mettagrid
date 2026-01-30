@@ -3,7 +3,7 @@ import numpy as np
 from mettagrid.mapgen.scene import Scene, SceneConfig
 
 
-class GridassemblersConfig(SceneConfig):
+class GridHubsConfig(SceneConfig):
     objects: dict[str, int] = {}
     agents: int | dict[str, int] = 0
     grid_rows: int = 3  # Number of rows in the grid
@@ -14,12 +14,12 @@ class GridassemblersConfig(SceneConfig):
     place_agent_center: bool = True  # Whether to place agent at center
 
 
-class Gridassemblers(Scene[GridassemblersConfig]):
+class GridHubs(Scene[GridHubsConfig]):
     """
     Place objects on a grid pattern across the map.
 
     This scene creates a regular grid of positions and places objects
-    (typically assemblers) at grid nodes with optional randomization.
+    (typically hubs) at grid nodes with optional randomization.
     """
 
     def render(self):

@@ -24,7 +24,6 @@
 #include "core/grid_object.hpp"
 #include "core/tag_index.hpp"
 #include "core/types.hpp"
-#include "objects/assembler.hpp"
 #include "objects/chest.hpp"
 #include "objects/collective.hpp"
 #include "handler/event_scheduler.hpp"
@@ -43,7 +42,6 @@ class ObservationEncoder;
 class GridObject;
 
 struct GridObjectConfig;
-struct AssemblerConfig;
 struct ChestConfig;
 struct WallConfig;
 struct AgentConfig;

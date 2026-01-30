@@ -143,7 +143,7 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
         let vibeName = getVibeName(vibeId)
         text("  Vibe: " & vibeName)
     else:
-      # Assembler-specific info.
+      # Hub-specific info.
       let cooldown = cur.cooldownRemaining.at
       if cooldown > 0:
         text(&"  Cooldown remaining: {cooldown}")

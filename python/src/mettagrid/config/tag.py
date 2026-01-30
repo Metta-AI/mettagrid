@@ -31,6 +31,6 @@ def typeTag(name: str) -> Tag:
     Auto-generated type tags use this format. Objects named "wall" get tag "type:wall".
 
     Args:
-        name: The object or agent type name (e.g., "wall", "agent", "assembler")
+        name: The object or agent type name (e.g., "wall", "agent", "hub")
     """
     return Tag(f"type:{name}")

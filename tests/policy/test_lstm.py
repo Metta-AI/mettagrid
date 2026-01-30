@@ -18,7 +18,6 @@ def create_mock_policy_env_info() -> PolicyEnvInterface:
         num_agents=1,
         observation_shape=(7, 7, 3),
         egocentric_shape=(7, 7),
-        assembler_protocols=[],
     )
 
 

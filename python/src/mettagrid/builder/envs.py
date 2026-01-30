@@ -1,12 +1,13 @@
 from typing import Optional
 
 import mettagrid.mapgen.scenes.random
-from mettagrid.builder import building, empty_assemblers
+from mettagrid.builder import building
 
 # Local import moved to factory usage to avoid forbidden cross-package dependency at import time
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
     AgentConfig,
+    AnyGridObjectConfig,
     AttackActionConfig,
     ChangeVibeActionConfig,
     GameConfig,
@@ -28,13 +29,8 @@ def make_arena(
     combat: bool = True,
     map_builder: MapBuilderConfig | None = None,  # custom map builder; must match num_agents
 ) -> MettaGridConfig:
-    objects = {
+    objects: dict[str, AnyGridObjectConfig] = {
         "wall": building.wall,
-        "assembler": building.assembler_assembler,
-        "mine_red": building.assembler_mine_red,
-        "generator_red": building.assembler_generator_red,
-        "lasery": building.assembler_lasery,
-        "armory": building.assembler_armory,
     }
 
     actions = ActionsConfig(
@@ -65,11 +61,6 @@ def make_arena(
                 agents=6,
                 objects={
                     "wall": 10,
-                    "assembler": 5,
-                    "mine_red": 10,
-                    "generator_red": 5,
-                    "lasery": 1,
-                    "armory": 1,
                 },
             ),
         )
@@ -95,16 +86,10 @@ def make_arena(
 
 
 def make_navigation(num_agents: int) -> MettaGridConfig:
-    nav_assembler = building.AssemblerConfig(
-        name="assembler",
-        render_symbol="🛣️",
-        protocols=[building.ProtocolConfig(input_resources={}, output_resources={"heart": 1}, cooldown=255)],
-    )
     cfg = MettaGridConfig(
         game=GameConfig(
             num_agents=num_agents,
             objects={
-                "assembler": nav_assembler,
                 "wall": building.wall,
             },
             resource_names=["heart"],
@@ -134,7 +119,7 @@ def make_assembly_lines(
     num_sinks: int = 0,
     dir: Optional[str] = None,
 ) -> MettaGridConfig:
-    game_objects["wall"] = empty_assemblers.wall
+    game_objects["wall"] = building.wall
     cfg = MettaGridConfig(
         desync_episodes=False,
         game=GameConfig(

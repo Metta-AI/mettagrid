@@ -127,9 +127,9 @@ class TestTagFilterHelpers:
 
     def test_is_a_helper(self):
         """isA() should create a TagFilter with type:value format."""
-        f = isA("assembler")
+        f = isA("hub")
         assert isinstance(f, TagFilter)
-        assert f.tag == Tag("type:assembler")
+        assert f.tag == Tag("type:hub")
 
     def test_is_a_helper_with_junction(self):
         """isA() should work with junction type."""

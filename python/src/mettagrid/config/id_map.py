@@ -186,7 +186,7 @@ class IdMap:
         # Agent-specific features
         add_feature("vibe", 255.0)
 
-        # Compass direction toward assembler
+        # Compass direction toward hub
         add_feature("agent:compass", 1.0)
 
         # Tag feature (always included)

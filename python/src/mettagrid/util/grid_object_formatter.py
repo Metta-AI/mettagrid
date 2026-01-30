@@ -76,27 +76,6 @@ def format_converter_properties(grid_object: dict, update_object: dict) -> None:
     update_object["cooldown_duration"] = grid_object.get("cooldown_duration", 0)
 
 
-def format_assembler_properties(grid_object: dict, update_object: dict) -> None:
-    # Assembler properties
-    update_object["cooldown_remaining"] = grid_object.get("cooldown_remaining", 0)
-    update_object["cooldown_duration"] = grid_object.get("cooldown_duration", 0)
-    update_object["is_clipped"] = grid_object.get("is_clipped", False)
-    update_object["is_clip_immune"] = grid_object.get("is_clip_immune", False)
-    update_object["uses_count"] = grid_object.get("uses_count", 0)
-    update_object["max_uses"] = grid_object.get("max_uses", 0)
-    update_object["allow_partial_usage"] = grid_object.get("allow_partial_usage", False)
-
-    update_object["protocols"] = []
-    for protocol in grid_object.get("protocols", []):
-        update_protocol = {}
-        update_protocol["minAgents"] = protocol.get("min_agents", 0)
-        update_protocol["vibes"] = protocol.get("vibes", [])
-        update_protocol["inputs"] = list(protocol.get("inputs", {}).items())
-        update_protocol["outputs"] = list(protocol.get("outputs", {}).items())
-        update_protocol["cooldown"] = protocol.get("cooldown", 0)
-        update_object["protocols"].append(update_protocol)
-
-
 def format_grid_object(
     grid_object: dict,
     actions: np.ndarray,
@@ -142,8 +121,5 @@ def format_grid_object(
 
     elif "input_resources" in grid_object:
         format_converter_properties(grid_object, update_object)
-
-    elif "protocols" in grid_object:
-        format_assembler_properties(grid_object, update_object)
 
     return update_object

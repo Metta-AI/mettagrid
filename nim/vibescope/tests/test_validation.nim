@@ -10,7 +10,7 @@ proc getMinimalReplay(fileName: string = "sample.json.z"): JsonNode =
     "max_steps": 100,
     "map_size": [10, 10],
     "file_name": "test replay file format",
-    "type_names": ["agent", "assembler", "resource"],
+    "type_names": ["agent", "hub", "resource"],
     "action_names": ["move", "collect"],
     "item_names": ["wood", "stone"],
     "group_names": ["group1", "group2"],
@@ -62,8 +62,8 @@ proc getMinimalReplay(fileName: string = "sample.json.z"): JsonNode =
       },
       {
         "id": 3,
-        "type_name": "assembler",
-        # Assembler-specific fields
+        "type_name": "hub",
+        # Hub-specific fields
         "protocols": [
           {
             "minAgents": 0,
