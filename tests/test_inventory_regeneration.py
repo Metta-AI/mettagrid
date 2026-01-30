@@ -28,8 +28,8 @@ class TestVibeDependentRegeneration:
                 filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="default")],
                 mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 2})],
             ),
-            "regen_charger": Handler(
-                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="charger")],
+            "regen_junction": Handler(
+                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="junction")],
                 mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 10})],
             ),
         }
@@ -46,20 +46,20 @@ class TestVibeDependentRegeneration:
         energy = sim.agent(0).inventory.get("energy", 0)
         assert energy == 2, f"With default vibe, energy should regenerate to 2, got {energy}"
 
-        # Step 2: Change to charger vibe
-        sim.agent(0).set_action("change_vibe_charger")
+        # Step 2: Change to junction vibe
+        sim.agent(0).set_action("change_vibe_junction")
         sim.step()
 
         # After changing vibe, regen happens with new vibe rate
         energy = sim.agent(0).inventory.get("energy", 0)
-        assert energy == 12, f"With charger vibe, energy should regenerate by 10 (2+10=12), got {energy}"
+        assert energy == 12, f"With junction vibe, energy should regenerate by 10 (2+10=12), got {energy}"
 
-        # Step 3: Stay on charger vibe - should continue regenerating at 10/step
+        # Step 3: Stay on junction vibe - should continue regenerating at 10/step
         sim.agent(0).set_action(Action(name="noop"))
         sim.step()
 
         energy = sim.agent(0).inventory.get("energy", 0)
-        assert energy == 22, f"With charger vibe, energy should be 22 (12+10), got {energy}"
+        assert energy == 22, f"With junction vibe, energy should be 22 (12+10), got {energy}"
 
         # Step 4: Change back to default vibe
         sim.agent(0).set_action("change_vibe_default")
@@ -99,12 +99,12 @@ class TestVibeDependentRegeneration:
         energy = sim.agent(0).inventory.get("energy", 0)
         assert energy == 5, f"With default vibe, energy should be 5, got {energy}"
 
-        # Step 2: Change to charger vibe - handler has no filter, still runs
-        sim.agent(0).set_action("change_vibe_charger")
+        # Step 2: Change to junction vibe - handler has no filter, still runs
+        sim.agent(0).set_action("change_vibe_junction")
         sim.step()
 
         energy = sim.agent(0).inventory.get("energy", 0)
-        assert energy == 10, f"With charger vibe (no filter), energy should be 10 (5+5), got {energy}"
+        assert energy == 10, f"With junction vibe (no filter), energy should be 10 (5+5), got {energy}"
 
         # Step 3: Change to another vibe - still runs
         sim.agent(0).set_action("change_vibe_carbon_a")
@@ -125,10 +125,10 @@ class TestVibeDependentRegeneration:
         )
 
         cfg.game.resource_names = ["energy"]
-        # Only configure charger vibe - no handler for default
+        # Only configure junction vibe - no handler for default
         cfg.game.agent.on_tick = {
-            "regen_charger": Handler(
-                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="charger")],
+            "regen_junction": Handler(
+                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="junction")],
                 mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 10})],
             ),
         }
@@ -145,8 +145,8 @@ class TestVibeDependentRegeneration:
         energy = sim.agent(0).inventory.get("energy", 0)
         assert energy == 0, f"Unconfigured default vibe should not regenerate, got {energy}"
 
-        # Step 2: Change to charger vibe - should regenerate
-        sim.agent(0).set_action("change_vibe_charger")
+        # Step 2: Change to junction vibe - should regenerate
+        sim.agent(0).set_action("change_vibe_junction")
         sim.step()
 
         energy = sim.agent(0).inventory.get("energy", 0)
@@ -259,8 +259,8 @@ class TestNegativeRegeneration:
                 filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="default")],
                 mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": -2})],
             ),
-            "regen_charger": Handler(
-                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="charger")],
+            "regen_junction": Handler(
+                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="junction")],
                 mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 5})],
             ),
         }
@@ -277,12 +277,12 @@ class TestNegativeRegeneration:
         energy = sim.agent(0).inventory.get("energy", 0)
         assert energy == 18, f"With default vibe, energy should decay to 18, got {energy}"
 
-        # Step 2: Change to charger vibe - should regenerate
-        sim.agent(0).set_action("change_vibe_charger")
+        # Step 2: Change to junction vibe - should regenerate
+        sim.agent(0).set_action("change_vibe_junction")
         sim.step()
 
         energy = sim.agent(0).inventory.get("energy", 0)
-        assert energy == 23, f"With charger vibe, energy should increase to 23 (18+5), got {energy}"
+        assert energy == 23, f"With junction vibe, energy should increase to 23 (18+5), got {energy}"
 
         # Step 3: Change back to default - should decay again
         sim.agent(0).set_action("change_vibe_default")

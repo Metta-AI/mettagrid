@@ -36,9 +36,9 @@ pytestmark = pytest.mark.skipif(not HAS_TRANSFER, reason="Transfer action not av
 
 # Use vibes from the global VIBES list
 # Default (vibe id 0): "default"
-# Charger (vibe id 1): "charger" - use for energy transfer tests
+# Charger (vibe id 1): "junction" - use for energy transfer tests
 # Heart_a (vibe id 10): "heart_a" - use for heart transfer tests
-CHARGER_VIBE_NAME = "charger"  # VIBES[1].name
+CHARGER_VIBE_NAME = "junction"  # VIBES[1].name
 HEART_VIBE_NAME = "heart_a"  # VIBES[10].name
 
 
@@ -84,8 +84,8 @@ def create_two_agent_sim(
 class TestVibeTriggeredTransfer:
     """Test transfer triggered by vibes on move."""
 
-    def test_transfer_triggered_by_charger_vibe(self):
-        """Test that moving into another agent triggers transfer when agent has charger vibe."""
+    def test_transfer_triggered_by_junction_vibe(self):
+        """Test that moving into another agent triggers transfer when agent has junction vibe."""
         sim = create_two_agent_sim(
             vibe_transfers=[
                 VibeTransfer(vibe=CHARGER_VIBE_NAME, target={"energy": 50}, actor={"energy": -50}),
@@ -93,15 +93,15 @@ class TestVibeTriggeredTransfer:
             initial_inventory={"energy": 100, "heart": 10},
         )
 
-        # Agent 0 changes vibe to "charger" (vibe id 1)
-        sim.agent(0).set_action("change_vibe_charger")
+        # Agent 0 changes vibe to "junction" (vibe id 1)
+        sim.agent(0).set_action("change_vibe_junction")
         sim.agent(1).set_action("noop")
         sim.step()
 
-        # Verify vibe is set (charger should be vibe id 1)
+        # Verify vibe is set (junction should be vibe id 1)
         objects = sim.grid_objects()
         agents = sorted([obj for obj in objects.values() if "agent_id" in obj], key=lambda x: x["agent_id"])
-        assert agents[0]["vibe"] == 1, f"Agent 0 should have charger vibe (id=1), got {agents[0]['vibe']}"
+        assert agents[0]["vibe"] == 1, f"Agent 0 should have junction vibe (id=1), got {agents[0]['vibe']}"
 
         # Get inventories before transfer
         energy_idx = sim.resource_names.index("energy")
@@ -137,7 +137,7 @@ class TestVibeTriggeredTransfer:
             initial_inventory={"energy": 100, "heart": 10},
         )
 
-        # Agent 0 keeps default vibe (not charger)
+        # Agent 0 keeps default vibe (not junction)
         # Get inventories before move
         objects = sim.grid_objects()
         agents = sorted([obj for obj in objects.values() if "agent_id" in obj], key=lambda x: x["agent_id"])
@@ -219,8 +219,8 @@ class TestVibeTriggeredTransfer:
             initial_inventory={"energy": 100, "heart": 10},  # Only 100 energy, transfer needs 200
         )
 
-        # Agent 0 changes vibe to "charger"
-        sim.agent(0).set_action("change_vibe_charger")
+        # Agent 0 changes vibe to "junction"
+        sim.agent(0).set_action("change_vibe_junction")
         sim.agent(1).set_action("noop")
         sim.step()
 
@@ -267,8 +267,8 @@ class TestVibeTriggeredTransfer:
             initial_inventory={"energy": 5000, "heart": 10},
         )
 
-        # Agent 0 changes vibe to "charger"
-        sim.agent(0).set_action("change_vibe_charger")
+        # Agent 0 changes vibe to "junction"
+        sim.agent(0).set_action("change_vibe_junction")
         sim.agent(1).set_action("noop")
         sim.step()
 

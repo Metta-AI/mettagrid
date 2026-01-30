@@ -198,7 +198,7 @@
     "ui/eye": { "x": 525, "y": 86, "width": 32, "height": 32 },
     "vibe/silicon": { "x": 444, "y": 326, "width": 32, "height": 32 },
     "vibe/six": { "x": 556, "y": 268, "width": 32, "height": 32 },
-    "vibe/charger": { "x": 684, "y": 348, "width": 32, "height": 32 },
+    "vibe/junction": { "x": 684, "y": 348, "width": 32, "height": 32 },
     "vibe/crying": { "x": 436, "y": 174, "width": 32, "height": 32 },
     "ui/right-arrow@2x": { "x": 477, "y": 46, "width": 40, "height": 40 },
     "resources/decoder": { "x": 756, "y": 468, "width": 32, "height": 32 },

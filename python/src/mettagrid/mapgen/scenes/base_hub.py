@@ -32,7 +32,7 @@ class BaseHubConfig(SceneConfig):
     cross_bundle: Literal["none", "extractors", "custom"] = "none"
     cross_distance: int = 4
     layout: Literal["default", "tight"] = "default"
-    charger_object: str = "charger"
+    junction_object: str = "junction"
     heart_chest_object: str = "chest"
     # Gear stations: list of station names to place (e.g., ["aligner_station", "scrambler_station"])
     # These are placed in a row below the chest, similar to how the chest is placed
@@ -42,7 +42,7 @@ class BaseHubConfig(SceneConfig):
 class BaseHub(Scene[BaseHubConfig]):
     """
     Build a symmetric 11x11 base:
-    - Center cell: hub with charger two cells above
+    - Center cell: hub with junction two cells above
     - Four corner generators with one empty cell of clearance on all sides
     - Symmetric L-shaped empty corridors at each corner to form 4 exits
     - Spawn pads around center with empty clearance
@@ -229,13 +229,13 @@ class BaseHub(Scene[BaseHubConfig]):
         grid[1 : h - 1, x0:x1] = "empty"
         grid[y0:y1, 1 : w - 1] = "empty"
 
-        # Place central hub, charger, and chest after carving so they persist
+        # Place central hub, junction, and chest after carving so they persist
         if 1 <= cx < w - 1 and 1 <= cy < h - 1:
             grid[cy, cx] = cfg.hub_object
 
-            charger_y = cy - 3
-            if 1 <= charger_y < h - 1:
-                grid[charger_y, cx] = cfg.charger_object
+            junction_y = cy - 3
+            if 1 <= junction_y < h - 1:
+                grid[junction_y, cx] = cfg.junction_object
 
             chest_y = cy + 3
             if 1 <= chest_y < h - 1:
@@ -332,9 +332,9 @@ class BaseHub(Scene[BaseHubConfig]):
         if 1 <= cx < w - 1 and 1 <= cy < h - 1:
             place_building(cx, cy, cfg.hub_object)
 
-        charger_y = cy - 2
-        if 1 <= cx < w - 1 and 1 <= charger_y < h - 1:
-            place_building(cx, charger_y, cfg.charger_object)
+        junction_y = cy - 2
+        if 1 <= cx < w - 1 and 1 <= junction_y < h - 1:
+            place_building(cx, junction_y, cfg.junction_object)
 
         chest_y = cy + 2
         if 1 <= cx < w - 1 and 1 <= chest_y < h - 1:

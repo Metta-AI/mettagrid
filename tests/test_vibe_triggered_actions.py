@@ -58,7 +58,7 @@ class TestVibeTriggeredAttack:
                 change_vibe=ChangeVibeActionConfig(),
                 attack=AttackActionConfig(
                     enabled=False,  # Disable direct attack actions
-                    vibes=["charger"],  # Attack triggers on move when agent has charger vibe
+                    vibes=["junction"],  # Attack triggers on move when agent has junction vibe
                     success=AttackOutcome(freeze=5),
                 ),
             ),
@@ -83,8 +83,8 @@ class TestVibeTriggeredAttack:
         assert not get_agent_frozen_status(sim, 0), "Agent 0 should not start frozen"
         assert not get_agent_frozen_status(sim, 1), "Agent 1 should not start frozen"
 
-        # Agent 0 changes vibe to charger (vibe index 1 = "charger")
-        sim.agent(0).set_action("change_vibe_charger")
+        # Agent 0 changes vibe to junction (vibe index 1 = "junction")
+        sim.agent(0).set_action("change_vibe_junction")
         sim.agent(1).set_action("noop")
         sim.step()
 
@@ -121,7 +121,7 @@ class TestVibeTriggeredAttack:
                 change_vibe=ChangeVibeActionConfig(),
                 attack=AttackActionConfig(
                     enabled=False,
-                    vibes=["charger"],  # Attack only triggers with charger vibe
+                    vibes=["junction"],  # Attack only triggers with junction vibe
                 ),
             ),
             objects={"wall": WallConfig()},
@@ -173,7 +173,7 @@ class TestVibeActionWithEmptyTarget:
                 change_vibe=ChangeVibeActionConfig(),
                 attack=AttackActionConfig(
                     enabled=False,
-                    vibes=["charger"],
+                    vibes=["junction"],
                 ),
             ),
             objects={"wall": WallConfig()},
@@ -186,8 +186,8 @@ class TestVibeActionWithEmptyTarget:
         mg_config.game.map_builder = ObjectNameMapBuilder.Config(map_data=map_data)
         sim = Simulation(mg_config, seed=42)
 
-        # Agent 0 changes vibe to charger
-        sim.agent(0).set_action("change_vibe_charger")
+        # Agent 0 changes vibe to junction
+        sim.agent(0).set_action("change_vibe_junction")
         sim.step()
 
         initial_pos = get_agent_position(sim, 0)

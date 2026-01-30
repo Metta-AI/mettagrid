@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_serializer
 from mettagrid.mapgen.scene import Scene, SceneConfig
 
 DEFAULT_BUILDING_WEIGHTS: dict[str, float] = {
-    "charger": 0.3,
+    "junction": 0.3,
     "silicon_extractor": 0.2,
     "carbon_extractor": 0.1,
     "oxygen_extractor": 0.1,
@@ -210,7 +210,7 @@ class UniformExtractorParams(SceneConfig):
             "oxygen_extractor",
             "germanium_extractor",
             "silicon_extractor",
-            "charger",
+            "junction",
         ]
     )
     building_weights: dict[str, float] | None = None

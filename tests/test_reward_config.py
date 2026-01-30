@@ -292,7 +292,7 @@ class TestNumObjectsHelper:
 
     def test_serialization_round_trip(self):
         """Test NumObjectsValue serialization/deserialization."""
-        original = NumObjectsValue(object_type="charger")
+        original = NumObjectsValue(object_type="junction")
         data = original.model_dump()
         restored = NumObjectsValue.model_validate(data)
         assert restored.object_type == original.object_type
