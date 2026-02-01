@@ -3,7 +3,9 @@ import
   opengl, windy, bumpy, vmath, chroma, silky, boxy, webby,
   vibescope/[replays, common, worldmap, panels, objectinfo, envconfig, vibes,
   footer, timeline, minimap, header, replayloader, aoepanel, commonspanel,
-  eventstimeline, configs]
+  eventstimeline, statchart, configs]
+
+var junctionChart = newStatChart("aligned.junction", "junction", "Junction Control")
 
 proc buildSilkyAtlas*(imagePath, jsonPath: string) =
   ## Build the silky UI atlas.
@@ -189,14 +191,25 @@ proc onFrame() =
   except:
     echo "Error in drawHeader: ", getCurrentExceptionMsg()
 
+  # Compute bottom bar positions: footer(64) + scrubber(22) + events + stat chart
+  let scrubberTop = sk.size.y - 64 - 22
+  var barTop = scrubberTop  # Tracks the top of the stacked bars
+
   # Events timeline (above scrubber)
   try:
     if settings.showEventsTimeline and hasEvents():
-      drawEventsTimeline(
-        vec2(0, sk.size.y - 64 - 22 - EventsTimelineHeight),
-        vec2(sk.size.x, EventsTimelineHeight))
+      barTop -= EventsTimelineHeight
+      drawEventsTimeline(vec2(0, barTop), vec2(sk.size.x, EventsTimelineHeight))
   except:
     echo "Error in drawEventsTimeline: ", getCurrentExceptionMsg()
+
+  # Stat chart (above events timeline)
+  try:
+    if settings.showStatCharts:
+      barTop -= StatChartHeight()
+      drawStatChart(junctionChart, vec2(0, barTop), vec2(sk.size.x, StatChartHeight()))
+  except:
+    echo "Error in drawStatChart: ", getCurrentExceptionMsg()
 
   # Scrubber
   try:

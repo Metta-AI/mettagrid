@@ -103,6 +103,9 @@ type
     currentRecipeId*: int
     protocols*: seq[Protocol]
 
+    # Lifecycle fields.
+    removedAtStep*: int = -1  ## Step at which object was removed (-1 = still alive)
+
     # Alignable fields.
     collectiveId*: int = -1
 
@@ -113,6 +116,10 @@ type
   CollectiveInventorySnapshot* = object
     step*: int
     inventory*: Table[string, int]  ## itemName -> count
+
+  CollectiveStatSnapshot* = object
+    step*: int
+    stats*: Table[string, float]  ## statName -> value
 
   Replay* = ref object
     version*: int
@@ -137,6 +144,9 @@ type
 
     # Collective inventory over time: collective_name -> list of snapshots
     collectiveInventory*: Table[string, seq[CollectiveInventorySnapshot]]
+
+    # Collective stats over time: collective_name -> list of stat snapshots
+    collectiveStats*: Table[string, seq[CollectiveStatSnapshot]]
 
     drawnAgentActionMask*: uint64
     mgConfig*: JsonNode
@@ -197,10 +207,16 @@ type
     # Alignable fields.
     collectiveId*: int = -1
 
+  EpisodeStats* = object
+    game*: Table[string, float]  ## global game stats
+    agent*: seq[Table[string, float]]  ## per-agent stats
+    collective*: Table[string, Table[string, float]]  ## collective_name -> {stat_name: value}
+
   ReplayStep* = ref object
     step*: int
     objects*: seq[ReplayEntity]
     collective_inventory*: Table[string, Table[string, int]]  ## collective_name -> {item_name: count}
+    episode_stats*: EpisodeStats  ## game, agent, and collective stats
 
 ## Empty replays is used before a real replay is loaded,
 ## so that we don't need to check for nil everywhere.
@@ -297,6 +313,45 @@ proc expand[T](data: JsonNode, numSteps: int, defaultValue: T): seq[T] =
   else:
     # A single value is a valid sequence.
     return @[data.to(T)]
+
+proc expandInventory(data: JsonNode, numSteps: int): seq[seq[seq[int]]] =
+  ## Expand inventory data, handling both static and time series formats.
+  ## Static: [[itemId, count], [itemId, count], ...]
+  ## Time series: [[step, [[itemId, count], ...]], [step, [[itemId, count], ...]], ...]
+  if data == nil or data.kind != JArray:
+    return @[]
+
+  if data.len == 0:
+    return @[newSeq[seq[int]]()]
+
+  # Check if this is time series format by looking at the structure.
+  var isTimeSeries = false
+  if data[0].kind == JArray and data[0].len >= 2:
+    let first = data[0][0]
+    let second = data[0][1]
+    if first.kind == JInt and second.kind == JArray:
+      # Looks like time series: [step, inventory_array].
+      isTimeSeries = true
+
+  if isTimeSeries:
+    # Time series format: use the standard expand function which handles carry-over correctly.
+    let expandedRaw = expand[seq[seq[int]]](data, numSteps, @[])  # Default to empty inventory.
+    return expandedRaw
+  else:
+    # Static format: same inventory for all steps.
+    var staticInventory: seq[seq[int]]
+    for itemAmount in data:
+      if itemAmount.kind == JArray and itemAmount.len >= 2:
+        let itemId = itemAmount[0]
+        let count = itemAmount[1]
+        if itemId.kind == JInt and count.kind == JInt:
+          staticInventory.add(@[itemId.getInt, count.getInt])
+
+    # Return the same static inventory for all steps.
+    var expandedInventory: seq[seq[seq[int]]]
+    for i in 0..<numSteps:
+      expandedInventory.add(staticInventory)
+    return expandedInventory
 
 proc getExpandedIntSeq*(obj: JsonNode, key: string, maxSteps: int, default: seq[int] = @[0]): seq[int] =
   ## Get an expanded integer sequence field from JsonNode with a default if key is missing.
@@ -724,14 +779,14 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
 
     var inventory: seq[seq[ItemAmount]]
     if "inventory" in obj:
-      let inventoryRaw = expand[seq[seq[int]]](obj["inventory"], replay.maxSteps, @[])
+      let inventoryRaw = expandInventory(obj["inventory"], replay.maxSteps)
       for i in 0 ..< inventoryRaw.len:
         var itemAmounts: seq[ItemAmount]
-        for j in 0 ..< inventoryRaw[i].len:
-          if inventoryRaw[i][j].len >= 2:
+        for itemPair in inventoryRaw[i]:
+          if itemPair.len >= 2:
             itemAmounts.add(ItemAmount(
-              itemId: inventoryRaw[i][j][0],
-              count: inventoryRaw[i][j][1]
+              itemId: itemPair[0],
+              count: itemPair[1]
             ))
         inventory.add(itemAmounts)
 
@@ -953,6 +1008,18 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) =
     entity.protocols = obj.protocols
     entity.collectiveId = obj.collectiveId
 
+  # Mark objects as removed if they existed before but weren't in this step.
+  if replay.objects.len > 0:
+    var seenIds = newSeq[bool](replay.objects.len)
+    for obj in objects:
+      let index = obj.id - 1
+      if index < seenIds.len:
+        seenIds[index] = true
+    for i in 0 ..< replay.objects.len:
+      let entity = replay.objects[i]
+      if entity.location.len > 0 and not seenIds[i] and entity.removedAtStep < 0:
+        entity.removedAtStep = step
+
   # Extend the max steps.
   replay.maxSteps = max(replay.maxSteps, step + 1)
 
@@ -983,3 +1050,15 @@ proc apply*(replay: Replay, replayStepJsonData: string) =
       if collectiveName notin replay.collectiveInventory:
         replay.collectiveInventory[collectiveName] = @[]
       replay.collectiveInventory[collectiveName].add(snapshot)
+
+  # Update collective stats from live data
+  if replayStep.episode_stats.collective.len > 0:
+    var collectiveNames: seq[string] = @[]
+    for k in replayStep.episode_stats.collective.keys:
+      collectiveNames.add(k)
+    for collectiveName in collectiveNames:
+      let stats = replayStep.episode_stats.collective[collectiveName]
+      let snapshot = CollectiveStatSnapshot(step: replayStep.step, stats: stats)
+      if collectiveName notin replay.collectiveStats:
+        replay.collectiveStats[collectiveName] = @[]
+      replay.collectiveStats[collectiveName].add(snapshot)

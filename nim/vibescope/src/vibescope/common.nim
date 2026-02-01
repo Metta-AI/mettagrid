@@ -42,9 +42,11 @@ type
     showResources* = true
     showHeatmap* = false
     showEventsTimeline* = true
+    showStatCharts* = true
     showObservations* = -1
     lockFocus* = false
     aoeEnabledCollectives*: HashSet[int]  ## Set of collective IDs to show AOE for. -1 = unaligned.
+    statChartHeight*: float32 = 40.0  ## Height of the stat chart panel.
 
   PlayMode* = enum
     Historical
