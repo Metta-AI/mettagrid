@@ -17,7 +17,6 @@
 #include "actions/attack.hpp"
 #include "actions/change_vibe.hpp"
 #include "actions/move_config.hpp"
-#include "actions/transfer.hpp"
 #include "config/observation_features.hpp"
 #include "core/grid.hpp"
 #include "handler/handler_context.hpp"
@@ -26,7 +25,6 @@
 #include "handler/handler_bindings.hpp"
 #include "objects/agent.hpp"
 #include "objects/alignable.hpp"
-#include "objects/chest.hpp"
 #include "objects/collective.hpp"
 #include "objects/collective_config.hpp"
 #include "objects/constants.hpp"
@@ -183,7 +181,8 @@ void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map,
       _grid->add_object(created_object);
       _stats->incr("objects." + cell);
 
-      // Wire up the tag index and register the object
+      // Wire up grid, tag index, and register the object
+      created_object->set_grid(_grid.get());
       created_object->set_tag_index(&_tag_index);
       _tag_index.register_object(created_object);
 

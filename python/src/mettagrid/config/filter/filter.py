@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Annotated, Union
+from typing import TYPE_CHECKING, Annotated, Literal, Union
 
 from pydantic import Discriminator, Field, Tag
 
@@ -33,6 +33,28 @@ class Filter(Config):
     target: HandlerTarget = Field(description="Entity to check the filter against")
 
 
+class NotFilter(Config):
+    """Wrapper filter that negates the result of an inner filter.
+
+    Use isNot() helper function to create NotFilter instances.
+    """
+
+    filter_type: Literal["not"] = "not"
+    inner: "AnyFilter" = Field(description="The filter to negate")
+
+
+def isNot(filter: "AnyFilter") -> NotFilter:
+    """Negate a filter. Returns a NotFilter that passes when the inner filter fails.
+
+    Args:
+        filter: Any filter to negate
+
+    Returns:
+        NotFilter wrapping the provided filter
+    """
+    return NotFilter(inner=filter)
+
+
 AnyFilter = Annotated[
     Union[
         Annotated["VibeFilter", Tag("vibe")],
@@ -41,6 +63,9 @@ AnyFilter = Annotated[
         Annotated["TagFilter", Tag("tag")],
         Annotated["NearFilter", Tag("near")],
         Annotated["GameValueFilter", Tag("game_value")],
+        Annotated["NotFilter", Tag("not")],
     ],
     Discriminator("filter_type"),
 ]
+
+# NotFilter.model_rebuild() is called in __init__.py after all filter types are imported

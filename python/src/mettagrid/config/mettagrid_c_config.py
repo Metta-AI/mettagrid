@@ -6,7 +6,6 @@ from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_m
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mettagrid_config import (
     AgentConfig,
-    ChestConfig,
     GameConfig,
     GridObjectConfig,
     WallConfig,
@@ -22,7 +21,6 @@ from mettagrid.mettagrid_c import AOEConfig as CppAOEConfig
 from mettagrid.mettagrid_c import AttackActionConfig as CppAttackActionConfig
 from mettagrid.mettagrid_c import AttackOutcome as CppAttackOutcome
 from mettagrid.mettagrid_c import ChangeVibeActionConfig as CppChangeVibeActionConfig
-from mettagrid.mettagrid_c import ChestConfig as CppChestConfig
 from mettagrid.mettagrid_c import CollectiveConfig as CppCollectiveConfig
 from mettagrid.mettagrid_c import EventConfig as CppEventConfig
 from mettagrid.mettagrid_c import GameConfig as CppGameConfig
@@ -34,15 +32,14 @@ from mettagrid.mettagrid_c import InventoryConfig as CppInventoryConfig
 from mettagrid.mettagrid_c import LimitDef as CppLimitDef
 from mettagrid.mettagrid_c import MoveActionConfig as CppMoveActionConfig
 from mettagrid.mettagrid_c import NearFilterConfig as CppNearFilterConfig
+from mettagrid.mettagrid_c import NegFilterConfig as CppNegFilterConfig
 from mettagrid.mettagrid_c import ObsValueConfig as CppObsValueConfig
 from mettagrid.mettagrid_c import ResourceDelta as CppResourceDelta
 from mettagrid.mettagrid_c import ResourceFilterConfig as CppResourceFilterConfig
 from mettagrid.mettagrid_c import RewardConfig as CppRewardConfig
 from mettagrid.mettagrid_c import RewardEntry as CppRewardEntry
 from mettagrid.mettagrid_c import TagFilterConfig as CppTagFilterConfig
-from mettagrid.mettagrid_c import TransferActionConfig as CppTransferActionConfig
 from mettagrid.mettagrid_c import VibeFilterConfig as CppVibeFilterConfig
-from mettagrid.mettagrid_c import VibeTransferEffect as CppVibeTransferEffect
 from mettagrid.mettagrid_c import WallConfig as CppWallConfig
 
 
@@ -126,6 +123,12 @@ def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource
     return cpp_handlers
 
 
+def _add_filter_to_target(cpp_filter, cpp_target, filter_type):
+    """Add a C++ filter to a target."""
+    add_method = f"add_{filter_type}_filter"
+    getattr(cpp_target, add_method)(cpp_filter)
+
+
 def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, tag_name_to_id, context: str = ""):
     """Convert Python filters to C++ and add them to the target config.
 
@@ -140,11 +143,16 @@ def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, 
     for filter_config in filters:
         filter_type = getattr(filter_config, "filter_type", None)
 
-        if filter_type == "alignment":
+        if filter_type == "not":
+            # NotFilter wraps an inner filter - convert inner and wrap in NegFilterConfig
+            cpp_neg = _convert_not_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id)
+            cpp_target.add_neg_filter(cpp_neg)
+
+        elif filter_type == "alignment":
             cpp_filter = CppAlignmentFilterConfig(
                 condition=_convert_alignment_condition(filter_config.alignment),
             )
-            cpp_target.add_alignment_filter(cpp_filter)
+            _add_filter_to_target(cpp_filter, cpp_target, "alignment")
 
         elif filter_type == "resource":
             for resource_name, min_amount in filter_config.resources.items():
@@ -154,7 +162,7 @@ def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, 
                         resource_id=resource_name_to_id[resource_name],
                         min_amount=min_amount,
                     )
-                    cpp_target.add_resource_filter(cpp_filter)
+                    _add_filter_to_target(cpp_filter, cpp_target, "resource")
 
         elif filter_type == "vibe":
             if filter_config.vibe in vibe_name_to_id:
@@ -162,7 +170,7 @@ def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, 
                     entity=convert_entity_ref(filter_config.target),
                     vibe_id=vibe_name_to_id[filter_config.vibe],
                 )
-                cpp_target.add_vibe_filter(cpp_filter)
+                _add_filter_to_target(cpp_filter, cpp_target, "vibe")
 
         elif filter_type == "tag":
             if filter_config.tag in tag_name_to_id:
@@ -170,7 +178,7 @@ def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, 
                     entity=convert_entity_ref(filter_config.target),
                     tag_id=tag_name_to_id[filter_config.tag],
                 )
-                cpp_target.add_tag_filter(cpp_filter)
+                _add_filter_to_target(cpp_filter, cpp_target, "tag")
 
         elif filter_type == "near":
             # NearFilter requires a tag for efficient spatial lookup
@@ -188,7 +196,7 @@ def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, 
                 vibe_name_to_id,
                 tag_name_to_id,
             )
-            cpp_target.add_near_filter(cpp_filter)
+            _add_filter_to_target(cpp_filter, cpp_target, "near")
 
         elif filter_type == "game_value":
             from mettagrid.config.mettagrid_c_value_config import resolve_game_value
@@ -204,7 +212,99 @@ def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, 
                 threshold=float(filter_config.min),
                 entity=convert_entity_ref(filter_config.target),
             )
-            cpp_target.add_game_value_filter(cpp_filter)
+            _add_filter_to_target(cpp_filter, cpp_target, "game_value")
+
+
+def _convert_not_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id):
+    """Convert a NotFilter to C++ NegFilterConfig.
+
+    Args:
+        filter_config: NotFilter config with inner filter
+        resource_name_to_id: Dict mapping resource names to IDs
+        vibe_name_to_id: Dict mapping vibe names to IDs
+        tag_name_to_id: Dict mapping tag names to IDs
+
+    Returns:
+        CppNegFilterConfig wrapping the converted inner filter
+    """
+    inner = filter_config.inner
+    inner_type = getattr(inner, "filter_type", None)
+    cpp_neg = CppNegFilterConfig()
+
+    if inner_type == "alignment":
+        cpp_filter = CppAlignmentFilterConfig(
+            condition=_convert_alignment_condition(inner.alignment),
+        )
+        # Set collective_id if specific collective is specified
+        collective = getattr(inner, "collective", None)
+        if collective is not None:
+            # Note: collective_id resolution would need the collective_name_to_id mapping
+            # For now we skip this as the alignment condition check is sufficient
+            pass
+        cpp_neg.set_inner_alignment_filter(cpp_filter)
+
+    elif inner_type == "vibe":
+        if inner.vibe in vibe_name_to_id:
+            cpp_filter = CppVibeFilterConfig(
+                entity=convert_entity_ref(inner.target),
+                vibe_id=vibe_name_to_id[inner.vibe],
+            )
+            cpp_neg.set_inner_vibe_filter(cpp_filter)
+
+    elif inner_type == "resource":
+        # Resource filter can have multiple resources - add all to neg filter.
+        # NegFilter ANDs inner filters then negates, giving NOT(A AND B) semantics.
+        # This means the filter passes if the target lacks ANY of the required resources.
+        for resource_name, min_amount in inner.resources.items():
+            if resource_name in resource_name_to_id:
+                cpp_filter = CppResourceFilterConfig(
+                    entity=convert_entity_ref(inner.target),
+                    resource_id=resource_name_to_id[resource_name],
+                    min_amount=min_amount,
+                )
+                cpp_neg.add_inner_resource_filter(cpp_filter)
+
+    elif inner_type == "tag":
+        if inner.tag in tag_name_to_id:
+            cpp_filter = CppTagFilterConfig(
+                entity=convert_entity_ref(inner.target),
+                tag_id=tag_name_to_id[inner.tag],
+            )
+            cpp_neg.set_inner_tag_filter(cpp_filter)
+
+    elif inner_type == "near":
+        tag_id = _resolve_near_tag_id(inner, tag_name_to_id, "not filter inner near")
+        cpp_filter = CppNearFilterConfig(
+            entity=convert_entity_ref(inner.target),
+            radius=inner.radius,
+            target_tag=tag_id,
+        )
+        _add_filters_to_near_filter(
+            inner.filters,
+            cpp_filter,
+            resource_name_to_id,
+            vibe_name_to_id,
+            tag_name_to_id,
+        )
+        cpp_neg.set_inner_near_filter(cpp_filter)
+
+    elif inner_type == "game_value":
+        from mettagrid.config.mettagrid_c_value_config import resolve_game_value
+
+        mappings = {
+            "resource_name_to_id": resource_name_to_id,
+            "stat_name_to_id": {},
+            "tag_name_to_id": tag_name_to_id,
+        }
+        cpp_gv_cfg = resolve_game_value(inner.value, mappings)
+        cpp_filter = CppGameValueFilterConfig(
+            value=cpp_gv_cfg,
+            threshold=float(inner.min),
+            entity=convert_entity_ref(inner.target),
+        )
+        cpp_neg.set_inner_game_value_filter(cpp_filter)
+
+    return cpp_neg
 
 
 def _add_filters_to_near_filter(
@@ -225,7 +325,12 @@ def _add_filters_to_near_filter(
     for filter_cfg in filters:
         filter_type = getattr(filter_cfg, "filter_type", None)
 
-        if filter_type == "alignment":
+        if filter_type == "not":
+            # NotFilter wraps an inner filter - convert inner and wrap in NegFilterConfig
+            cpp_neg = _convert_not_filter(filter_cfg, resource_name_to_id, vibe_name_to_id, tag_name_to_id)
+            cpp_near_filter.add_neg_filter(cpp_neg)
+
+        elif filter_type == "alignment":
             cpp_filter = CppAlignmentFilterConfig(
                 condition=_convert_alignment_condition(filter_cfg.alignment),
             )
@@ -233,7 +338,7 @@ def _add_filters_to_near_filter(
             collective = getattr(filter_cfg, "collective", None)
             if collective is not None and collective in collective_name_to_id:
                 cpp_filter.collective_id = collective_name_to_id[collective]
-            cpp_near_filter.add_alignment_filter(cpp_filter)
+            _add_filter_to_target(cpp_filter, cpp_near_filter, "alignment")
 
         elif filter_type == "vibe":
             if filter_cfg.vibe in vibe_name_to_id:
@@ -241,7 +346,7 @@ def _add_filters_to_near_filter(
                     entity=convert_entity_ref(filter_cfg.target),
                     vibe_id=vibe_name_to_id[filter_cfg.vibe],
                 )
-                cpp_near_filter.add_vibe_filter(cpp_filter)
+                _add_filter_to_target(cpp_filter, cpp_near_filter, "vibe")
 
         elif filter_type == "resource":
             for resource_name, min_amount in filter_cfg.resources.items():
@@ -251,7 +356,7 @@ def _add_filters_to_near_filter(
                         resource_id=resource_name_to_id[resource_name],
                         min_amount=min_amount,
                     )
-                    cpp_near_filter.add_resource_filter(cpp_filter)
+                    _add_filter_to_target(cpp_filter, cpp_near_filter, "resource")
 
         elif filter_type == "tag":
             if filter_cfg.tag in tag_name_to_id:
@@ -259,7 +364,7 @@ def _add_filters_to_near_filter(
                     entity=convert_entity_ref(filter_cfg.target),
                     tag_id=tag_name_to_id[filter_cfg.tag],
                 )
-                cpp_near_filter.add_tag_filter(cpp_filter)
+                _add_filter_to_target(cpp_filter, cpp_near_filter, "tag")
 
 
 def _convert_event_configs(
@@ -345,19 +450,24 @@ def _convert_event_filters(
 ):
     """Convert Python filters for events.
 
-    Uses standard filters: alignment, resource, vibe, tag, near.
+    Uses standard filters: alignment, resource, vibe, tag, near, not.
     """
     for filter_config in filters:
         filter_type = getattr(filter_config, "filter_type", None)
 
-        if filter_type == "alignment":
+        if filter_type == "not":
+            # NotFilter wraps an inner filter - convert inner and wrap in NegFilterConfig
+            cpp_neg = _convert_not_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id)
+            cpp_target.add_neg_filter(cpp_neg)
+
+        elif filter_type == "alignment":
             cpp_filter = CppAlignmentFilterConfig()
             cpp_filter.condition = _convert_alignment_condition(filter_config.alignment)
             # If collective is specified, set the collective_id for specific collective matching
             collective = getattr(filter_config, "collective", None)
             if collective is not None and collective in collective_name_to_id:
                 cpp_filter.collective_id = collective_name_to_id[collective]
-            cpp_target.add_alignment_filter(cpp_filter)
+            _add_filter_to_target(cpp_filter, cpp_target, "alignment")
 
         elif filter_type == "resource":
             # Resource filter can have multiple resources - add one filter per resource
@@ -367,21 +477,21 @@ def _convert_event_filters(
                     cpp_filter.entity = convert_entity_ref(filter_config.target)
                     cpp_filter.resource_id = resource_name_to_id[resource_name]
                     cpp_filter.min_amount = min_amount
-                    cpp_target.add_resource_filter(cpp_filter)
+                    _add_filter_to_target(cpp_filter, cpp_target, "resource")
 
         elif filter_type == "vibe":
             if filter_config.vibe in vibe_name_to_id:
                 cpp_filter = CppVibeFilterConfig()
                 cpp_filter.entity = convert_entity_ref(filter_config.target)
                 cpp_filter.vibe_id = vibe_name_to_id[filter_config.vibe]
-                cpp_target.add_vibe_filter(cpp_filter)
+                _add_filter_to_target(cpp_filter, cpp_target, "vibe")
 
         elif filter_type == "tag":
             if filter_config.tag in tag_name_to_id:
                 cpp_filter = CppTagFilterConfig()
                 cpp_filter.entity = convert_entity_ref(filter_config.target)
                 cpp_filter.tag_id = tag_name_to_id[filter_config.tag]
-                cpp_target.add_tag_filter(cpp_filter)
+                _add_filter_to_target(cpp_filter, cpp_target, "tag")
 
         elif filter_type == "near":
             # NearFilter requires a tag for efficient spatial lookup
@@ -399,7 +509,7 @@ def _convert_event_filters(
                 tag_name_to_id,
                 collective_name_to_id,
             )
-            cpp_target.add_near_filter(cpp_filter)
+            _add_filter_to_target(cpp_filter, cpp_target, "near")
 
 
 def _convert_event_mutations(
@@ -748,51 +858,36 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
 
         if isinstance(object_config, WallConfig):
             cpp_config = CppWallConfig(type_id=type_id, type_name=object_type, initial_vibe=object_config.vibe)
-        elif isinstance(object_config, ChestConfig):
-            # Convert vibe_transfers: vibe -> resource -> delta
-            vibe_transfers_map = {}
-            for vibe_name, resource_deltas in object_config.vibe_transfers.items():
-                if vibe_name not in vibe_name_to_id:
-                    raise ValueError(f"Unknown vibe name '{vibe_name}' in chest '{object_type}' vibe_transfers")
-                vibe_id = vibe_name_to_id[vibe_name]
-                resource_deltas_cpp = {
-                    resource_name_to_id[resource]: delta for resource, delta in resource_deltas.items()
-                }
-                vibe_transfers_map[vibe_id] = resource_deltas_cpp
-
-            # Convert initial inventory from nested inventory config
-            initial_inventory_cpp = {}
-            for resource, amount in object_config.inventory.initial.items():
-                resource_id = resource_name_to_id[resource]
-                initial_inventory_cpp[resource_id] = amount
-
-            # Create inventory config with limits and modifiers
-            limit_defs = []
-            for resource_limit in object_config.inventory.limits.values():
-                # resources is always a list of strings
-                resource_list = resource_limit.resources
-
-                # Convert resource names to IDs
-                resource_ids = [resource_name_to_id[name] for name in resource_list if name in resource_name_to_id]
-                if resource_ids:
-                    # Convert modifier names to IDs
-                    modifier_ids = {
-                        resource_name_to_id[name]: bonus
-                        for name, bonus in resource_limit.modifiers.items()
-                        if name in resource_name_to_id
-                    }
-                    limit_defs.append(CppLimitDef(resource_ids, resource_limit.min, resource_limit.max, modifier_ids))
-
-            inventory_config = CppInventoryConfig()
-            inventory_config.limit_defs = limit_defs
-
-            cpp_config = CppChestConfig(type_id=type_id, type_name=object_type, initial_vibe=object_config.vibe)
-            cpp_config.vibe_transfers = vibe_transfers_map
-            cpp_config.initial_inventory = initial_inventory_cpp
-            cpp_config.inventory_config = inventory_config
         elif isinstance(object_config, GridObjectConfig):
             # Handle base GridObjectConfig as a static object (like a wall with AOEs)
             cpp_config = CppGridObjectConfig(type_id=type_id, type_name=object_type, initial_vibe=object_config.vibe)
+
+            # Convert initial inventory if present
+            if object_config.inventory and object_config.inventory.initial:
+                initial_inventory_cpp = {}
+                for resource, amount in object_config.inventory.initial.items():
+                    if resource in resource_name_to_id:
+                        resource_id = resource_name_to_id[resource]
+                        initial_inventory_cpp[resource_id] = amount
+                cpp_config.initial_inventory = initial_inventory_cpp
+
+                # Create inventory config with limits
+                limit_defs = []
+                for resource_limit in object_config.inventory.limits.values():
+                    resource_list = resource_limit.resources
+                    resource_ids = [resource_name_to_id[name] for name in resource_list if name in resource_name_to_id]
+                    if resource_ids:
+                        modifier_ids = {
+                            resource_name_to_id[name]: bonus
+                            for name, bonus in resource_limit.modifiers.items()
+                            if name in resource_name_to_id
+                        }
+                        limit_defs.append(
+                            CppLimitDef(resource_ids, resource_limit.min, resource_limit.max, modifier_ids)
+                        )
+                inventory_config = CppInventoryConfig()
+                inventory_config.limit_defs = limit_defs
+                cpp_config.inventory_config = inventory_config
         else:
             raise ValueError(f"Unknown object type: {object_type}")
 
@@ -965,26 +1060,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             raise ValueError(f"Unknown vibe name '{vibe}' in attack.vibe_bonus")
     action_params["vibe_bonus"] = {vibe_name_to_id[vibe]: bonus for vibe, bonus in attack_cfg.vibe_bonus.items()}
     actions_cpp_params["attack"] = CppAttackActionConfig(**action_params)
-
-    # Process transfer - vibes are derived from vibe_transfers keys in C++
-    transfer_cfg = actions_config.transfer
-    vibe_transfers_cpp = {}
-    seen_vibes: set[str] = set()
-    for vt in transfer_cfg.vibe_transfers:
-        if vt.vibe not in vibe_name_to_id:
-            raise ValueError(f"Unknown vibe name '{vt.vibe}' in transfer.vibe_transfers")
-        if vt.vibe in seen_vibes:
-            raise ValueError(f"Duplicate vibe name '{vt.vibe}' in transfer.vibe_transfers")
-        seen_vibes.add(vt.vibe)
-        vibe_id = vibe_name_to_id[vt.vibe]
-        target_deltas = {resource_name_to_id[k]: v for k, v in vt.target.items()}
-        actor_deltas = {resource_name_to_id[k]: v for k, v in vt.actor.items()}
-        vibe_transfers_cpp[vibe_id] = CppVibeTransferEffect(target_deltas, actor_deltas)
-    actions_cpp_params["transfer"] = CppTransferActionConfig(
-        required_resources={resource_name_to_id[k]: int(v) for k, v in transfer_cfg.required_resources.items()},
-        vibe_transfers=vibe_transfers_cpp,
-        enabled=transfer_cfg.enabled,
-    )
 
     # Process change_vibe - always add to map
     action_params = process_action_config("change_vibe", actions_config.change_vibe)

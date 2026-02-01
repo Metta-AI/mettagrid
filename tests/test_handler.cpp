@@ -10,6 +10,7 @@
 #include "handler/filters/alignment_filter.hpp"
 #include "handler/filters/filter.hpp"
 #include "handler/filters/near_filter.hpp"
+#include "handler/filters/neg_filter.hpp"
 #include "handler/filters/resource_filter.hpp"
 #include "handler/filters/tag_filter.hpp"
 #include "handler/filters/vibe_filter.hpp"
@@ -224,6 +225,178 @@ void test_alignment_filter_unaligned() {
   assert(filter.passes(ctx) == true);
 
   std::cout << "✓ AlignmentFilter unaligned test passed" << std::endl;
+}
+
+void test_alignment_filter_neg_same_collective() {
+  std::cout << "Testing NegFilter with AlignmentFilter same_collective..." << std::endl;
+
+  CollectiveConfig coll_config = create_test_collective_config("team_a");
+  Collective collective(coll_config, &test_resource_names);
+
+  TestActivationObject actor("actor");
+  TestActivationObject target("target");
+
+  actor.setCollective(&collective);
+  target.setCollective(&collective);
+
+  HandlerContext ctx(&actor, &target);
+
+  // Without NegFilter, same_collective should pass
+  AlignmentFilterConfig config;
+  config.condition = AlignmentCondition::same_collective;
+
+  AlignmentFilter filter_no_neg(config);
+  assert(filter_no_neg.passes(ctx) == true);
+
+  // With NegFilter, same_collective should fail (NOT same_collective)
+  auto inner_filter = std::make_unique<AlignmentFilter>(config);
+  NegFilter neg_filter(std::move(inner_filter));
+  assert(neg_filter.passes(ctx) == false);
+
+  std::cout << "✓ NegFilter with AlignmentFilter same_collective test passed" << std::endl;
+}
+
+void test_alignment_filter_neg_different_collective() {
+  std::cout << "Testing NegFilter with AlignmentFilter different_collective..." << std::endl;
+
+  CollectiveConfig coll_config_a = create_test_collective_config("team_a");
+  CollectiveConfig coll_config_b = create_test_collective_config("team_b");
+  Collective collective_a(coll_config_a, &test_resource_names);
+  Collective collective_b(coll_config_b, &test_resource_names);
+
+  TestActivationObject actor("actor");
+  TestActivationObject target("target");
+
+  actor.setCollective(&collective_a);
+  target.setCollective(&collective_b);
+
+  HandlerContext ctx(&actor, &target);
+
+  // Without NegFilter, same_collective should fail (they're in different collectives)
+  AlignmentFilterConfig config;
+  config.condition = AlignmentCondition::same_collective;
+
+  AlignmentFilter filter_no_neg(config);
+  assert(filter_no_neg.passes(ctx) == false);
+
+  // With NegFilter, same_collective should pass (NOT same_collective = true)
+  auto inner_filter = std::make_unique<AlignmentFilter>(config);
+  NegFilter neg_filter(std::move(inner_filter));
+  assert(neg_filter.passes(ctx) == true);
+
+  std::cout << "✓ NegFilter with AlignmentFilter different_collective test passed" << std::endl;
+}
+
+void test_vibe_filter_neg() {
+  std::cout << "Testing NegFilter with VibeFilter..." << std::endl;
+
+  TestActivationObject actor("actor", 1);    // vibe = 1
+  TestActivationObject target("target", 2);  // vibe = 2
+
+  HandlerContext ctx(&actor, &target);
+
+  // Filter for target with vibe_id = 2 (should pass)
+  VibeFilterConfig config;
+  config.entity = EntityRef::target;
+  config.vibe_id = 2;
+
+  VibeFilter filter_no_neg(config);
+  assert(filter_no_neg.passes(ctx) == true);
+
+  // With NegFilter, should fail
+  auto inner_filter = std::make_unique<VibeFilter>(config);
+  NegFilter neg_filter(std::move(inner_filter));
+  assert(neg_filter.passes(ctx) == false);
+
+  // Filter for target with vibe_id = 3 (should fail)
+  VibeFilterConfig config_wrong;
+  config_wrong.entity = EntityRef::target;
+  config_wrong.vibe_id = 3;
+  VibeFilter filter_wrong_vibe(config_wrong);
+  assert(filter_wrong_vibe.passes(ctx) == false);
+
+  // With NegFilter, should pass
+  auto inner_filter_wrong = std::make_unique<VibeFilter>(config_wrong);
+  NegFilter neg_filter_wrong(std::move(inner_filter_wrong));
+  assert(neg_filter_wrong.passes(ctx) == true);
+
+  std::cout << "✓ NegFilter with VibeFilter test passed" << std::endl;
+}
+
+void test_resource_filter_neg() {
+  std::cout << "Testing NegFilter with ResourceFilter..." << std::endl;
+
+  TestActivationObject actor("actor");
+  TestActivationObject target("target");
+  target.inventory.update(0, 100);  // 100 health
+
+  HandlerContext ctx(&actor, &target);
+
+  // Filter requiring 50 health (should pass with 100)
+  ResourceFilterConfig config;
+  config.entity = EntityRef::target;
+  config.resource_id = 0;
+  config.min_amount = 50;
+
+  ResourceFilter filter_no_neg(config);
+  assert(filter_no_neg.passes(ctx) == true);
+
+  // With NegFilter, should fail
+  auto inner_filter = std::make_unique<ResourceFilter>(config);
+  NegFilter neg_filter(std::move(inner_filter));
+  assert(neg_filter.passes(ctx) == false);
+
+  // Filter requiring 150 health (should fail with 100)
+  ResourceFilterConfig config_too_much;
+  config_too_much.entity = EntityRef::target;
+  config_too_much.resource_id = 0;
+  config_too_much.min_amount = 150;
+  ResourceFilter filter_too_much(config_too_much);
+  assert(filter_too_much.passes(ctx) == false);
+
+  // With NegFilter, should pass
+  auto inner_filter_too_much = std::make_unique<ResourceFilter>(config_too_much);
+  NegFilter neg_filter_too_much(std::move(inner_filter_too_much));
+  assert(neg_filter_too_much.passes(ctx) == true);
+
+  std::cout << "✓ NegFilter with ResourceFilter test passed" << std::endl;
+}
+
+void test_tag_filter_neg() {
+  std::cout << "Testing NegFilter with TagFilter..." << std::endl;
+
+  TestActivationObject actor("actor");
+  TestActivationObject target("target");
+  target.tag_ids.insert(42);
+
+  HandlerContext ctx(&actor, &target);
+
+  // Filter for tag 42 (should pass)
+  TagFilterConfig config;
+  config.entity = EntityRef::target;
+  config.tag_id = 42;
+
+  TagFilter filter_no_neg(config);
+  assert(filter_no_neg.passes(ctx) == true);
+
+  // With NegFilter, should fail
+  auto inner_filter = std::make_unique<TagFilter>(config);
+  NegFilter neg_filter(std::move(inner_filter));
+  assert(neg_filter.passes(ctx) == false);
+
+  // Filter for tag 99 (should fail)
+  TagFilterConfig config_wrong;
+  config_wrong.entity = EntityRef::target;
+  config_wrong.tag_id = 99;
+  TagFilter filter_wrong_tag(config_wrong);
+  assert(filter_wrong_tag.passes(ctx) == false);
+
+  // With NegFilter, should pass
+  auto inner_filter_wrong = std::make_unique<TagFilter>(config_wrong);
+  NegFilter neg_filter_wrong(std::move(inner_filter_wrong));
+  assert(neg_filter_wrong.passes(ctx) == true);
+
+  std::cout << "✓ NegFilter with TagFilter test passed" << std::endl;
 }
 
 void test_tag_filter_matches() {
@@ -1117,6 +1290,13 @@ int main() {
   test_tag_filter_matches();
   test_tag_filter_no_match();
   test_tag_filter_on_actor();
+
+  // Filter invert tests
+  test_alignment_filter_neg_same_collective();
+  test_alignment_filter_neg_different_collective();
+  test_vibe_filter_neg();
+  test_resource_filter_neg();
+  test_tag_filter_neg();
 
   // NearFilter tests
   test_near_filter_passes_when_tagged_object_within_radius();

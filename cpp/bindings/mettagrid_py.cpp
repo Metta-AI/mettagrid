@@ -5,14 +5,12 @@
 #include "actions/attack.hpp"
 #include "actions/change_vibe.hpp"
 #include "actions/move_config.hpp"
-#include "actions/transfer.hpp"
 #include "bindings/mettagrid_c.hpp"
 #include "core/grid.hpp"
 #include "core/tag_index.hpp"
 #include "handler/handler_bindings.hpp"
 #include "objects/agent.hpp"
 #include "objects/reward_config.hpp"
-#include "objects/chest.hpp"
 #include "objects/collective.hpp"
 #include "objects/protocol.hpp"
 #include "objects/wall.hpp"
@@ -125,20 +123,6 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
       //   resource_limits_dict[py::int_(resource)] = quantity;
       // }
       // obj_dict["resource_limits"] = resource_limits_dict;
-    }
-
-    // Add chest-specific info
-    if (auto* chest = dynamic_cast<Chest*>(obj)) {
-      // Convert vibe_transfers map to dict
-      py::dict vibe_transfers_dict;
-      for (const auto& [vibe, resource_deltas] : chest->vibe_transfers) {
-        py::dict resource_dict;
-        for (const auto& [resource, delta] : resource_deltas) {
-          resource_dict[py::int_(resource)] = delta;
-        }
-        vibe_transfers_dict[py::int_(vibe)] = resource_dict;
-      }
-      obj_dict["vibe_transfers"] = vibe_transfers_dict;
     }
 
     // Add tag mutation methods (capture obj pointer and self_ref to prevent use-after-free)
@@ -318,7 +302,9 @@ PYBIND11_MODULE(mettagrid_c, m) {
       .def_readwrite("initial_vibe", &GridObjectConfig::initial_vibe)
       .def_readwrite("collective_id", &GridObjectConfig::collective_id)
       .def_readwrite("on_use_handlers", &GridObjectConfig::on_use_handlers)
-      .def_readwrite("aoe_configs", &GridObjectConfig::aoe_configs);
+      .def_readwrite("aoe_configs", &GridObjectConfig::aoe_configs)
+      .def_readwrite("initial_inventory", &GridObjectConfig::initial_inventory)
+      .def_readwrite("inventory_config", &GridObjectConfig::inventory_config);
 
   bind_wall_config(m);
 
@@ -335,11 +321,8 @@ PYBIND11_MODULE(mettagrid_c, m) {
   bind_reward_config(m);
   bind_collective_config(m);
   bind_agent_config(m);
-  bind_chest_config(m);
   bind_action_config(m);
   bind_attack_action_config(m);
-  bind_vibe_transfer_effect(m);
-  bind_transfer_action_config(m);
   bind_change_vibe_action_config(m);
   bind_move_action_config(m);
   bind_obs_value_config(m);

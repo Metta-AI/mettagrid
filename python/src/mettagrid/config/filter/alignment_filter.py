@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from enum import StrEnum, auto
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Literal, Optional
 
 from pydantic import Field
 
-from mettagrid.config.filter.filter import Filter, HandlerTarget
+from mettagrid.config.filter.filter import Filter, HandlerTarget, isNot
+
+if TYPE_CHECKING:
+    from mettagrid.config.filter.filter import NotFilter
 
 
 class AlignmentCondition(StrEnum):
@@ -57,9 +60,12 @@ def isAlignedToActor() -> AlignmentFilter:
     return AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.SAME_COLLECTIVE)
 
 
-def isNotAlignedToActor() -> AlignmentFilter:
-    """Filter: target is NOT aligned to actor (unaligned OR different collective)."""
-    return AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.NOT_SAME_COLLECTIVE)
+def isNotAlignedToActor() -> "NotFilter":
+    """Filter: target is NOT aligned to actor (unaligned OR different collective).
+
+    Uses isNot() wrapper around same_collective check.
+    """
+    return isNot(AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.SAME_COLLECTIVE))
 
 
 def isAlignedTo(collective: Optional[str]) -> AlignmentFilter:
@@ -73,9 +79,26 @@ def isAlignedTo(collective: Optional[str]) -> AlignmentFilter:
     return AlignmentFilter(target=HandlerTarget.TARGET, collective=collective)
 
 
+def isNotAlignedTo(collective: str) -> "NotFilter":
+    """Filter: target is NOT aligned to the specified collective.
+
+    This is the negated form of isAlignedTo(). Useful for checking if an entity
+    does NOT belong to a specific collective (e.g., not part of "cogs").
+
+    Args:
+        collective: Name of collective to check non-alignment to.
+    """
+    return isNot(AlignmentFilter(target=HandlerTarget.TARGET, collective=collective))
+
+
 def isNeutral() -> AlignmentFilter:
     """Filter: target has no collective (is unaligned/neutral)."""
     return AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.UNALIGNED)
+
+
+def isNotNeutral() -> AlignmentFilter:
+    """Filter: target has a collective (is aligned/not neutral)."""
+    return AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.ALIGNED)
 
 
 def isEnemy() -> AlignmentFilter:

@@ -84,22 +84,32 @@ struct GameValueFilterConfig {
   EntityRef entity = EntityRef::target;
 };
 
-// Forward declaration for recursive filter config
+// Forward declarations for recursive filter configs
 struct NearFilterConfig;
+struct NegFilterConfig;
 
-// Variant type for all filter configs (defined early so NearFilterConfig can reference it)
+// Variant type for all filter configs (defined early so NearFilterConfig/NegFilterConfig can reference it)
 using FilterConfig = std::variant<VibeFilterConfig,
                                   ResourceFilterConfig,
                                   AlignmentFilterConfig,
                                   TagFilterConfig,
                                   NearFilterConfig,
-                                  GameValueFilterConfig>;
+                                  GameValueFilterConfig,
+                                  NegFilterConfig>;
 
 struct NearFilterConfig {
   EntityRef entity = EntityRef::target;
   std::vector<FilterConfig> filters;  // Filters that nearby objects must pass (can include nested NearFilter)
   int radius = 1;                     // Radius (chebyshev distance) to check
   int target_tag = -1;                // Tag ID to find nearby objects with
+};
+
+// NegFilterConfig: Wraps filter config(s) and negates the ANDed result.
+// Multiple inner filters are ANDed together first, then negated.
+// This implements NOT(A AND B AND ...) semantics, critical for multi-resource filters.
+// Uses a vector to break the recursive type (same pattern as NearFilterConfig).
+struct NegFilterConfig {
+  std::vector<FilterConfig> inner;  // Filters to AND together, then negate
 };
 
 // ============================================================================

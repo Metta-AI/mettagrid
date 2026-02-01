@@ -19,8 +19,6 @@ from .action_config import (
     Directions,
     MoveActionConfig,
     NoopActionConfig,
-    TransferActionConfig,
-    VibeTransfer,
 )
 from .game_value import (
     AnyGameValue,
@@ -36,7 +34,6 @@ from .mettagrid_config import (
     AgentConfig,
     GameConfig,
     MettaGridConfig,
-    ProtocolConfig,
     WallConfig,
 )
 from .obs_config import GlobalObsConfig
@@ -89,14 +86,11 @@ __all__ = [
     "NumObjectsValue",
     "numObjectsReward",
     "numTaggedReward",
-    "ProtocolConfig",
     "reward",
     "Scope",
     "stat",
     "StatValue",
     "statReward",
     "TagCountValue",
-    "TransferActionConfig",
-    "VibeTransfer",
     "WallConfig",
 ]

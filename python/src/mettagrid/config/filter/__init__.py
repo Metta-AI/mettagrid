@@ -11,9 +11,11 @@ from mettagrid.config.filter.alignment_filter import (
     isAlignedToActor,
     isEnemy,
     isNeutral,
+    isNotAlignedTo,
     isNotAlignedToActor,
+    isNotNeutral,
 )
-from mettagrid.config.filter.filter import AnyFilter, Filter, HandlerTarget
+from mettagrid.config.filter.filter import AnyFilter, Filter, HandlerTarget, NotFilter, isNot
 from mettagrid.config.filter.game_value_filter import GameValueFilter
 from mettagrid.config.filter.near_filter import NearFilter, isNear
 from mettagrid.config.filter.resource_filter import (
@@ -28,8 +30,18 @@ from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVib
 from mettagrid.config.tag import Tag, typeTag
 
 # Rebuild models with forward references now that all filter classes are defined
-NearFilter.model_rebuild()
-GameValueFilter.model_rebuild()
+_filter_namespace = {
+    "VibeFilter": VibeFilter,
+    "ResourceFilter": ResourceFilter,
+    "AlignmentFilter": AlignmentFilter,
+    "TagFilter": TagFilter,
+    "NearFilter": NearFilter,
+    "GameValueFilter": GameValueFilter,
+    "NotFilter": NotFilter,
+}
+NotFilter.model_rebuild(_types_namespace=_filter_namespace)
+NearFilter.model_rebuild(_types_namespace=_filter_namespace)
+GameValueFilter.model_rebuild(_types_namespace=_filter_namespace)
 
 __all__ = [
     # Enums
@@ -37,6 +49,7 @@ __all__ = [
     "AlignmentCondition",
     # Filter classes
     "Filter",
+    "NotFilter",
     "VibeFilter",
     "ResourceFilter",
     "AlignmentFilter",
@@ -45,10 +58,13 @@ __all__ = [
     "GameValueFilter",
     "AnyFilter",
     # Filter helpers
+    "isNot",
     "isAlignedToActor",
     "isNotAlignedToActor",
     "isAlignedTo",
+    "isNotAlignedTo",
     "isNeutral",
+    "isNotNeutral",
     "isEnemy",
     "hasTag",
     "isA",

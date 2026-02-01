@@ -3,9 +3,9 @@
 from mettagrid.config.mettagrid_c_config import convert_to_cpp_game_config
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
-    ChestConfig,
     CollectiveConfig,
     GameConfig,
+    GridObjectConfig,
     InventoryConfig,
     MettaGridConfig,
     MoveActionConfig,
@@ -103,10 +103,9 @@ class TestCollectiveIntegration:
                 },
                 objects={
                     "wall": WallConfig(),
-                    "chest": ChestConfig(
+                    "chest": GridObjectConfig(
                         name="team_chest",
                         collective="team_vault",  # Associate with collective
-                        vibe_transfers={"up": {"gold": -10}},  # withdraw 10 gold
                     ),
                 },
                 map_builder=AsciiMapBuilder.Config(

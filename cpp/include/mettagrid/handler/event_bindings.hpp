@@ -41,6 +41,10 @@ inline void bind_event_config(py::module& m) {
           "add_near_filter",
           [](EventConfig& self, const NearFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
+      .def(
+          "add_neg_filter",
+          [](EventConfig& self, const NegFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
       // Add mutation methods - each type wraps into the variant
       .def(
           "add_resource_delta_mutation",

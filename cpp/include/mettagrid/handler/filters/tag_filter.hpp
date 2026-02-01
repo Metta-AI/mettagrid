@@ -34,6 +34,7 @@ public:
     return false;
   }
 
+public:
   // Accessor for pre-filtering (e.g., EventScheduler)
   int tag_id() const {
     return _config.tag_id;
