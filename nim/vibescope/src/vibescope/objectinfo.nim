@@ -239,7 +239,7 @@ proc getAoeSourcesAffectingAgent(agent: Entity): seq[AoeSourceEffect] =
       if "filters" in aoeConfig and aoeConfig["filters"].kind == JArray:
         filters = aoeConfig["filters"]
       # Check if agent is affected by this source
-      if not isAgentAffectedByAoeFilters(agent.collectiveId, obj.collectiveId, filters):
+      if not isAgentAffectedByAoeFilters(agent.collectiveId.at(step), obj.collectiveId.at(step), filters):
         continue
       result.add(AoeSourceEffect(
         source: obj,
@@ -323,20 +323,21 @@ proc drawObjectInfo*(panel: panels.Panel, frameId: string, contentPos: Vec2, con
     text(&"  Object ID: {cur.id}")
 
     # Display alignment (collective) for alignable objects.
-    if cur.collectiveId >= 0:
-      let aoeColor = getAoeColor(cur.collectiveId)
+    let curCollectiveId = cur.collectiveId.at()
+    if curCollectiveId >= 0:
+      let aoeColor = getAoeColor(curCollectiveId)
       let tint = rgbx(
         (aoeColor.r * 255).uint8,
         (aoeColor.g * 255).uint8,
         (aoeColor.b * 255).uint8,
         255
       )
-      let collectiveName = getCollectiveName(cur.collectiveId)
+      let collectiveName = getCollectiveName(curCollectiveId)
       if collectiveName.len > 0:
         let textSize = sk.drawText("Default", &"  Collective: {collectiveName}", sk.at, tint)
         sk.advance(textSize)
       else:
-        let textSize = sk.drawText("Default", &"  Collective: ({cur.collectiveId})", sk.at, tint)
+        let textSize = sk.drawText("Default", &"  Collective: ({curCollectiveId})", sk.at, tint)
         sk.advance(textSize)
 
     if cur.isAgent:

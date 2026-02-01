@@ -365,7 +365,7 @@ proc drawObjects*() =
     if thing.removedAtStep >= 0 and step >= thing.removedAtStep:
       continue
     let typeName = thing.typeName
-    let (tintRG, tintBA) = getCollectiveTint(thing.collectiveId)
+    let (tintRG, tintBA) = getCollectiveTint(thing.collectiveId.at())
     let pos = thing.location.at().xy
     case typeName
     of "wall":
@@ -546,9 +546,10 @@ proc shouldShowAOEForObject(obj: Entity): bool =
   if settings.aoeEnabledCollectives.len == 0:
     return false
   # Check if this object's collective is in the enabled set.
-  if obj.collectiveId < 0:
+  let cid = obj.collectiveId.at()
+  if cid < 0:
     return UnalignedId in settings.aoeEnabledCollectives
-  return obj.collectiveId in settings.aoeEnabledCollectives
+  return cid in settings.aoeEnabledCollectives
 
 proc getAoeSpriteName(collectiveId: int): string =
   ## Get the AOE overlay sprite name based on collective name.
@@ -586,7 +587,7 @@ proc drawAOEOverlay*() =
     let pos = obj.location.at(step).xy
     for dx in -aoeRange .. aoeRange:
       for dy in -aoeRange .. aoeRange:
-        drawTileIfNew(pos.x + dx.int32, pos.y + dy.int32, obj.collectiveId)
+        drawTileIfNew(pos.x + dx.int32, pos.y + dy.int32, obj.collectiveId.at(step))
   # Always draw for selected object if it has AOE.
   if selection != nil and getAoeRange(selection.typeName) > 0:
     drawAOEForObject(selection)
