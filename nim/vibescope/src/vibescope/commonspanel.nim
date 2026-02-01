@@ -71,16 +71,23 @@ proc getCollectiveStats*(): seq[CollectiveStats] =
   let numObjects = replay.objects.len
   for i in 0 ..< numObjects:
     let obj = replay.objects[i]
-    if obj.collectiveId < 0 or obj.collectiveId >= numCollectives:
+    # Skip objects not alive at current step.
+    if obj.removedAtStep >= 0 and step >= obj.removedAtStep:
+      continue
+    # Skip objects not yet created at current step.
+    if obj.location.len == 0 or step < 0:
+      continue
+    let cid = obj.collectiveId.at()
+    if cid < 0 or cid >= numCollectives:
       continue
     # Skip agents as they are not buildings.
     if obj.isAgent:
       continue
     # Count buildings by type.
-    if result[obj.collectiveId].buildingsByType.hasKey(obj.typeName):
-      result[obj.collectiveId].buildingsByType[obj.typeName] += 1
+    if result[cid].buildingsByType.hasKey(obj.typeName):
+      result[cid].buildingsByType[obj.typeName] += 1
     else:
-      result[obj.collectiveId].buildingsByType[obj.typeName] = 1
+      result[cid].buildingsByType[obj.typeName] = 1
 
 proc drawCollectivesPanel*(panel: panels.Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) =
   ## Draw the collectives panel showing stats for each collective.

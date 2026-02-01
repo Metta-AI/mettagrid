@@ -107,7 +107,7 @@ type
     removedAtStep*: int = -1  ## Step at which object was removed (-1 = still alive)
 
     # Alignable fields.
-    collectiveId*: int = -1
+    collectiveId*: seq[int]
 
     # Computed fields.
     gainMap*: seq[seq[ItemAmount]]
@@ -887,7 +887,11 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
       entity.protocols = fromJson($(obj["protocols"]), seq[Protocol])
 
     # Parse collective_id for alignable objects.
-    entity.collectiveId = getInt(obj, "collective_id", -1)
+    let collectiveIdField = getJsonNode(obj, "collective_id")
+    if collectiveIdField != nil:
+      entity.collectiveId = expand[int](collectiveIdField, replay.maxSteps, -1)
+    else:
+      entity.collectiveId = @[-1]
 
     replay.objects.add(entity)
 
@@ -1006,7 +1010,7 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) =
     entity.maxUses = obj.maxUses
     entity.allowPartialUsage = obj.allowPartialUsage
     entity.protocols = obj.protocols
-    entity.collectiveId = obj.collectiveId
+    entity.collectiveId.add(obj.collectiveId)
 
   # Mark objects as removed if they existed before but weren't in this step.
   if replay.objects.len > 0:
