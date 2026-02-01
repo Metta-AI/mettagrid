@@ -346,45 +346,42 @@ proc getAgentOrientation*(agent: Entity, step: int): Orientation =
       break
   return S
 
+proc getCollectiveTint(collectiveId: int): (uint16, uint16) =
+  ## Get tint color packed as (RG, BA) uint16s for a collective.
+  if collectiveId < 0:
+    return (uint16(0xFF_FF), uint16(0xFF_FF))  # White = no tint
+  let c = getAoeColor(collectiveId)
+  # Brighten the color for tinting (blend toward white so sprites stay visible).
+  let r = uint8(min(255.0, c.r * 255 * 0.5 + 128).int)
+  let g = uint8(min(255.0, c.g * 255 * 0.5 + 128).int)
+  let b = uint8(min(255.0, c.b * 255 * 0.5 + 128).int)
+  packTint(r, g, b)
+
 proc drawObjects*() =
   ## Draw the objects on the map.
   let numObjects = replay.objects.len
   for i in 0 ..< numObjects:
     let thing = replay.objects[i]
+    if thing.removedAtStep >= 0 and step >= thing.removedAtStep:
+      continue
     let typeName = thing.typeName
+    let (tintRG, tintBA) = getCollectiveTint(thing.collectiveId)
     let pos = thing.location.at().xy
     case typeName
     of "wall":
       discard
     of "agent":
       let agent = thing
-      # Agents don't do orientation anymore.
-      # var agentImage = case agent.orientation.at:
-      #   of 0: "agents/agent.n"
-      #   of 1: "agents/agent.s"
-      #   of 2: "agents/agent.w"
-      #   of 3: "agents/agent.e"
-      #   else:
-      #     echo "Unknown orientation: ", agent.orientation.at
-      #     "agents/agent.n"
-
       # Find last orientation action.
       var agentImage = "agents/agent." & getAgentOrientation(agent, step).char
-
-      px.drawSprite(
-        agentImage,
-        pos * TILE_SIZE
-      )
+      px.drawSprite(agentImage, pos * TILE_SIZE, tintRG, tintBA)
     else:
       let spriteName =
         if "objects/" & thing.typeName in px:
           "objects/" & thing.typeName
         else:
           "objects/unknown"
-      px.drawSprite(
-        spriteName,
-        pos * TILE_SIZE,
-      )
+      px.drawSprite(spriteName, pos * TILE_SIZE, tintRG, tintBA)
 
 proc drawVisualRanges*(alpha = 0.5) =
   ## Draw the visual ranges of the selected agent.
@@ -555,15 +552,15 @@ proc shouldShowAOEForObject(obj: Entity): bool =
 
 proc getAoeSpriteName(collectiveId: int): string =
   ## Get the AOE overlay sprite name based on collective name.
-  ## Cogs = green, Clips = red, Neutral = grey.
-  ## IDs are assigned alphabetically, so we look up the name.
+  ## cogs/cogs_green = green, cogs_blue = blue, clips = red, neutral = grey.
   if collectiveId < 0:
-    return "objects/aoe_overlay_grey"  # Grey for neutral
+    return "objects/aoe_overlay_grey"
   let name = getCollectiveName(collectiveId)
   case name
-  of "cogs": "objects/aoe_overlay"      # Green for cogs
-  of "clips": "objects/aoe_overlay_red" # Red for clips
-  else: "objects/aoe_overlay_grey"      # Grey for others
+  of "cogs", "cogs_green": "objects/aoe_overlay"
+  of "cogs_blue": "objects/aoe_overlay_blue"
+  of "clips": "objects/aoe_overlay_red"
+  else: "objects/aoe_overlay_grey"
 
 proc drawAOEOverlay*() =
   ## Draw colored overlay on tiles affected by AOE effects.
@@ -598,6 +595,8 @@ proc drawAOEOverlay*() =
     let numObjects = replay.objects.len
     for i in 0 ..< numObjects:
       let obj = replay.objects[i]
+      if obj.removedAtStep >= 0 and step >= obj.removedAtStep:
+        continue
       if selection != nil and obj.id == selection.id:
         continue
       if shouldShowAOEForObject(obj):
@@ -720,6 +719,12 @@ proc drawTerrain*() =
 
   bxy.exitRawOpenGLMode()
 
+proc stripTeamSuffix(typeName: string): string =
+  ## Strip team suffix like _0, _1 from type name.
+  if typeName.len >= 2 and typeName[^2] == '_' and typeName[^1] in {'0'..'9'}:
+    return typeName[0..^3]
+  return typeName
+
 proc drawObjectPips*() =
   ## Draw the pips for the objects on the minimap.
   let numObjects = replay.objects.len
@@ -727,7 +732,11 @@ proc drawObjectPips*() =
     let obj = replay.objects[i]
     if obj.typeName == "wall":
       continue
-    let pipName = "minimap/" & obj.typeName
+    if obj.removedAtStep >= 0 and step >= obj.removedAtStep:
+      continue
+    var pipName = "minimap/" & obj.typeName
+    if pipName notin px:
+      pipName = "minimap/" & stripTeamSuffix(obj.typeName)
     if pipName in px:
       let loc = obj.location.at(step).xy
       px.drawSprite(
@@ -961,13 +970,13 @@ proc drawWorldMap*(zoomInfo: ZoomInfo) =
         echo "Applied pos: (", zoomInfo.pos.x, ", ", zoomInfo.pos.y, ")"
       hasPendingViewState = false
     else:
-      # Default: fit full map and center on hub or map center
+      # Default: fit full map and center on assembler or map center
       fitFullMap(zoomInfo)
       var baseEntity: Entity = nil
       let numObjs = replay.objects.len
       for j in 0 ..< numObjs:
         let obj = replay.objects[j]
-        if obj.typeName == "hub":
+        if obj.typeName == "assembler":
           baseEntity = obj
           break
       if baseEntity != nil:

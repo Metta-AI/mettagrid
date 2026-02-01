@@ -55,15 +55,16 @@ proc getCollectiveConfig*(collectiveId: int): JsonNode =
   return nil
 
 proc getAoeColor*(collectiveId: int): Color =
-  ## Get color for collective by looking up its name. Clips = red, Cogs = green.
-  ## IDs are assigned alphabetically, so we look up the name to determine color.
+  ## Get color for collective by looking up its name.
+  ## cogs/cogs_green = green, cogs_blue = blue, clips = red, neutral = grey.
   if collectiveId == UnalignedId:
     return color(0.5, 0.5, 0.5, 0.4)  # Neutral = grey
   let name = getCollectiveName(collectiveId)
   case name
-  of "cogs": color(0.2, 0.8, 0.2, 0.4)   # Cogs = green
-  of "clips": color(0.9, 0.2, 0.2, 0.4)  # Clips = red
-  else: color(0.5, 0.5, 0.5, 0.4)        # Others = grey
+  of "cogs", "cogs_green": color(0.2, 0.8, 0.2, 0.4)   # Green
+  of "cogs_blue": color(0.2, 0.4, 0.9, 0.4)             # Blue
+  of "clips": color(0.9, 0.2, 0.2, 0.4)                 # Red
+  else: color(0.5, 0.5, 0.5, 0.4)                       # Grey
 
 proc drawAoeToggle(label: string, enabled: bool, tintColor: Color): bool =
   ## Draw a toggle button with a color indicator. Returns true if clicked.

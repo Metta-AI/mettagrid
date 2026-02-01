@@ -486,7 +486,9 @@ proc drawAreaRecursive(area: Area, r: Rect) =
 
     activePanel.draw(activePanel, frameId, contentPos, contentSize)
 
-proc drawPanels*() =
+proc drawPanels*(bottomLimit: float32 = -1) =
+  ## Draw the panels. bottomLimit is the y-coordinate where panels should stop (top of bottom bars).
+  ## If bottomLimit is -1, uses a default calculation.
 
   # Reset cursor
   sk.cursor = Cursor(kind: ArrowCursor)
@@ -548,8 +550,11 @@ proc drawPanels*() =
          let (_, highlightRect) = targetArea.getTabInsertInfo(window.mousePos.vec2)
          dropHighlight = highlightRect
 
-  # Draw Areas
-  drawAreaRecursive(rootArea, rect(0, 64, window.size.x.float32, window.size.y.float32 - 64 * 3))
+  # Draw Areas - use bottomLimit if provided, otherwise default
+  let headerHeight = 64f
+  let panelBottom = if bottomLimit > 0: bottomLimit else: window.size.y.float32 - 64 * 3
+  let panelHeight = panelBottom - headerHeight
+  drawAreaRecursive(rootArea, rect(0, headerHeight, window.size.x.float32, panelHeight))
 
   # Draw Drop Highlight
   if showDropHighlight and dragPanel != nil:

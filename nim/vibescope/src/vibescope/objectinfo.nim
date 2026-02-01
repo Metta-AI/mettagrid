@@ -1,7 +1,7 @@
 import
   std/[json, algorithm, tables, sets, strutils, strformat],
   vmath, silky, windy, chroma,
-  common, panels, replays
+  common, panels, replays, aoepanel
 
 type
   ResourceLimitGroup* = object
@@ -324,11 +324,20 @@ proc drawObjectInfo*(panel: panels.Panel, frameId: string, contentPos: Vec2, con
 
     # Display alignment (collective) for alignable objects.
     if cur.collectiveId >= 0:
+      let aoeColor = getAoeColor(cur.collectiveId)
+      let tint = rgbx(
+        (aoeColor.r * 255).uint8,
+        (aoeColor.g * 255).uint8,
+        (aoeColor.b * 255).uint8,
+        255
+      )
       let collectiveName = getCollectiveName(cur.collectiveId)
       if collectiveName.len > 0:
-        text(&"  Collective: {collectiveName} ({cur.collectiveId})")
+        let textSize = sk.drawText("Default", &"  Collective: {collectiveName}", sk.at, tint)
+        sk.advance(textSize)
       else:
-        text(&"  Collective: ({cur.collectiveId})")
+        let textSize = sk.drawText("Default", &"  Collective: ({cur.collectiveId})", sk.at, tint)
+        sk.advance(textSize)
 
     if cur.isAgent:
       # Agent-specific info.
