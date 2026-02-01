@@ -22,9 +22,6 @@ class GlobalObsConfig(Config):
 
     last_reward: bool = Field(default=True)
 
-    # Compass token that points toward the hub center
-    compass: bool = Field(default=False)
-
     # Goal tokens that indicate rewarding resources
     goal_obs: bool = Field(default=False)
 

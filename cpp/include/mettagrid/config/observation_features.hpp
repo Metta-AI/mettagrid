@@ -22,7 +22,6 @@ public:
     _last_action = get("last_action");
     _last_reward = get("last_reward");
     _vibe = get("vibe");
-    _compass = get("agent:compass");
     _tag = get("tag");
     _cooldown_remaining = get("cooldown_remaining");
     _remaining_uses = get("remaining_uses");
@@ -40,7 +39,6 @@ public:
     LastAction = _last_action;
     LastReward = _last_reward;
     Vibe = _vibe;
-    Compass = _compass;
     Tag = _tag;
     CooldownRemaining = _cooldown_remaining;
     RemainingUses = _remaining_uses;
@@ -73,7 +71,6 @@ public:
   ObservationType LastAction;
   ObservationType LastReward;
   ObservationType Vibe;
-  ObservationType Compass;
   ObservationType Tag;
   ObservationType CooldownRemaining;
   ObservationType RemainingUses;
@@ -94,7 +91,6 @@ private:
   ObservationType _last_action;
   ObservationType _last_reward;
   ObservationType _vibe;
-  ObservationType _compass;
   ObservationType _tag;
   ObservationType _cooldown_remaining;
   ObservationType _remaining_uses;
@@ -122,7 +118,6 @@ extern ObservationType EpisodeCompletionPct;
 extern ObservationType LastAction;
 extern ObservationType LastReward;
 extern ObservationType Vibe;
-extern ObservationType Compass;
 extern ObservationType Tag;
 extern ObservationType CooldownRemaining;
 extern ObservationType RemainingUses;
