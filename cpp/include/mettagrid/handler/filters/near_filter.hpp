@@ -71,6 +71,7 @@ public:
     return false;
   }
 
+public:
   // Get the radius for this filter
   int radius() const {
     return _config.radius;

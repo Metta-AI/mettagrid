@@ -7,7 +7,6 @@
 #include "actions/move.hpp"
 #include "actions/move_config.hpp"
 #include "actions/noop.hpp"
-#include "actions/transfer.hpp"
 #include "config/mettagrid_config.hpp"
 
 ActionHandlerResult create_action_handlers(const GameConfig& game_config, Grid* grid, std::mt19937* rng) {
@@ -44,23 +43,12 @@ ActionHandlerResult create_action_handlers(const GameConfig& game_config, Grid* 
     result.actions.push_back(action);
   }
 
-  // Transfer
-  auto transfer_config = std::static_pointer_cast<const TransferActionConfig>(game_config.actions.at("transfer"));
-  auto transfer = std::make_unique<Transfer>(*transfer_config, &game_config);
-  transfer->init(grid, rng);
-  if (transfer->priority > result.max_priority) result.max_priority = transfer->priority;
-  for (const auto& action : transfer->actions()) {
-    result.actions.push_back(action);
-  }
-
   // Register vibe-triggered action handlers with Move
   std::unordered_map<std::string, ActionHandler*> handlers;
   handlers["attack"] = attack.get();
-  handlers["transfer"] = transfer.get();
   move_ptr->set_action_handlers(handlers);
 
   result.handlers.push_back(std::move(attack));
-  result.handlers.push_back(std::move(transfer));
 
   // ChangeVibe
   auto change_vibe_config =

@@ -5,8 +5,8 @@ import pytest
 
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
-    ChestConfig,
     GameConfig,
+    GridObjectConfig,
     MettaGridConfig,
     MoveActionConfig,
     NoopActionConfig,
@@ -29,7 +29,7 @@ def sim_with_chest():
             actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
             objects={
                 "wall": WallConfig(),
-                "chest": ChestConfig(vibe_transfers={}),
+                "chest": GridObjectConfig(name="chest"),
             },
             map_builder=RandomMapBuilder.Config(
                 width=10,
@@ -131,30 +131,6 @@ class TestIgnoreTypes:
         wall_count = sum(1 for obj in bbox_objects.values() if obj.get("type_name") == "wall")
 
         assert len(bbox_objects) - len(bbox_no_walls) == wall_count
-
-
-class TestChestProperties:
-    """Test chest-specific properties in grid_objects."""
-
-    def test_chest_basic_properties(self, sim_with_chest):
-        """Test that chest properties are exposed."""
-
-        objects = sim_with_chest.grid_objects()
-
-        # Find a chest
-        chest = next((obj for obj in objects.values() if obj.get("type_name") == "chest"), None)
-
-        if chest:
-            # Check chest-specific properties
-            assert "vibe_transfers" in chest
-
-            # Check values match config
-            vibe_transfers = chest["vibe_transfers"]
-            assert isinstance(vibe_transfers, dict)
-
-            # Check that chest has inventory dict
-            assert "inventory" in chest
-            assert isinstance(chest["inventory"], dict)
 
 
 class TestAgentProperties:

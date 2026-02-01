@@ -21,8 +21,6 @@ from mettagrid.config.action_config import (  # noqa: F401 - re-exported for bac
     Directions,
     MoveActionConfig,
     NoopActionConfig,
-    TransferActionConfig,
-    VibeTransfer,
 )
 from mettagrid.config.event_config import EventConfig
 from mettagrid.config.game_value import (  # noqa: F401 - re-exported
@@ -175,45 +173,6 @@ class AgentConfig(GridObjectConfig):
     )
 
 
-class ProtocolConfig(Config):
-    # Note that `vibes` implicitly also sets a minimum number of agents. So min_agents is useful
-    # when you want to set a minimum that's higher than the number of vibes.
-    min_agents: int = Field(default=0, ge=0, description="Number of agents required to use this protocol")
-    vibes: list[str] = Field(default_factory=list)
-    input_resources: dict[str, int] = Field(default_factory=dict)
-    output_resources: dict[str, int] = Field(default_factory=dict)
-    cooldown: int = Field(ge=0, default=0)
-
-
-class ChestConfig(GridObjectConfig):
-    """Python chest configuration for multi-resource chests."""
-
-    # This is used to discriminate between different GridObjectConfig subclasses in Pydantic.
-    # See AnyGridObjectConfig.
-    # Please don't use this for anything game related.
-    pydantic_type: Literal["chest"] = "chest"
-    name: str = Field(default="chest")
-
-    # Vibe-based transfers: vibe -> resource -> delta
-    vibe_transfers: dict[str, dict[str, int]] = Field(
-        default_factory=dict,
-        description=(
-            "Map from vibe to resource deltas. "
-            "E.g., {'carbon': {'carbon': 10, 'energy': -5}} deposits 10 carbon and withdraws 5 energy when "
-            "showing carbon vibe"
-        ),
-    )
-
-    inventory: InventoryConfig = Field(default_factory=InventoryConfig, description="Inventory configuration")
-
-
-class CollectiveChestConfig(GridObjectConfig):
-    """Chest that interacts with collectives."""
-
-    pydantic_type: Literal["collective_chest"] = "collective_chest"
-    name: str = Field(default="collective_chest")
-
-
 class CollectiveConfig(Config):
     """
     Configuration for a shared inventory (Collective).
@@ -232,8 +191,6 @@ class CollectiveConfig(Config):
 # that only need handlers/aoes without specialized features like protocols or inventory.
 AnyGridObjectConfig = Union[
     WallConfig,
-    ChestConfig,
-    CollectiveChestConfig,
     GridObjectConfig,
 ]
 

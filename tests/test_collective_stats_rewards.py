@@ -281,6 +281,10 @@ class TestMultipleCollectiveTypes:
                 rewards={
                     "junction_held": reward(
                         game_stat("collective.aligned.junction.held"),
+                        weight=0.01,
+                    ),
+                    "junction_held2": reward(
+                        game_stat("collective.aligned.junction.held"),
                         weight=0.02,
                     ),
                 },

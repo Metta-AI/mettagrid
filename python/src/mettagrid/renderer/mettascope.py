@@ -96,6 +96,7 @@ class MettascopeRenderer(Renderer):
             "step": self._sim.current_step,
             "objects": grid_objects,
             "collective_inventory": collective_inventory,
+            "episode_stats": self._sim._c_sim.get_episode_stats(),
         }
 
         # Render and get user input

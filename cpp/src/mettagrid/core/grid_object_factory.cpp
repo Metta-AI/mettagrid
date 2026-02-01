@@ -3,7 +3,6 @@
 #include <cassert>
 #include <memory>
 #include <stdexcept>
-#include <typeinfo>
 #include <vector>
 
 #include "core/grid.hpp"
@@ -11,8 +10,6 @@
 #include "objects/agent.hpp"
 #include "objects/agent_config.hpp"
 #include "objects/alignable.hpp"
-#include "objects/chest.hpp"
-#include "objects/chest_config.hpp"
 #include "objects/collective.hpp"
 #include "objects/wall.hpp"
 #include "systems/observation_encoder.hpp"
@@ -58,9 +55,7 @@ static GridObject* _create_object(GridCoord r,
                                   Grid* grid,
                                   const ObservationEncoder* obs_encoder,
                                   unsigned int* current_timestep_ptr) {
-  // Try each config type in order
-  // TODO: replace the dynamic casts with virtual dispatch
-
+  // Try specialized config types first
   if (const auto* wall_config = dynamic_cast<const WallConfig*>(config)) {
     return new Wall(r, c, *wall_config);
   }
@@ -69,22 +64,16 @@ static GridObject* _create_object(GridCoord r,
     return new Agent(r, c, *agent_config, resource_names);
   }
 
-  if (const auto* chest_config = dynamic_cast<const ChestConfig*>(config)) {
-    auto* obj = new Chest(r, c, *chest_config, stats);
-    obj->set_grid(grid);
-    return obj;
+  // Default: create a GridObject with inventory support
+  auto* obj = new GridObject(config->inventory_config);
+  obj->init(config->type_id, config->type_name, GridLocation(r, c), config->tag_ids, config->initial_vibe);
+  // Set initial inventory for all configured resources (ignore limits for initial setup)
+  for (const auto& [resource, amount] : config->initial_inventory) {
+    if (amount > 0) {
+      obj->inventory.update(resource, amount, /*ignore_limits=*/true);
+    }
   }
-
-  // Handle base GridObjectConfig as a static object (e.g., stations)
-  if (typeid(*config) == typeid(GridObjectConfig)) {
-    auto* obj = new GridObject(config->inventory_config);
-    obj->init(config->type_id, config->type_name, GridLocation(r, c), config->tag_ids, config->initial_vibe);
-    return obj;
-  }
-
-  // Unknown derived config type - likely a missing factory update
-  throw std::runtime_error("Unknown GridObjectConfig subtype: " + config->type_name +
-                           " (type_id=" + std::to_string(config->type_id) + ")");
+  return obj;
 }
 
 GridObject* create_object_from_config(GridCoord r,

@@ -165,6 +165,82 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_tag_filter",
           [](NearFilterConfig& self, const TagFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_neg_filter",
+          [](NearFilterConfig& self, const NegFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"));
+
+  py::class_<NegFilterConfig>(m, "NegFilterConfig")
+      .def(py::init<>())
+      .def_readwrite("inner", &NegFilterConfig::inner)
+      // set_inner_* methods clear and set a single filter (backward compat)
+      .def(
+          "set_inner_alignment_filter",
+          [](NegFilterConfig& self, const AlignmentFilterConfig& cfg) {
+            self.inner.clear();
+            self.inner.push_back(cfg);
+          },
+          py::arg("filter"))
+      .def(
+          "set_inner_vibe_filter",
+          [](NegFilterConfig& self, const VibeFilterConfig& cfg) {
+            self.inner.clear();
+            self.inner.push_back(cfg);
+          },
+          py::arg("filter"))
+      .def(
+          "set_inner_resource_filter",
+          [](NegFilterConfig& self, const ResourceFilterConfig& cfg) {
+            self.inner.clear();
+            self.inner.push_back(cfg);
+          },
+          py::arg("filter"))
+      .def(
+          "set_inner_tag_filter",
+          [](NegFilterConfig& self, const TagFilterConfig& cfg) {
+            self.inner.clear();
+            self.inner.push_back(cfg);
+          },
+          py::arg("filter"))
+      .def(
+          "set_inner_near_filter",
+          [](NegFilterConfig& self, const NearFilterConfig& cfg) {
+            self.inner.clear();
+            self.inner.push_back(cfg);
+          },
+          py::arg("filter"))
+      .def(
+          "set_inner_game_value_filter",
+          [](NegFilterConfig& self, const GameValueFilterConfig& cfg) {
+            self.inner.clear();
+            self.inner.push_back(cfg);
+          },
+          py::arg("filter"))
+      // add_inner_* methods append filters (for multi-filter negation like NOT(A AND B))
+      .def(
+          "add_inner_alignment_filter",
+          [](NegFilterConfig& self, const AlignmentFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_vibe_filter",
+          [](NegFilterConfig& self, const VibeFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_resource_filter",
+          [](NegFilterConfig& self, const ResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_tag_filter",
+          [](NegFilterConfig& self, const TagFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_near_filter",
+          [](NegFilterConfig& self, const NearFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_game_value_filter",
+          [](NegFilterConfig& self, const GameValueFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"));
 
   // Mutation configs
@@ -357,6 +433,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_game_value_filter",
           [](HandlerConfig& self, const GameValueFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_neg_filter",
+          [](HandlerConfig& self, const NegFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       // Add mutation methods - each type wraps into the variant
       .def(
