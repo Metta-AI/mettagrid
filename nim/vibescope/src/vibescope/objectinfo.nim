@@ -319,8 +319,15 @@ proc drawObjectInfo*(panel: panels.Panel, frameId: string, contentPos: Vec2, con
       openTempTextFile(cur.typeName & "_config.json", cfgText)
 
     # Basic identity
-    h1text(cur.typeName)
-    text(&"  Object ID: {cur.id}")
+    if cur.isAgent:
+      let cogName = getCogName(cur.agentId)
+      if cogName.len > 0:
+        h1text(&"{cogName} ({cur.agentId}) ({cur.id})")
+      else:
+        h1text(&"agent ({cur.agentId}) ({cur.id})")
+    else:
+      h1text(cur.typeName)
+      text(&"  Object ID: {cur.id}")
 
     # Display alignment (collective) for alignable objects.
     let curCollectiveId = cur.collectiveId.at()
@@ -343,7 +350,6 @@ proc drawObjectInfo*(panel: panels.Panel, frameId: string, contentPos: Vec2, con
     if cur.isAgent:
       # Agent-specific info.
       let reward = cur.totalReward.at
-      text(&"  Agent ID: {cur.agentId}")
       text(&"  Total reward: {formatFloat(reward, ffDecimal, 2)}")
       let vibeId = cur.vibeId.at
       if vibeId >= 0 and vibeId < replay.config.game.vibeNames.len:
