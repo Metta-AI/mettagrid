@@ -178,9 +178,9 @@ class TestClipScrambleEvents:
                 map_builder=AsciiMapBuilder.Config(
                     map_data=[
                         ["#", "#", "#", "#", "#", "#", "#", "#", "#"],
-                        ["#", ".", ".", ".", ".", ".", ".", ".", "#"],
-                        ["#", ".", ".", ".", ".", ".", ".", ".", "#"],
                         ["#", ".", ".", ".", "J", ".", ".", ".", "#"],  # Junction B at distance 3
+                        ["#", ".", ".", ".", ".", ".", ".", ".", "#"],
+                        ["#", ".", ".", ".", ".", ".", ".", ".", "#"],
                         ["#", ".", ".", ".", "@", "J", ".", ".", "#"],  # Agent center, Junction A adjacent
                         ["#", ".", ".", ".", ".", ".", ".", ".", "#"],
                         ["#", ".", ".", ".", ".", ".", ".", ".", "#"],
@@ -432,7 +432,7 @@ class TestAggressiveClipTakeover:
                             isNear("type:agent", [isAlignedTo("cogs")], radius=2),
                         ],
                         mutations=[removeAlignment()],
-                        max_targets=0,  # Unlimited
+                        max_targets=None,  # Unlimited
                     ),
                     # Aggressive align: all at once
                     "align_all_neutral": EventConfig(
@@ -445,7 +445,7 @@ class TestAggressiveClipTakeover:
                             isNear("type:agent", [isAlignedTo("cogs")], radius=2),
                         ],
                         mutations=[alignTo("cogs")],
-                        max_targets=0,  # Unlimited
+                        max_targets=None,  # Unlimited
                     ),
                 },
                 map_builder=AsciiMapBuilder.Config(

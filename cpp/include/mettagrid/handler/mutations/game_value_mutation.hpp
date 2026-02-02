@@ -22,29 +22,33 @@ public:
   explicit GameValueMutation(const GameValueMutationConfig& config) : _config(config) {}
 
   void apply(HandlerContext& ctx) override {
-    HasInventory* entity = ctx.resolve(_config.entity);
+    HasInventory* entity = ctx.resolve(_config.target);
+    float delta = ctx.resolve_game_value(_config.source, _config.target);
 
     switch (_config.value.type) {
       case GameValueType::INVENTORY: {
         if (entity == nullptr) return;
-        entity->inventory.update(_config.value.id, static_cast<InventoryDelta>(_config.delta));
+        entity->inventory.update(_config.value.id, static_cast<InventoryDelta>(delta));
         break;
       }
       case GameValueType::STAT: {
         StatsTracker* tracker = ctx.resolve_stats_tracker(_config.value.scope, entity);
         if (tracker == nullptr) return;
         if (!_config.value.stat_name.empty()) {
-          tracker->add(_config.value.stat_name, _config.delta);
+          tracker->add(_config.value.stat_name, delta);
         } else {
           float* ptr = tracker->get_ptr(_config.value.id);
           if (ptr != nullptr) {
-            *ptr += _config.delta;
+            *ptr += delta;
           }
         }
         break;
       }
       case GameValueType::TAG_COUNT: {
         throw std::runtime_error("Cannot mutate TAG_COUNT game value (read-only)");
+      }
+      case GameValueType::CONST: {
+        throw std::runtime_error("Cannot mutate CONST game value (read-only)");
       }
     }
   }

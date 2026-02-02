@@ -17,7 +17,8 @@ inline void bind_handler_config(py::module& m) {
   py::enum_<GameValueType>(m, "GameValueType")
       .value("INVENTORY", GameValueType::INVENTORY)
       .value("STAT", GameValueType::STAT)
-      .value("TAG_COUNT", GameValueType::TAG_COUNT);
+      .value("TAG_COUNT", GameValueType::TAG_COUNT)
+      .value("CONST", GameValueType::CONST);
 
   // GameValueScope enum
   py::enum_<GameValueScope>(m, "GameValueScope")
@@ -32,7 +33,8 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("scope", &GameValueConfig::scope)
       .def_readwrite("id", &GameValueConfig::id)
       .def_readwrite("delta", &GameValueConfig::delta)
-      .def_readwrite("stat_name", &GameValueConfig::stat_name);
+      .def_readwrite("stat_name", &GameValueConfig::stat_name)
+      .def_readwrite("const_value", &GameValueConfig::const_value);
 
   // EntityRef enum
   py::enum_<EntityRef>(m, "EntityRef")
@@ -389,19 +391,19 @@ inline void bind_handler_config(py::module& m) {
 
   py::class_<GameValueMutationConfig>(m, "GameValueMutationConfig")
       .def(py::init<>())
-      .def(py::init([](GameValueConfig value, float delta, EntityRef entity) {
+      .def(py::init([](GameValueConfig value, EntityRef target, GameValueConfig source) {
              GameValueMutationConfig cfg;
              cfg.value = value;
-             cfg.delta = delta;
-             cfg.entity = entity;
+             cfg.target = target;
+             cfg.source = source;
              return cfg;
            }),
            py::arg("value") = GameValueConfig(),
-           py::arg("delta") = 0.0f,
-           py::arg("entity") = EntityRef::target)
+           py::arg("target") = EntityRef::target,
+           py::arg("source") = GameValueConfig())
       .def_readwrite("value", &GameValueMutationConfig::value)
-      .def_readwrite("delta", &GameValueMutationConfig::delta)
-      .def_readwrite("entity", &GameValueMutationConfig::entity);
+      .def_readwrite("target", &GameValueMutationConfig::target)
+      .def_readwrite("source", &GameValueMutationConfig::source);
 
   // HandlerConfig with methods to add filters and mutations
   py::class_<HandlerConfig, std::shared_ptr<HandlerConfig>>(m, "HandlerConfig")

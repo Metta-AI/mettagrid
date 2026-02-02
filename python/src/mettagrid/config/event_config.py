@@ -107,10 +107,10 @@ class EventConfig(Handler):
         default_factory=list,
         description="List of timesteps when this event fires",
     )
-    max_targets: int = Field(
-        default=1,
-        ge=0,
-        description="Maximum number of targets to apply mutations to (0 = unlimited)",
+    max_targets: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Maximum number of targets to apply mutations to (None = unlimited)",
     )
     fallback: Optional[str] = Field(
         default=None,

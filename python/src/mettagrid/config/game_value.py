@@ -86,6 +86,12 @@ class NumObjectsValue(GameValue):
     object_type: str
 
 
+class ConstValue(GameValue):
+    """A constant numeric value."""
+
+    value: float
+
+
 class TagCountValue(GameValue):
     """Count of objects with a given tag."""
 
@@ -101,6 +107,7 @@ AnyGameValue = Union[
     StatValue,
     NumObjectsValue,
     TagCountValue,
+    ConstValue,
 ]
 
 

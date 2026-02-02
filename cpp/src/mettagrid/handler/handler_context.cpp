@@ -24,6 +24,9 @@ float HandlerContext::resolve_game_value(const GameValueConfig& cfg, EntityRef e
       if (tag_index == nullptr) return 0.0f;
       return static_cast<float>(tag_index->count_objects_with_tag(cfg.id));
     }
+    case GameValueType::CONST: {
+      return cfg.const_value;
+    }
   }
   return 0.0f;
 }

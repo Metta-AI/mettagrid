@@ -138,7 +138,7 @@ class TestEventMaxTargetsSimulation:
                         timesteps=[5],
                         filters=[isA("wall"), isAlignedTo(None)],  # Only unaligned walls
                         mutations=[alignTo("clips")],
-                        max_targets=0,  # Unlimited
+                        max_targets=None,  # Unlimited
                     ),
                 },
                 map_builder=AsciiMapBuilder.Config(
@@ -272,7 +272,7 @@ class TestEventFilterSimulation:
                         timesteps=[5],
                         filters=[isA("wall"), isAlignedTo(None)],  # Only unaligned
                         mutations=[alignTo("clips")],
-                        max_targets=0,  # Affect all matching
+                        max_targets=None,  # Affect all matching
                     ),
                 },
                 map_builder=AsciiMapBuilder.Config(
@@ -340,7 +340,7 @@ class TestEventFilterSimulation:
                         timesteps=[5],
                         filters=[isNotAlignedTo("clips")],  # Should exclude clips-aligned
                         mutations=[removeAlignment()],  # Remove alignment
-                        max_targets=0,  # Affect all matching
+                        max_targets=None,  # Affect all matching
                     ),
                 },
                 map_builder=AsciiMapBuilder.Config(

@@ -1,5 +1,6 @@
 """Shared mutation conversion utilities for Python-to-C++ config conversion."""
 
+from mettagrid.config.game_value import ConstValue
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mutation import (
     AddTagMutation,
@@ -202,9 +203,14 @@ def convert_mutations(
                 "tag_name_to_id": tag_name_to_id,
             }
             cpp_gv_cfg = resolve_game_value(mutation.value, mappings)
+
+            # Resolve source: if explicit source provided, use it; otherwise wrap delta as ConstValue
+            source = mutation.source if mutation.source is not None else ConstValue(value=float(mutation.delta))
+            cpp_source_cfg = resolve_game_value(source, mappings)
+
             cpp_mutation = CppGameValueMutationConfig(
                 value=cpp_gv_cfg,
-                delta=float(mutation.delta),
-                entity=convert_entity_ref(mutation.target),
+                target=convert_entity_ref(mutation.target),
+                source=cpp_source_cfg,
             )
             target_obj.add_game_value_mutation(cpp_mutation)

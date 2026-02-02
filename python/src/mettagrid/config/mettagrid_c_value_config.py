@@ -1,6 +1,7 @@
 """Convert Python GameValue types to C++ GameValueConfig."""
 
 from mettagrid.config.game_value import (
+    ConstValue,
     GameValue,
     InventoryValue,
     NumObjectsValue,
@@ -45,6 +46,9 @@ def resolve_game_value(gv: GameValue, mappings: dict) -> CppGameValueConfig:
         cfg.type = GameValueType.TAG_COUNT
         cfg.scope = GameValueScope.GAME
         cfg.id = mappings["tag_name_to_id"][gv.tag]
+    elif isinstance(gv, ConstValue):
+        cfg.type = GameValueType.CONST
+        cfg.const_value = gv.value
     else:
         raise ValueError(f"Unknown GameValue type: {type(gv)}")
 
