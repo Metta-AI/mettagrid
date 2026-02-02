@@ -129,38 +129,3 @@ def num(s: str) -> NumObjectsValue:
 def tag(s: str) -> TagCountValue:
     """Create a TagCountValue."""
     return TagCountValue(tag=s)
-
-
-# ---------------------------------------------------------------------------
-# Backward-compatibility aliases for old type names
-# ---------------------------------------------------------------------------
-
-
-class StatsValue(StatValue):
-    """Deprecated alias for StatValue."""
-
-    pass
-
-
-class Inventory(InventoryValue):
-    """Deprecated alias for InventoryValue (agent scope)."""
-
-    pass
-
-
-class CollectiveInventory(InventoryValue):
-    """Deprecated alias for InventoryValue (collective scope)."""
-
-    pass
-
-
-class NumObjects(NumObjectsValue):
-    """Deprecated alias for NumObjectsValue."""
-
-    pass
-
-
-class NumTaggedObjects(TagCountValue):
-    """Deprecated alias for TagCountValue."""
-
-    pass
