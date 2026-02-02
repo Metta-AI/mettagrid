@@ -87,7 +87,7 @@ def __getattr__(name: str):
     """Lazily import attributes on first access."""
     if name in _LAZY_ATTRS:
         module_name, attr_name = _LAZY_ATTRS[name]
-        import importlib
+        import importlib  # noqa: PLC0415
 
         module = importlib.import_module(module_name)
         attr = getattr(module, attr_name)

@@ -222,7 +222,7 @@ def main():
         print("\nDemo interrupted by user")
     except Exception as e:
         print(f"\nDemo failed: {e}")
-        import traceback
+        import traceback  # noqa: PLC0415
 
         traceback.print_exc()
 

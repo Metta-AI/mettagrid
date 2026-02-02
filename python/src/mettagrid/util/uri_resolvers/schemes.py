@@ -307,17 +307,17 @@ def _load_policy_spec_from_uri(
     device: str = "cpu",
     remove_downloaded_copy_on_exit: bool = False,
 ):
-    from mettagrid.policy.loader import resolve_policy_class_path
-    from mettagrid.policy.policy import PolicySpec
-    from mettagrid.policy.prepare_policy_spec import (
+    from mettagrid.policy.loader import resolve_policy_class_path  # noqa: PLC0415
+    from mettagrid.policy.policy import PolicySpec  # noqa: PLC0415
+    from mettagrid.policy.prepare_policy_spec import (  # noqa: PLC0415
         download_policy_spec_from_s3_as_zip,
         load_policy_spec_from_path,
     )
 
     # Handle metta://policy/<builtin> URIs for built-in policies
     if base_uri.startswith("metta://policy/"):
-        from mettagrid.policy.loader import discover_and_register_policies
-        from mettagrid.policy.policy_registry import get_policy_registry
+        from mettagrid.policy.loader import discover_and_register_policies  # noqa: PLC0415
+        from mettagrid.policy.policy_registry import get_policy_registry  # noqa: PLC0415
 
         identifier = urlparse(base_uri).path.lstrip("/")
 
@@ -327,7 +327,7 @@ def _load_policy_spec_from_uri(
         if identifier in registry:
             return PolicySpec(class_path=registry[identifier])
         if "." in identifier and ":v" not in identifier and not identifier.endswith(":latest"):
-            from mettagrid.util.module import load_symbol
+            from mettagrid.util.module import load_symbol  # noqa: PLC0415
 
             if load_symbol(identifier, strict=False) is not None:
                 return PolicySpec(class_path=identifier)

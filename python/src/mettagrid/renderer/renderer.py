@@ -57,22 +57,22 @@ def create_renderer(render_mode: RenderMode, autostart: bool = False) -> Rendere
     """Create the appropriate renderer based on render_mode."""
     if render_mode == "unicode":
         # Text-based interactive rendering
-        from mettagrid.renderer.miniscope.miniscope import MiniscopeRenderer
+        from mettagrid.renderer.miniscope.miniscope import MiniscopeRenderer  # noqa: PLC0415
 
         return MiniscopeRenderer()
     elif render_mode == "gui":
         # GUI-based interactive rendering
-        from mettagrid.renderer.mettascope import MettascopeRenderer
+        from mettagrid.renderer.mettascope import MettascopeRenderer  # noqa: PLC0415
 
         return MettascopeRenderer(autostart=autostart)
     elif render_mode == "vibescope":
         # GUI-based interactive rendering (vibescope)
-        from mettagrid.renderer.vibescope import VibescopeRenderer
+        from mettagrid.renderer.vibescope import VibescopeRenderer  # noqa: PLC0415
 
         return VibescopeRenderer(autostart=autostart)
     elif render_mode == "log":
         # Logger-based rendering for debugging
-        from mettagrid.renderer.log_renderer import LogRenderer
+        from mettagrid.renderer.log_renderer import LogRenderer  # noqa: PLC0415
 
         return LogRenderer()
     elif render_mode == "none":

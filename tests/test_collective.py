@@ -202,10 +202,10 @@ class TestCollectiveInventoryObservations:
 
     def test_collective_amount_stats_observation(self):
         """Test that collective inventory amounts appear in agent observations."""
-        from mettagrid.config.game_value import stat
-        from mettagrid.config.mettagrid_config import AgentConfig
-        from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig
-        from mettagrid.test_support.map_builders import ObjectNameMapBuilder
+        from mettagrid.config.game_value import stat  # noqa: PLC0415
+        from mettagrid.config.mettagrid_config import AgentConfig  # noqa: PLC0415
+        from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig  # noqa: PLC0415
+        from mettagrid.test_support.map_builders import ObjectNameMapBuilder  # noqa: PLC0415
 
         game_config = GameConfig(
             num_agents=1,
@@ -251,10 +251,10 @@ class TestCollectiveInventoryObservations:
 
     def test_collective_amount_updates_on_inventory_change(self):
         """Test that collective amount observations update when inventory changes via C++ API."""
-        from mettagrid.config.game_value import stat
-        from mettagrid.config.mettagrid_config import AgentConfig
-        from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig
-        from mettagrid.test_support.map_builders import ObjectNameMapBuilder
+        from mettagrid.config.game_value import stat  # noqa: PLC0415
+        from mettagrid.config.mettagrid_config import AgentConfig  # noqa: PLC0415
+        from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig  # noqa: PLC0415
+        from mettagrid.test_support.map_builders import ObjectNameMapBuilder  # noqa: PLC0415
 
         game_config = GameConfig(
             num_agents=1,

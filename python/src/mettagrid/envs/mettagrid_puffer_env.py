@@ -257,8 +257,8 @@ class MettaGridPufferEnv(PufferEnv):
 
     def render(self) -> str:
         """Render the current state as unicode text."""
-        from mettagrid.renderer.miniscope.buffer import MapBuffer
-        from mettagrid.renderer.miniscope.symbol import DEFAULT_SYMBOL_MAP
+        from mettagrid.renderer.miniscope.buffer import MapBuffer  # noqa: PLC0415
+        from mettagrid.renderer.miniscope.symbol import DEFAULT_SYMBOL_MAP  # noqa: PLC0415
 
         sim = self._sim
         assert sim is not None

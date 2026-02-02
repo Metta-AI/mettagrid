@@ -76,7 +76,7 @@ def demo_puffer_env():
     print(f"   - Reset successful: observations shape {observations.shape}")
 
     # Generate random actions compatible with the action space
-    from gymnasium import spaces
+    from gymnasium import spaces  # noqa: PLC0415
 
     assert isinstance(env.single_action_space, spaces.Discrete)
     actions = np.random.randint(0, env.single_action_space.n, size=(env.num_agents,)).astype(dtype_actions, copy=False)
@@ -114,7 +114,7 @@ def demo_random_rollout():
 
     for _ in range(max_steps):
         # Generate random actions for all agents
-        from gymnasium import spaces
+        from gymnasium import spaces  # noqa: PLC0415
 
         assert isinstance(env.single_action_space, spaces.Discrete)
         actions = np.random.randint(0, env.single_action_space.n, size=(env.num_agents,)).astype(
@@ -182,7 +182,7 @@ def demo_pufferlib_training():
         max_steps = 256  # Reduced for faster CI
 
         # Initialize simple policies based on action space type
-        from gymnasium import spaces
+        from gymnasium import spaces  # noqa: PLC0415
 
         assert isinstance(env.single_action_space, spaces.Discrete)
         action_preferences = np.ones(env.single_action_space.n)
@@ -262,7 +262,7 @@ def main():
         print("\nDemo interrupted by user")
     except Exception as e:
         print(f"\nDemo failed: {e}")
-        import traceback
+        import traceback  # noqa: PLC0415
 
         traceback.print_exc()
 

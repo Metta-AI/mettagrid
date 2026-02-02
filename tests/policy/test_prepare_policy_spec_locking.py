@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def _load_policy_spec_worker(submission_dir: str) -> None:
-    from mettagrid.policy.prepare_policy_spec import load_policy_spec_from_path
+    from mettagrid.policy.prepare_policy_spec import load_policy_spec_from_path  # noqa: PLC0415
 
     load_policy_spec_from_path(Path(submission_dir))
 

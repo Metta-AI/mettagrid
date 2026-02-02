@@ -86,7 +86,7 @@ def test_effective_limit_min_floor():
     because Python's set_inventory uses unordered_map iteration which has
     undefined order when setting multiple items that depend on each other.
     """
-    from mettagrid.simulator import Action
+    from mettagrid.simulator import Action  # noqa: PLC0415
 
     cfg = MettaGridConfig(
         game=GameConfig(
@@ -128,7 +128,7 @@ def test_effective_limit_max_cap():
     With min=100 (no modifiers), max=50:
     - effective = min(50, max(100, 0)) = min(50, 100) = 50
     """
-    from mettagrid.simulator import Action
+    from mettagrid.simulator import Action  # noqa: PLC0415
 
     cfg = MettaGridConfig(
         game=GameConfig(
