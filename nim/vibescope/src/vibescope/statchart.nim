@@ -1,7 +1,7 @@
 ## Generic stacked area chart for per-collective stats over time.
 ## Displays a normalized stacked area chart showing the relative share
 ## of a stat across collectives at each timestep.
-## Includes "neutral" as a virtual collective for unaligned objects.
+## Normalizes by total held across all teams (excludes unaligned).
 
 import
   std/[tables, strformat],
@@ -13,7 +13,6 @@ const
   MaxStatChartHeight* = 200f
   BackgroundColor = parseHtmlColor("#1A2A3A").rgbx
   PositionLineColor = rgbx(255, 255, 255, 200)
-  NeutralColor = parseHtmlColor("#808080").color  # Grey for neutral
   DragHandleHeight = 6f  # Height of the drag handle at the top
   DragHandleColor = parseHtmlColor("#3A4A5A").rgbx
 
@@ -28,11 +27,10 @@ proc StatChartHeight*(): float32 =
 
 type
   StatChart* = object
-    statName*: string       ## e.g. "aligned.junction"
-    objectType*: string     ## e.g. "junction" - used to count total objects
+    statName*: string       ## e.g. "aligned.junction.held"
+    objectType*: string     ## e.g. "junction" - for display purposes
     label*: string          ## display label for tooltip
     # Cached series: [collectiveIdx][step] = normalized value (0..1)
-    # Index 0 is always "neutral", rest are collectives
     collectiveNames*: seq[string]
     cachedStacked*: seq[seq[float32]]  ## [collectiveIdx][step] = cumulative top edge (0..1)
     lastReplayPtr: pointer
@@ -47,17 +45,10 @@ proc newStatChart*(statName, objectType, label: string): StatChart =
     lastMaxSteps: 0,
   )
 
-proc countObjectsOfType(objectType: string): int =
-  ## Count objects of a given type in the replay.
-  if replay.isNil:
-    return 0
-  for obj in replay.objects:
-    if obj.typeName == objectType and obj.removedAtStep < 0:
-      result += 1
-
 proc rebuildCache(chart: var StatChart) =
   ## Rebuild the cached stacked series from replay data.
-  ## Includes neutral as index 0, then collectives.
+  ## Only includes collectives (no neutral/unaligned).
+  ## Normalizes by total held across all collectives at each step.
   chart.collectiveNames = @[]
   chart.cachedStacked = @[]
 
@@ -65,27 +56,23 @@ proc rebuildCache(chart: var StatChart) =
     return
 
   let numCollectives = getNumCollectives()
+  if numCollectives == 0:
+    return
 
-  # Always include neutral first, then collectives.
-  chart.collectiveNames.add("neutral")
+  # Only include collectives (no neutral).
   for i in 0 ..< numCollectives:
     chart.collectiveNames.add(getCollectiveName(i))
 
-  let totalSlots = numCollectives + 1  # +1 for neutral
   let maxSteps = replay.maxSteps
   if maxSteps <= 0:
     return
 
-  # Count total objects of the tracked type.
-  let totalObjects = countObjectsOfType(chart.objectType).float32
-
-  # Build raw values: [slotIdx][step] = stat value
-  # Index 0 = neutral, Index 1+ = collectives
-  var raw: seq[seq[float32]] = newSeq[seq[float32]](totalSlots)
-  for i in 0 ..< totalSlots:
+  # Build raw values: [collectiveIdx][step] = stat value
+  var raw: seq[seq[float32]] = newSeq[seq[float32]](numCollectives)
+  for i in 0 ..< numCollectives:
     raw[i] = newSeq[float32](maxSteps)
 
-  # Fill from snapshots for each collective (indices 1+).
+  # Fill from snapshots for each collective.
   for i in 0 ..< numCollectives:
     let name = getCollectiveName(i)
     if name notin replay.collectiveStats:
@@ -98,26 +85,19 @@ proc rebuildCache(chart: var StatChart) =
         if chart.statName in snapshots[snapshotIdx].stats:
           currentValue = snapshots[snapshotIdx].stats[chart.statName].float32
         snapshotIdx += 1
-      raw[i + 1][s] = currentValue  # +1 because index 0 is neutral
+      raw[i][s] = currentValue
 
-  # Compute neutral = total - sum(all collectives).
-  for s in 0 ..< maxSteps:
-    var alignedSum: float32 = 0
-    for i in 1 ..< totalSlots:
-      alignedSum += raw[i][s]
-    raw[0][s] = max(0, totalObjects - alignedSum)
-
-  # Normalize and compute cumulative stacked values.
-  chart.cachedStacked = newSeq[seq[float32]](totalSlots)
-  for i in 0 ..< totalSlots:
+  # Normalize by total held across all collectives and compute cumulative stacked values.
+  chart.cachedStacked = newSeq[seq[float32]](numCollectives)
+  for i in 0 ..< numCollectives:
     chart.cachedStacked[i] = newSeq[float32](maxSteps)
 
   for s in 0 ..< maxSteps:
     var total: float32 = 0
-    for i in 0 ..< totalSlots:
+    for i in 0 ..< numCollectives:
       total += raw[i][s]
     var cumulative: float32 = 0
-    for i in 0 ..< totalSlots:
+    for i in 0 ..< numCollectives:
       let normalized = if total > 0: raw[i][s] / total else: 0
       cumulative += normalized
       chart.cachedStacked[i][s] = cumulative
@@ -206,8 +186,8 @@ proc drawStatChart*(chart: var StatChart, pos, size: Vec2) =
         let y1 = barPos.y + barSize.y * (1.0 - prevY)
         let bandHeight = y1 - y0
         if bandHeight > 0.5:
-          # Index 0 is neutral (grey), rest use collective colors.
-          let aoeColor = if i == 0: NeutralColor else: getAoeColor(i - 1)
+          # Use collective colors directly (no neutral).
+          let aoeColor = getAoeColor(i)
           let col = rgbx(
             (aoeColor.r * 255).uint8,
             (aoeColor.g * 255).uint8,

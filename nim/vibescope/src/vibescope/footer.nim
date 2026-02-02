@@ -51,6 +51,12 @@ proc drawFooter*(pos, size: Vec2) =
           clickableIcon("ui/speed", playSpeed >= speed):
             playSpeed = speed
 
+    # Display current step / total steps next to speed controls.
+    sk.at = pos + vec2(size.x/2 + 100, 20)
+    let totalSteps = configMaxSteps()
+    let label = $step & " / " & $totalSteps
+    text(label)
+
     sk.at = pos + vec2(size.x - 280, 16)
     group(vec2(0, 0), LeftToRight):
       clickableIcon("ui/tack", settings.lockFocus):
