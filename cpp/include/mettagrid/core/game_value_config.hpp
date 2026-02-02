@@ -7,7 +7,8 @@
 enum class GameValueType : uint8_t {
   INVENTORY,
   STAT,
-  TAG_COUNT
+  TAG_COUNT,
+  CONST
 };
 enum class GameValueScope : uint8_t {
   AGENT,
@@ -20,7 +21,8 @@ struct GameValueConfig {
   GameValueScope scope = GameValueScope::AGENT;
   uint16_t id = 0;  // resource_id, stat_id, or tag_id
   bool delta = false;
-  std::string stat_name;  // For STAT type: resolved to ID at C++ init time
+  std::string stat_name;     // For STAT type: resolved to ID at C++ init time
+  float const_value = 0.0f;  // For CONST type: the constant value to return
 };
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GAME_VALUE_CONFIG_HPP_

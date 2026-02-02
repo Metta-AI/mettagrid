@@ -507,14 +507,14 @@ class TestEventSchedulerIntegration:
             f"but {walls_with_new_collective} walls changed"
         )
 
-    def test_max_targets_zero_means_unlimited(self):
-        """Test that max_targets=0 means unlimited (all matching objects affected)."""
+    def test_max_targets_none_means_unlimited(self):
+        """Test that max_targets=None means unlimited (all matching objects affected)."""
         from mettagrid.config.mettagrid_config import WallConfig
         from mettagrid.map_builder.ascii import AsciiMapBuilder
         from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
         from mettagrid.simulator import Simulation
 
-        # Create config with 4 walls, event has max_targets=0 (unlimited)
+        # Create config with 4 walls, event has max_targets=None (unlimited)
         config = MettaGridConfig(
             game=GameConfig(
                 num_agents=1,
@@ -536,7 +536,7 @@ class TestEventSchedulerIntegration:
                         timesteps=[10],
                         filters=[hasTag(Tag("target_wall"))],
                         mutations=[alignTo("clips")],
-                        max_targets=0,  # 0 means unlimited
+                        max_targets=None,  # None means unlimited
                     ),
                 },
                 map_builder=AsciiMapBuilder.Config(
@@ -572,7 +572,7 @@ class TestEventSchedulerIntegration:
         walls_with_new_collective = sum(1 for wall in walls if wall.get("collective_id") != initial_collective_id)
 
         assert walls_with_new_collective == 4, (
-            f"Expected all 4 walls to change collective (max_targets=0 = unlimited), "
+            f"Expected all 4 walls to change collective (max_targets=None = unlimited), "
             f"but only {walls_with_new_collective} walls changed"
         )
 

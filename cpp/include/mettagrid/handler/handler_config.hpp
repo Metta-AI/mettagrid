@@ -172,8 +172,8 @@ struct RemoveTagMutationConfig {
 
 struct GameValueMutationConfig {
   GameValueConfig value;
-  float delta = 0.0f;
-  EntityRef entity = EntityRef::target;
+  EntityRef target = EntityRef::target;
+  GameValueConfig source;  // Source of the delta (CONST for static, or any GameValue for dynamic)
 };
 
 // Variant type for all mutation configs

@@ -14,6 +14,7 @@ class GameValueType(Enum):
     INVENTORY = ...
     STAT = ...
     TAG_COUNT = ...
+    CONST = ...
 
 class GameValueScope(Enum):
     """Scope of game value."""
@@ -29,6 +30,7 @@ class GameValueConfig:
     id: int
     delta: bool
     stat_name: str
+    const_value: float
 
 # Handler enums from handler_config.hpp
 
@@ -249,12 +251,12 @@ class GameValueMutationConfig:
     def __init__(
         self,
         value: GameValueConfig = ...,
-        delta: float = 0.0,
-        entity: EntityRef = ...,
+        target: EntityRef = ...,
+        source: GameValueConfig = ...,
     ) -> None: ...
     value: GameValueConfig
-    delta: float
-    entity: EntityRef
+    target: EntityRef
+    source: GameValueConfig
 
 class RemoveTagMutationConfig:
     def __init__(

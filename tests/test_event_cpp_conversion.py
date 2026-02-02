@@ -81,8 +81,8 @@ class TestEventCppConversion:
         cpp_event = cpp_config.events["test_event"]
         assert cpp_event.max_targets == 5, f"max_targets should be 5 in C++ config, got {cpp_event.max_targets}"
 
-    def test_max_targets_zero_passed_to_cpp(self):
-        """Test that max_targets=0 (unlimited) is properly passed to C++."""
+    def test_max_targets_none_passed_to_cpp_as_zero(self):
+        """Test that max_targets=None (unlimited) is converted to 0 in C++."""
         events = {
             "unlimited_event": EventConfig(
                 name="unlimited_event",
@@ -90,7 +90,7 @@ class TestEventCppConversion:
                 timesteps=[10],
                 filters=[isA("wall")],
                 mutations=[alignTo("clips")],
-                max_targets=0,
+                max_targets=None,
             ),
         }
 
@@ -98,27 +98,6 @@ class TestEventCppConversion:
         cpp_config = convert_to_cpp_game_config(game_config)
 
         cpp_event = cpp_config.events["unlimited_event"]
-        assert cpp_event.max_targets == 0, f"max_targets=0 (unlimited) should be preserved, got {cpp_event.max_targets}"
-
-    def test_max_targets_none_converted_to_zero(self):
-        """Test that max_targets=None is converted to 0 (unlimited) in C++."""
-        # Create event dict directly to bypass Python validation
-        events = {
-            "none_event": EventConfig(
-                name="none_event",
-                target_tag="type:wall",
-                timesteps=[10],
-                filters=[isA("wall")],
-                mutations=[alignTo("clips")],
-            ),
-        }
-        # Manually set to None to simulate legacy configs
-        events["none_event"].max_targets = None  # type: ignore
-
-        game_config = self._create_game_config_with_events(events)
-        cpp_config = convert_to_cpp_game_config(game_config)
-
-        cpp_event = cpp_config.events["none_event"]
         assert cpp_event.max_targets == 0, f"max_targets=None should convert to 0, got {cpp_event.max_targets}"
 
     def test_timesteps_passed_to_cpp(self):
