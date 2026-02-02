@@ -37,10 +37,27 @@ NIM_PACKAGES = {
 }
 
 
-def cmd(cmd_str: str, *, cwd: Path, max_attempts: int = 1) -> None:
+# Nimby uses a global lock directory at ~/.nimby/nimbylock (created atomically via mkdir).
+# The lock path is hardcoded in nimby -- there's no CLI flag or env var to change it.
+# When nimby crashes (e.g. "Bad file descriptor" during vibescope's nimby sync), the lock
+# is left behind and all subsequent nimby invocations fail with "Nimby is already running".
+_NIMBY_LOCK = Path.home() / ".nimby" / "nimbylock"
+
+
+def _cleanup_nimby_lock() -> None:
+    if not _NIMBY_LOCK.exists():
+        return
+    print(f"Removing nimby lock left behind by crashed process: {_NIMBY_LOCK}")
+    # Lock is a directory (mkdir-based), not a file
+    shutil.rmtree(_NIMBY_LOCK, ignore_errors=True)
+
+
+def cmd(args: list[str], *, cwd: Path, max_attempts: int = 1) -> None:
     for attempt in range(1, max_attempts + 1):
-        print(f"Running: {cmd_str}")
-        result = subprocess.run(cmd_str.split(), cwd=cwd, capture_output=True, text=True)
+        if args[0] == "nimby":
+            _cleanup_nimby_lock()
+        print(f"Running: {args}")
+        result = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
         print(result.stderr, file=sys.stderr)
         print(result.stdout, file=sys.stderr)
 
@@ -52,7 +69,7 @@ def cmd(cmd_str: str, *, cwd: Path, max_attempts: int = 1) -> None:
             print(f"Attempt {attempt}/{max_attempts} failed, retrying in {wait}s...")
             time.sleep(wait)
 
-    raise RuntimeError(f"Mettascope build failed: {cmd_str}")
+    raise RuntimeError(f"Build failed: {args}")
 
 
 def _run_bazel_build() -> None:
@@ -218,8 +235,8 @@ def _run_nim_build(name: str, nim_dir: Path, package_dir: Path, *, copy_bindings
 
     print(f"Building {name} from {nim_dir}")
 
-    cmd("nimby sync -g nimby.lock", cwd=nim_dir, max_attempts=3)
-    cmd("nim c --skipProjCfg:on bindings/bindings.nim", cwd=nim_dir)
+    cmd(["nimby", "sync", "-g", "nimby.lock"], cwd=nim_dir, max_attempts=3)
+    cmd(["nim", "c", "--skipProjCfg:on", "bindings/bindings.nim"], cwd=nim_dir)
 
     print(f"Successfully built {name}")
     if not copy_bindings:
