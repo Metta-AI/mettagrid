@@ -798,6 +798,36 @@ proc centerAt*(zoomInfo: ZoomInfo, entity: Entity) =
   zoomInfo.pos.x = rectW / 2.0f - location.x.float32 * z
   zoomInfo.pos.y = rectH / 2.0f - location.y.float32 * z
 
+proc drawCogNameLabels*(zoomInfo: ZoomInfo) =
+  ## Draw cog name labels above agents in screen space (call after endPanAndZoom).
+  if replay.isNil or replay.agents.len == 0 or utils.typeface.isNil:
+    return
+  let numAgents = replay.agents.len
+  let fontSize = 11.0f
+  let z = zoomInfo.zoom * zoomInfo.zoom
+  for i in 0 ..< numAgents:
+    let agent = replay.agents[i]
+    let name = getCogName(agent.agentId)
+    if name.len == 0:
+      continue
+    let pos = agent.location.at(step).xy
+    # Convert world position to screen position using zoom info.
+    let screenX = pos.x.float32 * z + zoomInfo.pos.x
+    let screenY = pos.y.float32 * z + zoomInfo.pos.y
+    let textSize = measureText(name, fontSize, utils.typeface)
+    if textSize.x <= 0 or textSize.y <= 0:
+      continue
+    let labelPos = vec2(screenX + z * 0.5 - textSize.x * 0.5, screenY - textSize.y - 2)
+    let imageKey = "cogname_" & $agent.agentId
+    bxy.drawText(
+      imageKey,
+      translate(labelPos),
+      utils.typeface,
+      name,
+      fontSize,
+      color(1, 1, 1, 1)
+    )
+
 proc drawWorldMain*() =
   ## Draw the world map.
   drawTerrain()
@@ -1001,3 +1031,5 @@ proc drawWorldMap*(zoomInfo: ZoomInfo) =
     drawWorldMain()
 
   zoomInfo.endPanAndZoom()
+
+  drawCogNameLabels(zoomInfo)

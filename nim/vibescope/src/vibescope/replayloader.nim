@@ -27,6 +27,9 @@ proc onReplayLoaded*() =
 
   needsInitialFit = true
 
+  # Assign random cog names to agents.
+  assignCogNames()
+
   let config = loadConfig()
   applyUIState(config)
 
