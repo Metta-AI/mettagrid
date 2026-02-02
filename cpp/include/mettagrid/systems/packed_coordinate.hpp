@@ -33,6 +33,11 @@ constexpr uint8_t ROW_MASK = 0xF0;
 // Maximum coordinate value that can be packed (4 bits = 0-14)
 constexpr uint8_t MAX_PACKABLE_COORD = 14;
 
+// Special location byte for global observation tokens (non-spatial, agent-wide state).
+// Uses 0xFE which unpacks to (row=15, col=14) - outside valid 0-14 coordinate range.
+// Distinct from 0xFF (empty token marker).
+constexpr uint8_t GLOBAL_LOCATION = 0xFE;
+
 /**
  * Pack grid coordinates into a single byte.
  *
@@ -51,13 +56,13 @@ inline uint8_t pack(uint8_t row, uint8_t col) {
 }
 
 /**
- * Unpack byte into coordinates with empty handling.
+ * Unpack byte into coordinates with empty/global handling.
  *
  * @param packed Packed coordinate byte
- * @return std::optional<std::pair<row, col>> or std::nullopt if empty
+ * @return std::optional<std::pair<row, col>> or std::nullopt if empty or global
  */
 inline std::optional<std::pair<uint8_t, uint8_t>> unpack(uint8_t packed) {
-  if (packed == EmptyTokenByte) {
+  if (packed == EmptyTokenByte || packed == GLOBAL_LOCATION) {
     return std::nullopt;
   }
   uint8_t row = (packed & ROW_MASK) >> ROW_SHIFT;
@@ -69,6 +74,14 @@ inline std::optional<std::pair<uint8_t, uint8_t>> unpack(uint8_t packed) {
  */
 inline bool is_empty(uint8_t packed_data) {
   return packed_data == EmptyTokenByte;
+}
+
+/**
+ * Check if a packed coordinate represents the global token location.
+ * Global tokens are non-spatial observation tokens (episode_completion_pct, last_action, etc.)
+ */
+inline bool is_global(uint8_t packed_data) {
+  return packed_data == GLOBAL_LOCATION;
 }
 
 struct ObservationPattern {
@@ -150,6 +163,7 @@ inline void bind_packed_coordinate(py::module& m) {
 
   // Constants
   pc_m.attr("MAX_PACKABLE_COORD") = PackedCoordinate::MAX_PACKABLE_COORD;
+  pc_m.attr("GLOBAL_LOCATION") = PackedCoordinate::GLOBAL_LOCATION;
 
   // Functions
   pc_m.def("pack", &PackedCoordinate::pack, py::arg("row"), py::arg("col"));
@@ -166,6 +180,7 @@ inline void bind_packed_coordinate(py::module& m) {
       py::arg("packed"));
 
   pc_m.def("is_empty", &PackedCoordinate::is_empty, py::arg("packed"));
+  pc_m.def("is_global", &PackedCoordinate::is_global, py::arg("packed"));
 }
 
 }  // namespace PackedCoordinate

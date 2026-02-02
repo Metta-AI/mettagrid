@@ -12,7 +12,9 @@ from mettagrid.config.mettagrid_config import (
     ObsConfig,
     WallConfig,
 )
+from mettagrid.mettagrid_c import PackedCoordinate
 from mettagrid.simulator import Action, Simulation
+from mettagrid.test_support import ObservationHelper
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
 
 
@@ -146,3 +148,117 @@ def test_global_obs_default_values():
     assert "episode_completion_pct" in global_obs_data, "Should have episode_completion_pct by default"
     assert "last_action" in global_obs_data, "Should have last_action by default"
     assert "last_reward" in global_obs_data, "Should have last_reward by default"
+
+
+def test_global_tokens_use_global_location():
+    """Test that global tokens are emitted at GLOBAL_LOCATION (0xFE), not center."""
+    global_obs = {"episode_completion_pct": True, "last_action": True, "last_reward": True}
+    sim = create_test_sim(global_obs)
+    helper = ObservationHelper()
+
+    obs = sim._c_sim.observations()
+
+    for i in range(sim.num_agents):
+        # All global tokens should be at GLOBAL_LOCATION (0xFE)
+        global_tokens = helper.find_global_tokens(obs[i])
+        assert global_tokens.shape[0] == 3, f"Expected 3 global tokens, got {global_tokens.shape[0]}"
+
+        # Verify all global tokens have location 0xFE
+        for token in global_tokens:
+            assert token[0] == PackedCoordinate.GLOBAL_LOCATION, f"Global token should be at 0xFE, got {hex(token[0])}"
+
+
+def test_global_tokens_distinct_from_center():
+    """Test that global tokens are NOT at center position."""
+    global_obs = {"episode_completion_pct": True, "last_action": True, "last_reward": True}
+    sim = create_test_sim(global_obs)
+    helper = ObservationHelper()
+
+    obs = sim._c_sim.observations()
+    center_row = sim.config.game.obs.height // 2
+    center_col = sim.config.game.obs.width // 2
+    center_packed = PackedCoordinate.pack(center_row, center_col)
+
+    for i in range(sim.num_agents):
+        # Global tokens should NOT be at center
+        global_tokens = helper.find_global_tokens(obs[i])
+        for token in global_tokens:
+            assert token[0] != center_packed, "Global tokens should not be at center position"
+
+
+def test_global_observation_tokens_method():
+    """Test the global_observation_tokens() method on SimulationAgent."""
+    global_obs = {"episode_completion_pct": True, "last_action": True, "last_reward": True}
+    sim = create_test_sim(global_obs)
+
+    for i in range(sim.num_agents):
+        agent = sim.agent(i)
+        global_tokens = agent.global_observation_tokens()
+
+        # Should have 3 global tokens
+        assert len(global_tokens) == 3, f"Expected 3 global tokens, got {len(global_tokens)}"
+
+        # All tokens should be marked as global
+        for token in global_tokens:
+            assert token.is_global, "Token from global_observation_tokens() should be global"
+            assert token.location is None, "Global token should have None location"
+
+
+def test_self_observation_excludes_global_tokens():
+    """Test that self_observation() does NOT include global tokens."""
+    global_obs = {"episode_completion_pct": True, "last_action": True, "last_reward": True}
+    sim = create_test_sim(global_obs)
+
+    for i in range(sim.num_agents):
+        agent = sim.agent(i)
+        self_tokens = agent.self_observation()
+
+        # None of the self_observation tokens should be global
+        for token in self_tokens:
+            assert not token.is_global, f"self_observation() should not include global tokens, got {token.feature.name}"
+
+
+def test_observation_helper_is_global_filter():
+    """Test ObservationHelper find_tokens with is_global filter."""
+    global_obs = {"episode_completion_pct": True, "last_action": True, "last_reward": True}
+    sim = create_test_sim(global_obs)
+    helper = ObservationHelper()
+
+    obs = sim._c_sim.observations()
+
+    for i in range(sim.num_agents):
+        # Find only global tokens
+        global_only = helper.find_tokens(obs[i], is_global=True)
+        assert global_only.shape[0] == 3, "Expected 3 global tokens with is_global=True"
+
+        # Find only non-global tokens (spatial) - note: this doesn't filter empty tokens
+        spatial_only = helper.find_tokens(obs[i], is_global=False)
+        non_empty_spatial = [t for t in spatial_only if t[0] != 0xFF]
+        for token in non_empty_spatial:
+            assert token[0] != PackedCoordinate.GLOBAL_LOCATION, "is_global=False should exclude global tokens"
+
+
+def test_local_position_tokens_are_global():
+    """Test that local position tokens (lp:north, etc.) are at GLOBAL_LOCATION."""
+    global_obs = {"episode_completion_pct": False, "last_action": False, "last_reward": False, "local_position": True}
+    sim = create_test_sim(global_obs)
+    helper = ObservationHelper()
+
+    # Get feature IDs for local position features
+    id_map = sim.config.game.id_map()
+    lp_feature_ids = []
+    for name in ["lp:north", "lp:south", "lp:east", "lp:west"]:
+        try:
+            lp_feature_ids.append(id_map.feature_id(name))
+        except KeyError:
+            pass  # Feature may not exist if agent hasn't moved
+
+    obs = sim._c_sim.observations()
+
+    for i in range(sim.num_agents):
+        global_tokens = helper.find_global_tokens(obs[i])
+
+        # Any local position tokens should be global
+        for token in global_tokens:
+            if token[1] in lp_feature_ids:
+                assert token[0] == PackedCoordinate.GLOBAL_LOCATION, "Local position token should be at GLOBAL_LOCATION"

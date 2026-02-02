@@ -131,6 +131,15 @@ class TestPackedCoordinate:
         assert not PackedCoordinate.is_empty(0xE0)
         assert not PackedCoordinate.is_empty(0xEE)
 
+        # Test global location/0xFE handling
+        assert PackedCoordinate.GLOBAL_LOCATION == 0xFE
+        assert PackedCoordinate.is_global(0xFE)
+        assert PackedCoordinate.unpack(0xFE) is None  # Global location is not a valid spatial coordinate
+        assert not PackedCoordinate.is_global(0x00)
+        assert not PackedCoordinate.is_global(0x55)  # Center position is not global
+        assert not PackedCoordinate.is_global(0xFF)  # Empty is not global
+        assert not PackedCoordinate.is_empty(0xFE)  # Global is not empty
+
         # Test invalid coordinates
         invalid_coords = [(15, 0), (0, 15), (15, 15), (16, 0), (0, 16), (255, 255)]
         for row, col in invalid_coords:

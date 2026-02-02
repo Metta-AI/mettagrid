@@ -91,11 +91,10 @@ protected:
         {"last_reward", 4},
         {"goal", 5},
         {"vibe", 6},
-        {"agent:compass", 7},
-        {"tag", 8},
-        {"cooldown_remaining", 9},
-        {"remaining_uses", 10},
-        {"collective", 11},
+        {"tag", 7},
+        {"cooldown_remaining", 8},
+        {"remaining_uses", 9},
+        {"collective", 10},
     };
     ObservationFeature::Initialize(feature_ids);
   }

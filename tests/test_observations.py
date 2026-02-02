@@ -99,11 +99,8 @@ class TestObservations:
         basic_sim = Simulation(cfg)
         obs = basic_sim._c_sim.observations()
 
-        # global token is always at the center of the observation window
-        obs_half_height = basic_sim.config.game.obs.height // 2
-        obs_half_width = basic_sim.config.game.obs.width // 2
-        global_token_location = PackedCoordinate.pack(obs_half_height, obs_half_width)
-
+        # Global tokens use a dedicated location marker (0xFE)
+        global_token_location = PackedCoordinate.GLOBAL_LOCATION
         # Test center-aligned global tokens
         for agent_idx in range(basic_sim.num_agents):
             for token_idx in range(3):
@@ -250,20 +247,11 @@ class TestGlobalTokens:
         last_reward_feature_id = basic_sim.config.game.id_map().feature_id("last_reward")
         helper = ObservationHelper()
 
-        # Global tokens are at the center of the observation window
-        global_x = basic_sim.config.game.obs.width // 2
-        global_y = basic_sim.config.game.obs.height // 2
-
-        # Check token types and values
-        assert helper.find_token_values(
-            obs[0], location=xy(global_x, global_y), feature_id=episode_completion_pct_feature_id
-        ) == [0]
-        assert helper.find_token_values(obs[0], location=xy(global_x, global_y), feature_id=last_action_feature_id) == [
-            0
-        ]
-        assert helper.find_token_values(obs[0], location=xy(global_x, global_y), feature_id=last_reward_feature_id) == [
-            0
-        ]
+        # Global tokens use a dedicated location marker (0xFE)
+        # Check token types and values using the global token finder
+        assert helper.find_token_values(obs[0], feature_id=episode_completion_pct_feature_id, is_global=True) == [0]
+        assert helper.find_token_values(obs[0], feature_id=last_action_feature_id, is_global=True) == [0]
+        assert helper.find_token_values(obs[0], feature_id=last_reward_feature_id, is_global=True) == [0]
 
     def test_global_tokens_update(self):
         """Test that global tokens update correctly."""
@@ -301,9 +289,7 @@ class TestGlobalTokens:
         obs = env._c_sim.observations()
         helper = ObservationHelper()
 
-        # Global tokens are at the center of the observation window
-        global_x = env.config.game.obs.width // 2
-        global_y = env.config.game.obs.height // 2
+        # Global tokens use a dedicated location marker (0xFE)
 
         # Take a noop action
         for agent_id in range(env.num_agents):
@@ -314,16 +300,14 @@ class TestGlobalTokens:
         # Check episode completion updated (1/10 = 10%)
         expected_completion = int(0.1 * 256)
         completion_values = helper.find_token_values(
-            obs[0], location=xy(global_x, global_y), feature_id=episode_completion_pct_feature_id
+            obs[0], feature_id=episode_completion_pct_feature_id, is_global=True
         )
         assert completion_values == [expected_completion], (
             f"Expected completion {expected_completion}, got {completion_values}"
         )
 
         # Check last action - verify it's the noop action
-        last_action = helper.find_token_values(
-            obs[0], location=xy(global_x, global_y), feature_id=last_action_feature_id
-        )
+        last_action = helper.find_token_values(obs[0], feature_id=last_action_feature_id, is_global=True)
         assert last_action == env.action_names.index("noop"), f"Expected noop action, got {last_action}"
 
         # Take a move action
@@ -335,13 +319,11 @@ class TestGlobalTokens:
         # Check updates
         expected_completion = int(round(0.2 * 255))
         completion_value = helper.find_token_values(
-            obs[0], location=xy(global_x, global_y), feature_id=episode_completion_pct_feature_id
+            obs[0], feature_id=episode_completion_pct_feature_id, is_global=True
         )
         assert completion_value == expected_completion
 
-        last_action = helper.find_token_values(
-            obs[0], location=xy(global_x, global_y), feature_id=last_action_feature_id
-        )
+        last_action = helper.find_token_values(obs[0], feature_id=last_action_feature_id, is_global=True)
         assert last_action == env.action_names.index("move_south"), f"Expected move_south action, got {last_action}"
 
         # take a bunch more steps and check episode completion.
@@ -349,7 +331,7 @@ class TestGlobalTokens:
             env.step()
         expected_completion = 255
         completion_values = helper.find_token_values(
-            obs[0], location=xy(global_x, global_y), feature_id=episode_completion_pct_feature_id
+            obs[0], feature_id=episode_completion_pct_feature_id, is_global=True
         )
         assert completion_values == [expected_completion], (
             f"Expected completion {expected_completion}, got {completion_values}"

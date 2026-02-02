@@ -30,21 +30,31 @@ class ObservationToken:
     raw_token: tuple[int, int, int]
 
     @property
-    def location(self) -> Location:
-        # PackedCoordinate.unpack returns None for 0xFF (the empty token marker).
-        # In practice this shouldn't happen: tokens with feature_id=0xFF are filtered
-        # out during observation parsing (see SimulationAgent.observation), so we
-        # should never have an ObservationToken with an empty location byte.
+    def is_global(self) -> bool:
+        """Check if this token is a global observation (non-spatial, agent-wide state).
+
+        Global tokens use a dedicated location marker (0xFE) distinct from spatial coordinates.
+        """
+        return PackedCoordinate.is_global(self.raw_token[0])
+
+    @property
+    def location(self) -> Location | None:
+        """Get the spatial location of this token, or None for global/empty tokens.
+
+        PackedCoordinate.unpack returns None for 0xFF (empty) and 0xFE (global).
+        """
         unpacked = PackedCoordinate.unpack(self.raw_token[0])
         if unpacked is None:
-            return Location(0, 0)
+            return None
         return Location(*unpacked)
 
-    def row(self) -> int:
-        return self.location.row
+    def row(self) -> int | None:
+        loc = self.location
+        return loc.row if loc else None
 
-    def col(self) -> int:
-        return self.location.col
+    def col(self) -> int | None:
+        loc = self.location
+        return loc.col if loc else None
 
 
 @dataclass

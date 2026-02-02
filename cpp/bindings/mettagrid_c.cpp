@@ -393,9 +393,9 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
     }
   }
 
-  // Global tokens are always at the center of the observation.
-  uint8_t global_location =
-      PackedCoordinate::pack(static_cast<uint8_t>(obs_height_radius), static_cast<uint8_t>(obs_width_radius));
+  // Global tokens use a dedicated location marker (0xFE) distinct from spatial coordinates.
+  // This allows policies to easily identify global vs spatial tokens by position alone.
+  uint8_t global_location = PackedCoordinate::GLOBAL_LOCATION;
 
   attempted_tokens_written +=
       _obs_encoder->append_tokens_if_room_available(agent_obs_tokens, global_tokens, global_location);

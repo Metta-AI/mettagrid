@@ -62,7 +62,6 @@ protected:
         {"last_reward", 10},
         {"vibe", 11},
         {"agent:vibe", 12},
-        {"agent:compass", 14},
         {"tag", 15},
         {"cooldown_remaining", 16},
         {"remaining_uses", 17},

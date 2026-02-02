@@ -64,15 +64,17 @@ def _get_lp_tokens(sim: Simulation, obs, agent_idx: int = 0) -> dict[str, int]:
 
     Returns a dict like {"lp:east": 3, "lp:north": 5} with only the
     non-zero directions present.
+
+    Local position tokens are global tokens (at GLOBAL_LOCATION = 0xFE).
     """
     helper = ObservationHelper()
     id_map = sim.config.game.id_map()
-    center = xy(sim.config.game.obs.width // 2, sim.config.game.obs.height // 2)
 
     result = {}
     for name in ("lp:east", "lp:west", "lp:north", "lp:south"):
         fid = id_map.feature_id(name)
-        values = helper.find_token_values(obs[agent_idx], location=center, feature_id=fid)
+        # Local position tokens are global tokens (at GLOBAL_LOCATION)
+        values = helper.find_token_values(obs[agent_idx], feature_id=fid, is_global=True)
         if len(values) > 0:
             result[name] = int(values[0])
     return result

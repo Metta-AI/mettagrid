@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 
@@ -14,7 +15,7 @@ from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.map_builder.map_builder import GameMap, HasSeed, MapBuilderConfig
 from mettagrid.mettagrid_c import MettaGrid as MettaGridCpp
 from mettagrid.profiling.stopwatch import Stopwatch, with_instance_timer
-from mettagrid.simulator.interface import AgentObservation, ObservationToken, SimulatorEventHandler
+from mettagrid.simulator.interface import AgentObservation, Location, ObservationToken, SimulatorEventHandler
 from mettagrid.simulator.map_cache import SharedMapCache, get_shared_cache
 from mettagrid.types import Action
 
@@ -389,16 +390,17 @@ class SimulationAgent:
         return self._sim._c_sim.action_success()[self._agent_id]
 
     def self_observation(self) -> list[ObservationToken]:
-        """Get observation tokens for the agent itself.
+        """Get observation tokens for the agent itself at its center position.
 
         These are tokens at the agent's center position in the observation window,
-        including inventory, global observations, and other agent-specific features.
+        including inventory and other agent-specific features. Does NOT include
+        global observation tokens (which use a separate location marker).
         """
         obs = self.observation
 
         # Agent's own tokens are at the center of the observation window
         c_sim = self._sim._c_sim
-        center = (c_sim.obs_height // 2, c_sim.obs_width // 2)
+        center = Location(c_sim.obs_height // 2, c_sim.obs_width // 2)
 
         return [token for token in obs.tokens if token.location == center]
 
@@ -416,8 +418,6 @@ class SimulationAgent:
         - etc.
         The full value is reconstructed as: base + p1 * B + p2 * B^2 + ... where B = token_value_base
         """
-        import re
-
         token_value_base = self._sim._config.game.obs.token_value_base
 
         # Collect tokens by resource name and power
@@ -450,30 +450,62 @@ class SimulationAgent:
 
         return inv
 
+    def global_observation_tokens(self) -> list[ObservationToken]:
+        """Get global observation tokens (non-spatial, agent-wide state).
+
+        Global tokens use a dedicated location marker (0xFE) distinct from spatial coordinates.
+        This includes features like episode_completion_pct, last_action, last_reward, and
+        local position observations.
+
+        Returns a list of ObservationToken objects at the global location.
+        """
+        obs = self.observation
+        return [token for token in obs.tokens if token.is_global]
+
     @property
     def global_observations(self) -> Dict[str, int]:
-        """Get global observation tokens from observations.
+        """Get global observation tokens as a dictionary.
 
-        Global observation tokens appear at the agent's center position in the observation window,
-        along with agent-specific observations. This includes features like episode_completion_pct,
-        last_action, and last_reward.
+        Global observation tokens use a dedicated location marker (0xFE) distinct from
+        spatial coordinates. This includes features like episode_completion_pct, last_action,
+        last_reward, and local position observations.
+
+        Values may be encoded using multi-token encoding (same scheme as inventory):
+        - base_name contains the base value (amount % token_value_base)
+        - base_name:p1 contains power 1 ((amount / token_value_base) % token_value_base)
+        - etc.
+        The full value is reconstructed as: base + p1 * B + p2 * B^2 + ... where B = token_value_base
 
         Returns a dictionary mapping feature names to their values.
         """
+        token_value_base = self._sim._config.game.obs.token_value_base
+
+        # Collect tokens by base feature name and power
+        obs_values: Dict[str, Dict[int, int]] = {}  # feature_name -> {power -> value}
+
+        for token in self.global_observation_tokens():
+            name = token.feature.name
+
+            # Check for :pN power suffix (multi-token encoding)
+            match = re.match(r"^(.+):p(\d+)$", name)
+            if match:
+                base_name = match.group(1)
+                power = int(match.group(2))
+            else:
+                base_name = name
+                power = 0
+
+            if base_name not in obs_values:
+                obs_values[base_name] = {}
+            obs_values[base_name][power] = token.value
+
+        # Reconstruct full values from base and power tokens
         global_obs = {}
-        obs = self.observation
-
-        # Global observation feature names
-        global_feature_names = {
-            "episode_completion_pct",
-            "last_action",
-            "last_reward",
-        }
-
-        for token in obs.tokens:
-            # Check if this is a global observation feature
-            if token.feature.name in global_feature_names:
-                global_obs[token.feature.name] = token.value
+        for feature_name, power_values in obs_values.items():
+            total = 0
+            for power, value in power_values.items():
+                total += value * (token_value_base**power)
+            global_obs[feature_name] = total
 
         return global_obs
 
