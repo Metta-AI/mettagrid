@@ -129,7 +129,15 @@ def _add_filter_to_target(cpp_filter, cpp_target, filter_type):
     getattr(cpp_target, add_method)(cpp_filter)
 
 
-def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, tag_name_to_id, context: str = ""):
+def _convert_filters(
+    filters,
+    cpp_target,
+    resource_name_to_id,
+    vibe_name_to_id,
+    tag_name_to_id,
+    context: str = "",
+    collective_name_to_id=None,
+):
     """Convert Python filters to C++ and add them to the target config.
 
     Args:
@@ -139,13 +147,16 @@ def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, 
         vibe_name_to_id: Dict mapping vibe names to IDs
         tag_name_to_id: Dict mapping tag names to IDs
         context: Description for error messages (unused, kept for compatibility)
+        collective_name_to_id: Dict mapping collective names to IDs (optional)
     """
     for filter_config in filters:
         filter_type = getattr(filter_config, "filter_type", None)
 
         if filter_type == "not":
             # NotFilter wraps an inner filter - convert inner and wrap in NegFilterConfig
-            cpp_neg = _convert_not_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id)
+            cpp_neg = _convert_not_filter(
+                filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id
+            )
             cpp_target.add_neg_filter(cpp_neg)
 
         elif filter_type == "alignment":
@@ -215,7 +226,9 @@ def _convert_filters(filters, cpp_target, resource_name_to_id, vibe_name_to_id, 
             _add_filter_to_target(cpp_filter, cpp_target, "game_value")
 
 
-def _convert_not_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id):
+def _convert_not_filter(
+    filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id=None
+):
     """Convert a NotFilter to C++ NegFilterConfig.
 
     Args:
@@ -223,10 +236,12 @@ def _convert_not_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag
         resource_name_to_id: Dict mapping resource names to IDs
         vibe_name_to_id: Dict mapping vibe names to IDs
         tag_name_to_id: Dict mapping tag names to IDs
+        collective_name_to_id: Dict mapping collective names to IDs (optional)
 
     Returns:
         CppNegFilterConfig wrapping the converted inner filter
     """
+    collective_name_to_id = collective_name_to_id or {}
     inner = filter_config.inner
     inner_type = getattr(inner, "filter_type", None)
     cpp_neg = CppNegFilterConfig()
@@ -237,10 +252,8 @@ def _convert_not_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag
         )
         # Set collective_id if specific collective is specified
         collective = getattr(inner, "collective", None)
-        if collective is not None:
-            # Note: collective_id resolution would need the collective_name_to_id mapping
-            # For now we skip this as the alignment condition check is sufficient
-            pass
+        if collective is not None and collective in collective_name_to_id:
+            cpp_filter.collective_id = collective_name_to_id[collective]
         cpp_neg.set_inner_alignment_filter(cpp_filter)
 
     elif inner_type == "vibe":
@@ -285,6 +298,7 @@ def _convert_not_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag
             resource_name_to_id,
             vibe_name_to_id,
             tag_name_to_id,
+            collective_name_to_id,
         )
         cpp_neg.set_inner_near_filter(cpp_filter)
 
@@ -327,7 +341,9 @@ def _add_filters_to_near_filter(
 
         if filter_type == "not":
             # NotFilter wraps an inner filter - convert inner and wrap in NegFilterConfig
-            cpp_neg = _convert_not_filter(filter_cfg, resource_name_to_id, vibe_name_to_id, tag_name_to_id)
+            cpp_neg = _convert_not_filter(
+                filter_cfg, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id
+            )
             cpp_near_filter.add_neg_filter(cpp_neg)
 
         elif filter_type == "alignment":
@@ -457,7 +473,9 @@ def _convert_event_filters(
 
         if filter_type == "not":
             # NotFilter wraps an inner filter - convert inner and wrap in NegFilterConfig
-            cpp_neg = _convert_not_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id)
+            cpp_neg = _convert_not_filter(
+                filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id
+            )
             cpp_target.add_neg_filter(cpp_neg)
 
         elif filter_type == "alignment":
@@ -567,6 +585,7 @@ def _convert_aoe_configs(
     limit_name_to_resource_ids: dict,
     vibe_name_to_id: dict,
     tag_name_to_id: dict,
+    collective_name_to_id: dict | None = None,
 ) -> list:
     """Convert Python AOEConfig dict to C++ AOEConfig list.
 
@@ -576,6 +595,7 @@ def _convert_aoe_configs(
         limit_name_to_resource_ids: Dict mapping limit names to resource ID lists
         vibe_name_to_id: Dict mapping vibe names to IDs
         tag_name_to_id: Dict mapping tag names to IDs
+        collective_name_to_id: Dict mapping collective names to IDs (optional)
 
     Returns:
         List of CppAOEConfig objects
@@ -595,6 +615,7 @@ def _convert_aoe_configs(
             vibe_name_to_id,
             tag_name_to_id,
             context="AOEConfig",
+            collective_name_to_id=collective_name_to_id,
         )
 
         convert_mutations(
@@ -825,6 +846,7 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
                 limit_name_to_resource_ids,
                 vibe_name_to_id,
                 tag_name_to_id,
+                collective_name_to_id,
             )
 
         # Convert agent on_tick (dict[str, Handler]) to C++ HandlerConfig list
@@ -916,6 +938,7 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
                     limit_name_to_resource_ids,
                     vibe_name_to_id,
                     tag_name_to_id,
+                    collective_name_to_id,
                 )
 
             # Key by map_name so map grid (which uses map_name) resolves directly.

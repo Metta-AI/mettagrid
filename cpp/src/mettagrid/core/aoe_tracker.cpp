@@ -14,7 +14,11 @@ namespace mettagrid {
 
 // AOESource implementation
 
-AOESource::AOESource(GridObject* src, const AOEConfig& cfg, TagIndex* tag_index) : source(src), config(cfg) {
+AOESource::AOESource(GridObject* src,
+                     const AOEConfig& cfg,
+                     TagIndex* tag_index,
+                     const std::vector<std::unique_ptr<Collective>>* colls)
+    : source(src), config(cfg), collectives(colls) {
   // Instantiate filters
   for (const auto& filter_cfg : config.filters) {
     filters.push_back(create_filter(filter_cfg, tag_index));
@@ -31,8 +35,10 @@ AOESource::AOESource(AOESource&& other) noexcept
     : source(other.source),
       config(std::move(other.config)),
       filters(std::move(other.filters)),
-      mutations(std::move(other.mutations)) {
+      mutations(std::move(other.mutations)),
+      collectives(other.collectives) {
   other.source = nullptr;
+  other.collectives = nullptr;
 }
 
 AOESource& AOESource::operator=(AOESource&& other) noexcept {
@@ -41,15 +47,17 @@ AOESource& AOESource::operator=(AOESource&& other) noexcept {
     config = std::move(other.config);
     filters = std::move(other.filters);
     mutations = std::move(other.mutations);
+    collectives = other.collectives;
     other.source = nullptr;
+    other.collectives = nullptr;
   }
   return *this;
 }
 
 bool AOESource::try_apply(GridObject* target, StatsTracker* game_stats) {
   // Create context: actor=source, target=affected object
-  // Include game_stats for StatsMutation support
-  HandlerContext ctx(source, target, game_stats);
+  // Include game_stats for StatsMutation support and collectives for alignment filter lookups
+  HandlerContext ctx(source, target, game_stats, nullptr, collectives);
   ctx.grid = source->grid();
 
   // Check all filters
@@ -68,7 +76,8 @@ bool AOESource::try_apply(GridObject* target, StatsTracker* game_stats) {
 }
 
 bool AOESource::passes_filters(GridObject* target) const {
-  HandlerContext ctx(source, target);
+  // Include collectives for alignment filter lookups
+  HandlerContext ctx(source, target, nullptr, nullptr, collectives);
   ctx.grid = source->grid();
   for (const auto& filter : filters) {
     if (!filter->passes(ctx)) {
@@ -112,7 +121,7 @@ void AOETracker::unregister_source(GridObject& source) {
 }
 
 void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
-  auto aoe_source = std::make_shared<AOESource>(&source, config, _tag_index);
+  auto aoe_source = std::make_shared<AOESource>(&source, config, _tag_index, _collectives);
   _fixed_sources[&source].push_back(aoe_source);
 
   const GridLocation& source_loc = source.location;
@@ -135,7 +144,7 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
 }
 
 void AOETracker::register_mobile(GridObject& source, const AOEConfig& config) {
-  auto aoe_source = std::make_shared<AOESource>(&source, config, _tag_index);
+  auto aoe_source = std::make_shared<AOESource>(&source, config, _tag_index, _collectives);
   _mobile_sources.push_back(aoe_source);
 }
 

@@ -11,8 +11,9 @@
 #include "handler/handler_config.hpp"
 #include "objects/agent.hpp"
 
-// Forward declaration
+// Forward declarations
 class StatsTracker;
+class Collective;
 
 namespace mettagrid {
 
@@ -25,12 +26,16 @@ class Mutation;
  * Used for both fixed (cell-based) and mobile AOE tracking.
  */
 struct AOESource {
-  GridObject* source;                                // The object emitting this AOE
-  AOEConfig config;                                  // The AOE configuration
-  std::vector<std::unique_ptr<Filter>> filters;      // Instantiated filters
-  std::vector<std::unique_ptr<Mutation>> mutations;  // Instantiated mutations
+  GridObject* source;                                                     // The object emitting this AOE
+  AOEConfig config;                                                       // The AOE configuration
+  std::vector<std::unique_ptr<Filter>> filters;                           // Instantiated filters
+  std::vector<std::unique_ptr<Mutation>> mutations;                       // Instantiated mutations
+  const std::vector<std::unique_ptr<Collective>>* collectives = nullptr;  // Collectives for alignment filter lookups
 
-  AOESource(GridObject* src, const AOEConfig& cfg, TagIndex* tag_index = nullptr);
+  AOESource(GridObject* src,
+            const AOEConfig& cfg,
+            TagIndex* tag_index = nullptr,
+            const std::vector<std::unique_ptr<Collective>>* collectives = nullptr);
   ~AOESource();
 
   // Move-only (due to unique_ptr members)
@@ -89,6 +94,11 @@ public:
     _game_stats = stats;
   }
 
+  // Set the collectives pointer for alignment filter lookups in AOE handlers
+  void set_collectives(const std::vector<std::unique_ptr<Collective>>* collectives) {
+    _collectives = collectives;
+  }
+
   // Register an AOE source - routes to fixed or mobile based on config.is_static
   void register_source(GridObject& source, const AOEConfig& config);
 
@@ -140,6 +150,7 @@ private:
   GridCoord _width;
   StatsTracker* _game_stats = nullptr;  // Game-level stats tracker (for StatsMutation)
   TagIndex* _tag_index = nullptr;       // Tag index (for NearFilter support)
+  const std::vector<std::unique_ptr<Collective>>* _collectives = nullptr;  // Collectives for alignment filter lookups
 
   // Fixed AOE: 2D array from cell location to list of sources affecting that cell
   // Indexed as _cell_effects[row][col]
