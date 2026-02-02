@@ -391,7 +391,7 @@ class MapGen(MapBuilder[MapGenConfig]):
         """Helper to wrap a scene config with instance_id for single-instance case."""
         # For single instance, we create a wrapper that sets instance_id
         # The simplest is to use a ChildrenAction approach via a passthrough scene
-        from mettagrid.mapgen.scenes.nop import Nop
+        from mettagrid.mapgen.scenes.nop import Nop  # noqa: PLC0415
 
         return Nop.Config(
             children=[

@@ -68,7 +68,7 @@ def main():
 
     # Enable change_vibe for GUI control, but create a policy config without it for random actions
     cfg.game.actions.change_vibe.enabled = True
-    from mettagrid.config.vibes import VIBES as ALL_VIBES
+    from mettagrid.config.vibes import VIBES as ALL_VIBES  # noqa: PLC0415
 
     cfg.game.actions.change_vibe.vibes = list(ALL_VIBES[:10])
 

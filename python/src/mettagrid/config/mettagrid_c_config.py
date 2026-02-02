@@ -210,7 +210,7 @@ def _convert_filters(
             _add_filter_to_target(cpp_filter, cpp_target, "near")
 
         elif filter_type == "game_value":
-            from mettagrid.config.mettagrid_c_value_config import resolve_game_value
+            from mettagrid.config.mettagrid_c_value_config import resolve_game_value  # noqa: PLC0415
 
             mappings = {
                 "resource_name_to_id": resource_name_to_id,
@@ -303,7 +303,7 @@ def _convert_not_filter(
         cpp_neg.set_inner_near_filter(cpp_filter)
 
     elif inner_type == "game_value":
-        from mettagrid.config.mettagrid_c_value_config import resolve_game_value
+        from mettagrid.config.mettagrid_c_value_config import resolve_game_value  # noqa: PLC0415
 
         mappings = {
             "resource_name_to_id": resource_name_to_id,
@@ -544,8 +544,8 @@ def _convert_event_mutations(
     Supports all standard mutations plus:
     - AlignmentMutation with collective set: Align entity to a specific collective by ID
     """
-    from mettagrid.config.mettagrid_c_mutations import convert_mutations
-    from mettagrid.config.mutation import AlignmentMutation
+    from mettagrid.config.mettagrid_c_mutations import convert_mutations  # noqa: PLC0415
+    from mettagrid.config.mutation import AlignmentMutation  # noqa: PLC0415
 
     # Separate out AlignmentMutation with collective set - these need special handling
     standard_mutations = []
@@ -973,7 +973,7 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
     global_obs_config = game_config.obs.global_obs
 
     # Convert obs with pre-computed feature IDs using GameValueConfig
-    from mettagrid.config.game_value import InventoryValue, StatValue
+    from mettagrid.config.game_value import InventoryValue, StatValue  # noqa: PLC0415
 
     resource_name_to_id = {name: idx for idx, name in enumerate(game_config.resource_names)}
     mappings = {"resource_name_to_id": resource_name_to_id, "tag_name_to_id": tag_name_to_id}

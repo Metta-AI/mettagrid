@@ -540,7 +540,7 @@ class TestCollectiveObservations:
 
     def test_collective_observation(self):
         """Test that objects with a collective emit the collective observation."""
-        from mettagrid.config.mettagrid_config import CollectiveConfig
+        from mettagrid.config.mettagrid_config import CollectiveConfig  # noqa: PLC0415
 
         # Create a simple 5x5 environment with two agents
         game_map = create_grid(5, 5, fill_value=".")

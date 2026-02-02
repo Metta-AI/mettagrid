@@ -91,7 +91,7 @@ class TestResolveUri:
 
 def test_policy_spec_from_metta_uri_with_query_params():
     """metta://policy/random?vibe_action_p=0.01 passes init_kwargs."""
-    from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri
+    from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
 
     spec = policy_spec_from_uri("metta://policy/random?vibe_action_p=0.01")
 
@@ -99,9 +99,9 @@ def test_policy_spec_from_metta_uri_with_query_params():
 
 
 def test_policy_spec_from_file_path_with_query_params(tmp_path):
-    from mettagrid.policy.loader import resolve_policy_class_path
-    from mettagrid.policy.submission import SubmissionPolicySpec, write_submission_policy_spec
-    from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri
+    from mettagrid.policy.loader import resolve_policy_class_path  # noqa: PLC0415
+    from mettagrid.policy.submission import SubmissionPolicySpec, write_submission_policy_spec  # noqa: PLC0415
+    from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
 
     submission_spec = SubmissionPolicySpec(
         class_path=resolve_policy_class_path("random"),

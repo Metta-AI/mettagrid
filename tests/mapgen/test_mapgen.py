@@ -139,7 +139,7 @@ class TestMapGenInstances:
 class TestMapGenTeamByInstance:
     def test_set_team_by_instance_multiple_instances(self):
         """Test that agents are assigned to teams based on instance number."""
-        from mettagrid.mapgen.scenes.random import Random
+        from mettagrid.mapgen.scenes.random import Random  # noqa: PLC0415
 
         mg = MapGen.Config(
             instance=Random.Config(agents=3),
@@ -167,7 +167,7 @@ class TestMapGenTeamByInstance:
 
     def test_set_team_by_instance_false(self):
         """Test that default behavior is preserved when flag is False."""
-        from mettagrid.mapgen.scenes.random import Random
+        from mettagrid.mapgen.scenes.random import Random  # noqa: PLC0415
 
         mg = MapGen.Config(
             instance=Random.Config(agents=2),
@@ -186,7 +186,7 @@ class TestMapGenTeamByInstance:
 
     def test_set_team_by_instance_single_instance(self):
         """Test that single instance gets team_0 when flag is True."""
-        from mettagrid.mapgen.scenes.random import Random
+        from mettagrid.mapgen.scenes.random import Random  # noqa: PLC0415
 
         mg = MapGen.Config(
             instance=Random.Config(agents=5),
@@ -204,7 +204,7 @@ class TestMapGenTeamByInstance:
 
     def test_set_team_by_instance_with_dict_agents(self):
         """Test that explicit team names in dict aren't overridden."""
-        from mettagrid.mapgen.scenes.random import Random
+        from mettagrid.mapgen.scenes.random import Random  # noqa: PLC0415
 
         mg = MapGen.Config(
             instance=Random.Config(agents={"red": 2, "blue": 2, "green": 1}),

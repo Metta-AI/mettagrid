@@ -143,9 +143,9 @@ def test_map_expands_when_sidebar_hidden() -> None:
     renderer._state.map_height = 30
     renderer._state.map_width = 50
 
-    from rich.console import Console
+    from rich.console import Console  # noqa: PLC0415
 
-    from mettagrid.renderer.miniscope.miniscope_panel import PanelLayout
+    from mettagrid.renderer.miniscope.miniscope_panel import PanelLayout  # noqa: PLC0415
 
     renderer._panels = PanelLayout(Console())
 

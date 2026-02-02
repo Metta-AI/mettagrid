@@ -432,10 +432,10 @@ class TestEventSchedulerIntegration:
 
     def test_max_targets_limits_affected_objects(self):
         """Test that max_targets limits how many objects are affected by an event."""
-        from mettagrid.config.mettagrid_config import WallConfig
-        from mettagrid.map_builder.ascii import AsciiMapBuilder
-        from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
-        from mettagrid.simulator import Simulation
+        from mettagrid.config.mettagrid_config import WallConfig  # noqa: PLC0415
+        from mettagrid.map_builder.ascii import AsciiMapBuilder  # noqa: PLC0415
+        from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME  # noqa: PLC0415
+        from mettagrid.simulator import Simulation  # noqa: PLC0415
 
         # Create config with 4 walls, all belonging to cogs collective
         # Event will try to align them to clips, but max_targets=1 should limit to 1 wall
@@ -509,10 +509,10 @@ class TestEventSchedulerIntegration:
 
     def test_max_targets_none_means_unlimited(self):
         """Test that max_targets=None means unlimited (all matching objects affected)."""
-        from mettagrid.config.mettagrid_config import WallConfig
-        from mettagrid.map_builder.ascii import AsciiMapBuilder
-        from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
-        from mettagrid.simulator import Simulation
+        from mettagrid.config.mettagrid_config import WallConfig  # noqa: PLC0415
+        from mettagrid.map_builder.ascii import AsciiMapBuilder  # noqa: PLC0415
+        from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME  # noqa: PLC0415
+        from mettagrid.simulator import Simulation  # noqa: PLC0415
 
         # Create config with 4 walls, event has max_targets=None (unlimited)
         config = MettaGridConfig(
@@ -578,10 +578,10 @@ class TestEventSchedulerIntegration:
 
     def test_event_fires_at_specified_timestep(self):
         """Test that events fire at the specified timestep and apply mutations."""
-        from mettagrid.config.mettagrid_config import WallConfig
-        from mettagrid.map_builder.ascii import AsciiMapBuilder
-        from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
-        from mettagrid.simulator import Simulation
+        from mettagrid.config.mettagrid_config import WallConfig  # noqa: PLC0415
+        from mettagrid.map_builder.ascii import AsciiMapBuilder  # noqa: PLC0415
+        from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME  # noqa: PLC0415
+        from mettagrid.simulator import Simulation  # noqa: PLC0415
 
         # Create config with walls that belong to a collective, and an event that changes their alignment
         config = MettaGridConfig(
@@ -672,10 +672,10 @@ class TestEventSchedulerIntegration:
 
     def test_periodic_event_fires_multiple_times(self):
         """Test that periodic events fire at each specified timestep."""
-        from mettagrid.config.mettagrid_config import WallConfig
-        from mettagrid.map_builder.ascii import AsciiMapBuilder
-        from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
-        from mettagrid.simulator import Simulation
+        from mettagrid.config.mettagrid_config import WallConfig  # noqa: PLC0415
+        from mettagrid.map_builder.ascii import AsciiMapBuilder  # noqa: PLC0415
+        from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME  # noqa: PLC0415
+        from mettagrid.simulator import Simulation  # noqa: PLC0415
 
         config = MettaGridConfig(
             game=GameConfig(

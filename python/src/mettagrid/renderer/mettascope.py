@@ -24,7 +24,7 @@ class MettascopeRenderer(Renderer):
         nim_root = _resolve_nim_root()
         nim_bindings_path = nim_root / "bindings" / "generated" if nim_root else None
         sys.path.insert(0, str(nim_bindings_path))
-        import mettascope
+        import mettascope  # noqa: PLC0415
 
         self._mettascope = mettascope
         self._data_dir = str(nim_root / "data") if nim_root else "."
