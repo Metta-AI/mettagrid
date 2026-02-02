@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional, Union
 
 from pydantic import (
     ConfigDict,
+    Discriminator,
     Field,
     model_validator,
+)
+from pydantic import (
+    Tag as PydanticTag,
 )
 
 from mettagrid.base_config import Config
@@ -104,6 +108,10 @@ class GridObjectConfig(Config):
       - aoes: Area of effect configurations for objects that emit effects
     """
 
+    # Discriminator for AnyGridObjectConfig union. "object" = full GridObject with
+    # inventory/handlers; "wall" = minimal Wall.  Must be overridden by WallConfig.
+    pydantic_type: Literal["object"] = "object"
+
     name: str = Field(description="Canonical type_name (human-readable)")
     map_name: str = Field(default="", description="Stable key used by maps to select this config")
     render_name: str = Field(default="", description="Stable display-class identifier for theming")
@@ -189,9 +197,22 @@ class CollectiveConfig(Config):
 
 # Note: GridObjectConfig is included to allow direct use of the base class for simple objects
 # that only need handlers/aoes without specialized features like protocols or inventory.
-AnyGridObjectConfig = Union[
-    WallConfig,
-    GridObjectConfig,
+# Discriminated on `pydantic_type`: "wall" → WallConfig, "object" → GridObjectConfig.
+# Uses a custom discriminator to default to "object" for legacy configs missing the field.
+
+
+def _grid_object_discriminator(v: Any) -> str:
+    if isinstance(v, dict):
+        return v.get("pydantic_type", "object")
+    return getattr(v, "pydantic_type", "object")
+
+
+AnyGridObjectConfig = Annotated[
+    Union[
+        Annotated[WallConfig, PydanticTag("wall")],
+        Annotated[GridObjectConfig, PydanticTag("object")],
+    ],
+    Discriminator(_grid_object_discriminator),
 ]
 
 
