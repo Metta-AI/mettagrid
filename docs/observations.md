@@ -34,6 +34,14 @@ Observations are provided as NumPy arrays with shape `(num_agents, num_tokens, 3
 - Empty tokens are used to pad observation arrays to a fixed size
 - Policies should ignore tokens where `location == 0xFF`
 
+### Global Tokens
+
+- **Global token byte**: `0xFE` (254)
+- When `location == 0xFE`, the token is a **global observation** (non-spatial, agent-wide state)
+- Global tokens include: `episode_completion_pct`, `last_action`, `last_reward`, local position features, etc.
+- These tokens are distinct from spatial tokens and can be detected by position alone
+- Use `PackedCoordinate.is_global(location)` to check for global tokens
+
 ## Coordinate Encoding
 
 ### Packed Coordinate Format
@@ -43,6 +51,7 @@ Coordinates are packed into a single byte using a nibble-based encoding scheme:
 - **Upper 4 bits (high nibble)**: Row coordinate (0-14)
 - **Lower 4 bits (low nibble)**: Column coordinate (0-14)
 - **Special value `0xFF`**: Empty/invalid coordinate
+- **Special value `0xFE`**: Global token (non-spatial observation)
 - Observation windows are typically 11x11 centered on the agent; so the agent is at `0x55`.
 - Coordinates are **egocentric** (relative to the agent's position)
 
@@ -50,7 +59,7 @@ Coordinates are packed into a single byte using a nibble-based encoding scheme:
 
 - **Row (r/y)**: Vertical coordinate, increases downward
 - **Column (c/x)**: Horizontal coordinate, increases rightward
-- **Center location**: Used for agent-specific features (inventory, global state)
+- **Center location**: Used for agent-specific features (inventory)
 
 ## Observation Features
 

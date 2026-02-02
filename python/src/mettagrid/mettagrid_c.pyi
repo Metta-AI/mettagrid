@@ -333,6 +333,7 @@ class PackedCoordinate:
     """Packed coordinate encoding utilities."""
 
     MAX_PACKABLE_COORD: int
+    GLOBAL_LOCATION: int
 
     @staticmethod
     def pack(row: int, col: int) -> int:
@@ -361,7 +362,12 @@ class PackedCoordinate:
 
     @staticmethod
     def is_empty(packed: int) -> bool:
-        """Check if packed value represents empty location."""
+        """Check if packed value represents empty location (0xFF)."""
+        ...
+
+    @staticmethod
+    def is_global(packed: int) -> bool:
+        """Check if packed value represents global token location (0xFE)."""
         ...
 
 class GridObjectConfig:

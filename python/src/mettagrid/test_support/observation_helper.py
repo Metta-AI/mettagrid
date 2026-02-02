@@ -13,9 +13,22 @@ class ObservationHelper:
         location: None | Location = None,
         feature_id: None | int = None,
         value: None | int = None,
+        is_global: bool | None = None,
     ) -> np.ndarray:
-        """Filter tokens by location, feature id, and value."""
+        """Filter tokens by location, feature id, value, and global status.
+
+        Args:
+            obs: Observation array
+            location: Filter by spatial location (incompatible with is_global=True)
+            feature_id: Filter by feature ID
+            value: Filter by value
+            is_global: If True, filter for global tokens (0xFE location); if False, exclude global tokens
+        """
         tokens = obs
+        if is_global is True:
+            tokens = tokens[tokens[:, 0] == PackedCoordinate.GLOBAL_LOCATION]
+        elif is_global is False:
+            tokens = tokens[tokens[:, 0] != PackedCoordinate.GLOBAL_LOCATION]
         if location is not None:
             tokens = tokens[tokens[:, 0] == PackedCoordinate.pack(location.row, location.col)]
         if feature_id is not None:
@@ -25,18 +38,31 @@ class ObservationHelper:
         return tokens
 
     @staticmethod
+    def find_global_tokens(
+        obs: np.ndarray,
+        feature_id: None | int = None,
+        value: None | int = None,
+    ) -> np.ndarray:
+        """Find global tokens (non-spatial, agent-wide state).
+
+        Global tokens use location 0xFE (PackedCoordinate.GLOBAL_LOCATION).
+        """
+        return ObservationHelper.find_tokens(obs, feature_id=feature_id, value=value, is_global=True)
+
+    @staticmethod
     def find_token_values(
         obs: np.ndarray,
         location: None | Location = None,
         feature_id: None | int = None,
         value: None | int = None,
+        is_global: bool | None = None,
     ) -> np.ndarray:
-        """Find the values of tokens by location, feature id, and value.
+        """Find the values of tokens by location, feature id, value, and global status.
 
         Note that because this returns a numpy array, if the array has a single value, you can check equality
         against this as if it were a scalar.
         """
-        tokens = ObservationHelper.find_tokens(obs, location, feature_id, value)
+        tokens = ObservationHelper.find_tokens(obs, location, feature_id, value, is_global)
         return tokens[:, 2]
 
     @staticmethod
