@@ -5,7 +5,7 @@ import
   footer, timeline, minimap, header, replayloader, aoepanel, commonspanel,
   eventstimeline, statchart, configs]
 
-var junctionChart = newStatChart("aligned.junction", "junction", "Junction Control")
+var junctionChart = newStatChart("aligned.junction.held", "junction", "Junctions Held")
 
 proc buildSilkyAtlas*(imagePath, jsonPath: string) =
   ## Build the silky UI atlas.
