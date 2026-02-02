@@ -104,6 +104,9 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
     _collectives.push_back(std::move(collective));
   }
 
+  // Set collectives on AOETracker for alignment filter lookups (before _init_grid registers AOE sources)
+  _aoe_tracker->set_collectives(&_collectives);
+
   _init_grid(game_config, map, _collectives_by_id);
 
   // Initialize EventScheduler from config

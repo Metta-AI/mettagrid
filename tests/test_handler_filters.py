@@ -5,8 +5,6 @@ These tests verify that:
 2. AlignmentFilter correctly gates handler execution based on collective alignment
 """
 
-import pytest
-
 from mettagrid.config.filter import AlignmentFilter, VibeFilter, isNot, isNotAlignedTo, targetHas, targetVibe
 from mettagrid.config.handler_config import (
     AlignmentCondition,
@@ -552,7 +550,6 @@ class TestNotFilterOnAOE:
 class TestIsNotAlignedToHelper:
     """Test the isNotAlignedTo helper function."""
 
-    @pytest.mark.skip(reason="C++ AOE handler context does not support inverted alignment filters")
     def test_is_not_aligned_to_collective(self):
         """isNotAlignedTo should filter out agents that ARE in the specified collective."""
         cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(

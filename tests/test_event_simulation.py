@@ -11,6 +11,7 @@ from mettagrid.config.event_config import EventConfig
 from mettagrid.config.filter import (
     isA,
     isAlignedTo,
+    isNotAlignedTo,
 )
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
@@ -21,7 +22,7 @@ from mettagrid.config.mettagrid_config import (
     ObsConfig,
     WallConfig,
 )
-from mettagrid.config.mutation import alignTo
+from mettagrid.config.mutation import alignTo, removeAlignment
 from mettagrid.config.tag import Tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
@@ -300,6 +301,115 @@ class TestEventFilterSimulation:
         # The originally aligned walls (to cogs) should still be aligned to cogs
         unaligned_after = after.get(-1, 0)
         assert unaligned_after == 0, f"All unaligned walls should be aligned now, but {unaligned_after} remain"
+
+    def test_is_not_aligned_to_filter_excludes_collective(self):
+        """Test that isNotAlignedTo filter excludes objects aligned to the specified collective.
+
+        This verifies the fix for the C++ NegFilter collective_id conversion bug.
+
+        Setup:
+        - 4 walls aligned to "clips"
+        - 4 walls aligned to "cogs"
+        - Event with isNotAlignedTo("clips") filter that removes alignment
+
+        Expected:
+        - Only cogs-aligned walls should have alignment removed (not clips)
+        - Clips-aligned walls should remain unchanged
+        """
+        config = MettaGridConfig(
+            game=GameConfig(
+                num_agents=1,
+                obs=ObsConfig(width=5, height=5, num_tokens=100),
+                max_steps=100,
+                actions=ActionsConfig(noop=NoopActionConfig()),
+                resource_names=[],
+                objects={
+                    "clips_wall": WallConfig(
+                        name="clips_wall", map_name="C", tags=[Tag("type:wall")], collective="clips"
+                    ),
+                    "cogs_wall": WallConfig(name="cogs_wall", map_name="G", tags=[Tag("type:wall")], collective="cogs"),
+                },
+                collectives={
+                    "cogs": CollectiveConfig(),
+                    "clips": CollectiveConfig(),
+                },
+                events={
+                    "scramble_non_clips": EventConfig(
+                        name="scramble_non_clips",
+                        target_tag="type:wall",
+                        timesteps=[5],
+                        filters=[isNotAlignedTo("clips")],  # Should exclude clips-aligned
+                        mutations=[removeAlignment()],  # Remove alignment
+                        max_targets=0,  # Affect all matching
+                    ),
+                },
+                map_builder=AsciiMapBuilder.Config(
+                    map_data=[
+                        ["C", "C", ".", "G", "G"],  # C = clips_wall, G = cogs_wall
+                        [".", ".", ".", ".", "."],
+                        [".", ".", "@", ".", "."],
+                        [".", ".", ".", ".", "."],
+                        ["C", "C", ".", "G", "G"],
+                    ],
+                    char_to_map_name={
+                        "#": "wall",
+                        ".": "empty",
+                        "@": "agent.agent",
+                        "C": "C",
+                        "G": "G",
+                    },
+                ),
+            ),
+        )
+
+        sim = Simulation(config)
+
+        # Get collective IDs from objects
+        def get_collective_id(name: str) -> int:
+            for obj in sim.grid_objects().values():
+                if obj.get("collective_name") == name:
+                    return obj.get("collective_id", -1)
+            return -1
+
+        clips_id = get_collective_id("clips")
+        cogs_id = get_collective_id("cogs")
+        assert clips_id != -1, "Clips collective should exist"
+        assert cogs_id != -1, "Cogs collective should exist"
+
+        # Count walls by collective - use type_name from the objects
+        def count_walls_by_collective() -> dict[int, int]:
+            objects = sim.grid_objects()
+            collectives: dict[int, int] = {}
+            for obj in objects.values():
+                # Match both wall types by checking if name contains "wall"
+                if "wall" in obj.get("type_name", ""):
+                    cid = obj.get("collective_id", -1)
+                    collectives[cid] = collectives.get(cid, 0) + 1
+            return collectives
+
+        # Count before event
+        before = count_walls_by_collective()
+        assert before.get(clips_id, 0) == 4, f"Expected 4 clips walls, got {before.get(clips_id, 0)}"
+        assert before.get(cogs_id, 0) == 4, f"Expected 4 cogs walls, got {before.get(cogs_id, 0)}"
+
+        # Step past event
+        for _ in range(6):
+            sim.step()
+
+        # Count after event
+        after = count_walls_by_collective()
+
+        # Clips walls should still be aligned to clips (NOT affected by isNotAlignedTo("clips"))
+        assert after.get(clips_id, 0) == 4, (
+            f"Clips walls should remain aligned to clips, but only {after.get(clips_id, 0)} remain"
+        )
+
+        # Cogs walls should now be unaligned (affected by the event)
+        assert after.get(cogs_id, 0) == 0, f"Cogs walls should be unaligned, but {after.get(cogs_id, 0)} remain aligned"
+
+        # Should have 4 unaligned walls now (the former cogs walls)
+        unaligned_after = after.get(-1, 0)
+        assert unaligned_after == 4, f"Expected 4 unaligned walls, got {unaligned_after}"
 
 
 if __name__ == "__main__":
