@@ -357,6 +357,24 @@ proc getCollectiveTint(collectiveId: int): (uint16, uint16) =
   let b = uint8(min(255.0, c.b * 255 * 0.5 + 128).int)
   packTint(r, g, b)
 
+proc stripTeamSuffix(typeName: string): string =
+  ## Strip team suffix like _0, _1 from type name.
+  if typeName.len >= 2 and typeName[^2] == '_' and typeName[^1] in {'0'..'9'}:
+    return typeName[0..^3]
+  return typeName
+
+proc stripTeamPrefix(typeName: string): string =
+  ## Strip team prefix in "XX:" format (e.g., "c:hub" → "hub", "cg:miner" → "miner").
+  ## Also handles legacy "cogs_green_" style prefixes.
+  let colonIdx = typeName.find(':')
+  if colonIdx >= 0 and colonIdx < typeName.len - 1:
+    return typeName[colonIdx + 1 .. ^1]
+  const teamPrefixes = ["cogs_green_", "cogs_blue_", "cogs_red_", "cogs_yellow_"]
+  for prefix in teamPrefixes:
+    if typeName.len > prefix.len and typeName[0 ..< prefix.len] == prefix:
+      return typeName[prefix.len .. ^1]
+  return typeName
+
 proc drawObjects*() =
   ## Draw the objects on the map.
   let numObjects = replay.objects.len
@@ -379,6 +397,10 @@ proc drawObjects*() =
       let spriteName =
         if "objects/" & thing.typeName in px:
           "objects/" & thing.typeName
+        elif "objects/" & stripTeamPrefix(thing.typeName) in px:
+          "objects/" & stripTeamPrefix(thing.typeName)
+        elif "objects/" & stripTeamSuffix(thing.typeName) in px:
+          "objects/" & stripTeamSuffix(thing.typeName)
         else:
           "objects/unknown"
       px.drawSprite(spriteName, pos * TILE_SIZE, tintRG, tintBA)
@@ -551,17 +573,17 @@ proc shouldShowAOEForObject(obj: Entity): bool =
     return UnalignedId in settings.aoeEnabledCollectives
   return cid in settings.aoeEnabledCollectives
 
-proc getAoeSpriteName(collectiveId: int): string =
-  ## Get the AOE overlay sprite name based on collective name.
+proc getAoeTint(collectiveId: int): (uint16, uint16) =
+  ## Get the AOE overlay tint based on collective name.
   ## cogs/cogs_green = green, cogs_blue = blue, clips = red, neutral = grey.
   if collectiveId < 0:
-    return "objects/aoe_overlay_grey"
+    return packTint(180, 180, 180, 100)
   let name = getCollectiveName(collectiveId)
   case name
-  of "cogs", "cogs_green": "objects/aoe_overlay"
-  of "cogs_blue": "objects/aoe_overlay_blue"
-  of "clips": "objects/aoe_overlay_red"
-  else: "objects/aoe_overlay_grey"
+  of "c", "cg", "cogs", "cogs_green": packTint(0, 200, 0, 100)
+  of "cb", "cogs_blue": packTint(0, 100, 255, 100)
+  of "clips": packTint(255, 0, 0, 140)
+  else: packTint(180, 180, 180, 100)
 
 proc drawAOEOverlay*() =
   ## Draw colored overlay on tiles affected by AOE effects.
@@ -578,8 +600,8 @@ proc drawAOEOverlay*() =
     if key in drawnTiles:
       return
     drawnTiles.incl(key)
-    let spriteName = getAoeSpriteName(collectiveId)
-    px.drawSprite(spriteName, ivec2(tileX * TILE_SIZE, tileY * TILE_SIZE))
+    let (tintRG, tintBA) = getAoeTint(collectiveId)
+    px.drawSprite("objects/aoe_overlay", ivec2(tileX * TILE_SIZE, tileY * TILE_SIZE), tintRG, tintBA)
   proc drawAOEForObject(obj: Entity) =
     let aoeRange = getAoeRange(obj.typeName)
     if aoeRange <= 0:
@@ -720,11 +742,7 @@ proc drawTerrain*() =
 
   bxy.exitRawOpenGLMode()
 
-proc stripTeamSuffix(typeName: string): string =
-  ## Strip team suffix like _0, _1 from type name.
-  if typeName.len >= 2 and typeName[^2] == '_' and typeName[^1] in {'0'..'9'}:
-    return typeName[0..^3]
-  return typeName
+# stripTeamSuffix and stripTeamPrefix moved earlier in file
 
 proc drawObjectPips*() =
   ## Draw the pips for the objects on the minimap.
@@ -738,6 +756,8 @@ proc drawObjectPips*() =
     var pipName = "minimap/" & obj.typeName
     if pipName notin px:
       pipName = "minimap/" & stripTeamSuffix(obj.typeName)
+    if pipName notin px:
+      pipName = "minimap/" & stripTeamPrefix(obj.typeName)
     if pipName in px:
       let loc = obj.location.at(step).xy
       px.drawSprite(

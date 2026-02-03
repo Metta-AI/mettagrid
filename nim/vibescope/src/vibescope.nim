@@ -113,6 +113,8 @@ proc drawWorldMap(panel: panels.Panel, frameId: string, contentPos: Vec2, conten
   worldMapZoomInfo.rect = irect(contentPos.x, contentPos.y, contentSize.x, contentSize.y)
   worldMapZoomInfo.hasMouse = mouseInsideClip(rect(contentPos, contentSize))
 
+  enableAutoGLerrorCheck(false)
+
   glEnable(GL_SCISSOR_TEST)
   glScissor(contentPos.x.int32, window.size.y.int32 - contentPos.y.int32 - contentSize.y.int32, contentSize.x.int32, contentSize.y.int32)
   glClearColor(1.0f, 0.0f, 0.0f, 1.0f)
@@ -124,16 +126,21 @@ proc drawWorldMap(panel: panels.Panel, frameId: string, contentPos: Vec2, conten
 
   glDisable(GL_SCISSOR_TEST)
 
+  # Drain any stale GL errors before re-enabling auto-check
+  while glGetError() != 0.GLenum: discard
+  enableAutoGLerrorCheck(true)
+
 proc drawMinimap(panel: panels.Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) =
   ## Draw the minimap.
   sk.draw9Patch("panel.body.empty.9patch", 3, contentPos, contentSize)
+
+  enableAutoGLerrorCheck(false)
 
   glEnable(GL_SCISSOR_TEST)
   glScissor(contentPos.x.int32, window.size.y.int32 - contentPos.y.int32 - contentSize.y.int32, contentSize.x.int32, contentSize.y.int32)
 
   let minimapZoomInfo = ZoomInfo()
   minimapZoomInfo.rect = irect(contentPos.x, contentPos.y, contentSize.x, contentSize.y)
-  # Adjust zoom info and draw the minimap.
   minimapZoomInfo.hasMouse = false
 
   bxy.saveTransform()
@@ -142,6 +149,9 @@ proc drawMinimap(panel: panels.Panel, frameId: string, contentPos: Vec2, content
   bxy.restoreTransform()
 
   glDisable(GL_SCISSOR_TEST)
+
+  while glGetError() != 0.GLenum: discard
+  enableAutoGLerrorCheck(true)
 
 proc registerPanels() =
   ## Register all panels so they can be restored from saved state.

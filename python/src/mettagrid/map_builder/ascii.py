@@ -13,7 +13,7 @@ class AsciiMapBuilderConfig(MapBuilderConfig):
     map_data: list[list[str]]
     char_to_map_name: dict[
         Annotated[str, StringConstraints(min_length=1, max_length=1)],  # keys are single characters
-        Annotated[str, StringConstraints(pattern=r"^[\w\.]+$")],  # values are map_names
+        Annotated[str, StringConstraints(pattern=r"^[\w\.:]+$")],  # values are map_names
     ]
 
     @field_validator("map_data", mode="before")

@@ -329,6 +329,24 @@ proc getAgentOrientation*(agent: Entity, step: int): Orientation =
       break
   return S
 
+proc stripTeamSuffix(typeName: string): string =
+  ## Strip team suffix like _0, _1 from type name.
+  if typeName.len >= 2 and typeName[^2] == '_' and typeName[^1] in {'0'..'9'}:
+    return typeName[0..^3]
+  return typeName
+
+proc stripTeamPrefix(typeName: string): string =
+  ## Strip team prefix in "XX:" format (e.g., "c:hub" → "hub", "cg:miner" → "miner").
+  ## Also handles legacy "cogs_green_" style prefixes.
+  let colonIdx = typeName.find(':')
+  if colonIdx >= 0 and colonIdx < typeName.len - 1:
+    return typeName[colonIdx + 1 .. ^1]
+  const teamPrefixes = ["cogs_green_", "cogs_blue_", "cogs_red_", "cogs_yellow_"]
+  for prefix in teamPrefixes:
+    if typeName.len > prefix.len and typeName[0 ..< prefix.len] == prefix:
+      return typeName[prefix.len .. ^1]
+  return typeName
+
 proc drawObjects*() =
   ## Draw the objects on the map.
   for thing in replay.objects:
@@ -339,16 +357,6 @@ proc drawObjects*() =
       discard
     of "agent":
       let agent = thing
-      # Agents don't do orientation anymore.
-      # var agentImage = case agent.orientation.at:
-      #   of 0: "agents/agent.n"
-      #   of 1: "agents/agent.s"
-      #   of 2: "agents/agent.w"
-      #   of 3: "agents/agent.e"
-      #   else:
-      #     echo "Unknown orientation: ", agent.orientation.at
-      #     "agents/agent.n"
-
       # Find last orientation action.
       var agentImage = "agents/agent." & getAgentOrientation(agent, step).char
 
@@ -360,6 +368,10 @@ proc drawObjects*() =
       let spriteName =
         if "objects/" & thing.typeName in px:
           "objects/" & thing.typeName
+        elif "objects/" & stripTeamPrefix(thing.typeName) in px:
+          "objects/" & stripTeamPrefix(thing.typeName)
+        elif "objects/" & stripTeamSuffix(thing.typeName) in px:
+          "objects/" & stripTeamSuffix(thing.typeName)
         else:
           "objects/unknown"
       px.drawSprite(
@@ -583,7 +595,11 @@ proc drawObjectPips*() =
   for obj in replay.objects:
     if obj.typeName == "wall":
       continue
-    let pipName = "minimap/" & obj.typeName
+    var pipName = "minimap/" & obj.typeName
+    if pipName notin pxMini:
+      pipName = "minimap/" & stripTeamSuffix(obj.typeName)
+    if pipName notin pxMini:
+      pipName = "minimap/" & stripTeamPrefix(obj.typeName)
     if pipName in pxMini:
       let loc = obj.location.at(step).xy
       pxMini.drawSprite(
