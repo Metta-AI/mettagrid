@@ -600,14 +600,13 @@ proc drawObjectPips*() =
       pipName = "minimap/" & stripTeamSuffix(obj.typeName)
     if pipName notin pxMini:
       pipName = "minimap/" & stripTeamPrefix(obj.typeName)
-    if pipName in pxMini:
-      let loc = obj.location.at(step).xy
-      pxMini.drawSprite(
-        pipName,
-        loc.ivec2 * MINI_TILE_SIZE
-      )
-    else:
-      echo "pipName not found in mini atlas: ", pipName
+    if pipName notin pxMini:
+      pipName = "minimap/unknown"
+    let loc = obj.location.at(step).xy
+    pxMini.drawSprite(
+      pipName,
+      loc.ivec2 * MINI_TILE_SIZE
+    )
 
 proc drawWorldMini*() =
   ## Draw the world map at minimap zoom level using pxMini.
