@@ -473,7 +473,7 @@ def test_team_tag_consistency_enforced():
     with pytest.raises(ValueError) as excinfo:
         convert_to_cpp_game_config(game_config)
 
-    assert "All agents in team" in str(excinfo.value)
+    assert "All agents in collective" in str(excinfo.value)
     assert "must have identical tags" in str(excinfo.value)
 
 

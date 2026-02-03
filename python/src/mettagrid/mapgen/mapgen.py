@@ -106,12 +106,30 @@ class MapGenConfig(MapBuilderConfig["MapGen"]):
     # Inner border width between instances. This value usually shouldn't be changed.
     instance_border_width: int = Field(default=5, ge=0)
 
+    # Object type used to fill borders between instances. Default is "wall" (impassable).
+    # Set to "empty" to make borders walkable, connecting instances with open terrain.
+    instance_border_object: str = Field(default="wall")
+
+    # After rendering, clear walls within this many rows/cols of each instance boundary.
+    # This removes procedural wall buildup near instance edges. 0 = no clearing.
+    instance_border_clear_radius: int = Field(default=0, ge=0)
+
     # Create a unique team comprising all agents in each instance
     set_team_by_instance: bool = Field(
         default=False,
         description="If True, automatically assign agents to teams based on instance number"
         " (agent.team_0, agent.team_1, etc.)",
     )
+
+    # Remap object symbols per instance. Keys are original symbol names, values are format
+    # strings with {instance_id} or {instance_name}. E.g., {"hub": "hub_{instance_id}"} rewrites
+    # "hub" to "hub_0" in instance 0 and "hub_1" in instance 1. If instance_names is set,
+    # {instance_name} can be used instead, e.g., {"hub": "hub_{instance_name}"}.
+    instance_object_remap: dict[str, str] = Field(default_factory=dict)
+
+    # Optional names for each instance, used for {instance_name} substitution in instance_object_remap.
+    # Length must match `instances` if provided.
+    instance_names: list[str] | None = Field(default=None)
 
     @model_validator(mode="after")
     def validate_required_fields(self) -> MapGenConfig:
@@ -124,6 +142,11 @@ class MapGenConfig(MapBuilderConfig["MapGen"]):
 
         # The opposite situation, when `instance` is a scene config, but width and height are set,
         # could be valid, if the scene has an intrinsic size.
+
+        if self.instance_names is not None and len(self.instance_names) != self.instances:
+            raise ValueError(
+                f"instance_names length ({len(self.instance_names)}) must match instances ({self.instances})"
+            )
 
         return self
 
@@ -224,6 +247,24 @@ class MapGen(MapBuilder[MapGenConfig]):
 
                 instance_map = instance_map_builder.build()
                 instance_grid = instance_map.grid
+
+                current_instance_id = len(self.instance_scene_factories)
+
+                # When using team-by-instance, rewrite generic agent symbols to team-specific ones.
+                if self.config.set_team_by_instance:
+                    agent_mask = np.char.startswith(instance_grid, "agent.")
+                    instance_grid[agent_mask] = f"agent.team_{current_instance_id}"
+
+                # Remap object symbols per instance.
+                for original, fmt in self.config.instance_object_remap.items():
+                    mask = instance_grid == original
+                    if np.any(mask):
+                        instance_name = (
+                            self.config.instance_names[current_instance_id]
+                            if self.config.instance_names
+                            else str(current_instance_id)
+                        )
+                        instance_grid[mask] = fmt.format(instance_id=current_instance_id, instance_name=instance_name)
 
                 self.instance_scene_factories.append(
                     # TODO - if the instance class is MapGen, we want to transplant its scene tree too.
@@ -384,6 +425,7 @@ class MapGen(MapBuilder[MapGenConfig]):
             rows=self.instance_rows,
             columns=self.instance_cols,
             border_width=self.config.instance_border_width,
+            border_object=self.config.instance_border_object,
             children=children_actions,
         )
 
@@ -423,7 +465,43 @@ class MapGen(MapBuilder[MapGenConfig]):
         )
         self.root_scene.render_with_children()
 
+        if self.config.instance_border_clear_radius > 0 and self.instances is not None and self.instances > 1:
+            self._clear_instance_borders()
+
         return GameMap(self.guarded_grid())
+
+    def _clear_instance_borders(self):
+        """Replace walls near instance boundaries with empty cells."""
+        assert self.grid is not None
+        radius = self.config.instance_border_clear_radius
+        bw = self.config.border_width
+        ibw = self.config.instance_border_width
+        assert self.height is not None and self.width is not None
+
+        grid_h, grid_w = self.grid.shape
+
+        # Clear horizontal boundaries (between instance rows)
+        for row_idx in range(self.instance_rows - 1):
+            # The gap starts after (row_idx+1) instances and row_idx gaps
+            gap_start = bw + (row_idx + 1) * self.height + row_idx * ibw
+            gap_end = gap_start + ibw
+            clear_start = max(bw, gap_start - radius)
+            clear_end = min(grid_h - bw, gap_end + radius)
+            for r in range(clear_start, clear_end):
+                for c in range(bw, grid_w - bw):
+                    if self.grid[r, c] == "wall":
+                        self.grid[r, c] = "empty"
+
+        # Clear vertical boundaries (between instance columns)
+        for col_idx in range(self.instance_cols - 1):
+            gap_start = bw + (col_idx + 1) * self.width + col_idx * ibw
+            gap_end = gap_start + ibw
+            clear_start = max(bw, gap_start - radius)
+            clear_end = min(grid_w - bw, gap_end + radius)
+            for c in range(clear_start, clear_end):
+                for r in range(bw, grid_h - bw):
+                    if self.grid[r, c] == "wall":
+                        self.grid[r, c] = "empty"
 
     def get_scene_tree(self) -> dict:
         return self.root_scene.get_scene_tree()
