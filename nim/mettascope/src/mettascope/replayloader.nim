@@ -15,7 +15,6 @@ proc onReplayLoaded*() =
   stepFloat = 0.0
   previousStep = -1
   selection = nil
-  play = false
   requestPython = false
   agentPaths = initTable[int, seq[PathAction]]()
   agentObjectives = initTable[int, seq[Objective]]()
