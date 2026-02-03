@@ -27,12 +27,23 @@ dependencies = [
   "pettingzoo>=1.25",
   "pufferlib-core",
   "pydantic>=2.12.2",
+  "protobuf>=6.31.1",
   "pyyaml>=6.0.2",
   "scipy-stubs>=1.17.0.0",
+  "fastapi>=0.115.0",
+  "typer>=0.15.0",
+  "uvicorn>=0.34.0",
+  "requests>=2.32.0",
 ]
 
 [dependency-groups]
-testing = ["pytest>=8.3.3", "pytest-benchmark>=5.1.0", "pytest-xdist>=3.8.0", "freezegun>=1.5.0"]
+testing = [
+  "pytest>=8.3.3",
+  "pytest-benchmark>=5.1.0",
+  "pytest-xdist>=3.8.0",
+  "freezegun>=1.5.0",
+  "grpcio-tools>=1.71.0",
+]
 dev = [{ include-group = "testing" }]
 
 [tool.bazel]
