@@ -78,6 +78,7 @@ class Rollout:
         for policy in self._policies:
             policy.reset()
 
+        self._policy_infos: dict[int, dict] = {}
         self._step_count = 0
 
     def step(self) -> None:
@@ -97,6 +98,13 @@ class Rollout:
                     self._timeout_counts[i] += 1
                 span.set(timed_out=timed_out)
             self._agents[i].set_action(action)
+            infos = self._policies[i].infos
+            if infos:
+                self._policy_infos[i] = dict(infos)
+            else:
+                self._policy_infos.pop(i, None)
+
+        self._sim._context["policy_infos"] = self._policy_infos
 
         if self._renderer is not None:
             self._renderer.render()

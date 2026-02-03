@@ -78,7 +78,11 @@ class VibescopeRenderer(Renderer):
         if self._sim.current_step > 0:
             ignore_types = ["wall"]
 
+        all_policy_infos = self._sim._context.get("policy_infos", {})
+
         for grid_object in self._sim.grid_objects(ignore_types=ignore_types).values():
+            agent_id = grid_object.get("agent_id")
+            pi = all_policy_infos.get(agent_id) if agent_id is not None else None
             grid_objects.append(
                 format_grid_object(
                     grid_object,
@@ -86,6 +90,7 @@ class VibescopeRenderer(Renderer):
                     self._sim.action_success,
                     placeholder_rewards,
                     total_rewards,
+                    policy_infos=pi,
                 )
             )
 

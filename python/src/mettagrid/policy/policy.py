@@ -29,6 +29,16 @@ class AgentPolicy:
 
     def __init__(self, policy_env_info: PolicyEnvInterface):
         self._policy_env_info = policy_env_info
+        self._infos: dict[str, Any] = {}
+
+    @property
+    def infos(self) -> dict[str, Any]:
+        """Per-step metadata dict. Policies can set self._infos in step().
+
+        Defaults to empty. The rollout collects and persists these infos,
+        passing them through to the renderer for display.
+        """
+        return self._infos
 
     @property
     def policy_env_info(self) -> PolicyEnvInterface:
@@ -262,6 +272,7 @@ class StatefulAgentPolicy(AgentPolicy, Generic[StateType]):
             )
         if self._agent_id is not None:
             self._agent_states[self._agent_id] = self._state
+        self._infos = getattr(self._base_policy, "_infos", {})
         return action
 
     def reset(self, simulation: Optional[Simulation] = None) -> None:
