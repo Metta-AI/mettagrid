@@ -83,6 +83,7 @@ def format_grid_object(
     rewards: np.ndarray,
     total_rewards: np.ndarray,
     decode_flat_action: Optional[Callable[[int], Tuple[int, int]]] = None,
+    policy_infos: Optional[dict] = None,
 ) -> dict:
     """Format a grid object with validation for both replay recording and play streaming."""
     # Validate basic object properties
@@ -118,6 +119,8 @@ def format_grid_object(
             total_rewards,
             decode_flat_action=decode_flat_action,
         )
+        if policy_infos:
+            update_object["policy_infos"] = policy_infos
 
     elif "input_resources" in grid_object:
         format_converter_properties(grid_object, update_object)

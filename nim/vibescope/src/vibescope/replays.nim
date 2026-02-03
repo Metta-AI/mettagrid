@@ -109,6 +109,9 @@ type
     # Alignable fields.
     collectiveId*: seq[int]
 
+    # Policy info (per-step arbitrary metadata from policy).
+    policyInfos*: seq[JsonNode]
+
     # Computed fields.
     gainMap*: seq[seq[ItemAmount]]
     isAgent*: bool
@@ -207,6 +210,9 @@ type
     # Alignable fields.
     collectiveId*: int = -1
 
+    # Policy info (arbitrary metadata from policy).
+    policyInfos*: JsonNode
+
   EpisodeStats* = object
     game*: Table[string, float]  ## global game stats
     agent*: seq[Table[string, float]]  ## per-agent stats
@@ -287,6 +293,53 @@ proc parseHook*(s: string, i: var int, v: var ItemAmount) =
   var arr: array[2, int32]
   parseHook(s, i, arr)
   v = ItemAmount(itemId: arr[0], count: arr[1])
+
+proc parseHook*(s: string, i: var int, v: var JsonNode) =
+  ## Parse an arbitrary JSON value into a JsonNode for jsony compatibility.
+  let start = i
+  # Skip whitespace
+  while i < s.len and s[i] in {' ', '\t', '\n', '\r'}:
+    inc i
+  if i >= s.len:
+    v = newJNull()
+    return
+  # Use std/json parseJson on the remaining substring, then advance i
+  var depth = 0
+  let c = s[i]
+  case c
+  of '{', '[':
+    let open = c
+    let close = if open == '{': '}' else: ']'
+    depth = 1
+    inc i
+    while i < s.len and depth > 0:
+      if s[i] == open: inc depth
+      elif s[i] == close: dec depth
+      elif s[i] == '"':
+        inc i
+        while i < s.len and s[i] != '"':
+          if s[i] == '\\':
+            inc i
+            if i >= s.len: break  # prevent out of bounds on trailing backslash
+          inc i
+      inc i
+  of '"':
+    inc i
+    while i < s.len and s[i] != '"':
+      if s[i] == '\\':
+        inc i
+        if i >= s.len: break  # prevent out of bounds on trailing backslash
+      inc i
+    if i < s.len: inc i  # closing quote
+  else:
+    # number, bool, null
+    while i < s.len and s[i] notin {',', '}', ']', ' ', '\t', '\n', '\r'}:
+      inc i
+  let jsonStr = s[start..i-1]
+  try:
+    v = parseJson(jsonStr)
+  except:
+    v = newJNull()
 
 proc expand[T](data: JsonNode, numSteps: int, defaultValue: T): seq[T] =
   if data == nil:
@@ -1011,6 +1064,14 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) =
     entity.allowPartialUsage = obj.allowPartialUsage
     entity.protocols = obj.protocols
     entity.collectiveId.add(obj.collectiveId)
+    if not obj.policyInfos.isNil:
+      entity.policyInfos.add(obj.policyInfos)
+    else:
+      # Persist last value: repeat previous entry or add nil
+      if entity.policyInfos.len > 0:
+        entity.policyInfos.add(entity.policyInfos[^1])
+      else:
+        entity.policyInfos.add(newJNull())
 
   # Mark objects as removed if they existed before but weren't in this step.
   if replay.objects.len > 0:
