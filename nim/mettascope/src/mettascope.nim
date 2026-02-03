@@ -45,6 +45,8 @@ proc parseArgs() =
       case p.key
       of "replay", "r":
         commandLineReplay = p.val
+      of "autostart", "a":
+        play = p.val == "true" or p.val == ""
       else:
         quit("Unknown option: " & p.key)
     of cmdArgument:
