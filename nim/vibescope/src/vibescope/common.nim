@@ -1,5 +1,5 @@
 import
-  std/[times, tables, os, strutils, pathnorm, sets, random, algorithm],
+  std/[times, tables, os, strutils, pathnorm, sets, random, algorithm, options],
   boxy, windy, vmath, silky,
   replays
 
@@ -69,6 +69,7 @@ var
 
   settings* = Settings()
   selection*: Entity
+  policyTarget*: Option[IVec2]  ## Target cell from policy_infos to highlight on map
 
   step*: int = 0
   stepFloat*: float32 = 0
