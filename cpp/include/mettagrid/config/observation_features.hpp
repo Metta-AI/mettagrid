@@ -31,6 +31,7 @@ public:
     _lp_west = has("lp:west") ? get("lp:west") : 0;
     _lp_north = has("lp:north") ? get("lp:north") : 0;
     _lp_south = has("lp:south") ? get("lp:south") : 0;
+    _agent_id = has("agent_id") ? get("agent_id") : 0;
 
     // Initialize public members (must be done AFTER private members are set above)
     Group = _group;
@@ -48,6 +49,7 @@ public:
     LpWest = _lp_west;
     LpNorth = _lp_north;
     LpSouth = _lp_south;
+    AgentId = _agent_id;
   }
 
   // Get feature ID by name (throws if not found)
@@ -80,6 +82,7 @@ public:
   ObservationType LpWest;
   ObservationType LpNorth;
   ObservationType LpSouth;
+  ObservationType AgentId;
 
 private:
   std::unordered_map<std::string, ObservationType> _name_to_id;
@@ -100,6 +103,7 @@ private:
   ObservationType _lp_west;
   ObservationType _lp_north;
   ObservationType _lp_south;
+  ObservationType _agent_id;
 };
 
 // Global singleton instance
@@ -127,6 +131,7 @@ extern ObservationType LpEast;
 extern ObservationType LpWest;
 extern ObservationType LpNorth;
 extern ObservationType LpSouth;
+extern ObservationType AgentId;
 }  // namespace ObservationFeature
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CONFIG_OBSERVATION_FEATURES_HPP_

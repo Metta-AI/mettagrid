@@ -20,6 +20,7 @@ ObservationType LpEast;
 ObservationType LpWest;
 ObservationType LpNorth;
 ObservationType LpSouth;
+ObservationType AgentId;
 
 void Initialize(const std::unordered_map<std::string, ObservationType>& feature_ids) {
   _instance = std::make_shared<ObservationFeaturesImpl>(feature_ids);
@@ -40,5 +41,6 @@ void Initialize(const std::unordered_map<std::string, ObservationType>& feature_
   LpWest = _instance->LpWest;
   LpNorth = _instance->LpNorth;
   LpSouth = _instance->LpSouth;
+  AgentId = _instance->AgentId;
 }
 }  // namespace ObservationFeature
