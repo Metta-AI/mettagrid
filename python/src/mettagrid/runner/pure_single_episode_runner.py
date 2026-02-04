@@ -29,9 +29,8 @@ class PureSingleEpisodeJob(BaseModel):
 
     env: MettaGridConfig
 
-    # For now, this only supports file:// scheme. Will eventually support https:// to send to s3
-    results_uri: str | None  # Contains EpisodeRolloutResult
-    replay_uri: str | None  # Where to place replay file. If missing, do not generate a replay
+    results_uri: str | None  # file:// URI for episode results JSON
+    replay_uri: str | None  # file:// URI for replay. If missing, do not generate a replay
     debug_dir: str | None = None  # Directory for observability outputs (trace.json, etc.)
 
     # There's no way to ask us to generate a seed; the caller has to pick one
@@ -68,8 +67,4 @@ if __name__ == "__main__":
     with open(sys.argv[1]) as f:
         args = json.load(f)
     job = PureSingleEpisodeJob.model_validate(args["job"])
-    allow_network = args.get("allow_network", False)
-    if allow_network:
-        raise ValueError("allow_network is not supported by the sandboxed runner")
-    device = args.get("device")
-    run_sandboxed_episode(job, device=device)
+    run_sandboxed_episode(job)
