@@ -1,15 +1,12 @@
-import json
+import logging
 import random
-import socket
-import sys
 import uuid
-from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import Callable, Optional, Protocol, Sequence
 
 from mettagrid import MettaGridConfig
 from mettagrid.policy.loader import AgentPolicy, PolicyEnvInterface, initialize_or_load_policy
-from mettagrid.policy.policy import PolicySpec
+from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
 from mettagrid.renderer.renderer import RenderMode
 from mettagrid.runner.pure_single_episode_runner import (
     PureSingleEpisodeJob,
@@ -17,12 +14,22 @@ from mettagrid.runner.pure_single_episode_runner import (
     _validate_assignments,
     _validate_output_uri,
 )
+from mettagrid.runner.remote import PolicyStepError, RemoteMultiAgentPolicy
 from mettagrid.simulator.multi_episode.rollout import EpisodeRolloutResult, MultiEpisodeRolloutResult
 from mettagrid.simulator.replay_log_writer import EpisodeReplay, InMemoryReplayWriter
 from mettagrid.simulator.rollout import Rollout
 from mettagrid.util.file import write_data
 from mettagrid.util.tracer import Tracer
-from mettagrid.util.uri_resolvers.schemes import parse_uri, policy_spec_from_uri
+
+logger = logging.getLogger(__name__)
+
+
+def _setup_trace_path(debug_dir: Optional[str]) -> Optional[Path]:
+    if debug_dir is None:
+        return None
+    debug_path = Path(debug_dir)
+    debug_path.mkdir(parents=True, exist_ok=True)
+    return debug_path / "trace.json"
 
 
 class ReplayLike(Protocol):
@@ -39,43 +46,11 @@ def write_replay(replay: ReplayLike, path: str) -> None:
     replay.write_replay(path)
 
 
-@contextmanager
-def _no_python_sockets():
-    _real_socket = socket.socket
-    _real_getaddrinfo = socket.getaddrinfo
-
-    def _blocked(*args: object, **kwargs: object):
-        raise RuntimeError("Network access disabled")
-
-    socket.socket = _blocked
-    socket.getaddrinfo = _blocked
-
-    try:
-        yield
-    finally:
-        socket.socket = _real_socket
-        socket.getaddrinfo = _real_getaddrinfo
-
-
-def _policy_specs_from_uris(
+def _remote_policies_from_uris(
     policy_uris: Sequence[str],
-    *,
-    device: Optional[str],
-    allow_network: bool,
-) -> list[PolicySpec]:
-    policy_specs: list[PolicySpec] = []
-    for uri in policy_uris:
-        parsed = parse_uri(uri, allow_none=False)
-        if parsed.scheme != "file" and not allow_network:
-            raise ValueError("Sandboxed runner requires file:// policy URIs")
-        policy_specs.append(
-            policy_spec_from_uri(
-                uri,
-                device=device or "cpu",
-                remove_downloaded_copy_on_exit=True,
-            )
-        )
-    return policy_specs
+    env_interface: PolicyEnvInterface,
+) -> list[RemoteMultiAgentPolicy]:
+    return [RemoteMultiAgentPolicy(env_interface, base_url=uri) for uri in policy_uris]
 
 
 def _write_outputs(
@@ -94,26 +69,19 @@ def _write_outputs(
 
 
 def _run_pure_episode(
-    policy_specs: Sequence[PolicySpec],
+    policies: Sequence[MultiAgentPolicy],
     assignments: Sequence[int],
     env: MettaGridConfig,
     *,
     seed: int,
     max_action_time_ms: int,
-    device: Optional[str],
     render_mode: RenderMode,
     autostart: bool,
     capture_replay: bool,
     trace_path: Optional[Path] = None,
 ) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
-    env_interface = PolicyEnvInterface.from_mg_cfg(env)
     agent_policies: list[AgentPolicy] = [
-        initialize_or_load_policy(
-            env_interface,
-            policy_specs[assignment],
-            device_override=device,
-        ).agent_policy(agent_id)
-        for agent_id, assignment in enumerate(assignments)
+        policies[assignment].agent_policy(agent_id) for agent_id, assignment in enumerate(assignments)
     ]
     replay_writer: Optional[InMemoryReplayWriter] = None
     if capture_replay:
@@ -151,6 +119,14 @@ def _run_pure_episode(
     return results, replay
 
 
+def _policies_from_specs(
+    policy_specs: Sequence[PolicySpec],
+    env_interface: PolicyEnvInterface,
+    device: Optional[str],
+) -> list[MultiAgentPolicy]:
+    return [initialize_or_load_policy(env_interface, spec, device_override=device) for spec in policy_specs]
+
+
 def run_single_episode(
     *,
     policy_specs: Sequence[PolicySpec],
@@ -164,7 +140,6 @@ def run_single_episode(
     device: Optional[str] = None,
     render_mode: Optional[RenderMode] = None,
     autostart: bool = False,
-    allow_network: bool = True,
 ) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
     _validate_assignments(assignments, env.game.num_agents, len(policy_specs))
 
@@ -176,25 +151,22 @@ def run_single_episode(
     if replay_uri is not None and not replay_uri.endswith((".json.z", ".json.gz")):
         raise ValueError("Replay URI must end with .json.z or .json.gz")
 
-    trace_path: Optional[Path] = None
-    if debug_dir is not None:
-        debug_path = Path(debug_dir)
-        debug_path.mkdir(parents=True, exist_ok=True)
-        trace_path = debug_path / "trace.json"
+    trace_path = _setup_trace_path(debug_dir)
 
-    with (_no_python_sockets if not allow_network else nullcontext)():
-        results, replay = _run_pure_episode(
-            policy_specs,
-            assignments,
-            env,
-            seed=seed,
-            max_action_time_ms=max_action_time_ms,
-            device=device,
-            render_mode=render_mode or "none",
-            autostart=autostart,
-            capture_replay=replay_uri is not None,
-            trace_path=trace_path,
-        )
+    env_interface = PolicyEnvInterface.from_mg_cfg(env)
+    policies = _policies_from_specs(policy_specs, env_interface, device)
+
+    results, replay = _run_pure_episode(
+        policies,
+        assignments,
+        env,
+        seed=seed,
+        max_action_time_ms=max_action_time_ms,
+        render_mode=render_mode or "none",
+        autostart=autostart,
+        capture_replay=replay_uri is not None,
+        trace_path=trace_path,
+    )
 
     _write_outputs(results, replay, results_uri=results_uri, replay_uri=replay_uri)
     return results, replay
@@ -203,23 +175,33 @@ def run_single_episode(
 def run_sandboxed_episode(
     job: PureSingleEpisodeJob,
     *,
-    device: Optional[str] = None,
     render_mode: Optional[RenderMode] = None,
 ) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
-    policy_specs = _policy_specs_from_uris(job.policy_uris, device=device, allow_network=False)
-    return run_single_episode(
-        policy_specs=policy_specs,
-        assignments=job.assignments,
-        env=job.env,
-        results_uri=job.results_uri,
-        replay_uri=job.replay_uri,
-        debug_dir=job.debug_dir,
-        seed=job.seed,
-        max_action_time_ms=job.max_action_time_ms,
-        device=device,
-        render_mode=render_mode,
-        allow_network=False,
-    )
+    env_interface = PolicyEnvInterface.from_mg_cfg(job.env)
+    policies = _remote_policies_from_uris(job.policy_uris, env_interface)
+    trace_path = _setup_trace_path(job.debug_dir)
+
+    try:
+        results, replay = _run_pure_episode(
+            policies,
+            job.assignments,
+            job.env,
+            seed=job.seed,
+            max_action_time_ms=job.max_action_time_ms,
+            render_mode=render_mode or "none",
+            autostart=False,
+            capture_replay=job.replay_uri is not None,
+            trace_path=trace_path,
+        )
+    except PolicyStepError:
+        logger.error("Policy server failed during episode execution", exc_info=True)
+        raise
+    finally:
+        for p in policies:
+            p.close()
+
+    _write_outputs(results, replay, results_uri=job.results_uri, replay_uri=job.replay_uri)
+    return results, replay
 
 
 def run_single_episode_rollout(
@@ -298,24 +280,3 @@ def run_multi_episode_rollout(
             replay_paths.append(replay_path)
 
     return MultiEpisodeRolloutResult(episodes=episode_results), replay_paths
-
-
-if __name__ == "__main__":
-    with open(sys.argv[1]) as f:
-        args = json.load(f)
-    job = PureSingleEpisodeJob.model_validate(args["job"])
-    device = args.get("device")
-    allow_network = args.get("allow_network", False)
-    policy_specs = _policy_specs_from_uris(job.policy_uris, device=device, allow_network=allow_network)
-    run_single_episode(
-        policy_specs=policy_specs,
-        assignments=job.assignments,
-        env=job.env,
-        results_uri=job.results_uri,
-        replay_uri=job.replay_uri,
-        debug_dir=job.debug_dir,
-        seed=job.seed,
-        max_action_time_ms=job.max_action_time_ms,
-        device=device,
-        allow_network=allow_network,
-    )
