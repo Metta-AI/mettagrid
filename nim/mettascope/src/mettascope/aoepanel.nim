@@ -1,9 +1,55 @@
 import
-  std/[sets],
+  std/[sets, algorithm, json],
   bumpy, silky, chroma, vmath, windy,
-  common, panels
+  common, panels, replays
 
 const NumCollectives* = 2
+
+proc getCollectivesNode*(): JsonNode =
+  ## Get the collectives JSON node (dict) from the replay config.
+  if replay.isNil or replay.mgConfig.isNil:
+    return nil
+  if "game" notin replay.mgConfig or "collectives" notin replay.mgConfig["game"]:
+    return nil
+  let collectives = replay.mgConfig["game"]["collectives"]
+  if collectives.kind != JObject:
+    return nil
+  return collectives
+
+proc getNumCollectives*(): int =
+  ## Get the number of collectives from the replay config.
+  let collectives = getCollectivesNode()
+  if collectives.isNil:
+    return 0
+  return collectives.len
+
+proc getCollectiveName*(collectiveId: int): string =
+  ## Get the collective name by ID from the mg_config.
+  ## IDs are assigned alphabetically (matching C++/Python), so we sort keys first.
+  let collectives = getCollectivesNode()
+  if collectives.isNil or collectiveId < 0:
+    return ""
+  var names: seq[string] = @[]
+  for key in collectives.keys:
+    names.add(key)
+  names.sort()
+  if collectiveId < names.len:
+    return names[collectiveId]
+  return ""
+
+proc getCollectiveConfig*(collectiveId: int): JsonNode =
+  ## Get the collective config by ID from the mg_config.
+  ## IDs are assigned alphabetically (matching C++/Python), so we sort keys first.
+  let collectives = getCollectivesNode()
+  if collectives.isNil or collectiveId < 0:
+    return nil
+  var names: seq[string] = @[]
+  for key in collectives.keys:
+    names.add(key)
+  names.sort()
+  if collectiveId < names.len:
+    return collectives[names[collectiveId]]
+  return nil
 
 proc getAoeColor*(collectiveId: int): ColorRGBX =
   case collectiveId

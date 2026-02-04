@@ -1,5 +1,5 @@
 import
-  std/[times, tables, os, pathnorm, sets],
+  std/[times, tables, os, pathnorm, sets, strutils],
   boxy, windy, vmath, silky,
   replays
 
@@ -191,3 +191,27 @@ proc getPanelByName*(area: Area, name: string): Panel =
     if panel != nil:
       return panel
   return nil
+
+proc stripTeamSuffix*(typeName: string): string =
+  ## Strip team suffix like _0, _1 from type name.
+  if typeName.len >= 2 and typeName[^2] == '_' and typeName[^1] in {'0'..'9'}:
+    return typeName[0..^3]
+  return typeName
+
+proc stripTeamPrefix*(typeName: string): string =
+  ## Strip team prefix in "XX:" format (e.g., "c:hub" → "hub", "cg:miner" → "miner").
+  ## Also handles legacy "cogs_green_" style prefixes.
+  let colonIdx = typeName.find(':')
+  if colonIdx >= 0 and colonIdx < typeName.len - 1:
+    return typeName[colonIdx + 1 .. ^1]
+  const teamPrefixes = ["cogs_green_", "cogs_blue_", "cogs_red_", "cogs_yellow_", "clips_"]
+  for prefix in teamPrefixes:
+    if typeName.len > prefix.len and typeName[0 ..< prefix.len] == prefix:
+      return typeName[prefix.len .. ^1]
+  return typeName
+
+proc normalizeTypeName*(typeName: string): string =
+  ## Normalize a type name by stripping team prefixes and suffixes.
+  ## Handles formats like "c:hub", "cogs_green_hub", "hub_0", etc.
+  result = stripTeamPrefix(typeName)
+  result = stripTeamSuffix(result)

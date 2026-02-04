@@ -2,7 +2,7 @@ import
   std/[strutils, strformat, os, parseopt, tables],
   opengl, windy, bumpy, vmath, chroma, silky, boxy, webby,
   mettascope/[replays, common, worldmap, panels, objectinfo, envconfig, vibes,
-  footer, timeline, minimap, header, replayloader, configs, aoepanel]
+  footer, timeline, minimap, header, replayloader, configs, aoepanel, collectivepanel]
 
 proc buildSilkyAtlas*(imagePath, jsonPath: string) =
   ## Build the silky UI atlas.
@@ -11,7 +11,9 @@ proc buildSilkyAtlas*(imagePath, jsonPath: string) =
   builder.addDir(dataDir / "ui/", dataDir & "/")
   builder.addDir(dataDir / "vibe/", dataDir & "/")
   builder.addDir(dataDir / "resources/", dataDir & "/")
-  # builder.addDir(dataDir / "agents/", dataDir / "agents/")
+  builder.addDir(dataDir / "icons/", dataDir & "/")
+  builder.addDir(dataDir / "icons/agents/", dataDir & "/")
+  builder.addDir(dataDir / "icons/objects/", dataDir & "/")
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "H1", 32.0)
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "Default", 18.0)
   builder.write(imagePath, jsonPath)
@@ -162,6 +164,7 @@ proc createDefaultPanelLayout() =
 
   rootArea.areas[1].areas[1].addPanel("Vibes", drawVibes)
   rootArea.areas[1].areas[1].addPanel("AoE", drawAoePanel)
+  rootArea.areas[1].areas[1].addPanel("Collectives", drawCollectivesPanel)
 
 proc initPanels() =
   ## Initialize panels, loading layout from config if available.
