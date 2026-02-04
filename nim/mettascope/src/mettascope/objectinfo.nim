@@ -132,6 +132,25 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
     # Basic identity
     h1text(cur.typeName)
     text(&"  Object ID: {cur.id}")
+    text(&"  Collective ID: {cur.collectiveId}")
+
+    # Show AoE fields if this object type has them
+    if not replay.mgConfig.isNil and "game" in replay.mgConfig:
+      let game = replay.mgConfig["game"]
+      if "objects" in game and cur.typeName in game["objects"]:
+        let objConfig = game["objects"][cur.typeName]
+        if "aoes" in objConfig and objConfig["aoes"].kind == JObject:
+          let aoes = objConfig["aoes"]
+          if aoes.len > 0:
+            text("  AOEs:")
+            for aoeName, aoeConfig in aoes.pairs:
+              var radius = 0
+              if "radius" in aoeConfig:
+                if aoeConfig["radius"].kind == JInt:
+                  radius = aoeConfig["radius"].getInt
+                elif aoeConfig["radius"].kind == JFloat:
+                  radius = aoeConfig["radius"].getFloat.int
+              text(&"    {aoeName} (radius: {radius})")
 
     if cur.isAgent:
       # Agent-specific info.
@@ -157,7 +176,7 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
       if cur.allowPartialUsage:
         text("  Allows partial usage")
 
-    sk.advance(vec2(0, theme.spacing.float32))
+    sk.advance(vec2(0, sk.theme.spacing.float32))
 
     let currentInventory = cur.inventory.at
     text("Inventory")
@@ -206,7 +225,7 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
         for itemAmount in currentInventory:
           text("  " & formatItem(itemAmount))
 
-    sk.advance(vec2(0, theme.spacing.float32))
+    sk.advance(vec2(0, sk.theme.spacing.float32))
 
     # Protocols
     if cur.protocols.len > 0:
