@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 
 from mettagrid.simulator.multi_episode.rollout import EpisodeRolloutResult, MultiEpisodeRolloutResult
@@ -9,9 +8,9 @@ def test_build_results_summary_multi_mission_policy_episode() -> None:
     mission_one = MultiEpisodeRolloutResult(
         episodes=[
             EpisodeRolloutResult(
-                assignments=np.array([0, 0, 1], dtype=int),
-                rewards=np.array([2.0, 4.0, 3.0], dtype=float),
-                action_timeouts=np.array([1.0, 0.0, 1.0], dtype=float),
+                assignments=[0, 0, 1],
+                rewards=[2.0, 4.0, 3.0],
+                action_timeouts=[1, 0, 1],
                 stats={
                     "game": {"game_metric": 4.0, "failures": 1.0},
                     "agent": [{"stat_a": 2.0, "stat_b": 1.0}, {"stat_a": 2.0, "stat_b": 1.0}, {"stat_a": 4.0}],
@@ -21,9 +20,9 @@ def test_build_results_summary_multi_mission_policy_episode() -> None:
                 max_steps=100,
             ),
             EpisodeRolloutResult(
-                assignments=np.array([0, 0, 1], dtype=int),
-                rewards=np.array([1.0, 5.0, 6.0], dtype=float),
-                action_timeouts=np.array([0.0, 0.0, 1.0], dtype=float),
+                assignments=[0, 0, 1],
+                rewards=[1.0, 5.0, 6.0],
+                action_timeouts=[0, 0, 1],
                 stats={
                     "game": {"game_metric": 4.0, "failures": 1.0},
                     "agent": [{"stat_a": 3.0, "stat_b": 2.0}, {"stat_a": 3.0, "stat_b": 2.0}, {"stat_a": 5.0}],
@@ -38,9 +37,9 @@ def test_build_results_summary_multi_mission_policy_episode() -> None:
     mission_two = MultiEpisodeRolloutResult(
         episodes=[
             EpisodeRolloutResult(
-                assignments=np.array([0, 1, 1], dtype=int),
-                rewards=np.array([10.0, 2.0, 4.0], dtype=float),
-                action_timeouts=np.array([0.0, 2.0, 1.0], dtype=float),
+                assignments=[0, 1, 1],
+                rewards=[10.0, 2.0, 4.0],
+                action_timeouts=[0, 2, 1],
                 stats={
                     "game": {"game_metric": 6.0},
                     "agent": [{"stat_a": 3.0}, {"stat_a": 2.0, "stat_b": 1.0}, {"stat_a": 4.0, "stat_b": 2.0}],
@@ -50,9 +49,9 @@ def test_build_results_summary_multi_mission_policy_episode() -> None:
                 max_steps=150,
             ),
             EpisodeRolloutResult(
-                assignments=np.array([1, 0, 1], dtype=int),
-                rewards=np.array([8.0, 6.0, 2.0], dtype=float),
-                action_timeouts=np.array([2.0, 0.0, 0.0], dtype=float),
+                assignments=[1, 0, 1],
+                rewards=[8.0, 6.0, 2.0],
+                action_timeouts=[2, 0, 0],
                 stats={
                     "game": {"game_metric": 6.0},
                     "agent": [{"stat_a": 3.0, "stat_b": 1.0}, {"stat_a": 4.0}, {"stat_a": 4.0, "stat_b": 2.0}],
@@ -62,9 +61,9 @@ def test_build_results_summary_multi_mission_policy_episode() -> None:
                 max_steps=150,
             ),
             EpisodeRolloutResult(
-                assignments=np.array([1, 1, 0], dtype=int),
-                rewards=np.array([3.0, 12.0, 6.0], dtype=float),
-                action_timeouts=np.array([0.0, 0.0, 0.0], dtype=float),
+                assignments=[1, 1, 0],
+                rewards=[3.0, 12.0, 6.0],
+                action_timeouts=[0, 0, 0],
                 stats={
                     "game": {"game_metric": 6.0},
                     "agent": [{"stat_a": 2.0, "stat_b": 1.0}, {"stat_a": 3.0, "stat_b": 2.0}, {"stat_a": 5.0}],

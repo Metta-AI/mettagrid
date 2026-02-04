@@ -1,12 +1,11 @@
 import json
+import random
 import socket
 import sys
 import uuid
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import Callable, Optional, Protocol, Sequence
-
-import numpy as np
 
 from mettagrid import MettaGridConfig
 from mettagrid.policy.loader import AgentPolicy, PolicyEnvInterface, initialize_or_load_policy
@@ -226,7 +225,7 @@ def run_sandboxed_episode(
 def run_single_episode_rollout(
     *,
     policy_specs: Sequence[PolicySpec],
-    assignments: np.ndarray,
+    assignments: Sequence[int],
     env_cfg: MettaGridConfig,
     seed: int,
     max_action_time_ms: int,
@@ -235,7 +234,7 @@ def run_single_episode_rollout(
 ) -> EpisodeRolloutResult:
     results, _replay = run_single_episode(
         policy_specs=policy_specs,
-        assignments=assignments.tolist(),
+        assignments=list(assignments),
         env=env_cfg,
         results_uri=None,
         replay_uri=replay_path,
@@ -245,9 +244,9 @@ def run_single_episode_rollout(
     )
 
     return EpisodeRolloutResult(
-        assignments=assignments.copy(),
-        rewards=np.array(results.rewards, dtype=float),
-        action_timeouts=np.array(results.action_timeouts, dtype=float),
+        assignments=list(assignments),
+        rewards=list(results.rewards),
+        action_timeouts=list(results.action_timeouts),
         stats=results.stats,
         replay_path=replay_path,
         steps=results.steps,
@@ -258,34 +257,34 @@ def run_single_episode_rollout(
 def run_multi_episode_rollout(
     *,
     policy_specs: Sequence[PolicySpec],
-    assignments: np.ndarray,
+    assignments: Sequence[int],
     env_cfg: MettaGridConfig,
     episodes: int,
     seed: int,
     max_action_time_ms: int,
     replay_dir: Optional[str | Path] = None,
     create_replay_dir: bool = False,
-    rng: Optional[np.random.Generator] = None,
+    rng: Optional[random.Random] = None,
     device: Optional[str] = None,
     on_progress: Optional[Callable[[int, EpisodeRolloutResult], None]] = None,
 ) -> tuple[MultiEpisodeRolloutResult, list[str]]:
     if replay_dir is not None and create_replay_dir:
         Path(replay_dir).mkdir(parents=True, exist_ok=True)
 
-    assignments = np.array(assignments, dtype=int, copy=True)
-    rng = rng or np.random.default_rng(seed)
+    assignments_list = list(assignments)
+    rng = rng or random.Random(seed)
     episode_results: list[EpisodeRolloutResult] = []
     replay_paths: list[str] = []
 
     for episode_idx in range(episodes):
-        rng.shuffle(assignments)
+        rng.shuffle(assignments_list)
         replay_path = None
         if replay_dir is not None:
             replay_path = str(Path(replay_dir) / f"{uuid.uuid4()}.json.z")
 
         result = run_single_episode_rollout(
             policy_specs=policy_specs,
-            assignments=assignments,
+            assignments=assignments_list,
             env_cfg=env_cfg,
             seed=seed + episode_idx,
             max_action_time_ms=max_action_time_ms,
