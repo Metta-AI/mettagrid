@@ -99,6 +99,7 @@ std::vector<PartialObservationToken> Agent::obs_features() const {
   // Agent-specific observations
   features.push_back({ObservationFeature::Group, static_cast<ObservationType>(group)});
   features.push_back({ObservationFeature::Frozen, static_cast<ObservationType>(frozen != 0 ? 1 : 0)});
+  features.push_back({ObservationFeature::AgentId, static_cast<ObservationType>(agent_id)});
 
   return features;
 }
