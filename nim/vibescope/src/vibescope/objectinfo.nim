@@ -536,21 +536,6 @@ proc drawObjectInfo*(panel: panels.Panel, frameId: string, contentPos: Vec2, con
           discard sk.drawText("Default", sourceList, startPos + vec2(baseWidth + deltaWidth, 0), rgbx(180, 180, 180, 255))
 
 
-    # Policy Info section - show per-agent metadata from policy
-    if cur.isAgent:
-      let policyInfo = cur.policyInfos.at()
-      if not policyInfo.isNil and policyInfo.kind == JObject and policyInfo.len > 0:
-        sk.advance(vec2(0, sk.theme.spacing.float32))
-        text("Policy Info")
-        for key, value in policyInfo.pairs:
-          let valueStr = case value.kind
-            of JString: value.getStr
-            of JInt: $value.getInt
-            of JFloat: formatFloat(value.getFloat, ffDecimal, 4)
-            of JBool: $value.getBool
-            of JNull: "null"
-            else: $value
-          text(&"  {key}: {valueStr}")
 
 proc selectObject*(obj: Entity) =
   selection = obj
