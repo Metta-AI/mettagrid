@@ -370,7 +370,7 @@ proc drawObjectInfo*(panel: panels.Panel, frameId: string, contentPos: Vec2, con
       if cur.allowPartialUsage:
         text("  Allows partial usage")
 
-    sk.advance(vec2(0, theme.spacing.float32))
+    sk.advance(vec2(0, sk.theme.spacing.float32))
 
     let currentInventory = cur.inventory.at
     if cur.isAgent:
@@ -421,7 +421,7 @@ proc drawObjectInfo*(panel: panels.Panel, frameId: string, contentPos: Vec2, con
         for itemAmount in currentInventory:
           text("  " & formatItem(itemAmount))
 
-    sk.advance(vec2(0, theme.spacing.float32))
+    sk.advance(vec2(0, sk.theme.spacing.float32))
 
     # Protocols
     if cur.protocols.len > 0:
@@ -463,12 +463,12 @@ proc drawObjectInfo*(panel: panels.Panel, frameId: string, contentPos: Vec2, con
     # AOE Effects - show on source objects
     let aoeConfigs = getAoeConfigs(cur.typeName)
     if aoeConfigs != nil:
-      sk.advance(vec2(0, theme.spacing.float32))
+      sk.advance(vec2(0, sk.theme.spacing.float32))
       text("AOE Source")
       var aoeIdx = 0
       for aoeConfig in aoeConfigs:
         if aoeIdx > 0:
-          sk.advance(vec2(0, theme.spacing.float32 / 2))
+          sk.advance(vec2(0, sk.theme.spacing.float32 / 2))
         aoeIdx += 1
         # Get AOE range
         var aoeRange = 0
@@ -512,7 +512,7 @@ proc drawObjectInfo*(panel: panels.Panel, frameId: string, contentPos: Vec2, con
 
     # Deltas section - show expected next-tick resource changes for agents
     if cur.isAgent and resourceDeltas.len > 0:
-      sk.advance(vec2(0, theme.spacing.float32))
+      sk.advance(vec2(0, sk.theme.spacing.float32))
       text("Deltas:")
       for resourceName, delta in resourceDeltas.pairs:
         let deltaStr = if delta > 0: "+" & $delta else: $delta
@@ -540,7 +540,7 @@ proc drawObjectInfo*(panel: panels.Panel, frameId: string, contentPos: Vec2, con
     if cur.isAgent:
       let policyInfo = cur.policyInfos.at()
       if not policyInfo.isNil and policyInfo.kind == JObject and policyInfo.len > 0:
-        sk.advance(vec2(0, theme.spacing.float32))
+        sk.advance(vec2(0, sk.theme.spacing.float32))
         text("Policy Info")
         for key, value in policyInfo.pairs:
           let valueStr = case value.kind

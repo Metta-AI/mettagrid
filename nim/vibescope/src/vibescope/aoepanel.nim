@@ -91,7 +91,7 @@ proc drawAoeToggle(label: string, enabled: bool, tintColor: Color): bool =
   sk.advance(vec2(0, totalHeight + 4))
   # Handle click.
   let clickRect = bumpy.rect(startPos, vec2(totalWidth, totalHeight))
-  if mouseInsideClip(clickRect) and window.buttonPressed[MouseLeft]:
+  if sk.mouseInsideClip(window, clickRect) and window.buttonPressed[MouseLeft]:
     return true
   return false
 
@@ -134,4 +134,3 @@ proc drawAoePanel*(panel: panels.Panel, frameId: string, contentPos: Vec2, conte
       button("None"):
         settings.aoeEnabledCollectives.clear()
         viewStateChanged = true
-

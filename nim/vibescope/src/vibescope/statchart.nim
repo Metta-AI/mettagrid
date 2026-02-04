@@ -207,7 +207,7 @@ proc drawStatChart*(chart: var StatChart, pos, size: Vec2) =
 
     # Tooltip on mouseover.
     let mousePos = window.mousePos.vec2
-    if mouseInsideClip(rect(barPos, barSize)):
+    if sk.mouseInsideClip(window, rect(barPos, barSize)):
       let mouseXRatio = (mousePos.x - barPos.x) / barSize.x
       let mouseStep = clamp((mouseXRatio * maxSteps.float32).int, 0, maxSteps - 1)
       let mouseYRatio = 1.0 - (mousePos.y - barPos.y) / barSize.y
