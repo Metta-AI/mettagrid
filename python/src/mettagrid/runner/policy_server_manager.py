@@ -35,6 +35,9 @@ class PolicyServerHandle:
             if path is not None:
                 path.unlink(missing_ok=True)
 
+    def read_logs(self, max_bytes: int = 8192) -> str:
+        return _read_log_tail(self._log_file, max_bytes)
+
     @property
     def base_url(self) -> str:
         return f"http://127.0.0.1:{self.port}"

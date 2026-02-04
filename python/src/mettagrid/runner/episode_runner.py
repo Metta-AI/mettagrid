@@ -171,6 +171,15 @@ def run_episode(
                 logger.info("Episode runner stderr:\n%s", stderr.rstrip())
 
             if proc.returncode != 0:
+                for server in servers:
+                    logs = server.read_logs()
+                    if logs.strip():
+                        logger.error(
+                            "Policy server %s (pid %d) logs:\n%s",
+                            server.policy_uri,
+                            server.process.pid,
+                            logs.rstrip(),
+                        )
                 code = proc.returncode
                 detail = f"signal {-code}" if code < 0 else f"exit {code}"
                 raise RuntimeError(f"pure_single_episode_runner failed ({detail})")
