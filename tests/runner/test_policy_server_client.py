@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
-from mettagrid.runner.remote import RemoteMultiAgentPolicy, _serialize_triplet_v1
-from mettagrid.runner.serve_policy import PolicyService, create_app
+from mettagrid.runner.policy_server.client import LocalPolicyServerClient, _serialize_triplet_v1
+from mettagrid.runner.policy_server.server import LocalPolicyServer, create_app
 from mettagrid.simulator import Action, AgentObservation, ObservationToken
 
 
@@ -42,7 +42,7 @@ class _ConstantPolicy(MultiAgentPolicy):
 
 
 def _make_test_client(action_name: str = "move") -> TestClient:
-    service = PolicyService(
+    service = LocalPolicyServer(
         lambda env: _ConstantPolicy(env, action_name),
         lambda _: _env_interface(),
     )
@@ -74,7 +74,7 @@ def _patch_httpx_with_test_client(test_client: TestClient):
         def close(self):
             pass
 
-    return patch("mettagrid.runner.remote.httpx.Client", return_value=_MockClient())
+    return patch("mettagrid.runner.policy_server.client.httpx.Client", return_value=_MockClient())
 
 
 def test_remote_policy_step_returns_correct_action():
@@ -82,7 +82,7 @@ def test_remote_policy_step_returns_correct_action():
     env = _env_interface()
 
     with _patch_httpx_with_test_client(client):
-        policy = RemoteMultiAgentPolicy(env, base_url="http://fake:1234")
+        policy = LocalPolicyServerClient(env, base_url="http://fake:1234")
         agent = policy.agent_policy(0)
         obs = AgentObservation(agent_id=0, tokens=[])
         action = agent.step(obs)
@@ -101,7 +101,7 @@ def test_remote_policy_step_with_observations():
     )
 
     with _patch_httpx_with_test_client(client):
-        policy = RemoteMultiAgentPolicy(env, base_url="http://fake:1234")
+        policy = LocalPolicyServerClient(env, base_url="http://fake:1234")
         agent = policy.agent_policy(0)
         obs = AgentObservation(agent_id=0, tokens=[token])
         action = agent.step(obs)
@@ -114,7 +114,7 @@ def test_remote_policy_multiple_agents():
     env = _env_interface()
 
     with _patch_httpx_with_test_client(client):
-        policy = RemoteMultiAgentPolicy(env, base_url="http://fake:1234")
+        policy = LocalPolicyServerClient(env, base_url="http://fake:1234")
         agent0 = policy.agent_policy(0)
         agent1 = policy.agent_policy(1)
         obs0 = AgentObservation(agent_id=0, tokens=[])
@@ -131,7 +131,7 @@ def test_agent_policy_deduplicates():
     env = _env_interface()
 
     with _patch_httpx_with_test_client(client):
-        policy = RemoteMultiAgentPolicy(env, base_url="http://fake:1234")
+        policy = LocalPolicyServerClient(env, base_url="http://fake:1234")
         a1 = policy.agent_policy(0)
         a2 = policy.agent_policy(0)
 

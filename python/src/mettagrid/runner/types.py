@@ -1,6 +1,4 @@
-import json
-import logging
-import sys
+from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -8,7 +6,13 @@ from mettagrid import MettaGridConfig
 from mettagrid.types import EpisodeStats
 from mettagrid.util.uri_resolvers.schemes import parse_uri
 
-logger = logging.getLogger(__name__)
+
+class EpisodeSpec(BaseModel):
+    policy_uris: list[str]
+    assignments: list[int]
+    env: MettaGridConfig
+    seed: int = 0
+    max_action_time_ms: int = 10000
 
 
 class PureSingleEpisodeJob(BaseModel):
@@ -57,12 +61,22 @@ class PureSingleEpisodeResult(BaseModel):
     steps: int
 
 
-if __name__ == "__main__":
-    from mettagrid.runner.rollout import run_sandboxed_episode
+class RuntimeInfo(BaseModel):
+    git_commit: str | None = None
+    instance_type: str | None = None
 
-    logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    with open(sys.argv[1]) as f:
-        args = json.load(f)
-    job = PureSingleEpisodeJob.model_validate(args["job"])
-    run_sandboxed_episode(job)
+class SingleEpisodeJob(EpisodeSpec):
+    results_uri: Optional[str] = None
+    replay_uri: Optional[str] = None
+    debug_uri: Optional[str] = None
+    episode_tags: dict[str, str] = Field(default_factory=dict)
+
+    def episode_spec(self) -> EpisodeSpec:
+        return EpisodeSpec(
+            policy_uris=self.policy_uris,
+            assignments=self.assignments,
+            env=self.env,
+            seed=self.seed,
+            max_action_time_ms=self.max_action_time_ms,
+        )

@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.protobuf.sim.policy_v1 import policy_pb2
-from mettagrid.runner.serve_policy import PolicyService, create_app
+from mettagrid.runner.policy_server.server import LocalPolicyServer, create_app
 from mettagrid.simulator import Action, AgentObservation
 
 
@@ -20,7 +20,7 @@ class ConstantActionAgentPolicy(AgentPolicy):
         self.action_id = action_id
 
     def step(self, obs: AgentObservation) -> Action:
-        # Return action_id as name (will be parsed back to int by serve_policy)
+        # Return action_id as name (will be parsed back to int by the policy server)
         return Action(name=str(self.action_id))
 
 
@@ -36,7 +36,7 @@ class ConstantActionPolicy(MultiAgentPolicy):
 
 
 def test_prepare_policy():
-    app = create_app(PolicyService(lambda _: ConstantActionPolicy(42), null_env_adapter))
+    app = create_app(LocalPolicyServer(lambda _: ConstantActionPolicy(42), null_env_adapter))
     client = TestClient(app)
 
     response = client.post(
@@ -57,7 +57,7 @@ def test_prepare_policy():
 
 
 def test_prepare_policy_wrong_path():
-    app = create_app(PolicyService(lambda _: ConstantActionPolicy(42), null_env_adapter))
+    app = create_app(LocalPolicyServer(lambda _: ConstantActionPolicy(42), null_env_adapter))
     client = TestClient(app)
 
     response = client.post("/wrong/path", json={})
@@ -66,7 +66,7 @@ def test_prepare_policy_wrong_path():
 
 
 def test_prepare_policy_wrong_method():
-    app = create_app(PolicyService(lambda _: ConstantActionPolicy(42), null_env_adapter))
+    app = create_app(LocalPolicyServer(lambda _: ConstantActionPolicy(42), null_env_adapter))
     client = TestClient(app)
 
     response = client.get("/mettagrid.protobuf.sim.policy_v1.Policy/PreparePolicy")
@@ -75,7 +75,7 @@ def test_prepare_policy_wrong_method():
 
 
 def test_prepare_policy_invalid_json_shape():
-    app = create_app(PolicyService(lambda _: ConstantActionPolicy(42), null_env_adapter))
+    app = create_app(LocalPolicyServer(lambda _: ConstantActionPolicy(42), null_env_adapter))
     client = TestClient(app)
 
     response = client.post(
@@ -87,7 +87,7 @@ def test_prepare_policy_invalid_json_shape():
 
 
 def test_prepare_policy_unsupported_observation_format():
-    app = create_app(PolicyService(lambda _: ConstantActionPolicy(42), null_env_adapter))
+    app = create_app(LocalPolicyServer(lambda _: ConstantActionPolicy(42), null_env_adapter))
     client = TestClient(app)
 
     # AGENT_OBSERVATIONS_FORMAT_UNKNOWN (0) is not supported
@@ -101,7 +101,7 @@ def test_prepare_policy_unsupported_observation_format():
 
 
 def test_batch_step():
-    app = create_app(PolicyService(lambda _: ConstantActionPolicy(42), null_env_adapter))
+    app = create_app(LocalPolicyServer(lambda _: ConstantActionPolicy(42), null_env_adapter))
     client = TestClient(app)
 
     # Must call PreparePolicy first to register the episode
@@ -136,7 +136,7 @@ def test_batch_step():
 
 
 def test_batch_step_unknown_episode():
-    app = create_app(PolicyService(lambda _: ConstantActionPolicy(42), null_env_adapter))
+    app = create_app(LocalPolicyServer(lambda _: ConstantActionPolicy(42), null_env_adapter))
     client = TestClient(app)
 
     response = client.post(
@@ -152,7 +152,7 @@ def test_batch_step_unknown_episode():
 
 
 def test_batch_step_unknown_agent():
-    app = create_app(PolicyService(lambda _: ConstantActionPolicy(42), null_env_adapter))
+    app = create_app(LocalPolicyServer(lambda _: ConstantActionPolicy(42), null_env_adapter))
     client = TestClient(app)
 
     # Register episode with agent 0
