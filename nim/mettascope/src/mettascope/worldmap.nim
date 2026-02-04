@@ -512,23 +512,7 @@ proc inferOrientation*(agent: Entity, step: int): Orientation =
         return N
   return S
 
-proc stripTeamSuffix(typeName: string): string =
-  ## Strip team suffix like _0, _1 from type name.
-  if typeName.len >= 2 and typeName[^2] == '_' and typeName[^1] in {'0'..'9'}:
-    return typeName[0..^3]
-  return typeName
-
-proc stripTeamPrefix(typeName: string): string =
-  ## Strip team prefix in "XX:" format (e.g., "c:hub" → "hub", "cg:miner" → "miner").
-  ## Also handles legacy "cogs_green_" style prefixes.
-  let colonIdx = typeName.find(':')
-  if colonIdx >= 0 and colonIdx < typeName.len - 1:
-    return typeName[colonIdx + 1 .. ^1]
-  const teamPrefixes = ["cogs_green_", "cogs_blue_", "cogs_red_", "cogs_yellow_"]
-  for prefix in teamPrefixes:
-    if typeName.len > prefix.len and typeName[0 ..< prefix.len] == prefix:
-      return typeName[prefix.len .. ^1]
-  return typeName
+# stripTeamSuffix, stripTeamPrefix, normalizeTypeName are imported from common
 
 proc agentRigName(agent: Entity): string =
   ## Get the rig of the agent.
