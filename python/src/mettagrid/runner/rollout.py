@@ -2,7 +2,7 @@ import logging
 import random
 import uuid
 from pathlib import Path
-from typing import Callable, Optional, Protocol, Sequence
+from typing import Callable, Optional, Sequence
 
 from mettagrid import MettaGridConfig
 from mettagrid.policy.loader import AgentPolicy, PolicyEnvInterface, initialize_or_load_policy
@@ -11,8 +11,6 @@ from mettagrid.renderer.renderer import RenderMode
 from mettagrid.runner.pure_single_episode_runner import (
     PureSingleEpisodeJob,
     PureSingleEpisodeResult,
-    _validate_assignments,
-    _validate_output_uri,
 )
 from mettagrid.runner.remote import PolicyStepError, RemoteMultiAgentPolicy
 from mettagrid.simulator.multi_episode.rollout import EpisodeRolloutResult, MultiEpisodeRolloutResult
@@ -32,27 +30,6 @@ def _setup_trace_path(debug_dir: Optional[str]) -> Optional[Path]:
     return debug_path / "trace.json"
 
 
-class ReplayLike(Protocol):
-    def set_compression(self, compression: str) -> None: ...
-
-    def write_replay(self, path: str) -> None: ...
-
-
-def write_replay(replay: ReplayLike, path: str) -> None:
-    if path.endswith(".gz"):
-        replay.set_compression("gzip")
-    elif path.endswith(".z"):
-        replay.set_compression("zlib")
-    replay.write_replay(path)
-
-
-def _remote_policies_from_uris(
-    policy_uris: Sequence[str],
-    env_interface: PolicyEnvInterface,
-) -> list[RemoteMultiAgentPolicy]:
-    return [RemoteMultiAgentPolicy(env_interface, base_url=uri) for uri in policy_uris]
-
-
 def _write_outputs(
     results: PureSingleEpisodeResult,
     replay: Optional[EpisodeReplay],
@@ -63,7 +40,11 @@ def _write_outputs(
     if replay_uri is not None:
         if replay is None:
             raise ValueError("No replay was generated")
-        write_replay(replay, replay_uri)
+        if replay_uri.endswith(".gz"):
+            replay.set_compression("gzip")
+        elif replay_uri.endswith(".z"):
+            replay.set_compression("zlib")
+        replay.write_replay(replay_uri)
     if results_uri is not None:
         write_data(results_uri, results.model_dump_json(), content_type="application/json")
 
@@ -119,14 +100,6 @@ def _run_pure_episode(
     return results, replay
 
 
-def _policies_from_specs(
-    policy_specs: Sequence[PolicySpec],
-    env_interface: PolicyEnvInterface,
-    device: Optional[str],
-) -> list[MultiAgentPolicy]:
-    return [initialize_or_load_policy(env_interface, spec, device_override=device) for spec in policy_specs]
-
-
 def run_single_episode(
     *,
     policy_specs: Sequence[PolicySpec],
@@ -141,20 +114,13 @@ def run_single_episode(
     render_mode: Optional[RenderMode] = None,
     autostart: bool = False,
 ) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
-    _validate_assignments(assignments, env.game.num_agents, len(policy_specs))
-
-    for uri in (replay_uri, results_uri):
-        if uri is None:
-            continue
-        _validate_output_uri(uri)
-
-    if replay_uri is not None and not replay_uri.endswith((".json.z", ".json.gz")):
-        raise ValueError("Replay URI must end with .json.z or .json.gz")
+    if len(assignments) != env.game.num_agents or not all(0 <= a < len(policy_specs) for a in assignments):
+        raise ValueError("Assignments must match agent count and be within policy range")
 
     trace_path = _setup_trace_path(debug_dir)
 
     env_interface = PolicyEnvInterface.from_mg_cfg(env)
-    policies = _policies_from_specs(policy_specs, env_interface, device)
+    policies = [initialize_or_load_policy(env_interface, spec, device_override=device) for spec in policy_specs]
 
     results, replay = _run_pure_episode(
         policies,
@@ -178,7 +144,7 @@ def run_sandboxed_episode(
     render_mode: Optional[RenderMode] = None,
 ) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
     env_interface = PolicyEnvInterface.from_mg_cfg(job.env)
-    policies = _remote_policies_from_uris(job.policy_uris, env_interface)
+    policies = [RemoteMultiAgentPolicy(env_interface, base_url=uri) for uri in job.policy_uris]
     trace_path = _setup_trace_path(job.debug_dir)
 
     try:
@@ -204,38 +170,6 @@ def run_sandboxed_episode(
     return results, replay
 
 
-def run_single_episode_rollout(
-    *,
-    policy_specs: Sequence[PolicySpec],
-    assignments: Sequence[int],
-    env_cfg: MettaGridConfig,
-    seed: int,
-    max_action_time_ms: int,
-    replay_path: Optional[str] = None,
-    device: Optional[str] = None,
-) -> EpisodeRolloutResult:
-    results, _replay = run_single_episode(
-        policy_specs=policy_specs,
-        assignments=list(assignments),
-        env=env_cfg,
-        results_uri=None,
-        replay_uri=replay_path,
-        seed=seed,
-        max_action_time_ms=max_action_time_ms,
-        device=device,
-    )
-
-    return EpisodeRolloutResult(
-        assignments=list(assignments),
-        rewards=list(results.rewards),
-        action_timeouts=list(results.action_timeouts),
-        stats=results.stats,
-        replay_path=replay_path,
-        steps=results.steps,
-        max_steps=env_cfg.game.max_steps,
-    )
-
-
 def run_multi_episode_rollout(
     *,
     policy_specs: Sequence[PolicySpec],
@@ -250,8 +184,11 @@ def run_multi_episode_rollout(
     device: Optional[str] = None,
     on_progress: Optional[Callable[[int, EpisodeRolloutResult], None]] = None,
 ) -> tuple[MultiEpisodeRolloutResult, list[str]]:
-    if replay_dir is not None and create_replay_dir:
-        Path(replay_dir).mkdir(parents=True, exist_ok=True)
+    if replay_dir is not None:
+        if create_replay_dir:
+            Path(replay_dir).mkdir(parents=True, exist_ok=True)
+        elif not Path(replay_dir).is_dir():
+            raise ValueError(f"Replay directory does not exist: {replay_dir}")
 
     assignments_list = list(assignments)
     rng = rng or random.Random(seed)
@@ -264,14 +201,24 @@ def run_multi_episode_rollout(
         if replay_dir is not None:
             replay_path = str(Path(replay_dir) / f"{uuid.uuid4()}.json.z")
 
-        result = run_single_episode_rollout(
+        ep_results, _replay = run_single_episode(
             policy_specs=policy_specs,
-            assignments=assignments_list,
-            env_cfg=env_cfg,
+            assignments=list(assignments_list),
+            env=env_cfg,
+            results_uri=None,
+            replay_uri=replay_path,
             seed=seed + episode_idx,
             max_action_time_ms=max_action_time_ms,
-            replay_path=replay_path,
             device=device,
+        )
+        result = EpisodeRolloutResult(
+            assignments=list(assignments_list),
+            rewards=list(ep_results.rewards),
+            action_timeouts=list(ep_results.action_timeouts),
+            stats=ep_results.stats,
+            replay_path=replay_path,
+            steps=ep_results.steps,
+            max_steps=env_cfg.game.max_steps,
         )
         episode_results.append(result)
         if on_progress:
