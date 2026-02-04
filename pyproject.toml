@@ -99,9 +99,6 @@ include = ["mettagrid", "mettagrid.*"]
   "nim/vibescope/**/*",
 ]
 
-[tool.uv.sources]
-metta-common = { workspace = true }
-
 [tool.coverage.run]
 source = ["mettagrid"]
 
