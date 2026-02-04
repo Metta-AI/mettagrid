@@ -3,7 +3,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import requests
@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
 _HEALTH_POLL_INTERVAL = 0.1
 
 
-@dataclass
+@dataclass(kw_only=True)
 class PolicyServerHandle:
     port: int
     process: subprocess.Popen
     policy_uri: str
-    _stderr_path: Path | None = None
+    _log_file: Path = field(repr=False)
     _env_interface_path: Path | None = None
     _port_file_path: Path | None = None
 
@@ -31,7 +31,7 @@ class PolicyServerHandle:
         except subprocess.TimeoutExpired:
             self.process.kill()
             self.process.wait()
-        for path in (self._stderr_path, self._env_interface_path, self._port_file_path):
+        for path in (self._log_file, self._env_interface_path, self._port_file_path):
             if path is not None:
                 path.unlink(missing_ok=True)
 
@@ -55,8 +55,7 @@ def launch_policy_server(
     port_file_path = Path(port_file_fd.name)
     port_file_path.unlink()
 
-    stderr_file = tempfile.NamedTemporaryFile(mode="w", suffix=".stderr", delete=False)
-    stderr_path = Path(stderr_file.name)
+    log_file = tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False)
 
     cmd = [
         sys.executable,
@@ -74,14 +73,15 @@ def launch_policy_server(
 
     process = subprocess.Popen(
         cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=stderr_file,
+        stdout=log_file,
+        stderr=log_file,
     )
-    stderr_file.close()
+    log_file.close()
+    log_path = Path(log_file.name)
 
     deadline = time.monotonic() + startup_timeout
-    port = _wait_for_port_file(port_file_path, process, stderr_path, deadline)
-    _wait_for_health(port, process, stderr_path, deadline)
+    port = _wait_for_port_file(port_file_path, process, log_path, deadline)
+    _wait_for_health(port, process, log_path, deadline)
 
     env_interface_path = Path(env_interface_file.name)
     logger.info("Policy server for %s ready on port %d (pid %d)", policy_uri, port, process.pid)
@@ -89,25 +89,31 @@ def launch_policy_server(
         port=port,
         process=process,
         policy_uri=policy_uri,
-        _stderr_path=stderr_path,
+        _log_file=log_path,
         _env_interface_path=env_interface_path,
         _port_file_path=port_file_path,
     )
 
 
-def _read_stderr(stderr_path: Path) -> str:
+def _read_log_tail(log_path: Path, max_bytes: int = 8192) -> str:
     try:
-        return stderr_path.read_text()
+        size = log_path.stat().st_size
+        with open(log_path) as f:
+            if size > max_bytes:
+                f.seek(size - max_bytes)
+                f.readline()
+            content = f.read()
+            return content if content else f"<log file {size} bytes, no trailing content>"
     except OSError:
-        return ""
+        return "<log file not available>"
 
 
-def _wait_for_port_file(port_file: Path, process: subprocess.Popen, stderr_path: Path, deadline: float) -> int:
+def _wait_for_port_file(port_file: Path, process: subprocess.Popen, log_path: Path, deadline: float) -> int:
     while time.monotonic() < deadline:
         if process.poll() is not None:
-            stderr = _read_stderr(stderr_path)
+            log_tail = _read_log_tail(log_path)
             raise RuntimeError(
-                f"Policy server exited with code {process.returncode} before writing port file.\nstderr: {stderr}"
+                f"Policy server exited with code {process.returncode} before writing port file.\noutput:\n{log_tail}"
             )
         if port_file.exists():
             try:
@@ -120,13 +126,13 @@ def _wait_for_port_file(port_file: Path, process: subprocess.Popen, stderr_path:
     raise TimeoutError("Policy server did not write port file in time")
 
 
-def _wait_for_health(port: int, process: subprocess.Popen, stderr_path: Path, deadline: float) -> None:
+def _wait_for_health(port: int, process: subprocess.Popen, log_path: Path, deadline: float) -> None:
     url = f"http://127.0.0.1:{port}/health"
     while time.monotonic() < deadline:
         if process.poll() is not None:
-            stderr = _read_stderr(stderr_path)
+            log_tail = _read_log_tail(log_path)
             raise RuntimeError(
-                f"Policy server exited with code {process.returncode} before becoming healthy.\nstderr: {stderr}"
+                f"Policy server exited with code {process.returncode} before becoming healthy.\noutput:\n{log_tail}"
             )
         try:
             resp = requests.get(url, timeout=1)
