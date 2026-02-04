@@ -32,8 +32,7 @@ block test_pixel_atlas:
     dirsToScan = @[
       dataDir / "agents",
       dataDir / "objects",
-      dataDir / "view",
-      dataDir / "minimap"
+      dataDir / "view"
     ],
     outputImagePath = dataDir / pixelImagePath,
     outputJsonPath = dataDir / pixelJsonPath,
@@ -41,7 +40,7 @@ block test_pixel_atlas:
   )
 
   doAssert fileExists(dataDir / pixelJsonPath), "Pixel atlas JSON file should be created"
-  
+
   let pixelJson = parseJson(readFile(dataDir / pixelJsonPath))
   doAssert pixelJson.hasKey("entries"), "Pixel atlas JSON should have entries"
 
