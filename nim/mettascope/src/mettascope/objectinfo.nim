@@ -132,7 +132,7 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
     # Basic identity
     h1text(cur.typeName)
     text(&"  Object ID: {cur.id}")
-    text(&"  Collective ID: {cur.collectiveId}")
+    text(&"  Collective ID: {cur.collectiveId.at}")
 
     # Show AoE fields if this object type has them
     if not replay.mgConfig.isNil and "game" in replay.mgConfig:

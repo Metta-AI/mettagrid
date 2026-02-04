@@ -12,6 +12,8 @@ proc onReplayLoaded*() =
   # Clear AoE tilemaps so they get regenerated for the new replay
   for i in 0 ..< NumCollectives:
     aoeMaps[i] = nil
+  aoeMapStep = -1
+  aoeMapEnabledCollectives.clear()
 
   # Reset global state for the new replay
   step = 0
