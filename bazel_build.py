@@ -216,7 +216,7 @@ def _copy_nim_python_bindings(nim_dir: Path, package_dir: Path) -> None:
         nim_dir,
         destination_root,
         dirs_exist_ok=True,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "nimbledeps", "dist", "build"),
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "nimbledeps", "dist", "build", "tools"),
     )
 
 

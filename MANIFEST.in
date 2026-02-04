@@ -13,7 +13,9 @@ graft nim/mettascope
 prune nim/mettascope/nimbledeps
 prune nim/mettascope/dist
 prune nim/mettascope/build
+prune nim/mettascope/tools
 graft nim/vibescope
 prune nim/vibescope/nimbledeps
 prune nim/vibescope/dist
 prune nim/vibescope/build
+prune nim/vibescope/tools
