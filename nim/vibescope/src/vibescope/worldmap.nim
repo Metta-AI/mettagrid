@@ -1,6 +1,6 @@
 import
-  std/[math, os, strutils, tables, strformat, random, times, json, sets, sequtils],
-  vmath, windy, boxy,
+  std/[math, os, strutils, tables, strformat, random, times, json, sets, sequtils, options],
+  vmath, windy, boxy, chroma,
   common, actions, utils, replays,
   pathfinding, tilemap, pixelator, shaderquad,
   panels, objectinfo, aoepanel, heatmap, heatmapshader
@@ -714,6 +714,57 @@ proc drawSelection*() =
       selection.location.at.xy.ivec2 * TILE_SIZE,
     )
 
+proc drawPolicyTarget*() =
+  ## Draw policy target highlight and path from agent to target.
+  if policyTarget.isNone:
+    return
+  if selection.isNil or not selection.isAgent:
+    return
+
+  let targetPos = policyTarget.get
+  let agentPos = selection.location.at(step).xy.ivec2
+
+  # Draw green path from agent to target using Bresenham-style line
+  let
+    dx = abs(targetPos.x - agentPos.x)
+    dy = abs(targetPos.y - agentPos.y)
+    sx = if agentPos.x < targetPos.x: 1.int32 else: -1.int32
+    sy = if agentPos.y < targetPos.y: 1.int32 else: -1.int32
+  var
+    err = dx - dy
+    x = agentPos.x
+    y = agentPos.y
+    (greenRG, greenBA) = packTint(100, 255, 100, 200)
+
+  # Draw path dots (skip first position which is agent)
+  var first = true
+  while true:
+    if not first and (x != targetPos.x or y != targetPos.y):
+      px.drawSprite(
+        "agents/path",
+        ivec2(x, y) * TILE_SIZE,
+        greenRG, greenBA
+      )
+    first = false
+
+    if x == targetPos.x and y == targetPos.y:
+      break
+
+    let e2 = 2 * err
+    if e2 > -dy:
+      err -= dy
+      x += sx
+    if e2 < dx:
+      err += dx
+      y += sy
+
+  # Draw green target circle at destination
+  px.drawSprite(
+    "objects/selection",
+    targetPos * TILE_SIZE,
+    greenRG, greenBA
+  )
+
 proc applyOrientationOffset*(x: int, y: int, orientation: int): (int, int) =
   case orientation
   of 0:
@@ -877,6 +928,7 @@ proc drawWorldMain*() =
 
   drawObjects()
   drawSelection()
+  drawPolicyTarget()
 
   drawAgentDecorations()
   drawPlannedPath()
