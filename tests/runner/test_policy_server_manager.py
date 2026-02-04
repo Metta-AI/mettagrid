@@ -25,3 +25,27 @@ def test_launch_health_and_shutdown():
     finally:
         handle.shutdown()
     assert handle.process.returncode is not None
+
+
+def test_read_logs_captures_server_output():
+    handle = launch_policy_server("mock://noop", _minimal_env_interface(), startup_timeout=15.0)
+    try:
+        logs = handle.read_logs()
+        assert len(logs) > 0, "Expected non-empty logs from policy server"
+    finally:
+        handle.shutdown()
+
+
+def test_read_logs_captures_errors():
+    handle = launch_policy_server("mock://noop", _minimal_env_interface(), startup_timeout=15.0)
+    try:
+        resp = requests.post(
+            f"{handle.base_url}/mettagrid.protobuf.sim.policy_v1.Policy/PreparePolicy",
+            data=b"not valid json",
+            timeout=5,
+        )
+        assert resp.status_code == 400
+        logs = handle.read_logs()
+        assert len(logs) > 0, "Expected logs to contain server output after error"
+    finally:
+        handle.shutdown()
