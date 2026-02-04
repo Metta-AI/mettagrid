@@ -25,8 +25,8 @@ class NoopPolicy(MultiAgentPolicy):
 
     short_names = ["noop"]
 
-    def __init__(self, policy_env_info: PolicyEnvInterface):
-        super().__init__(policy_env_info)
+    def __init__(self, policy_env_info: PolicyEnvInterface, device: str = "cpu"):
+        super().__init__(policy_env_info, device=device)
         self._noop_action_value = dtype_actions.type(policy_env_info.action_names.index("noop"))
 
     def agent_policy(self, agent_id: int) -> AgentPolicy:
