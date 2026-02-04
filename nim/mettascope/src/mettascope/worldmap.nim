@@ -240,7 +240,7 @@ proc rebuildAoeMap*(aoeMap: TileMap, collectiveId: int) =
   # Mark AoE coverage for objects with matching collective
   proc markAoeCoverage(obj: Entity) =
     # Check if object's collective matches this map
-    if obj.collectiveId != collectiveId:
+    if obj.collectiveId.at(step) != collectiveId:
       return
 
     # Get AoE range for this object type
@@ -293,7 +293,7 @@ proc rebuildAoeMap*(aoeMap: TileMap, collectiveId: int) =
       markAoeCoverage(obj)
 
   # Also show selected object's AoE regardless of filter (if it matches this map)
-  if selection != nil and selection.collectiveId == collectiveId:
+  if selection != nil and selection.collectiveId.at(step) == collectiveId:
     markAoeCoverage(selection)
 
   # Generate the tile edges using marching squares
@@ -380,7 +380,7 @@ proc drawAoeMaps*() =
   # Draw each enabled map with its tint color (collectiveId is the array index)
   for collectiveId in 0 ..< NumCollectives:
     # Only draw if this collective is enabled (or has selected object)
-    let hasSelection = selection != nil and selection.collectiveId == collectiveId
+    let hasSelection = selection != nil and selection.collectiveId.at(step) == collectiveId
     if collectiveId in settings.aoeEnabledCollectives or hasSelection:
       aoeMaps[collectiveId].draw(
         getProjectionView(),

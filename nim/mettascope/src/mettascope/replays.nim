@@ -97,7 +97,7 @@ type
     protocols*: seq[Protocol]
 
     # Alignable fields.
-    collectiveId*: int = -1
+    collectiveId*: seq[int]
 
     # Computed fields.
     gainMap*: seq[seq[ItemAmount]]
@@ -785,7 +785,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
       color: obj.getExpandedIntSeq("color", replay.maxSteps),
     )
     entity.groupId = getInt(obj, "group_id", 0)
-    entity.collectiveId = getInt(obj, "collective_id", -1)
+    entity.collectiveId = obj.getExpandedIntSeq("collective_id", replay.maxSteps, @[-1])
 
     entity.isAgent = resolvedTypeName == "agent"
     if "agent_id" in obj:
@@ -922,7 +922,7 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) =
     entity.typeName = resolvedTypeName
     entity.isAgent = resolvedTypeName == agentTypeName
     entity.groupId = obj.groupId
-    entity.collectiveId = obj.collectiveId
+    entity.collectiveId.add(obj.collectiveId)
     entity.agentId = obj.agentId
     entity.location.add(obj.location)
     entity.orientation.add(obj.orientation)

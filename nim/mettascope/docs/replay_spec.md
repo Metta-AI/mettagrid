@@ -144,6 +144,14 @@ Here are the keys supported for both agents and objects:
 
 - `inventory_max` - Maximum number of items that can be in the inventory.
 - `color` - The color of the object. Must be an integer between 0 and 255.
+- `collective_id` - The collective (team/faction) this object belongs to. This is a time series value that can change
+  during gameplay (e.g., when a junction is captured by a different team). Valid values:
+  - `0` = Clips (red team)
+  - `1` = Cogs (green team)
+  - `-1` = Neutral/undefined (not aligned with any collective)
+
+  Objects like junctions can switch collective ownership during a game, which is why this field is tracked as a time
+  series rather than a constant.
 
 Agent specific keys:
 
