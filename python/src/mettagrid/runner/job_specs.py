@@ -5,6 +5,11 @@ from pydantic import BaseModel, Field
 from mettagrid import MettaGridConfig
 
 
+class RuntimeInfo(BaseModel):
+    git_commit: str | None = None
+    instance_type: str | None = None
+
+
 class SingleEpisodeJob(BaseModel):
     policy_uris: list[str]
     assignments: list[int]
