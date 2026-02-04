@@ -1,9 +1,9 @@
 import
-  std/[math, os, strutils, tables, strformat, random, times],
+  std/[math, os, strutils, tables, strformat, random, times, json, sets],
   vmath, windy, boxy,
   common, actions, utils, replays,
   pathfinding, tilemap, pixelator, shaderquad,
-  panels, objectinfo, heatmap, heatmapshader
+  panels, objectinfo, heatmap, heatmapshader, aoepanel
 
 proc foo() =
   echo window.size.x, "x", window.size.y
@@ -23,6 +23,12 @@ var
   visibilityMapSelectionId*: int = -1
   visibilityMapLockFocus*: bool = false
   visibilityMap*: TileMap
+
+  # AoE tilemap system - one map per collective
+  aoeMaps*: array[NumCollectives, TileMap]
+  aoeMapStep*: int = -1
+  aoeMapEnabledCollectives*: HashSet[int]
+
   px*: Pixelator
   pxMini*: Pixelator
   sq*: ShaderQuad
@@ -216,6 +222,177 @@ proc getProjectionView*(): Mat4 =
   let projection = ortho(0.0f, window.size.x.float32, window.size.y.float32, 0.0f, -1.0f, 1.0f)
   projection * view
 
+proc rebuildAoeMap*(aoeMap: TileMap, collectiveId: int) =
+  ## Rebuild the AoE map for a specific collective (collectiveId is the array index).
+  let
+    width = aoeMap.width
+    height = aoeMap.height
+
+  # Create coverage map - true where AoE is NOT present (similar to fog of war logic)
+  var coverageMap: seq[bool] = newSeq[bool](width * height)
+  # Initialize all to true (no AoE coverage = fog)
+  for i in 0 ..< coverageMap.len:
+    coverageMap[i] = true
+
+  # Check if this collective is enabled (or if we're always showing selection's AoE)
+  let isEnabled = collectiveId in settings.aoeEnabledCollectives
+
+  # Mark AoE coverage for objects with matching collective
+  proc markAoeCoverage(obj: Entity) =
+    # Check if object's collective matches this map
+    if obj.collectiveId != collectiveId:
+      return
+
+    # Get AoE range for this object type
+    if obj.typeName == "agent":
+      return  # Agents don't emit AoE
+    if replay.isNil or replay.mgConfig.isNil:
+      return
+    if "game" notin replay.mgConfig:
+      return
+    let game = replay.mgConfig["game"]
+    if "objects" notin game:
+      return
+    let objects = game["objects"]
+    if obj.typeName notin objects:
+      return
+    let objConfig = objects[obj.typeName]
+    if "aoes" notin objConfig:
+      return
+    let aoes = objConfig["aoes"]
+    if aoes.kind != JObject:
+      return
+
+    var maxRange = 0
+    for aoeName, aoeConfig in aoes.pairs:
+      if "radius" in aoeConfig:
+        var r = 0
+        if aoeConfig["radius"].kind == JInt:
+          r = aoeConfig["radius"].getInt
+        elif aoeConfig["radius"].kind == JFloat:
+          r = aoeConfig["radius"].getFloat.int
+        if r > maxRange:
+          maxRange = r
+
+    if maxRange <= 0:
+      return
+
+    # Mark coverage area
+    let pos = obj.location.at(step).xy
+    for dx in -maxRange .. maxRange:
+      for dy in -maxRange .. maxRange:
+        let
+          tx = pos.x + dx.int32
+          ty = pos.y + dy.int32
+        if tx >= 0 and tx < width and ty >= 0 and ty < height:
+          coverageMap[ty * width + tx] = false  # false = has AoE coverage
+
+  # Process objects if this collective is enabled
+  if isEnabled:
+    for obj in replay.objects:
+      markAoeCoverage(obj)
+
+  # Also show selected object's AoE regardless of filter (if it matches this map)
+  if selection != nil and selection.collectiveId == collectiveId:
+    markAoeCoverage(selection)
+
+  # Generate the tile edges using marching squares
+  for i in 0 ..< aoeMap.indexData.len:
+    let x = i mod width
+    let y = i div width
+
+    proc get(map: seq[bool], x: int, y: int): int =
+      if x < 0 or y < 0 or x >= width or y >= height:
+        return 1  # Outside bounds = no coverage
+      if map[y * width + x]:
+        return 1
+      return 0
+
+    var tile: uint8 = 0
+    if coverageMap[y * width + x]:
+      tile = 49  # Fully covered/empty tile
+    else:
+      let
+        pattern = (
+          1 * coverageMap.get(x-1, y-1) + # NW
+          2 * coverageMap.get(x, y-1) + # N
+          4 * coverageMap.get(x+1, y-1) + # NE
+          8 * coverageMap.get(x+1, y) + # E
+          16 * coverageMap.get(x+1, y+1) + # SE
+          32 * coverageMap.get(x, y+1) + # S
+          64 * coverageMap.get(x-1, y+1) + # SW
+          128 * coverageMap.get(x-1, y) # W
+        )
+      tile = patternToTile[pattern].uint8
+    aoeMap.indexData[i] = tile
+
+proc generateAoeMap(collectiveId: int): TileMap =
+  ## Generate an AoE tilemap for a specific collective.
+  let
+    width = ceil(replay.mapSize[0].float32 / 32.0f).int * 32
+    height = ceil(replay.mapSize[1].float32 / 32.0f).int * 32
+
+  var aoeMap = newTileMap(
+    width = width,
+    height = height,
+    tileSize = 64,
+    atlasPath = dataDir / "aoe7x8.png"
+  )
+  aoeMap.rebuildAoeMap(collectiveId)
+  aoeMap.setupGPU()
+  return aoeMap
+
+proc updateAoeMap*(aoeMap: TileMap, collectiveId: int) =
+  ## Update the AoE map.
+  aoeMap.rebuildAoeMap(collectiveId)
+  aoeMap.updateGPU()
+
+proc initAoeMaps*() =
+  ## Initialize all AoE tilemaps.
+  for collectiveId in 0 ..< NumCollectives:
+    aoeMaps[collectiveId] = generateAoeMap(collectiveId)
+  aoeMapStep = step
+  aoeMapEnabledCollectives = settings.aoeEnabledCollectives
+
+proc updateAoeMaps*() =
+  ## Update all AoE tilemaps if step or enabled collectives changed.
+  for collectiveId in 0 ..< NumCollectives:
+    aoeMaps[collectiveId].updateAoeMap(collectiveId)
+  aoeMapStep = step
+  aoeMapEnabledCollectives = settings.aoeEnabledCollectives
+
+proc drawAoeMaps*() =
+  ## Draw all enabled AoE tilemaps with their respective tint colors.
+  if replay.isNil:
+    return
+
+  bxy.enterRawOpenGLMode()
+
+  # Initialize maps if needed
+  if aoeMaps[0] == nil:
+    initAoeMaps()
+
+  # Check if we need to rebuild
+  let needsRebuild = aoeMapStep != step or aoeMapEnabledCollectives != settings.aoeEnabledCollectives
+  if needsRebuild:
+    updateAoeMaps()
+
+  # Draw each enabled map with its tint color (collectiveId is the array index)
+  for collectiveId in 0 ..< NumCollectives:
+    # Only draw if this collective is enabled (or has selected object)
+    let hasSelection = selection != nil and selection.collectiveId == collectiveId
+    if collectiveId in settings.aoeEnabledCollectives or hasSelection:
+      aoeMaps[collectiveId].draw(
+        getProjectionView(),
+        zoom = 2.0f,
+        zoomThreshold = 1.5f,
+        tint = getAoeColor(collectiveId).color
+      )
+
+  bxy.exitRawOpenGLMode()
+
+
+
 proc useSelections*(zoomInfo: ZoomInfo) =
   ## Reads the mouse position and selects the thing under it.
   let modifierDown = when defined(macosx):
@@ -312,21 +489,27 @@ proc useSelections*(zoomInfo: ZoomInfo) =
           agentObjectives[selection.agentId] = @[objective]
           recomputePath(selection.agentId, startPos)
 
-proc getAgentOrientation*(agent: Entity, step: int): Orientation =
-  ## Get the orientation of the agent.
-  for i in countdown(step, 0):
-    let actionId = agent.actionId.at(i)
-    if actionId >= 0 and actionId < replay.actionNames.len:
-      let actionName = replay.actionNames[actionId]
-      if actionName == "move_north":
-        return N
-      elif actionName == "move_south":
-        return S
-      elif actionName == "move_west":
-        return W
-      elif actionName == "move_east":
+proc inferOrientation*(agent: Entity, step: int): Orientation =
+  ## Get the orientation of the agent based on position changes.
+  ## Looks backwards from current step to find the last movement.
+  if agent.location.len < 2:
+    return S
+  for i in countdown(step, 1):
+    let
+      loc0 = agent.location.at(i - 1)
+      loc1 = agent.location.at(i)
+      dx = loc1.x - loc0.x
+      dy = loc1.y - loc0.y
+    if dx != 0 or dy != 0:
+      # Found a movement - determine direction
+      if dx > 0:
         return E
-      break
+      elif dx < 0:
+        return W
+      elif dy > 0:
+        return S
+      else:
+        return N
   return S
 
 proc stripTeamSuffix(typeName: string): string =
@@ -347,6 +530,23 @@ proc stripTeamPrefix(typeName: string): string =
       return typeName[prefix.len .. ^1]
   return typeName
 
+proc agentRigName(agent: Entity): string =
+  ## Get the rig of the agent.
+  # Look at the inventory show the rig for "scout", "miner", "aligner" and "scrambler"
+  if agent.inventory.len == 0:
+    return "agent"
+  for item in agent.inventory.at(step):
+    let itemName = replay.itemNames[item.itemId]
+    if itemName == "scout":
+      return "scout"
+    elif itemName == "miner":
+      return "miner"
+    elif itemName == "aligner":
+      return "aligner"
+    elif itemName == "scrambler":
+      return "scrambler"
+  return "agent"
+
 proc drawObjects*() =
   ## Draw the objects on the map.
   for thing in replay.objects:
@@ -358,7 +558,7 @@ proc drawObjects*() =
     of "agent":
       let agent = thing
       # Find last orientation action.
-      var agentImage = "agents/agent." & getAgentOrientation(agent, step).char
+      var agentImage = "agents/" & agentRigName(agent) & "." & inferOrientation(agent, step).char
 
       px.drawSprite(
         agentImage,
@@ -615,6 +815,7 @@ proc drawWorldMini*() =
   const agentTypeName = "agent"
 
   drawTerrain()
+  drawAoeMaps()
 
   # Draw heatmap if enabled.
   if settings.showHeatmap and worldHeatmap != nil:
@@ -662,6 +863,7 @@ proc centerAt*(zoomInfo: ZoomInfo, entity: Entity) =
 proc drawWorldMain*() =
   ## Draw the world map.
   drawTerrain()
+  drawAoeMaps()
 
   # Draw heatmap if enabled.
   if settings.showHeatmap and worldHeatmap != nil:

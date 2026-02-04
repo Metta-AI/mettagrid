@@ -1,5 +1,5 @@
 import
-  std/[times, tables, os, pathnorm],
+  std/[times, tables, os, pathnorm, sets],
   boxy, windy, vmath, silky,
   replays
 
@@ -43,6 +43,7 @@ type
     showHeatmap* = false
     showObservations* = -1
     lockFocus* = false
+    aoeEnabledCollectives*: HashSet[int]  ## Set of collective IDs to show AoE for. -1 = unaligned.
 
   PlayMode* = enum
     Historical

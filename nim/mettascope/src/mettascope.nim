@@ -2,7 +2,7 @@ import
   std/[strutils, strformat, os, parseopt, tables],
   opengl, windy, bumpy, vmath, chroma, silky, boxy, webby,
   mettascope/[replays, common, worldmap, panels, objectinfo, envconfig, vibes,
-  footer, timeline, minimap, header, replayloader, configs]
+  footer, timeline, minimap, header, replayloader, configs, aoepanel]
 
 proc buildSilkyAtlas*(imagePath, jsonPath: string) =
   ## Build the silky UI atlas.
@@ -110,7 +110,7 @@ proc drawWorldMap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: 
   sk.draw9Patch("panel.body.empty.9patch", 3, contentPos, contentSize)
 
   worldMapZoomInfo.rect = irect(contentPos.x, contentPos.y, contentSize.x, contentSize.y)
-  worldMapZoomInfo.hasMouse = mouseInsideClip(rect(contentPos, contentSize))
+  worldMapZoomInfo.hasMouse = sk.mouseInsideClip(window, rect(contentPos, contentSize))
 
   glEnable(GL_SCISSOR_TEST)
   glScissor(contentPos.x.int32, window.size.y.int32 - contentPos.y.int32 - contentSize.y.int32, contentSize.x.int32, contentSize.y.int32)
@@ -161,6 +161,7 @@ proc createDefaultPanelLayout() =
   rootArea.areas[0].areas[1].addPanel("Minimap", drawMinimap)
 
   rootArea.areas[1].areas[1].addPanel("Vibes", drawVibes)
+  rootArea.areas[1].areas[1].addPanel("AoE", drawAoePanel)
 
 proc initPanels() =
   ## Initialize panels, loading layout from config if available.
