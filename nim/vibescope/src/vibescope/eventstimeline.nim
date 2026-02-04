@@ -106,7 +106,7 @@ proc drawEventsTimeline*(pos, size: Vec2) =
 
     # Tooltip on mouseover - find closest event tick.
     let mousePos = window.mousePos.vec2
-    if mouseInsideClip(rect(barPos, barSize)):
+    if sk.mouseInsideClip(window, rect(barPos, barSize)):
       var tooltipNames: seq[string] = @[]
       let mouseXRatio = (mousePos.x - barPos.x) / barSize.x
       let mouseStep = mouseXRatio * maxSteps

@@ -122,4 +122,4 @@ proc drawCollectivesPanel*(panel: panels.Panel, frameId: string, contentPos: Vec
         sortedTypes.sort(proc(a, b: (string, int)): int = cmp(b[1], a[1]))
         for (typeName, count) in sortedTypes:
           text(&"    {typeName}: {count}")
-      sk.advance(vec2(0, theme.spacing.float32))
+      sk.advance(vec2(0, sk.theme.spacing.float32))

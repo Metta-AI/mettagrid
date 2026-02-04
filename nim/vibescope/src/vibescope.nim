@@ -111,7 +111,7 @@ proc drawWorldMap(panel: panels.Panel, frameId: string, contentPos: Vec2, conten
   sk.draw9Patch("panel.body.empty.9patch", 3, contentPos, contentSize)
 
   worldMapZoomInfo.rect = irect(contentPos.x, contentPos.y, contentSize.x, contentSize.y)
-  worldMapZoomInfo.hasMouse = mouseInsideClip(rect(contentPos, contentSize))
+  worldMapZoomInfo.hasMouse = sk.mouseInsideClip(window, rect(contentPos, contentSize))
 
   enableAutoGLerrorCheck(false)
 
