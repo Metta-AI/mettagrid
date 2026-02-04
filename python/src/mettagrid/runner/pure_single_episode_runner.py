@@ -1,7 +1,6 @@
 import json
 import logging
 import sys
-from typing import Sequence
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -10,17 +9,6 @@ from mettagrid.types import EpisodeStats
 from mettagrid.util.uri_resolvers.schemes import parse_uri
 
 logger = logging.getLogger(__name__)
-
-
-def _validate_output_uri(uri: str) -> None:
-    parsed = parse_uri(uri, allow_none=False)
-    if parsed.scheme != "file" or not parsed.local_path.parent.exists():
-        raise ValueError(f"URI {uri} must be a file:// URI with an existing parent directory")
-
-
-def _validate_assignments(assignments: Sequence[int], num_agents: int, num_policies: int) -> None:
-    if len(assignments) != num_agents or not all(0 <= assignment < num_policies for assignment in assignments):
-        raise ValueError("Assignments must match agent count and be within policy range")
 
 
 class PureSingleEpisodeJob(BaseModel):
@@ -47,12 +35,17 @@ class PureSingleEpisodeJob(BaseModel):
         for uri in (self.replay_uri, self.results_uri):
             if uri is None:
                 continue
-            _validate_output_uri(uri)
+            parsed = parse_uri(uri, allow_none=False)
+            if parsed.scheme != "file" or not parsed.local_path.parent.exists():
+                raise ValueError(f"URI {uri} must be a file:// URI with an existing parent directory")
 
         if self.replay_uri is not None and not self.replay_uri.endswith((".json.z", ".json.gz")):
             raise ValueError("Replay URI must end with .json.z or .json.gz")
 
-        _validate_assignments(self.assignments, self.env.game.num_agents, len(self.policy_uris))
+        if len(self.assignments) != self.env.game.num_agents or not all(
+            0 <= a < len(self.policy_uris) for a in self.assignments
+        ):
+            raise ValueError("Assignments must match agent count and be within policy range")
 
         return self
 
