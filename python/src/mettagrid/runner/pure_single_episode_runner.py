@@ -1,4 +1,5 @@
 import json
+import logging
 import sys
 from typing import Sequence
 
@@ -7,6 +8,8 @@ from pydantic import BaseModel, Field, model_validator
 from mettagrid import MettaGridConfig
 from mettagrid.types import EpisodeStats
 from mettagrid.util.uri_resolvers.schemes import parse_uri
+
+logger = logging.getLogger(__name__)
 
 
 def _validate_output_uri(uri: str) -> None:
@@ -63,6 +66,8 @@ class PureSingleEpisodeResult(BaseModel):
 
 if __name__ == "__main__":
     from mettagrid.runner.rollout import run_sandboxed_episode
+
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     with open(sys.argv[1]) as f:
         args = json.load(f)
