@@ -617,10 +617,34 @@ proc rebuildAreaFromState*(state: AreaState): Area =
       else:
         echo "Warning: Unknown panel '", panelName, "' in saved state"
 
+proc collectPanelNames(area: Area): seq[string] =
+  ## Collect all panel names in an area tree.
+  for panel in area.panels:
+    result.add(panel.name)
+  for subarea in area.areas:
+    result.add(collectPanelNames(subarea))
+
+proc findFirstLeafArea(area: Area): Area =
+  ## Find the first leaf area (one with panels, not sub-areas).
+  if area.areas.len == 0:
+    return area
+  return findFirstLeafArea(area.areas[0])
+
+proc ensureAllRegisteredPanels(area: Area) =
+  ## Ensure all registered panels exist in the tree, adding missing ones to the first leaf area.
+  let existingNames = collectPanelNames(area)
+  let leafArea = findFirstLeafArea(area)
+  for (name, draw) in panelRegistry:
+    if name notin existingNames:
+      let panel = Panel(name: name, parentArea: leafArea, draw: draw)
+      leafArea.panels.add(panel)
+      echo "Added missing panel: ", name
+
 proc applyPanelState*(state: AreaState) =
   ## Apply saved panel state by rebuilding the entire panel tree.
   if state.areas.len > 0 or state.panelNames.len > 0:
     rootArea = rebuildAreaFromState(state)
+    ensureAllRegisteredPanels(rootArea)
 
 proc captureZoomState*(): ZoomState =
   ## Capture the current zoom state with center in world coordinates.
