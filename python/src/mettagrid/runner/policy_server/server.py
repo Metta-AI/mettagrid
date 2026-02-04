@@ -88,7 +88,7 @@ class Episode:
 EnvInterfaceAdapter = Callable[[policy_pb2.PreparePolicyRequest], PolicyEnvInterface]
 
 
-class PolicyService:
+class LocalPolicyServer:
     def __init__(
         self,
         policy_factory: Callable[[PolicyEnvInterface], MultiAgentPolicy],
@@ -147,7 +147,7 @@ class PolicyService:
         return resp
 
 
-def create_app(service: PolicyService, *, verbose: bool = False) -> fastapi.FastAPI:
+def create_app(service: LocalPolicyServer, *, verbose: bool = False) -> fastapi.FastAPI:
     app = fastapi.FastAPI()
 
     @app.exception_handler(EpisodeNotFoundError)
@@ -233,7 +233,7 @@ def main(
         # Future work: construct PolicyEnvInterface from PreparePolicyRequest.
         return env_interface
 
-    service = PolicyService(policy_factory, env_interface_adapter)
+    service = LocalPolicyServer(policy_factory, env_interface_adapter)
     app = create_app(service, verbose=verbose)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

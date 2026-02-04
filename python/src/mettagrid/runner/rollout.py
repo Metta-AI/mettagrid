@@ -8,11 +8,7 @@ from mettagrid import MettaGridConfig
 from mettagrid.policy.loader import AgentPolicy, PolicyEnvInterface, initialize_or_load_policy
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
 from mettagrid.renderer.renderer import RenderMode
-from mettagrid.runner.pure_single_episode_runner import (
-    PureSingleEpisodeJob,
-    PureSingleEpisodeResult,
-)
-from mettagrid.runner.remote import PolicyStepError, RemoteMultiAgentPolicy
+from mettagrid.runner.types import PureSingleEpisodeResult
 from mettagrid.simulator.multi_episode.rollout import EpisodeRolloutResult, MultiEpisodeRolloutResult
 from mettagrid.simulator.replay_log_writer import EpisodeReplay, InMemoryReplayWriter
 from mettagrid.simulator.rollout import Rollout
@@ -22,34 +18,7 @@ from mettagrid.util.tracer import Tracer
 logger = logging.getLogger(__name__)
 
 
-def _setup_trace_path(debug_dir: Optional[str]) -> Optional[Path]:
-    if debug_dir is None:
-        return None
-    debug_path = Path(debug_dir)
-    debug_path.mkdir(parents=True, exist_ok=True)
-    return debug_path / "trace.json"
-
-
-def _write_outputs(
-    results: PureSingleEpisodeResult,
-    replay: Optional[EpisodeReplay],
-    *,
-    results_uri: Optional[str],
-    replay_uri: Optional[str],
-) -> None:
-    if replay_uri is not None:
-        if replay is None:
-            raise ValueError("No replay was generated")
-        if replay_uri.endswith(".gz"):
-            replay.set_compression("gzip")
-        elif replay_uri.endswith(".z"):
-            replay.set_compression("zlib")
-        replay.write_replay(replay_uri)
-    if results_uri is not None:
-        write_data(results_uri, results.model_dump_json(), content_type="application/json")
-
-
-def _run_pure_episode(
+def single_episode_rollout(
     policies: Sequence[MultiAgentPolicy],
     assignments: Sequence[int],
     env: MettaGridConfig,
@@ -61,6 +30,13 @@ def _run_pure_episode(
     capture_replay: bool,
     trace_path: Optional[Path] = None,
 ) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
+    """Run a single episode in-process using already-instantiated policy objects.
+
+    This is the core simulation loop. No I/O, no subprocess, no policy loading --
+    just policies + env config in, results out. Used by both run_episode_local
+    (which loads policies itself) and the subprocess entry point in
+    episode_subprocess (which receives policies over HTTP).
+    """
     agent_policies: list[AgentPolicy] = [
         policies[assignment].agent_policy(agent_id) for agent_id, assignment in enumerate(assignments)
     ]
@@ -100,29 +76,39 @@ def _run_pure_episode(
     return results, replay
 
 
-def run_single_episode(
+def run_episode_local(
     *,
     policy_specs: Sequence[PolicySpec],
     assignments: Sequence[int],
     env: MettaGridConfig,
-    results_uri: Optional[str] = None,
-    replay_uri: Optional[str] = None,
-    debug_dir: Optional[str] = None,
+    results_path: Path | None = None,
+    replay_path: Path | None = None,
+    debug_dir: Path | None = None,
     seed: int = 0,
     max_action_time_ms: int = 10000,
     device: Optional[str] = None,
     render_mode: Optional[RenderMode] = None,
     autostart: bool = False,
 ) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
+    """Run a single episode in the current process, loading policies from PolicySpecs.
+
+    Policies are loaded directly (via initialize_or_load_policy), so this only works
+    when the policy code and weights are available locally. Supports rendering and
+    interactive play. For running untrusted or remote policies in a subprocess, use
+    run_episode_isolated instead.
+    """
     if len(assignments) != env.game.num_agents or not all(0 <= a < len(policy_specs) for a in assignments):
         raise ValueError("Assignments must match agent count and be within policy range")
 
-    trace_path = _setup_trace_path(debug_dir)
+    trace_path: Path | None = None
+    if debug_dir is not None:
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        trace_path = debug_dir / "trace.json"
 
     env_interface = PolicyEnvInterface.from_mg_cfg(env)
     policies = [initialize_or_load_policy(env_interface, spec, device_override=device) for spec in policy_specs]
 
-    results, replay = _run_pure_episode(
+    results, replay = single_episode_rollout(
         policies,
         assignments,
         env,
@@ -130,43 +116,17 @@ def run_single_episode(
         max_action_time_ms=max_action_time_ms,
         render_mode=render_mode or "none",
         autostart=autostart,
-        capture_replay=replay_uri is not None,
+        capture_replay=replay_path is not None,
         trace_path=trace_path,
     )
 
-    _write_outputs(results, replay, results_uri=results_uri, replay_uri=replay_uri)
-    return results, replay
+    if replay_path is not None:
+        if replay is None:
+            raise ValueError("No replay was generated")
+        replay.write_replay(replay_path.as_uri())
+    if results_path is not None:
+        write_data(results_path.as_uri(), results.model_dump_json(), content_type="application/json")
 
-
-def run_sandboxed_episode(
-    job: PureSingleEpisodeJob,
-    *,
-    render_mode: Optional[RenderMode] = None,
-) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
-    env_interface = PolicyEnvInterface.from_mg_cfg(job.env)
-    policies = [RemoteMultiAgentPolicy(env_interface, base_url=uri) for uri in job.policy_uris]
-    trace_path = _setup_trace_path(job.debug_dir)
-
-    try:
-        results, replay = _run_pure_episode(
-            policies,
-            job.assignments,
-            job.env,
-            seed=job.seed,
-            max_action_time_ms=job.max_action_time_ms,
-            render_mode=render_mode or "none",
-            autostart=False,
-            capture_replay=job.replay_uri is not None,
-            trace_path=trace_path,
-        )
-    except PolicyStepError:
-        logger.error("Policy server failed during episode execution", exc_info=True)
-        raise
-    finally:
-        for p in policies:
-            p.close()
-
-    _write_outputs(results, replay, results_uri=job.results_uri, replay_uri=job.replay_uri)
     return results, replay
 
 
@@ -197,16 +157,16 @@ def run_multi_episode_rollout(
 
     for episode_idx in range(episodes):
         rng.shuffle(assignments_list)
-        replay_path = None
+        replay_path: Path | None = None
         if replay_dir is not None:
-            replay_path = str(Path(replay_dir) / f"{uuid.uuid4()}.json.z")
+            replay_path = Path(replay_dir) / f"{uuid.uuid4()}.json.z"
 
-        ep_results, _replay = run_single_episode(
+        ep_results, _replay = run_episode_local(
             policy_specs=policy_specs,
             assignments=list(assignments_list),
             env=env_cfg,
-            results_uri=None,
-            replay_uri=replay_path,
+            results_path=None,
+            replay_path=replay_path,
             seed=seed + episode_idx,
             max_action_time_ms=max_action_time_ms,
             device=device,
@@ -216,7 +176,7 @@ def run_multi_episode_rollout(
             rewards=list(ep_results.rewards),
             action_timeouts=list(ep_results.action_timeouts),
             stats=ep_results.stats,
-            replay_path=replay_path,
+            replay_path=str(replay_path) if replay_path else None,
             steps=ep_results.steps,
             max_steps=env_cfg.game.max_steps,
         )
@@ -224,6 +184,6 @@ def run_multi_episode_rollout(
         if on_progress:
             on_progress(episode_idx, result)
         if replay_path is not None:
-            replay_paths.append(replay_path)
+            replay_paths.append(str(replay_path))
 
     return MultiEpisodeRolloutResult(episodes=episode_results), replay_paths

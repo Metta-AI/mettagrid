@@ -200,11 +200,14 @@ class EpisodeReplay:
         return self.replay_data
 
     def write_replay(self, path: str):
-        """Writes a replay to a file."""
-        replay_data = json.dumps(self.get_replay_data())  # Convert to JSON string
-        replay_bytes = replay_data.encode("utf-8")  # Encode to bytes
-        compressed_data = self._compression(replay_bytes)  # Compress the bytes
-
+        """Writes a replay to a file, inferring compression from extension."""
+        if path.endswith(".gz"):
+            self.set_compression("gzip")
+        elif path.endswith(".z"):
+            self.set_compression("zlib")
+        replay_data = json.dumps(self.get_replay_data())
+        replay_bytes = replay_data.encode("utf-8")
+        compressed_data = self._compression(replay_bytes)
         write_data(path, compressed_data, content_type=self._content_type)
 
     @staticmethod

@@ -16,7 +16,7 @@ _HEALTH_POLL_INTERVAL = 0.1
 
 
 @dataclass(kw_only=True)
-class PolicyServerHandle:
+class LocalPolicyServerHandle:
     port: int
     process: subprocess.Popen
     policy_uri: str
@@ -43,12 +43,12 @@ class PolicyServerHandle:
         return f"http://127.0.0.1:{self.port}"
 
 
-def launch_policy_server(
+def launch_local_policy_server(
     policy_uri: str,
     env_interface: PolicyEnvInterface,
     *,
     startup_timeout: float = 30.0,
-) -> PolicyServerHandle:
+) -> LocalPolicyServerHandle:
     env_interface_file = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
     env_interface_file.write(env_interface.model_dump_json())
     env_interface_file.close()
@@ -63,7 +63,7 @@ def launch_policy_server(
     cmd = [
         sys.executable,
         "-m",
-        "mettagrid.runner.serve_policy",
+        "mettagrid.runner.policy_server.server",
         "--policy",
         policy_uri,
         "--env-interface-file",
@@ -88,7 +88,7 @@ def launch_policy_server(
 
     env_interface_path = Path(env_interface_file.name)
     logger.info("Policy server for %s ready on port %d (pid %d)", policy_uri, port, process.pid)
-    return PolicyServerHandle(
+    return LocalPolicyServerHandle(
         port=port,
         process=process,
         policy_uri=policy_uri,

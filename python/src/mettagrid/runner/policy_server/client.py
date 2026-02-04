@@ -28,8 +28,8 @@ def _serialize_triplet_v1(obs: AgentObservation) -> bytes:
     return bytes(buf)
 
 
-class RemoteAgentPolicy(AgentPolicy):
-    def __init__(self, parent: "RemoteMultiAgentPolicy", agent_id: int):
+class LocalPolicyServerAgentClient(AgentPolicy):
+    def __init__(self, parent: "LocalPolicyServerClient", agent_id: int):
         super().__init__(parent.policy_env_info)
         self._parent = parent
         self._agent_id = agent_id
@@ -71,7 +71,7 @@ class RemoteAgentPolicy(AgentPolicy):
         return Action(name="noop")
 
 
-class RemoteMultiAgentPolicy(MultiAgentPolicy):
+class LocalPolicyServerClient(MultiAgentPolicy):
     def __init__(
         self,
         policy_env_info: PolicyEnvInterface,
@@ -84,13 +84,13 @@ class RemoteMultiAgentPolicy(MultiAgentPolicy):
         self._base_url = base_url.rstrip("/")
         self._request_timeout = request_timeout
         self._episode_id = episode_id or str(uuid.uuid4())
-        self._agents: dict[int, RemoteAgentPolicy] = {}
+        self._agents: dict[int, LocalPolicyServerAgentClient] = {}
         self._client = httpx.Client()
         self._prepare(list(range(policy_env_info.num_agents)))
 
     def agent_policy(self, agent_id: int) -> AgentPolicy:
         if agent_id not in self._agents:
-            self._agents[agent_id] = RemoteAgentPolicy(self, agent_id)
+            self._agents[agent_id] = LocalPolicyServerAgentClient(self, agent_id)
         return self._agents[agent_id]
 
     def reset(self) -> None:
@@ -101,7 +101,7 @@ class RemoteMultiAgentPolicy(MultiAgentPolicy):
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> "RemoteMultiAgentPolicy":
+    def __enter__(self) -> "LocalPolicyServerClient":
         return self
 
     def __exit__(self, *exc: object) -> None:
