@@ -68,6 +68,6 @@ proc playControls*() =
 proc drawTimeline*(pos, size: Vec2) =
   ribbon(pos, size, ScrubberColor):
     let prevStepFloat = stepFloat
-    scrubber("timeline", stepFloat, 0, replay.maxSteps.float32 - 1)
+    scrubber("timeline", stepFloat, 0, replay.maxSteps.float32 - 1, $int(stepFloat + 0.5))
     if prevStepFloat != stepFloat:
       step = stepFloat.round.int
