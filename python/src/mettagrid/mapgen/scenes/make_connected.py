@@ -51,25 +51,24 @@ class MakeConnected(Scene[MakeConnectedConfig]):
     For typical grids this is effectively O(n), much faster than heap-based Dijkstra.
     """
 
-    def _is_empty(self, symbol: str) -> bool:
-        # TODO - treat agents as empty cells?
-        return symbol == "empty"
-
     def render(self):
         height, width = self.grid.shape
         empty = self.grid == "empty"
+        wall = self.grid == "wall"
 
         # === Phase 1: Ensure connectivity ===
         labels: np.ndarray
         labels, num = ndimage.label(empty, structure=STRUCTURE_4_CONNECTED)  # type: ignore[misc]
         if num > 1:
-            self._connect_components(labels, num, empty, height, width)
+            self._connect_components(labels, num, empty, wall, height, width)
 
         # === Phase 2: Balance corners (optional) ===
         if self.config.balance_corners:
             self._balance_corners(height, width)
 
-    def _connect_components(self, labels: np.ndarray, num: int, empty: np.ndarray, height: int, width: int) -> None:
+    def _connect_components(
+        self, labels: np.ndarray, num: int, empty: np.ndarray, wall: np.ndarray, height: int, width: int
+    ) -> None:
         """Connect all components to the largest one via minimal tunnels."""
         # Find the largest component (labels are 1-based in scipy)
         counts = np.bincount(labels.ravel())
@@ -79,7 +78,7 @@ class MakeConnected(Scene[MakeConnectedConfig]):
         logger.debug(f"Found {num} components, largest is {largest_id}")
 
         # Compute weighted distances from largest component
-        distances, predecessors = self._weighted_distances(labels == largest_id, empty, height, width)
+        distances, predecessors = self._weighted_distances(labels == largest_id, empty, wall, height, width)
 
         # Connect each non-largest component
         logger.debug(f"Connecting {num} components")
@@ -96,20 +95,23 @@ class MakeConnected(Scene[MakeConnectedConfig]):
             start_y, start_x = int(comp_ys[min_idx]), int(comp_xs[min_idx])
 
             # Trace path back and only dig through walls
-            self._dig_path(start_y, start_x, predecessors, empty)
+            self._dig_path(start_y, start_x, predecessors, wall)
 
         # Verify connectivity
         _, num_final = ndimage.label(self.grid == "empty", structure=STRUCTURE_4_CONNECTED)  # type: ignore[misc]
         assert num_final == 1, "Map must end up with a single connected component"
 
     def _weighted_distances(
-        self, source_mask: np.ndarray, empty: np.ndarray, height: int, width: int
+        self, source_mask: np.ndarray, empty: np.ndarray, wall: np.ndarray, height: int, width: int
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Dial's algorithm: bucket-based shortest path for integer edge weights.
 
         Since we have only 2 costs (1 for empty, K for wall), we use K+1 circular buckets.
         This avoids heap operations entirely, giving O(n * K) complexity.
+
+        Cells that are neither empty nor wall (e.g. resource objects, agents) are
+        treated as impassable so that connectivity tunnels never destroy them.
 
         Returns:
             distances: 2D int array of minimum cost to reach each cell
@@ -162,8 +164,15 @@ class MakeConnected(Scene[MakeConnectedConfig]):
             for dy, dx in DIRECTIONS:
                 ny, nx = y + dy, x + dx
                 if 0 <= ny < height and 0 <= nx < width:
-                    # Cost: 1 for empty, K for wall
-                    step_cost = 1 if empty[ny, nx] else K
+                    # Cost: 1 for empty, K for wall, impassable for objects
+                    if empty[ny, nx]:
+                        step_cost = 1
+                    elif wall[ny, nx]:
+                        step_cost = K
+                    else:
+                        # Non-wall, non-empty cell (resource, agent, etc.)
+                        # Treat as impassable to avoid destroying objects.
+                        continue
                     new_cost = current_cost + step_cost
 
                     if new_cost < distances[ny, nx]:
@@ -173,16 +182,19 @@ class MakeConnected(Scene[MakeConnectedConfig]):
 
         return distances, predecessors
 
-    def _dig_path(self, start_y: int, start_x: int, predecessors: np.ndarray, empty: np.ndarray) -> None:
+    def _dig_path(self, start_y: int, start_x: int, predecessors: np.ndarray, wall: np.ndarray) -> None:
         """
         Trace path from start back to the largest component, digging only through walls.
+
+        Only wall cells are converted to empty.  Non-wall objects (resources,
+        agents, etc.) are never overwritten, preserving map integrity.
         """
         width = predecessors.shape[1]
         y, x = start_y, start_x
 
         while predecessors[y, x] >= 0:  # -2 = source, -1 = unvisited
-            # Only dig if this cell is a wall
-            if not empty[y, x]:
+            # Only dig if this cell is a wall — never overwrite objects
+            if wall[y, x]:
                 self.grid[y, x] = "empty"
 
             # Decode predecessor from flat index
@@ -214,11 +226,12 @@ class MakeConnected(Scene[MakeConnectedConfig]):
 
         for iteration in range(self.config.max_balance_shortcuts):
             empty = self.grid == "empty"
+            wall = self.grid == "wall"
 
             # Compute distances from center
             center_mask = np.zeros((height, width), dtype=bool)
             center_mask[center] = True
-            dist_from_center, _ = self._weighted_distances(center_mask, empty, height, width)
+            dist_from_center, _ = self._weighted_distances(center_mask, empty, wall, height, width)
 
             # Get corner distances
             corner_dists = [int(dist_from_center[cy, cx]) for cy, cx in corners]
@@ -244,7 +257,7 @@ class MakeConnected(Scene[MakeConnectedConfig]):
             )
 
             # Find the best shortcut for this corner
-            shortcut = self._find_best_shortcut(dist_from_center, empty, furthest_corner, height, width)
+            shortcut = self._find_best_shortcut(dist_from_center, empty, wall, furthest_corner, height, width)
 
             if shortcut is None:
                 logger.debug("No beneficial shortcut found - stopping balance")
@@ -260,6 +273,7 @@ class MakeConnected(Scene[MakeConnectedConfig]):
         self,
         dist_from_center: np.ndarray,
         empty: np.ndarray,
+        wall: np.ndarray,
         corner: Cell,
         height: int,
         width: int,
@@ -282,7 +296,7 @@ class MakeConnected(Scene[MakeConnectedConfig]):
         # Compute distances from the corner
         corner_mask = np.zeros((height, width), dtype=bool)
         corner_mask[corner_y, corner_x] = True
-        dist_from_corner, _ = self._weighted_distances(corner_mask, empty, height, width)
+        dist_from_corner, _ = self._weighted_distances(corner_mask, empty, wall, height, width)
 
         best_cell: tuple[int, int] | None = None
         best_improvement = 0
