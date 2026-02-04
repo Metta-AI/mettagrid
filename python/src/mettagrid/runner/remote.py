@@ -11,6 +11,11 @@ from mettagrid.simulator import Action, AgentObservation
 
 logger = logging.getLogger(__name__)
 
+
+class PolicyStepError(Exception):
+    pass
+
+
 _PREPARE_PATH = "/mettagrid.protobuf.sim.policy_v1.Policy/PreparePolicy"
 _BATCH_STEP_PATH = "/mettagrid.protobuf.sim.policy_v1.Policy/BatchStep"
 
@@ -39,12 +44,17 @@ class RemoteAgentPolicy(AgentPolicy):
             ],
         )
 
-        resp = self._parent._client.post(
-            f"{self._parent._base_url}{_BATCH_STEP_PATH}",
-            json=json_format.MessageToDict(req),
-            timeout=self._parent._request_timeout,
-        )
-        resp.raise_for_status()
+        try:
+            resp = self._parent._client.post(
+                f"{self._parent._base_url}{_BATCH_STEP_PATH}",
+                json=json_format.MessageToDict(req),
+                timeout=self._parent._request_timeout,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise PolicyStepError(f"Policy server returned {e.response.status_code} for agent {self._agent_id}") from e
+        except httpx.HTTPError as e:
+            raise PolicyStepError(f"Policy server request failed for agent {self._agent_id}: {e}") from e
 
         batch_resp = json_format.ParseDict(resp.json(), policy_pb2.BatchStepResponse())
         if not batch_resp.agent_actions:
@@ -83,8 +93,19 @@ class RemoteMultiAgentPolicy(MultiAgentPolicy):
             self._agents[agent_id] = RemoteAgentPolicy(self, agent_id)
         return self._agents[agent_id]
 
+    def reset(self) -> None:
+        self._agents.clear()
+        self._episode_id = str(uuid.uuid4())
+        self._prepare(list(range(self._policy_env_info.num_agents)))
+
     def close(self) -> None:
         self._client.close()
+
+    def __enter__(self) -> "RemoteMultiAgentPolicy":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
 
     def _prepare(self, agent_ids: list[int]) -> None:
         game_rules = policy_pb2.GameRules(

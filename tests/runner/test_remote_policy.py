@@ -1,6 +1,7 @@
 import urllib.parse
 from unittest.mock import patch
 
+import httpx
 from fastapi.testclient import TestClient
 
 from mettagrid.config.id_map import ObservationFeatureSpec
@@ -27,7 +28,7 @@ class _ConstantAgentPolicy(AgentPolicy):
         super().__init__(policy_env_info)
         self._action_name = action_name
 
-    def step(self, obs: AgentObservation) -> Action:
+    def step(self, _obs: AgentObservation) -> Action:
         return Action(name=self._action_name)
 
 
@@ -36,23 +37,39 @@ class _ConstantPolicy(MultiAgentPolicy):
         super().__init__(policy_env_info)
         self._action_name = action_name
 
-    def agent_policy(self, agent_id: int) -> AgentPolicy:
+    def agent_policy(self, _agent_id: int) -> AgentPolicy:
         return _ConstantAgentPolicy(self._policy_env_info, self._action_name)
 
 
 def _make_test_client(action_name: str = "move") -> TestClient:
-    def null_env_adapter(_):
-        return None
-
-    service = PolicyService(lambda env: _ConstantPolicy(env, action_name), null_env_adapter)
+    service = PolicyService(
+        lambda env: _ConstantPolicy(env, action_name),
+        lambda _: _env_interface(),
+    )
     return TestClient(create_app(service))
 
 
 def _patch_httpx_with_test_client(test_client: TestClient):
+    class _MockResponse:
+        def __init__(self, starlette_resp):
+            self._resp = starlette_resp
+            self.status_code = starlette_resp.status_code
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise httpx.HTTPStatusError(
+                    f"HTTP {self.status_code}",
+                    request=httpx.Request("POST", "http://fake"),
+                    response=httpx.Response(self.status_code),
+                )
+
+        def json(self):
+            return self._resp.json()
+
     class _MockClient:
         def post(self, url, *, json=None, timeout=None):
             path = urllib.parse.urlparse(url).path
-            return test_client.post(path, json=json)
+            return _MockResponse(test_client.post(path, json=json))
 
         def close(self):
             pass
