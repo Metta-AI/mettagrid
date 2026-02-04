@@ -99,6 +99,9 @@ include = ["mettagrid", "mettagrid.*"]
   "nim/vibescope/**/*",
 ]
 
+[tool.setuptools.exclude-package-data]
+"mettagrid" = ["nim/mettascope/tools/**/*", "nim/vibescope/tools/**/*"]
+
 [tool.coverage.run]
 source = ["mettagrid"]
 
