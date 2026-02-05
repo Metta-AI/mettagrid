@@ -32,7 +32,7 @@ proc playControls*() =
     playSpeed *= 2
     playSpeed = clamp(playSpeed, 0.00001, 1000.0)
     play = true
-  if window.buttonPressed[KeyF10]:
+  if window.buttonPressed[KeyF10] or window.buttonPressed[KeyG]:
     let newMode = if gameMode == Editor: Game else: Editor
     switchGameMode(newMode)
 

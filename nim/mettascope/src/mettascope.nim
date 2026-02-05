@@ -200,7 +200,7 @@ proc onFrame() =
   if gameMode == Editor:
     ## Editor mode UI.
     drawHeader()
-    drawTimeline(vec2(0, sk.size.y - 64 - 22), vec2(sk.size.x, 32))
+    drawTimeline(vec2(0, sk.size.y - 64 - 33), vec2(sk.size.x, 32))
     drawFooter(vec2(0, sk.size.y - 64), vec2(sk.size.x, 64))
     drawPanels()
   else:
