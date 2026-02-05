@@ -1,7 +1,8 @@
 import
   os, genny, openGL, jsony, vmath, windy, silky,
   ../src/mettascope,
-  ../src/mettascope/[replays, common, worldmap, timeline, envconfig, vibes, replayloader, heatmap, configs]
+  ../src/mettascope/[replays, common, worldmap, timeline, replayloader, heatmap, configs],
+  ../src/mettascope/panels/[envpanel, vibespanel]
 
 type
   ActionRequest* = object
@@ -78,7 +79,7 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
         for action in requestActions:
           result.actions.add(ActionRequest(
             agentId: action.agentId,
-            actionName: action.actionName
+            actionName: action.actionName.cstring
           ))
         requestActions.setLen(0)
         return

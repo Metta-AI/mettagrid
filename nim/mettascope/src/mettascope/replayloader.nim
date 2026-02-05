@@ -1,7 +1,7 @@
 import
   std/[tables, sets],
   windy,
-  replays, worldmap, common, heatmap, heatmapshader, configs, panels, aoepanel
+  replays, worldmap, common, heatmap, heatmapshader, configs, panels, collectives
 
 
 proc onReplayLoaded*() =

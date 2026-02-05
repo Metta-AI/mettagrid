@@ -1,7 +1,6 @@
 # This example shows a draggable panel UI like in a large editor like VS Code or Blender.
 
 import
-  std/[sequtils, strformat],
   bumpy, chroma, windy, boxy, silky,
   ./[common, configs]
 
@@ -30,7 +29,6 @@ type
 const
   AreaHeaderHeight = 32.0
   AreaMargin = 6.0
-  BackgroundColor = parseHtmlColor("#222222").rgbx
 
 var
   worldMapZoomInfo*: ZoomInfo

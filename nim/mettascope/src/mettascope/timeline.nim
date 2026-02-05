@@ -1,16 +1,12 @@
 import
   std/[times, math],
   boxy, vmath, windy, silky,
-  common, panels, actions, objectinfo, configs, gameplayer
+  common, actions, gameplayer
 
 const
-  TraceWidth = 0.54 / 2
   ScrubberColor = parseHtmlColor("#1D1D1D").rgbx
 
 var
-  # Drag state.
-  scrubberActive = false
-  minimapActive = false
   lastFrameTime: float64 = epochTime()
 
 proc onRequestPython*() =
@@ -71,6 +67,7 @@ proc playControls*() =
 proc drawTimeline*(pos, size: Vec2) =
   ribbon(pos, size, ScrubberColor):
     let prevStepFloat = stepFloat
+    sk.at.y -= 12
     scrubber("timeline", stepFloat, 0, replay.maxSteps.float32 - 1, $int(stepFloat + 0.5))
     if prevStepFloat != stepFloat:
       step = stepFloat.round.int

@@ -97,7 +97,7 @@ var
 type
   ActionRequest* = object
     agentId*: int
-    actionName*: cstring
+    actionName*: string
 
   ObjectiveKind* = enum
     Move # Move to a specific position.
@@ -199,11 +199,16 @@ proc getPanelByName*(area: Area, name: string): Panel =
       return panel
   return nil
 
+proc stripSuffix*(s: var string, suffix: string) =
+  ## Strip a suffix from a string.
+  if s.endsWith(suffix):
+    s = s[0 ..< (s.len - suffix.len)]
 proc stripTeamSuffix*(typeName: string): string =
   ## Strip team suffix like _0, _1 from type name.
-  if typeName.len >= 2 and typeName[^2] == '_' and typeName[^1] in {'0'..'9'}:
-    return typeName[0..^3]
-  return typeName
+  result = typeName
+  if result.len >= 2 and result[^2] == '_' and result[^1] in {'0'..'9'}:
+    result = typeName[0..^3]
+  result.stripSuffix("_station")
 
 proc stripTeamPrefix*(typeName: string): string =
   ## Strip team prefix in "XX:" format (e.g., "c:hub" → "hub", "cg:miner" → "miner").
