@@ -50,7 +50,7 @@ type
     Realtime
 
   GameMode* = enum
-    DefaultMode # Default allows the saved config to override the gamemode with the previously used mode.
+    Auto # Auto allows the saved config to override the game mode with the previously used mode.
     Editor
     Game
 
@@ -88,7 +88,7 @@ var
 
   # Command line arguments.
   commandLineReplay*: string = ""
-  forcedGameMode*: GameMode = DefaultMode
+  forcedGameMode*: GameMode = Auto
 
   # Popup warning system.
   popupWarning*: string = ""

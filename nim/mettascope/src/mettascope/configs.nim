@@ -1,4 +1,7 @@
-import windy, jsony, common
+import
+  std/[strutils],
+  windy, jsony,
+  common
 
 type
   SettingsConfig* = object
@@ -115,10 +118,15 @@ proc saveConfig*(config: MettascopeConfig) =
   setConfig("mettascope", "config.json", config.toJson())
 
 proc loadConfig*(): MettascopeConfig =
-  ## Loads config from file, creates default config if file doesn't exist.
+  ## Loads config from file, creates default config if file doesn't exist or parsing fails.
   let jsonStr = getConfig("mettascope", "config.json")
   if jsonStr != "":
-    result = jsonStr.fromJson(MettascopeConfig)
+    try:
+      result = jsonStr.fromJson(MettascopeConfig)
+    except:
+      echo "Failed to parse config file, using default config: ", getCurrentExceptionMsg()
+      result = DefaultConfig
+      saveConfig(result)
   else:
     result = DefaultConfig
     saveConfig(result)
@@ -128,10 +136,13 @@ proc applyUIState*(config: MettascopeConfig) =
   playSpeed = config.playSpeed
 
   # Allow the CLI to force a game mode, otherwise use the config's last used mode.
-  if forcedGameMode != DefaultMode:
+  if forcedGameMode != Auto:
     gameMode = forcedGameMode
   else:
-    gameMode = config.gameMode
+    if config.gameMode == Auto:
+      gameMode = Editor
+    else:
+      gameMode = config.gameMode
 
   settings.showFogOfWar = config.settings.showFogOfWar
   settings.showVisualRange = config.settings.showVisualRange
@@ -147,7 +158,10 @@ proc saveUIState*() =
   ## Save the current UI state to config.
   var config = loadConfig()
   config.playSpeed = playSpeed
-  config.gameMode = gameMode
+  if gameMode == Auto:
+    config.gameMode = Editor
+  else:
+    config.gameMode = gameMode
   config.settings.showFogOfWar = settings.showFogOfWar
   config.settings.showVisualRange = settings.showVisualRange
   config.settings.showGrid = settings.showGrid
