@@ -2,7 +2,7 @@ import
   std/[strutils, strformat, os, parseopt, tables],
   opengl, windy, bumpy, vmath, chroma, silky, boxy, webby,
   mettascope/[replays, common, worldmap, panels, objectinfo, envconfig, vibes,
-  footer, timeline, minimap, header, replayloader, configs, aoepanel, collectivepanel]
+  footer, timeline, minimap, header, replayloader, configs, gameplayer, aoepanel, collectivepanel]
 
 proc buildSilkyAtlas*(imagePath, jsonPath: string) =
   ## Build the silky UI atlas.
@@ -47,6 +47,10 @@ proc parseArgs() =
       case p.key
       of "replay", "r":
         commandLineReplay = p.val
+      of "game-mode", "g":
+        forcedGameMode = Game
+      of "editor-mode", "e":
+        forcedGameMode = Editor
       of "autostart", "a":
         play = p.val == "true" or p.val == ""
       else:
@@ -113,6 +117,8 @@ proc drawWorldMap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: 
 
   worldMapZoomInfo.rect = irect(contentPos.x, contentPos.y, contentSize.x, contentSize.y)
   worldMapZoomInfo.hasMouse = sk.mouseInsideClip(window, rect(contentPos, contentSize))
+
+  applyModeSwitchCenter(worldMapZoomInfo)
 
   glEnable(GL_SCISSOR_TEST)
   glScissor(contentPos.x.int32, window.size.y.int32 - contentPos.y.int32 - contentSize.y.int32, contentSize.x.int32, contentSize.y.int32)
@@ -191,16 +197,15 @@ proc onFrame() =
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f)
   glClear(GL_COLOR_BUFFER_BIT)
 
-  # Header
-  drawHeader()
-
-  # Scrubber
-  drawTimeline(vec2(0, sk.size.y - 64 - 33), vec2(sk.size.x, 32))
-
-  # Footer
-  drawFooter(vec2(0, sk.size.y - 64), vec2(sk.size.x, 64))
-
-  drawPanels()
+  if gameMode == Editor:
+    ## Editor mode UI.
+    drawHeader()
+    drawTimeline(vec2(0, sk.size.y - 64 - 22), vec2(sk.size.x, 32))
+    drawFooter(vec2(0, sk.size.y - 64), vec2(sk.size.x, 64))
+    drawPanels()
+  else:
+    ## Game mode UI.
+    drawGameWorld()
 
   drawWarningPopup()
 

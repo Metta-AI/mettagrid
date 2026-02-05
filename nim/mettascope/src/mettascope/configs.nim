@@ -24,6 +24,7 @@ type
     playSpeed*: float32
     settings*: SettingsConfig
     selectedAgentId*: int
+    gameMode*: GameMode
 
 const DefaultConfig* = MettascopeConfig(
   windowWidth: 1200,
@@ -38,7 +39,8 @@ const DefaultConfig* = MettascopeConfig(
     lockFocus: false,
     showHeatmap: false
   ),
-  selectedAgentId: -1
+  selectedAgentId: -1,
+  gameMode: Editor
 )
 
 proc serializeArea*(area: Area): AreaLayoutConfig =
@@ -124,6 +126,13 @@ proc loadConfig*(): MettascopeConfig =
 proc applyUIState*(config: MettascopeConfig) =
   ## Apply the loaded UI state from config to global variables.
   playSpeed = config.playSpeed
+
+  # Allow the CLI to force a game mode, otherwise use the config's last used mode.
+  if forcedGameMode != DefaultMode:
+    gameMode = forcedGameMode
+  else:
+    gameMode = config.gameMode
+
   settings.showFogOfWar = config.settings.showFogOfWar
   settings.showVisualRange = config.settings.showVisualRange
   settings.showGrid = config.settings.showGrid
@@ -138,6 +147,7 @@ proc saveUIState*() =
   ## Save the current UI state to config.
   var config = loadConfig()
   config.playSpeed = playSpeed
+  config.gameMode = gameMode
   config.settings.showFogOfWar = settings.showFogOfWar
   config.settings.showVisualRange = settings.showVisualRange
   config.settings.showGrid = settings.showGrid

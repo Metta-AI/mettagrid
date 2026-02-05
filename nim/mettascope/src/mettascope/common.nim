@@ -49,6 +49,11 @@ type
     Historical
     Realtime
 
+  GameMode* = enum
+    DefaultMode # Default allows the saved config to override the gamemode with the previously used mode.
+    Editor
+    Game
+
   Heatmap* = ref object
     ## Tracks agent presence on tiles over time.
     data*: seq[seq[int]] ## data[step][y * width + x] - flattened 2D array
@@ -75,6 +80,7 @@ var
   playSpeed*: float32 = 10.0
   lastSimTime*: float64 = epochTime()
   playMode* = Historical
+  gameMode* = Editor
   rootArea*: Area
 
   ## Signals when we want to give control back to Python (DLL mode only).
@@ -82,6 +88,7 @@ var
 
   # Command line arguments.
   commandLineReplay*: string = ""
+  forcedGameMode*: GameMode = DefaultMode
 
   # Popup warning system.
   popupWarning*: string = ""
