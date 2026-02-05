@@ -11,7 +11,6 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
-from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.runner.policy_server.manager import LocalPolicyServerHandle, launch_local_policy_server
 from mettagrid.runner.types import EpisodeSpec, PureSingleEpisodeJob, PureSingleEpisodeResult
 from mettagrid.util.file import read
@@ -51,7 +50,6 @@ def _localize_policy_uri(uri: str, temp_dirs: list[Path]) -> str:
 
 def _spawn_policy_servers(
     local_policy_uris: list[str],
-    env_interface: PolicyEnvInterface,
 ) -> tuple[list[LocalPolicyServerHandle], list[str]]:
     unique_uris = list(dict.fromkeys(local_policy_uris))
     uri_to_server: dict[str, LocalPolicyServerHandle] = {}
@@ -59,7 +57,7 @@ def _spawn_policy_servers(
     futures: dict = {}
     try:
         with ThreadPoolExecutor(max_workers=len(unique_uris)) as pool:
-            futures = {pool.submit(launch_local_policy_server, uri, env_interface): uri for uri in unique_uris}
+            futures = {pool.submit(launch_local_policy_server, uri): uri for uri in unique_uris}
             for future in as_completed(futures):
                 uri = futures[future]
                 handle = future.result()
@@ -98,8 +96,7 @@ def run_episode_isolated(
     policy_temp_dirs: list[Path] = []
     try:
         local_policy_uris = [_localize_policy_uri(uri, policy_temp_dirs) for uri in spec.policy_uris]
-        env_interface = PolicyEnvInterface.from_mg_cfg(spec.env)
-        servers, http_policy_uris = _spawn_policy_servers(local_policy_uris, env_interface)
+        servers, http_policy_uris = _spawn_policy_servers(local_policy_uris)
 
         local_results_uri = results_path.as_uri()
         local_replay_uri = replay_path.as_uri() if replay_path else None

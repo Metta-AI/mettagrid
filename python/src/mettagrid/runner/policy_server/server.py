@@ -214,26 +214,18 @@ def create_app(service: LocalPolicyServer, *, verbose: bool = False) -> fastapi.
 @cli.command()
 def main(
     policy: Annotated[str, typer.Option(help="Policy ID")],
-    env_interface_file: Annotated[Path, typer.Option(help="Path to PolicyEnvInterface JSON file")],
     host: Annotated[str, typer.Option(help="Host to bind to")] = "127.0.0.1",
     port: Annotated[int, typer.Option(help="Port to bind to (0 for OS-assigned)")] = 8000,
     port_file: Annotated[Path | None, typer.Option(help="Write bound port number to this file")] = None,
     verbose: Annotated[bool, typer.Option(help="Enable verbose logging")] = False,
 ):
     """Serve a policy over HTTP using the Policy protocol (JSON)."""
-    env_interface = PolicyEnvInterface.model_validate_json(env_interface_file.read_text())
     policy_spec = policy_spec_from_uri(policy)
 
     def policy_factory(env: PolicyEnvInterface) -> MultiAgentPolicy:
         return initialize_or_load_policy(env, policy_spec, device_override="cpu")
 
-    def env_interface_adapter(_req: policy_pb2.PreparePolicyRequest) -> PolicyEnvInterface:
-        # NOTE: env_interface from file may not match what PreparePolicy provides.
-        # Mismatches in num_agents or available actions can cause runtime errors.
-        # Future work: construct PolicyEnvInterface from PreparePolicyRequest.
-        return env_interface
-
-    service = LocalPolicyServer(policy_factory, env_interface_adapter)
+    service = LocalPolicyServer(policy_factory, lambda req: PolicyEnvInterface.from_proto(req.env_interface))
     app = create_app(service, verbose=verbose)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -1,7 +1,9 @@
 """Lightweight environment description for policy initialization."""
 
+from __future__ import annotations
+
 import json
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import gymnasium as gym
 from pydantic import BaseModel, Field
@@ -9,6 +11,9 @@ from pydantic import BaseModel, Field
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.config.mettagrid_config import MettaGridConfig
 from mettagrid.mettagrid_c import dtype_observations
+
+if TYPE_CHECKING:
+    from mettagrid.protobuf.sim.policy_v1 import policy_pb2
 
 
 class PolicyEnvInterface(BaseModel):
@@ -98,3 +103,37 @@ class PolicyEnvInterface(BaseModel):
         payload["actions"] = self.action_names
         payload["obs_features"] = [feature.model_dump(mode="json") for feature in self.obs_features]
         return json.dumps(payload)
+
+    def to_proto(self) -> "policy_pb2.PolicyEnvInterface":
+        """Convert to protobuf PolicyEnvInterface message."""
+        from mettagrid.protobuf.sim.policy_v1 import policy_pb2  # noqa: PLC0415
+
+        move_cost = self.move_energy_cost
+        return policy_pb2.PolicyEnvInterface(
+            obs_features=[
+                policy_pb2.GameRules.Feature(id=f.id, name=f.name, normalization=f.normalization)
+                for f in self.obs_features
+            ],
+            tags=list(self.tags),
+            action_names=list(self.action_names),
+            move_energy_cost=move_cost if move_cost is not None else -1,
+            num_agents=self.num_agents,
+            observation_shape=list(self.observation_shape),
+            obs_height=self.obs_height,
+            obs_width=self.obs_width,
+        )
+
+    @staticmethod
+    def from_proto(proto: "policy_pb2.PolicyEnvInterface") -> "PolicyEnvInterface":
+        """Create PolicyEnvInterface from protobuf message."""
+        return PolicyEnvInterface(
+            obs_features=[
+                ObservationFeatureSpec(id=f.id, name=f.name, normalization=f.normalization) for f in proto.obs_features
+            ],
+            tags=list(proto.tags),
+            action_names=list(proto.action_names),
+            move_energy_cost=proto.move_energy_cost if proto.move_energy_cost != -1 else None,
+            num_agents=proto.num_agents,
+            observation_shape=tuple(proto.observation_shape),
+            egocentric_shape=(proto.obs_height, proto.obs_width),
+        )

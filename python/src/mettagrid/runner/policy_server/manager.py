@@ -8,8 +8,6 @@ from pathlib import Path
 
 import requests
 
-from mettagrid.policy.policy_env_interface import PolicyEnvInterface
-
 logger = logging.getLogger(__name__)
 
 _HEALTH_POLL_INTERVAL = 0.1
@@ -21,7 +19,6 @@ class LocalPolicyServerHandle:
     process: subprocess.Popen
     policy_uri: str
     _log_file: Path = field(repr=False)
-    _env_interface_path: Path | None = None
     _port_file_path: Path | None = None
 
     def shutdown(self) -> None:
@@ -31,7 +28,7 @@ class LocalPolicyServerHandle:
         except subprocess.TimeoutExpired:
             self.process.kill()
             self.process.wait()
-        for path in (self._log_file, self._env_interface_path, self._port_file_path):
+        for path in (self._log_file, self._port_file_path):
             if path is not None:
                 path.unlink(missing_ok=True)
 
@@ -45,14 +42,10 @@ class LocalPolicyServerHandle:
 
 def launch_local_policy_server(
     policy_uri: str,
-    env_interface: PolicyEnvInterface,
     *,
     startup_timeout: float = 30.0,
 ) -> LocalPolicyServerHandle:
-    env_interface_file = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
-    env_interface_file.write(env_interface.model_dump_json())
-    env_interface_file.close()
-
+    """Launch a local policy server subprocess."""
     port_file_fd = tempfile.NamedTemporaryFile(suffix=".port", delete=False)
     port_file_fd.close()
     port_file_path = Path(port_file_fd.name)
@@ -66,8 +59,6 @@ def launch_local_policy_server(
         "mettagrid.runner.policy_server.server",
         "--policy",
         policy_uri,
-        "--env-interface-file",
-        env_interface_file.name,
         "--port",
         "0",
         "--port-file",
@@ -86,14 +77,12 @@ def launch_local_policy_server(
     port = _wait_for_port_file(port_file_path, process, log_path, deadline)
     _wait_for_health(port, process, log_path, deadline)
 
-    env_interface_path = Path(env_interface_file.name)
     logger.info("Policy server for %s ready on port %d (pid %d)", policy_uri, port, process.pid)
     return LocalPolicyServerHandle(
         port=port,
         process=process,
         policy_uri=policy_uri,
         _log_file=log_path,
-        _env_interface_path=env_interface_path,
         _port_file_path=port_file_path,
     )
 
