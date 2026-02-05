@@ -254,6 +254,22 @@ def resolve_uri(uri: str) -> ParsedScheme:
     return parse_uri(resolved_uri_str, allow_none=False)
 
 
+def localize_uri(uri: str, *, allowed_schemes: set[str] | None = None) -> Path | None:
+    resolved = resolve_uri(uri)
+    if allowed_schemes is not None and resolved.scheme not in allowed_schemes:
+        raise ValueError(f"Unsupported URI scheme {resolved.scheme!r} for: {uri}")
+    if resolved.scheme == "s3":
+        from mettagrid.policy.prepare_policy_spec import download_policy_spec_from_s3_as_zip  # noqa: PLC0415
+
+        # Downloaded zips persist in the cache dir; no atexit cleanup.
+        return download_policy_spec_from_s3_as_zip(resolved.canonical)
+    if resolved.scheme == "file":
+        if resolved.local_path is None or not resolved.local_path.exists():
+            raise FileNotFoundError(f"Policy path does not exist: {uri}")
+        return resolved.local_path
+    return None
+
+
 def checkpoint_filename(run_name: str, epoch: int) -> str:
     return f"{run_name}:v{epoch}"
 

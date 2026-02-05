@@ -12,12 +12,10 @@ from urllib.parse import parse_qs, urlparse
 import requests
 
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
-from mettagrid.policy.prepare_policy_spec import download_policy_spec_from_s3_as_zip
 from mettagrid.runner.policy_server.manager import LocalPolicyServerHandle, launch_local_policy_server
 from mettagrid.runner.types import EpisodeSpec, PureSingleEpisodeJob, PureSingleEpisodeResult
 from mettagrid.util.file import read
-from mettagrid.util.uri_resolvers.base import FileParsedScheme, S3ParsedScheme
-from mettagrid.util.uri_resolvers.schemes import resolve_uri
+from mettagrid.util.uri_resolvers.schemes import localize_uri, resolve_uri
 
 logger = logging.getLogger(__name__)
 
@@ -40,32 +38,15 @@ def _download_presigned_policy(url: str, temp_dirs: list[Path]) -> Path:
     return local_path
 
 
-def _localize_file_uri(resolved: FileParsedScheme, uri: str) -> str:
-    if resolved.local_path is None or not resolved.local_path.exists():
-        raise FileNotFoundError(f"Policy path does not exist: {uri}")
-    return resolved.local_path.as_uri()
-
-
-def _localize_s3_uri(resolved: S3ParsedScheme, _uri: str) -> str:
-    return download_policy_spec_from_s3_as_zip(
-        resolved.canonical,
-        remove_downloaded_copy_on_exit=True,
-    ).as_uri()
-
-
 def _localize_policy_uri(uri: str, temp_dirs: list[Path]) -> str:
     if _is_presigned_url(uri):
         return _download_presigned_policy(uri, temp_dirs).as_uri()
-
     resolved = resolve_uri(uri)
-    localizer = {
-        "mock": lambda resolved, _uri: resolved.canonical,
-        "file": _localize_file_uri,
-        "s3": _localize_s3_uri,
-    }.get(resolved.scheme)
-    if localizer is None:
-        raise ValueError(f"Unsupported policy URI: {uri}")
-    return localizer(resolved, uri)
+    if resolved.scheme == "mock":
+        return resolved.canonical
+    local = localize_uri(uri)
+    assert local is not None, f"localize_uri returned None for: {uri}"
+    return local.as_uri()
 
 
 def _spawn_policy_servers(
