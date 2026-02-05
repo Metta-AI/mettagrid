@@ -11,6 +11,8 @@ proc foo() =
 const
   TILE_SIZE = 128
   TS = 1.0 / TILE_SIZE.float32 # Tile scale.
+  MINI_TILE_SIZE = 32
+  MTS = 1.0 / MINI_TILE_SIZE.float32 # Minimap tile scale.
 
 proc centerAt*(zoomInfo: ZoomInfo, entity: Entity)
 
@@ -27,6 +29,7 @@ var
   visibilityMapLockFocus*: bool = false
   visibilityMap*: TileMap
   px*: Pixelator
+  pxMini*: Pixelator
   sq*: ShaderQuad
   previousPanelSize*: Vec2 = vec2(0, 0)
   worldHeatmap*: Heatmap
@@ -346,6 +349,43 @@ proc getAgentOrientation*(agent: Entity, step: int): Orientation =
       break
   return S
 
+proc inferOrientation(agent: Entity, step: int): Orientation =
+  ## Infer orientation by looking at recent movement deltas.
+  if agent.location.len < 2:
+    return S
+  for i in countdown(step, 1):
+    let
+      loc0 = agent.location.at(i - 1)
+      loc1 = agent.location.at(i)
+      dx = loc1.x - loc0.x
+      dy = loc1.y - loc0.y
+    if dx != 0 or dy != 0:
+      if dx > 0:
+        return E
+      elif dx < 0:
+        return W
+      elif dy > 0:
+        return S
+      else:
+        return N
+  return S
+
+proc agentRigName(agent: Entity): string =
+  ## Determine the rig sprite from inventory contents.
+  if agent.inventory.len == 0:
+    return "agent"
+  for item in agent.inventory.at(step):
+    let itemName = replay.itemNames[item.itemId]
+    if itemName == "scout":
+      return "scout"
+    elif itemName == "miner":
+      return "miner"
+    elif itemName == "aligner":
+      return "aligner"
+    elif itemName == "scrambler":
+      return "scrambler"
+  return "agent"
+
 proc getCollectiveTint(collectiveId: int): (uint16, uint16) =
   ## Get tint color packed as (RG, BA) uint16s for a collective.
   if collectiveId < 0:
@@ -390,8 +430,7 @@ proc drawObjects*() =
       discard
     of "agent":
       let agent = thing
-      # Find last orientation action.
-      var agentImage = "agents/agent." & getAgentOrientation(agent, step).char
+      var agentImage = "agents/" & agentRigName(agent) & "." & inferOrientation(agent, step).char
       px.drawSprite(agentImage, pos * TILE_SIZE, tintRG, tintBA)
     else:
       let spriteName =
@@ -788,6 +827,10 @@ proc drawTerrain*() =
       dataDir / "atlas.png",
       dataDir / "atlas.json"
     )
+    pxMini = newPixelator(
+      dataDir / "atlas_mini.png",
+      dataDir / "atlas_mini.json"
+    )
 
   terrainMap.draw(getProjectionView(), 2.0f, 1.5f)
 
@@ -805,18 +848,17 @@ proc drawObjectPips*() =
     if obj.removedAtStep >= 0 and step >= obj.removedAtStep:
       continue
     var pipName = "minimap/" & obj.typeName
-    if pipName notin px:
+    if pipName notin pxMini:
       pipName = "minimap/" & stripTeamSuffix(obj.typeName)
-    if pipName notin px:
+    if pipName notin pxMini:
       pipName = "minimap/" & stripTeamPrefix(obj.typeName)
-    if pipName in px:
-      let loc = obj.location.at(step).xy
-      px.drawSprite(
-        pipName,
-        loc.ivec2 * TILE_SIZE
-      )
-    else:
-      echo "pipName not found: ", pipName
+    if pipName notin pxMini:
+      pipName = "minimap/unknown"
+    let loc = obj.location.at(step).xy
+    pxMini.drawSprite(
+      pipName,
+      loc.ivec2 * MINI_TILE_SIZE
+    )
 
 proc drawWorldMini*() =
 
@@ -854,7 +896,9 @@ proc drawWorldMini*() =
 
   drawObjectPips()
 
+  # Flush overlays first, then pips so pips render on top.
   px.flush(getProjectionView() * scale(vec3(TS, TS, 1.0f)))
+  pxMini.flush(getProjectionView() * scale(vec3(MTS, MTS, 1.0f)))
 
 proc centerAt*(zoomInfo: ZoomInfo, entity: Entity) =
   ## Center the map on the given entity.
