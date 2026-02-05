@@ -1,4 +1,6 @@
 import logging
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -13,6 +15,28 @@ logger = logging.getLogger(__name__)
 _HEALTH_POLL_INTERVAL = 0.1
 
 
+def _get_latest_pypi_info(package: str) -> tuple[str, str]:
+    try:
+        response = requests.get(f"https://pypi.org/pypi/{package}/json", timeout=10)
+        response.raise_for_status()
+        info = response.json()["info"]
+        return info["version"], info["requires_python"]
+    except requests.RequestException as e:
+        raise RuntimeError(f"Failed to fetch latest {package} version from PyPI: {e}") from e
+
+
+def _create_policy_venv(mettagrid_version: str, requires_python: str) -> Path:
+    policy_dir = Path(tempfile.mkdtemp(prefix="policy-"))
+    venv_path = policy_dir / ".venv"
+    venv_python = venv_path / "bin" / "python"
+    subprocess.run(["uv", "venv", str(venv_path), "--python", requires_python], check=True)
+    subprocess.run(
+        ["uv", "pip", "install", "--python", str(venv_python), f"mettagrid=={mettagrid_version}", "torch"],
+        check=True,
+    )
+    return policy_dir
+
+
 @dataclass(kw_only=True)
 class LocalPolicyServerHandle:
     port: int
@@ -20,6 +44,7 @@ class LocalPolicyServerHandle:
     policy_uri: str
     _log_file: Path = field(repr=False)
     _port_file_path: Path | None = None
+    _venv_dir: Path | None = None
 
     def shutdown(self) -> None:
         self.process.terminate()
@@ -31,6 +56,8 @@ class LocalPolicyServerHandle:
         for path in (self._log_file, self._port_file_path):
             if path is not None:
                 path.unlink(missing_ok=True)
+        if self._venv_dir is not None:
+            shutil.rmtree(self._venv_dir, ignore_errors=True)
 
     def read_logs(self, max_bytes: int = 8192) -> str:
         return _read_log_tail(self._log_file, max_bytes)
@@ -53,8 +80,16 @@ def launch_local_policy_server(
 
     log_file = tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False)
 
+    # TODO: remove this once we've migrated all policies to use isolated venvs
+    if os.environ.get("EPISODE_RUNNER_USE_ISOLATED_VENVS") != "0":
+        version, requires_python = _get_latest_pypi_info("mettagrid")
+        venv_dir = _create_policy_venv(version, requires_python)
+        python = str(venv_dir / ".venv" / "bin" / "python")
+    else:
+        python = sys.executable
+
     cmd = [
-        sys.executable,
+        python,
         "-m",
         "mettagrid.runner.policy_server.server",
         "--policy",
@@ -84,6 +119,7 @@ def launch_local_policy_server(
         policy_uri=policy_uri,
         _log_file=log_path,
         _port_file_path=port_file_path,
+        _venv_dir=venv_dir,
     )
 
 
