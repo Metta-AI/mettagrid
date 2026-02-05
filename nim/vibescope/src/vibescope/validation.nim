@@ -13,8 +13,9 @@ type
 const RequiredKeys = ["version", "num_agents", "max_steps", "map_size", "action_names",
   "item_names", "type_names", "objects"]
 
-# Optional new top-level keys for replay version 3.
-const OptionalKeys = ["file_name", "group_names", "reward_sharing_matrix", "mg_config"]
+# Optional top-level keys for replay versions 3-4.
+const OptionalKeys = ["file_name", "group_names", "collective_names", "reward_sharing_matrix", "mg_config",
+  "policy_env_interface", "infos", "collective_inventory"]
 
 proc requireFields*(obj: JsonNode, fields: openArray[string], objName: string, issues: var seq[ValidationIssue]) =
   ## Assert that all required fields are present.
@@ -732,9 +733,9 @@ proc validateReplaySchema*(data: JsonNode, issues: var seq[ValidationIssue]) =
   # Top-level field validation.
   if "version" in data:
     let version = data["version"].getInt()
-    if version != 3:
+    if version < 3:
       issues.add(ValidationIssue(
-        message: &"'version' must equal 3, got {version}",
+        message: &"'version' must be >= 3, got {version}",
         field: "version"
       ))
 

@@ -3,7 +3,7 @@ import
   opengl, windy, bumpy, vmath, chroma, silky, boxy, webby,
   vibescope/[replays, common, worldmap, panels, objectinfo, envconfig, vibes,
   footer, timeline, minimap, header, replayloader, aoepanel, commonspanel,
-  eventstimeline, statchart, configs, policyinfo]
+  eventstimeline, statchart, configs, policyinfo, infospanel]
 
 var junctionChart = newStatChart("aligned.junction.held", "junction", "Junctions Held")
 
@@ -158,6 +158,7 @@ proc registerPanels() =
   registerPanel("Object", drawObjectInfo)
   registerPanel("Environment", drawEnvironmentInfo)
   registerPanel("Collectives", drawCollectivesPanel)
+  registerPanel("Infos", drawInfosPanel)
   registerPanel("Map", drawWorldMap)
   registerPanel("Minimap", drawMinimap)
   registerPanel("Vibes", drawVibes)
@@ -180,6 +181,7 @@ proc initPanels() =
   panels.rootArea.areas[0].areas[0].addPanel("Policy Info", drawPolicyInfo)
   panels.rootArea.areas[0].areas[0].addPanel("Environment", drawEnvironmentInfo)
   panels.rootArea.areas[0].areas[0].addPanel("Collectives", drawCollectivesPanel)
+  panels.rootArea.areas[0].areas[0].addPanel("Infos", drawInfosPanel)
 
   panels.rootArea.areas[1].areas[0].addPanel("Map", drawWorldMap)
   panels.rootArea.areas[0].areas[1].addPanel("Minimap", drawMinimap)

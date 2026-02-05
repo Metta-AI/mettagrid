@@ -123,9 +123,9 @@ def run_episode_local(
     if replay_path is not None:
         if replay is None:
             raise ValueError("No replay was generated")
-        replay.write_replay(replay_path.as_uri())
+        replay.write_replay(replay_path.resolve().as_uri())
     if results_path is not None:
-        write_data(results_path.as_uri(), results.model_dump_json(), content_type="application/json")
+        write_data(results_path.resolve().as_uri(), results.model_dump_json(), content_type="application/json")
 
     return results, replay
 

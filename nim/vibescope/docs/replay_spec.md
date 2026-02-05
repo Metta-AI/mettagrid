@@ -1,7 +1,7 @@
-## Replay format specification version 3:
+## Replay format specification (versions 3-4)
 
-VibeScope uses a custom replay format to store the replay data. The replay is a zlib compressed json file with `.json.z`
-extension.
+MettaScope uses a custom replay format to store the replay data. The replay is a zlib compressed json file with
+`.json.z` extension.
 
 Here is an example of how to decompress the file, from python:
 
@@ -16,11 +16,11 @@ json_data = json.loads(decompressed_data)
 In JavaScript it's a bit more complicated, but you can use the `decompressStream` with a streaming API.
 
 The first key in the format is `version`, which is a number that contains the version of the replay format. Valid values
-are `1`, `2`, `3`. This document describes version 3.
+are `1`, `2`, `3`, `4`. This document describes versions 3-4.
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   ...
 }
 ```
@@ -55,9 +55,13 @@ include a numeric `type_id`, but new data should rely on the string `type_name` 
   "action_names": ["noop", "move", "rotate", ... ],
   "item_names": ["hearts", "coconuts", ... ],
   "group_names": ["group1", "group2", ... ],
+  "collective_names": ["clips", "cogs", ... ],
   ...
 }
 ```
+
+The `collective_names` array (added in version 4) maps collective IDs to names. The array index corresponds to the
+collective ID, matching the C++ implementation which assigns IDs based on sorted alphabetical order of names.
 
 ## Objects and time series
 
@@ -144,6 +148,14 @@ Here are the keys supported for both agents and objects:
 
 - `inventory_max` - Maximum number of items that can be in the inventory.
 - `color` - The color of the object. Must be an integer between 0 and 255.
+- `collective_id` - The collective (team/faction) this object belongs to. This is a time series value that can change
+  during gameplay (e.g., when a junction is captured by a different team). Valid values:
+  - `0` = Clips (red team)
+  - `1` = Cogs (green team)
+  - `-1` = Neutral/undefined (not aligned with any collective)
+
+  Objects like junctions can switch collective ownership during a game, which is why this field is tracked as a time
+  series rather than a constant.
 
 Agent specific keys:
 
@@ -200,6 +212,133 @@ other; agents don't share reward with themselves.
   ...
 }
 ```
+
+## Version 4 additions
+
+Version 4 adds several new top-level keys for enhanced replay analysis and debugging.
+
+### policy_env_interface
+
+Contains the policy environment interface configuration, describing observation features and action space. This helps
+replay consumers understand how agents perceive the environment.
+
+```json
+{
+  "policy_env_interface": {
+    "obs_features": [
+      {"id": 0, "name": "agent:group", "normalization": 10.0},
+      {"id": 1, "name": "agent:frozen", "normalization": 1.0},
+      {"id": 2, "name": "episode_completion_pct", "normalization": 255.0},
+      {"id": 3, "name": "last_action", "normalization": 10.0},
+      {"id": 4, "name": "last_reward", "normalization": 100.0}
+    ],
+    "tags": ["arena", "competitive"],
+    "action_names": ["noop", "move", "rotate", ...],
+    "move_energy_cost": 1.0,
+    "num_agents": 24,
+    "observation_shape": [11, 11, 32],
+    "egocentric_shape": [11, 11]
+  }
+}
+```
+
+### infos
+
+Contains episode-level statistics and metadata, populated at episode end. Useful for analyzing agent performance and
+game outcomes.
+
+```json
+{
+  "infos": {
+    "game": {
+      "objects.wall": 1384.0,
+      "objects.agent.agent": 24.0,
+      "tokens_written": 65650.0,
+      "tokens_dropped": 0.0
+    },
+    "agent": {
+      "heart.amount": 0.0,
+      "ore_red.amount": 0.0,
+      "action.noop.success": 100.0
+    },
+    "collective": {
+      "clips": {"score": 150.0},
+      "cogs": {"score": 120.0}
+    },
+    "attributes": {
+      "seed": 609250,
+      "map_w": 62,
+      "map_h": 62,
+      "steps": 100,
+      "max_steps": 100
+    },
+    "episode_rewards": [0.0, 0.0, ...]
+  }
+}
+```
+
+- `game` - Game-level statistics (object counts, token stats)
+- `agent` - Agent statistics averaged across all agents
+- `collective` - Per-collective (team) statistics, if present
+- `attributes` - Episode metadata (seed, map size, step counts)
+- `episode_rewards` - Final reward for each agent (indexed by agent_id)
+
+### collective_inventory
+
+Time-series tracking of inventory for each collective (team). Format is an array where the index corresponds to the
+collective ID (matching the `collective_names` array). Each element is a time-series array of
+`[step, [[item_id, count], ...]]` pairs, using item IDs that index into the `item_names` array.
+
+```json
+{
+  "collective_inventory": [
+    [
+      [
+        0,
+        [
+          [0, 0],
+          [1, 0]
+        ]
+      ],
+      [
+        50,
+        [
+          [0, 10],
+          [1, 5]
+        ]
+      ],
+      [
+        100,
+        [
+          [0, 25],
+          [1, 12]
+        ]
+      ]
+    ],
+    [
+      [
+        0,
+        [
+          [0, 0],
+          [1, 0]
+        ]
+      ],
+      [
+        50,
+        [
+          [0, 8],
+          [1, 7]
+        ]
+      ]
+    ]
+  ]
+}
+```
+
+Where `collective_names = ["clips", "cogs"]` and `item_names = ["hearts", "ore_red", ...]`, so index 0 is "clips" and
+`[0, 10]` means 10 hearts.
+
+Only records changes - if inventory doesn't change between steps, no entry is added.
 
 ## Realtime WebSocket
 

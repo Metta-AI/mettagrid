@@ -102,7 +102,7 @@ block schema_validation:
     replay["version"] = %*1
     let issues = validateReplay(replay)
     doAssert issues.len > 0, "Should have validation issues"
-    doAssert issues[0].message.contains("'version' must equal 3"), &"Unexpected issue: {issues[0].message}"
+    doAssert issues[0].message.contains("'version' must be >= 3"), &"Unexpected issue: {issues[0].message}"
     echo "✓ Invalid version properly rejected"
 
   block invalid_num_agents:
