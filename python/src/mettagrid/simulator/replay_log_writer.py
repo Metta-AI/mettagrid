@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 
 import numpy as np
 
+from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.renderer.common import METTASCOPE_REPLAY_URL_PREFIX
 from mettagrid.simulator.interface import SimulatorEventHandler
 from mettagrid.simulator.simulator import Simulation
@@ -107,16 +108,34 @@ class EpisodeReplay:
         self._validate_non_empty_string_list(sim.action_names, "action_names")
         self._validate_non_empty_string_list(sim.resource_names, "item_names")
 
+        # Create PolicyEnvInterface for replay consumers
+        policy_env_interface = PolicyEnvInterface.from_mg_cfg(sim.config)
+
+        # Build sorted collective names list (matches C++ sorted order for deterministic IDs)
+        self._collective_names: List[str] = sorted(sim.config.game.collectives.keys())
+        # Map collective name -> ID for fast lookup
+        self._collective_name_to_id: Dict[str, int] = {name: idx for idx, name in enumerate(self._collective_names)}
+
+        # Time-series data for collective inventory
+        # Format: list indexed by collective_id, each element is [[step, [[item_id, count], ...]], ...]
+        self._collective_inventory: List[list] = [[] for _ in range(len(self._collective_names))]
+        # Track last values to only record changes (keyed by collective_id)
+        self._last_collective_inventory: Dict[int, Dict[str, int]] = {}
+
         self.replay_data = {
-            "version": 3,
+            "version": 4,
             "action_names": sim.action_names,
             "item_names": sim.resource_names,
             "type_names": sim.object_type_names,
+            "collective_names": self._collective_names,
             "map_size": [sim.map_width, sim.map_height],
             "num_agents": sim.num_agents,
             "max_steps": sim.config.game.max_steps,
             "mg_config": sim.config.model_dump(mode="json"),
+            "policy_env_interface": policy_env_interface.model_dump(mode="json"),
             "objects": self.objects,
+            "infos": {},  # Populated at episode end
+            "collective_inventory": self._collective_inventory,
         }
 
     def set_compression(self, compression: str):
@@ -157,6 +176,10 @@ class EpisodeReplay:
             )
 
             self._seq_key_merge(self.objects[idx], self.step, update_object)
+
+        # Log collective inventory time-series
+        self._log_collective_inventory(self.step)
+
         self.step += 1
         if current_step != self.step:
             raise ValueError(
@@ -183,9 +206,73 @@ class EpisodeReplay:
                 if grid_object[key][-1][1] != 0:
                     grid_object[key].append([step, 0])
 
+    def _log_collective_inventory(self, step: int):
+        """Log collective inventory for the current step."""
+        # Get current collective inventories (keyed by name from C++ API)
+        collective_inventories = self.sim._c_sim.get_collective_inventories()
+        for collective_name, inventory in collective_inventories.items():
+            # Convert name to ID for storage
+            collective_id = self._collective_name_to_id.get(collective_name)
+            if collective_id is None:
+                continue  # Skip unknown collectives
+
+            # Only record if changed from last snapshot
+            last_inv = self._last_collective_inventory.get(collective_id, {})
+            if inventory != last_inv:
+                # Convert {item_name: count} to [[item_id, count], ...] format
+                inv_by_id = []
+                for item_name, count in inventory.items():
+                    if item_name in self.sim.resource_names:
+                        item_id = self.sim.resource_names.index(item_name)
+                        inv_by_id.append([item_id, count])
+                self._collective_inventory[collective_id].append([step, inv_by_id])
+                self._last_collective_inventory[collective_id] = dict(inventory)
+
+    def _populate_infos(self) -> Dict[str, Any]:
+        """Populate episode infos from simulation state."""
+        stats = self.sim.episode_stats
+        config = self.sim.config
+        num_agents = config.game.num_agents
+
+        infos: Dict[str, Any] = {}
+
+        # Game-level stats
+        infos["game"] = stats.get("game", {})
+
+        # Agent stats (averaged across all agents)
+        infos["agent"] = {}
+        for agent_stats in stats.get("agent", []):
+            for n, v in agent_stats.items():
+                infos["agent"][n] = infos["agent"].get(n, 0) + v
+        for n, v in infos["agent"].items():
+            infos["agent"][n] = v / num_agents if num_agents > 0 else 0
+
+        # Collective stats
+        collective_stats = stats.get("collective")
+        if collective_stats:
+            infos["collective"] = collective_stats
+
+        # Attributes
+        infos["attributes"] = {
+            "seed": self.sim.seed,
+            "map_w": self.sim.map_width,
+            "map_h": self.sim.map_height,
+            "steps": self.sim.current_step,
+            "max_steps": config.game.max_steps,
+        }
+
+        # Episode rewards
+        infos["episode_rewards"] = self.total_rewards.tolist()
+
+        return infos
+
     def get_replay_data(self):
         """Gets full replay as a tree of plain python dictionaries."""
         self.replay_data["max_steps"] = self.step
+
+        # Populate infos from simulation state
+        self.replay_data["infos"] = self._populate_infos()
+
         # Trim value changes to make them more compact.
         for grid_object in self.objects:
             for key, changes in list(grid_object.items()):

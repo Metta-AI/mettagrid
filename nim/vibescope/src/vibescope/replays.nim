@@ -134,6 +134,7 @@ type
     actionNames*: seq[string]
     itemNames*: seq[string]
     groupNames*: seq[string]
+    collectiveNames*: seq[string]
     typeImages*: Table[string, string]
     actionImages*: seq[string]
     actionAttackImages*: seq[string]
@@ -154,6 +155,7 @@ type
     drawnAgentActionMask*: uint64
     mgConfig*: JsonNode
     config*: Config
+    infos*: JsonNode  ## Episode infos: game stats, agent stats, attributes, rewards
 
     # Cached action IDs for common actions.
     noopActionId*: int
@@ -786,7 +788,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
   if getInt(jsonObj, "version") == 2:
     jsonObj = convertReplayV2ToV3(jsonObj)
 
-  doAssert getInt(jsonObj, "version") == 3
+  doAssert getInt(jsonObj, "version") >= 3, "Replay version must be >= 3, got: " & $getInt(jsonObj, "version")
 
   # Check for validation issues and log them to console
   let issues = validateReplay(jsonObj)
@@ -803,6 +805,8 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
   let itemNames = if itemNamesArr != nil: itemNamesArr.to(seq[string]) else: @[]
   let typeNamesArr = getArray(jsonObj, "type_names")
   let typeNames = if typeNamesArr != nil: typeNamesArr.to(seq[string]) else: @[]
+  let collectiveNamesArr = getArray(jsonObj, "collective_names")
+  let collectiveNames = if collectiveNamesArr != nil: collectiveNamesArr.to(seq[string]) else: @[]
   let numAgents = getInt(jsonObj, "num_agents", 0)
   let maxSteps = getInt(jsonObj, "max_steps", 0)
 
@@ -811,6 +815,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
     actionNames: actionNames,
     itemNames: itemNames,
     typeNames: typeNames,
+    collectiveNames: collectiveNames,
     numAgents: numAgents,
     maxSteps: maxSteps,
     mapSize: getMapSize(jsonObj)
@@ -826,6 +831,11 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
   if mgConfig != nil:
     replay.mgConfig = mgConfig
     replay.config = fromJson($mgConfig, Config)
+
+  # Load episode infos (v4)
+  let infos = getJsonNode(jsonObj, "infos")
+  if infos != nil:
+    replay.infos = infos
 
   let objectsArr = getArray(jsonObj, "objects", newJArray())
   for obj in objectsArr:
@@ -955,21 +965,80 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
   # Load collective inventory snapshots
   replay.collectiveInventory = initTable[string, seq[CollectiveInventorySnapshot]]()
   if "collective_inventory" in jsonObj:
-    let collectiveInvObj = jsonObj["collective_inventory"]
-    if collectiveInvObj.kind == JObject:
-      for collectiveName, snapshots in collectiveInvObj.pairs:
+    let collectiveInvData = jsonObj["collective_inventory"]
+    # New format (v4): array indexed by collective ID
+    if collectiveInvData.kind == JArray:
+      for collectiveId, snapshots in collectiveInvData.getElems():
+        if collectiveId >= replay.collectiveNames.len:
+          continue
+        let collectiveName = replay.collectiveNames[collectiveId]
         var snapshotSeq: seq[CollectiveInventorySnapshot] = @[]
         if snapshots.kind == JArray:
           for snapshot in snapshots:
             if snapshot.kind == JArray and snapshot.len >= 2:
               let step = snapshot[0].getInt
               var inv = initTable[string, int]()
-              if snapshot[1].kind == JObject:
+              if snapshot[1].kind == JArray:
+                for itemAmount in snapshot[1]:
+                  if itemAmount.kind == JArray and itemAmount.len >= 2:
+                    let itemId = itemAmount[0].getInt
+                    let count = itemAmount[1].getInt
+                    if itemId >= 0 and itemId < replay.itemNames.len:
+                      inv[replay.itemNames[itemId]] = count
+              snapshotSeq.add(CollectiveInventorySnapshot(step: step, inventory: inv))
+        replay.collectiveInventory[collectiveName] = snapshotSeq
+    # Legacy format: dict with string keys (ID strings or name strings)
+    elif collectiveInvData.kind == JObject:
+      for collectiveKey, snapshots in collectiveInvData.pairs:
+        var collectiveName: string
+        try:
+          let collectiveId = parseInt(collectiveKey)
+          if collectiveId >= 0 and collectiveId < replay.collectiveNames.len:
+            collectiveName = replay.collectiveNames[collectiveId]
+          else:
+            collectiveName = collectiveKey
+        except ValueError:
+          collectiveName = collectiveKey
+        var snapshotSeq: seq[CollectiveInventorySnapshot] = @[]
+        if snapshots.kind == JArray:
+          for snapshot in snapshots:
+            if snapshot.kind == JArray and snapshot.len >= 2:
+              let step = snapshot[0].getInt
+              var inv = initTable[string, int]()
+              if snapshot[1].kind == JArray:
+                for itemAmount in snapshot[1]:
+                  if itemAmount.kind == JArray and itemAmount.len >= 2:
+                    let itemId = itemAmount[0].getInt
+                    let count = itemAmount[1].getInt
+                    if itemId >= 0 and itemId < replay.itemNames.len:
+                      inv[replay.itemNames[itemId]] = count
+              elif snapshot[1].kind == JObject:
                 for itemName, count in snapshot[1].pairs:
                   if count.kind == JInt:
                     inv[itemName] = count.getInt
               snapshotSeq.add(CollectiveInventorySnapshot(step: step, inventory: inv))
         replay.collectiveInventory[collectiveName] = snapshotSeq
+
+  # Load collective stats snapshots
+  replay.collectiveStats = initTable[string, seq[CollectiveStatSnapshot]]()
+  if "collective_stats" in jsonObj:
+    let collectiveStatsObj = jsonObj["collective_stats"]
+    if collectiveStatsObj.kind == JObject:
+      for collectiveName, snapshots in collectiveStatsObj.pairs:
+        var snapshotSeq: seq[CollectiveStatSnapshot] = @[]
+        if snapshots.kind == JArray:
+          for snapshot in snapshots:
+            if snapshot.kind == JArray and snapshot.len >= 2:
+              let step = snapshot[0].getInt
+              var stats = initTable[string, float]()
+              if snapshot[1].kind == JObject:
+                for statName, value in snapshot[1].pairs:
+                  if value.kind == JFloat:
+                    stats[statName] = value.getFloat
+                  elif value.kind == JInt:
+                    stats[statName] = value.getInt.float
+              snapshotSeq.add(CollectiveStatSnapshot(step: step, stats: stats))
+        replay.collectiveStats[collectiveName] = snapshotSeq
 
   # compute gain maps for static replays.
   computeGainMap(replay)
