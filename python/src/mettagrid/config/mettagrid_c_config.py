@@ -34,6 +34,7 @@ from mettagrid.mettagrid_c import MoveActionConfig as CppMoveActionConfig
 from mettagrid.mettagrid_c import NearFilterConfig as CppNearFilterConfig
 from mettagrid.mettagrid_c import NegFilterConfig as CppNegFilterConfig
 from mettagrid.mettagrid_c import ObsValueConfig as CppObsValueConfig
+from mettagrid.mettagrid_c import OrFilterConfig as CppOrFilterConfig  # pyright: ignore[reportAttributeAccessIssue]
 from mettagrid.mettagrid_c import ResourceDelta as CppResourceDelta
 from mettagrid.mettagrid_c import ResourceFilterConfig as CppResourceFilterConfig
 from mettagrid.mettagrid_c import RewardConfig as CppRewardConfig
@@ -163,6 +164,16 @@ def _convert_filters(
             cpp_filter = CppAlignmentFilterConfig(
                 condition=_convert_alignment_condition(filter_config.alignment),
             )
+            # Set collective_id if specific collective is specified
+            collective = getattr(filter_config, "collective", None)
+            if collective is not None:
+                if not collective_name_to_id or collective not in collective_name_to_id:
+                    available = sorted(collective_name_to_id.keys()) if collective_name_to_id else []
+                    raise ValueError(
+                        f"AlignmentFilter references unknown collective '{collective}'. "
+                        f"Available collectives: {available}"
+                    )
+                cpp_filter.collective_id = collective_name_to_id[collective]
             _add_filter_to_target(cpp_filter, cpp_target, "alignment")
 
         elif filter_type == "resource":
@@ -193,19 +204,21 @@ def _convert_filters(
 
         elif filter_type == "near":
             # NearFilter requires a tag for efficient spatial lookup
-            tag_id = _resolve_near_tag_id(filter_config, tag_name_to_id, "handler filters")
+            tag_id = _resolve_near_tag_id(filter_config, tag_name_to_id, context or "handler filters")
             cpp_filter = CppNearFilterConfig(
                 entity=convert_entity_ref(filter_config.target),
                 radius=filter_config.radius,
                 target_tag=tag_id,
             )
-            # Convert and add filters
-            _add_filters_to_near_filter(
+            # Convert and add filters (recursively using _convert_filters)
+            _convert_filters(
                 filter_config.filters,
                 cpp_filter,
                 resource_name_to_id,
                 vibe_name_to_id,
                 tag_name_to_id,
+                context=f"{context} near filter" if context else "near filter",
+                collective_name_to_id=collective_name_to_id,
             )
             _add_filter_to_target(cpp_filter, cpp_target, "near")
 
@@ -224,6 +237,13 @@ def _convert_filters(
                 entity=convert_entity_ref(filter_config.target),
             )
             _add_filter_to_target(cpp_filter, cpp_target, "game_value")
+
+        elif filter_type == "or":
+            # OrFilter wraps inner filters - convert each and wrap in OrFilterConfig
+            cpp_or = _convert_or_filter(
+                filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id
+            )
+            cpp_target.add_or_filter(cpp_or)
 
 
 def _convert_not_filter(
@@ -252,7 +272,12 @@ def _convert_not_filter(
         )
         # Set collective_id if specific collective is specified
         collective = getattr(inner, "collective", None)
-        if collective is not None and collective in collective_name_to_id:
+        if collective is not None:
+            if collective not in collective_name_to_id:
+                raise ValueError(
+                    f"AlignmentFilter references unknown collective '{collective}'. "
+                    f"Available collectives: {sorted(collective_name_to_id.keys())}"
+                )
             cpp_filter.collective_id = collective_name_to_id[collective]
         cpp_neg.set_inner_alignment_filter(cpp_filter)
 
@@ -292,13 +317,14 @@ def _convert_not_filter(
             radius=inner.radius,
             target_tag=tag_id,
         )
-        _add_filters_to_near_filter(
+        _convert_filters(
             inner.filters,
             cpp_filter,
             resource_name_to_id,
             vibe_name_to_id,
             tag_name_to_id,
-            collective_name_to_id,
+            context="not filter inner near",
+            collective_name_to_id=collective_name_to_id,
         )
         cpp_neg.set_inner_near_filter(cpp_filter)
 
@@ -321,66 +347,137 @@ def _convert_not_filter(
     return cpp_neg
 
 
-def _add_filters_to_near_filter(
-    filters, cpp_near_filter, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id=None
-):
-    """Add filters to a NearFilterConfig.
+def _convert_or_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id=None):
+    """Convert an OrFilter to C++ OrFilterConfig.
 
     Args:
-        filters: List of Python filter configs
-        cpp_near_filter: CppNearFilterConfig to add filters to
+        filter_config: OrFilter config with inner filters list
         resource_name_to_id: Dict mapping resource names to IDs
         vibe_name_to_id: Dict mapping vibe names to IDs
         tag_name_to_id: Dict mapping tag names to IDs
         collective_name_to_id: Dict mapping collective names to IDs (optional)
+
+    Returns:
+        CppOrFilterConfig wrapping the converted inner filters
     """
     collective_name_to_id = collective_name_to_id or {}
+    cpp_or = CppOrFilterConfig()
 
-    for filter_cfg in filters:
-        filter_type = getattr(filter_cfg, "filter_type", None)
+    for inner in filter_config.inner:
+        inner_type = getattr(inner, "filter_type", None)
 
-        if filter_type == "not":
-            # NotFilter wraps an inner filter - convert inner and wrap in NegFilterConfig
-            cpp_neg = _convert_not_filter(
-                filter_cfg, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id
-            )
-            cpp_near_filter.add_neg_filter(cpp_neg)
-
-        elif filter_type == "alignment":
+        if inner_type == "alignment":
             cpp_filter = CppAlignmentFilterConfig(
-                condition=_convert_alignment_condition(filter_cfg.alignment),
+                condition=_convert_alignment_condition(inner.alignment),
             )
-            # Set collective_id if specific collective is specified
-            collective = getattr(filter_cfg, "collective", None)
-            if collective is not None and collective in collective_name_to_id:
+            collective = getattr(inner, "collective", None)
+            if collective is not None:
+                if collective not in collective_name_to_id:
+                    raise ValueError(
+                        f"AlignmentFilter references unknown collective '{collective}'. "
+                        f"Available collectives: {sorted(collective_name_to_id.keys())}"
+                    )
                 cpp_filter.collective_id = collective_name_to_id[collective]
-            _add_filter_to_target(cpp_filter, cpp_near_filter, "alignment")
+            cpp_or.add_inner_alignment_filter(cpp_filter)
 
-        elif filter_type == "vibe":
-            if filter_cfg.vibe in vibe_name_to_id:
+        elif inner_type == "vibe":
+            if inner.vibe in vibe_name_to_id:
                 cpp_filter = CppVibeFilterConfig(
-                    entity=convert_entity_ref(filter_cfg.target),
-                    vibe_id=vibe_name_to_id[filter_cfg.vibe],
+                    entity=convert_entity_ref(inner.target),
+                    vibe_id=vibe_name_to_id[inner.vibe],
                 )
-                _add_filter_to_target(cpp_filter, cpp_near_filter, "vibe")
+                cpp_or.add_inner_vibe_filter(cpp_filter)
 
-        elif filter_type == "resource":
-            for resource_name, min_amount in filter_cfg.resources.items():
-                if resource_name in resource_name_to_id:
+        elif inner_type == "resource":
+            # ResourceFilter with multiple resources has AND semantics (all must match).
+            # When inside an OrFilter, we must preserve this AND semantics.
+            # For single resource: add directly to OrFilter
+            # For multiple resources: wrap in double-negation to get AND inside OR
+            #   NOT(NOT(A AND B)) = A AND B
+            valid_resources = [
+                (name, amount) for name, amount in inner.resources.items() if name in resource_name_to_id
+            ]
+            if len(valid_resources) == 1:
+                # Single resource - add directly
+                resource_name, min_amount = valid_resources[0]
+                cpp_filter = CppResourceFilterConfig(
+                    entity=convert_entity_ref(inner.target),
+                    resource_id=resource_name_to_id[resource_name],
+                    min_amount=min_amount,
+                )
+                cpp_or.add_inner_resource_filter(cpp_filter)
+            elif len(valid_resources) > 1:
+                # Multiple resources - use double negation for AND semantics
+                # Inner NegFilter: NOT(gold AND silver)
+                inner_neg = CppNegFilterConfig()
+                for resource_name, min_amount in valid_resources:
                     cpp_filter = CppResourceFilterConfig(
-                        entity=convert_entity_ref(filter_cfg.target),
+                        entity=convert_entity_ref(inner.target),
                         resource_id=resource_name_to_id[resource_name],
                         min_amount=min_amount,
                     )
-                    _add_filter_to_target(cpp_filter, cpp_near_filter, "resource")
+                    inner_neg.add_inner_resource_filter(cpp_filter)
+                # Outer NegFilter: NOT(NOT(gold AND silver)) = gold AND silver
+                outer_neg = CppNegFilterConfig()
+                outer_neg.add_inner_neg_filter(inner_neg)
+                cpp_or.add_inner_neg_filter(outer_neg)
 
-        elif filter_type == "tag":
-            if filter_cfg.tag in tag_name_to_id:
+        elif inner_type == "tag":
+            if inner.tag in tag_name_to_id:
                 cpp_filter = CppTagFilterConfig(
-                    entity=convert_entity_ref(filter_cfg.target),
-                    tag_id=tag_name_to_id[filter_cfg.tag],
+                    entity=convert_entity_ref(inner.target),
+                    tag_id=tag_name_to_id[inner.tag],
                 )
-                _add_filter_to_target(cpp_filter, cpp_near_filter, "tag")
+                cpp_or.add_inner_tag_filter(cpp_filter)
+
+        elif inner_type == "near":
+            tag_id = _resolve_near_tag_id(inner, tag_name_to_id, "or filter inner near")
+            cpp_filter = CppNearFilterConfig(
+                entity=convert_entity_ref(inner.target),
+                radius=inner.radius,
+                target_tag=tag_id,
+            )
+            _convert_filters(
+                inner.filters,
+                cpp_filter,
+                resource_name_to_id,
+                vibe_name_to_id,
+                tag_name_to_id,
+                context="or filter inner near",
+                collective_name_to_id=collective_name_to_id,
+            )
+            cpp_or.add_inner_near_filter(cpp_filter)
+
+        elif inner_type == "game_value":
+            from mettagrid.config.mettagrid_c_value_config import resolve_game_value  # noqa: PLC0415
+
+            mappings = {
+                "resource_name_to_id": resource_name_to_id,
+                "stat_name_to_id": {},
+                "tag_name_to_id": tag_name_to_id,
+            }
+            cpp_gv_cfg = resolve_game_value(inner.value, mappings)
+            cpp_filter = CppGameValueFilterConfig(
+                value=cpp_gv_cfg,
+                threshold=float(inner.min),
+                entity=convert_entity_ref(inner.target),
+            )
+            cpp_or.add_inner_game_value_filter(cpp_filter)
+
+        elif inner_type == "not":
+            cpp_neg = _convert_not_filter(
+                inner, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id
+            )
+            cpp_or.add_inner_neg_filter(cpp_neg)
+
+        elif inner_type == "or":
+            # Nested OrFilter - recursively convert
+            cpp_nested_or = _convert_or_filter(
+                inner, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id
+            )
+            cpp_or.add_inner_or_filter(cpp_nested_or)
+
+    return cpp_or
 
 
 def _convert_event_configs(
@@ -422,22 +519,15 @@ def _convert_event_configs(
             )
         cpp_event.target_tag_id = tag_name_to_id[event.target_tag]
 
-        # Set target_tag_id for efficient target lookup via TagIndex
-        if event.target_tag not in tag_name_to_id:
-            raise ValueError(
-                f"Event '{event_name}' has target_tag '{event.target_tag}' not found in tag mappings. "
-                f"Available tags: {sorted(tag_name_to_id.keys())}"
-            )
-        cpp_event.target_tag_id = tag_name_to_id[event.target_tag]
-
-        # Convert filters
-        _convert_event_filters(
+        # Convert filters using unified filter conversion
+        _convert_filters(
             event.filters,
             cpp_event,
             resource_name_to_id,
             vibe_name_to_id,
             tag_name_to_id,
-            collective_name_to_id,
+            context=f"event '{event_name}'",
+            collective_name_to_id=collective_name_to_id,
         )
 
         # Convert mutations using shared utility
@@ -454,80 +544,6 @@ def _convert_event_configs(
         cpp_events[event_name] = cpp_event
 
     return cpp_events
-
-
-def _convert_event_filters(
-    filters,
-    cpp_target,
-    resource_name_to_id,
-    vibe_name_to_id,
-    tag_name_to_id,
-    collective_name_to_id,
-):
-    """Convert Python filters for events.
-
-    Uses standard filters: alignment, resource, vibe, tag, near, not.
-    """
-    for filter_config in filters:
-        filter_type = getattr(filter_config, "filter_type", None)
-
-        if filter_type == "not":
-            # NotFilter wraps an inner filter - convert inner and wrap in NegFilterConfig
-            cpp_neg = _convert_not_filter(
-                filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id
-            )
-            cpp_target.add_neg_filter(cpp_neg)
-
-        elif filter_type == "alignment":
-            cpp_filter = CppAlignmentFilterConfig()
-            cpp_filter.condition = _convert_alignment_condition(filter_config.alignment)
-            # If collective is specified, set the collective_id for specific collective matching
-            collective = getattr(filter_config, "collective", None)
-            if collective is not None and collective in collective_name_to_id:
-                cpp_filter.collective_id = collective_name_to_id[collective]
-            _add_filter_to_target(cpp_filter, cpp_target, "alignment")
-
-        elif filter_type == "resource":
-            # Resource filter can have multiple resources - add one filter per resource
-            for resource_name, min_amount in filter_config.resources.items():
-                if resource_name in resource_name_to_id:
-                    cpp_filter = CppResourceFilterConfig()
-                    cpp_filter.entity = convert_entity_ref(filter_config.target)
-                    cpp_filter.resource_id = resource_name_to_id[resource_name]
-                    cpp_filter.min_amount = min_amount
-                    _add_filter_to_target(cpp_filter, cpp_target, "resource")
-
-        elif filter_type == "vibe":
-            if filter_config.vibe in vibe_name_to_id:
-                cpp_filter = CppVibeFilterConfig()
-                cpp_filter.entity = convert_entity_ref(filter_config.target)
-                cpp_filter.vibe_id = vibe_name_to_id[filter_config.vibe]
-                _add_filter_to_target(cpp_filter, cpp_target, "vibe")
-
-        elif filter_type == "tag":
-            if filter_config.tag in tag_name_to_id:
-                cpp_filter = CppTagFilterConfig()
-                cpp_filter.entity = convert_entity_ref(filter_config.target)
-                cpp_filter.tag_id = tag_name_to_id[filter_config.tag]
-                _add_filter_to_target(cpp_filter, cpp_target, "tag")
-
-        elif filter_type == "near":
-            # NearFilter requires a tag for efficient spatial lookup
-            tag_id = _resolve_near_tag_id(filter_config, tag_name_to_id, "event filters")
-            cpp_filter = CppNearFilterConfig()
-            cpp_filter.entity = convert_entity_ref(filter_config.target)
-            cpp_filter.radius = filter_config.radius
-            cpp_filter.target_tag = tag_id
-            # Convert and add filters
-            _add_filters_to_near_filter(
-                filter_config.filters,
-                cpp_filter,
-                resource_name_to_id,
-                vibe_name_to_id,
-                tag_name_to_id,
-                collective_name_to_id,
-            )
-            _add_filter_to_target(cpp_filter, cpp_target, "near")
 
 
 def _convert_event_mutations(

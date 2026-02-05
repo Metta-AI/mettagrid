@@ -87,6 +87,7 @@ struct GameValueFilterConfig {
 // Forward declarations for recursive filter configs
 struct NearFilterConfig;
 struct NegFilterConfig;
+struct OrFilterConfig;
 
 // Variant type for all filter configs (defined early so NearFilterConfig/NegFilterConfig can reference it)
 using FilterConfig = std::variant<VibeFilterConfig,
@@ -95,7 +96,8 @@ using FilterConfig = std::variant<VibeFilterConfig,
                                   TagFilterConfig,
                                   NearFilterConfig,
                                   GameValueFilterConfig,
-                                  NegFilterConfig>;
+                                  NegFilterConfig,
+                                  OrFilterConfig>;
 
 struct NearFilterConfig {
   EntityRef entity = EntityRef::target;
@@ -110,6 +112,12 @@ struct NearFilterConfig {
 // Uses a vector to break the recursive type (same pattern as NearFilterConfig).
 struct NegFilterConfig {
   std::vector<FilterConfig> inner;  // Filters to AND together, then negate
+};
+
+// OrFilterConfig: Wraps filter configs and ORs them together.
+// Passes if ANY of the inner filters pass.
+struct OrFilterConfig {
+  std::vector<FilterConfig> inner;  // Filters to OR together
 };
 
 // ============================================================================

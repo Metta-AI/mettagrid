@@ -30,6 +30,7 @@ struct AOESource {
   AOEConfig config;                                                       // The AOE configuration
   std::vector<std::unique_ptr<Filter>> filters;                           // Instantiated filters
   std::vector<std::unique_ptr<Mutation>> mutations;                       // Instantiated mutations
+  TagIndex* tag_index = nullptr;                                          // Tag index for NearFilter support
   const std::vector<std::unique_ptr<Collective>>* collectives = nullptr;  // Collectives for alignment filter lookups
 
   AOESource(GridObject* src,
