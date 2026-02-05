@@ -123,6 +123,7 @@ class LocalPolicyServerClient(MultiAgentPolicy):
             game_rules=game_rules,
             agent_ids=agent_ids,
             observations_format=policy_pb2.AgentObservations.Format.TRIPLET_V1,
+            env_interface=self._policy_env_info.to_proto(),
         )
         resp = self._client.post(
             f"{self._base_url}{_PREPARE_PATH}",
