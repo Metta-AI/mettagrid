@@ -690,6 +690,35 @@ proc convertReplayV2ToV3*(replayData: JsonNode): JsonNode =
 
   return data
 
+proc convertReplayV3ToV4*(replayData: JsonNode): JsonNode =
+  ## Convert a V3 replay to V4 format by ensuring new V4 fields exist.
+  ## V4 adds: collective_names, policy_env_interface, infos, collective_inventory
+  echo "Converting replay from version 3 to version 4..."
+
+  # Create a deep copy of the data.
+  var data = replayData.copy()
+
+  # Update version to 4.
+  data["version"] = newJInt(4)
+
+  # Add collective_names if missing (empty array as default).
+  if "collective_names" notin data:
+    data["collective_names"] = newJArray()
+
+  # Add policy_env_interface if missing (empty object as default).
+  if "policy_env_interface" notin data:
+    data["policy_env_interface"] = newJObject()
+
+  # Add infos if missing (empty object as default).
+  if "infos" notin data:
+    data["infos"] = newJObject()
+
+  # Add collective_inventory if missing (empty array as default).
+  if "collective_inventory" notin data:
+    data["collective_inventory"] = newJArray()
+
+  return data
+
 proc loadReplayString*(jsonData: string, fileName: string): Replay =
   ## Load a replay from a string.
   var jsonObj = fromJson(jsonData)
@@ -700,7 +729,10 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
   if getInt(jsonObj, "version") == 2:
     jsonObj = convertReplayV2ToV3(jsonObj)
 
-  doAssert getInt(jsonObj, "version") == 3
+  if getInt(jsonObj, "version") == 3:
+    jsonObj = convertReplayV3ToV4(jsonObj)
+
+  doAssert getInt(jsonObj, "version") == 4
 
   # Check for validation issues and log them to console.
   let issues = validateReplay(jsonObj)
@@ -710,7 +742,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
     echo "No validation issues found"
 
   # Safe access to required fields with defaults.
-  let version = getInt(jsonObj, "version", 3)
+  let version = getInt(jsonObj, "version", 4)
   let actionNamesArr = getArray(jsonObj, "action_names")
   let actionNames = if actionNamesArr != nil: actionNamesArr.to(seq[string]) else: @[]
   let itemNamesArr = getArray(jsonObj, "item_names")

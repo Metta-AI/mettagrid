@@ -1,6 +1,6 @@
 import
   std/[strutils, os, parseopt],
-  opengl, windy, bumpy, vmath, silky, boxy,
+  opengl, windy, bumpy, vmath, silky, boxy, webby,
   mettascope/[replays, common, worldmap, panels,
   footer, timeline, minimap, header, replayloader, configs, gameplayer],
   mettascope/panels/[objectpanel, envpanel, vibespanel, aoepanel, collectivepanel]
@@ -30,6 +30,11 @@ when isMainModule:
   )
   makeContextCurrent(window)
   loadExtensions()
+
+proc parseUrlParams() =
+  ## Parse URL parameters.
+  let url = parseUrl(window.url)
+  commandLineReplay = url.query["replay"]
 
 proc parseArgs() =
   ## Parse command line arguments.
