@@ -55,6 +55,29 @@ def isNot(filter: "AnyFilter") -> NotFilter:
     return NotFilter(inner=filter)
 
 
+class OrFilter(Config):
+    """Wrapper filter that ORs multiple inner filters.
+
+    Passes if ANY of the inner filters passes.
+    Use anyOf() helper function to create OrFilter instances.
+    """
+
+    filter_type: Literal["or"] = "or"
+    inner: list["AnyFilter"] = Field(description="The filters to OR together")
+
+
+def anyOf(filters: list["AnyFilter"]) -> OrFilter:
+    """Create an OR filter that passes if ANY inner filter passes.
+
+    Args:
+        filters: List of filters to OR together
+
+    Returns:
+        OrFilter wrapping the provided filters
+    """
+    return OrFilter(inner=filters)
+
+
 AnyFilter = Annotated[
     Union[
         Annotated["VibeFilter", Tag("vibe")],
@@ -64,6 +87,7 @@ AnyFilter = Annotated[
         Annotated["NearFilter", Tag("near")],
         Annotated["GameValueFilter", Tag("game_value")],
         Annotated["NotFilter", Tag("not")],
+        Annotated["OrFilter", Tag("or")],
     ],
     Discriminator("filter_type"),
 ]

@@ -6,6 +6,7 @@
 #include "handler/filters/game_value_filter.hpp"
 #include "handler/filters/near_filter.hpp"
 #include "handler/filters/neg_filter.hpp"
+#include "handler/filters/or_filter.hpp"
 #include "handler/filters/resource_filter.hpp"
 #include "handler/filters/tag_filter.hpp"
 #include "handler/filters/vibe_filter.hpp"
@@ -46,6 +47,16 @@ std::unique_ptr<Filter> create_filter(const FilterConfig& config, TagIndex* tag_
             }
           }
           return std::make_unique<NegFilter>(std::move(inner_filters));
+        } else if constexpr (std::is_same_v<T, OrFilterConfig>) {
+          // OrFilter: passes if ANY inner filter passes
+          std::vector<std::unique_ptr<Filter>> inner_filters;
+          for (const auto& inner_cfg : cfg.inner) {
+            auto filter = create_filter(inner_cfg, tag_index);
+            if (filter) {
+              inner_filters.push_back(std::move(filter));
+            }
+          }
+          return std::make_unique<OrFilter>(std::move(inner_filters));
         } else {
           return nullptr;
         }

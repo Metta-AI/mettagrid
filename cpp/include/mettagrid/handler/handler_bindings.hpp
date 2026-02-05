@@ -171,6 +171,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_neg_filter",
           [](NearFilterConfig& self, const NegFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_or_filter",
+          [](NearFilterConfig& self, const OrFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"));
 
   py::class_<NegFilterConfig>(m, "NegFilterConfig")
@@ -243,6 +247,46 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_inner_game_value_filter",
           [](NegFilterConfig& self, const GameValueFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_neg_filter",
+          [](NegFilterConfig& self, const NegFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"));
+
+  py::class_<OrFilterConfig>(m, "OrFilterConfig")
+      .def(py::init<>())
+      .def_readwrite("inner", &OrFilterConfig::inner)
+      .def(
+          "add_inner_alignment_filter",
+          [](OrFilterConfig& self, const AlignmentFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_vibe_filter",
+          [](OrFilterConfig& self, const VibeFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_resource_filter",
+          [](OrFilterConfig& self, const ResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_tag_filter",
+          [](OrFilterConfig& self, const TagFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_near_filter",
+          [](OrFilterConfig& self, const NearFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_game_value_filter",
+          [](OrFilterConfig& self, const GameValueFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_neg_filter",
+          [](OrFilterConfig& self, const NegFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_or_filter",
+          [](OrFilterConfig& self, const OrFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"));
 
   // Mutation configs
@@ -439,6 +483,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_neg_filter",
           [](HandlerConfig& self, const NegFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_or_filter",
+          [](HandlerConfig& self, const OrFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       // Add mutation methods - each type wraps into the variant
       .def(

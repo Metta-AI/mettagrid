@@ -16,12 +16,12 @@ namespace mettagrid {
 
 AOESource::AOESource(GridObject* src,
                      const AOEConfig& cfg,
-                     TagIndex* tag_index,
+                     TagIndex* tag_idx,
                      const std::vector<std::unique_ptr<Collective>>* colls)
-    : source(src), config(cfg), collectives(colls) {
+    : source(src), config(cfg), tag_index(tag_idx), collectives(colls) {
   // Instantiate filters
   for (const auto& filter_cfg : config.filters) {
-    filters.push_back(create_filter(filter_cfg, tag_index));
+    filters.push_back(create_filter(filter_cfg, tag_idx));
   }
   // Instantiate mutations
   for (const auto& mutation_cfg : config.mutations) {
@@ -36,8 +36,10 @@ AOESource::AOESource(AOESource&& other) noexcept
       config(std::move(other.config)),
       filters(std::move(other.filters)),
       mutations(std::move(other.mutations)),
+      tag_index(other.tag_index),
       collectives(other.collectives) {
   other.source = nullptr;
+  other.tag_index = nullptr;
   other.collectives = nullptr;
 }
 
@@ -47,8 +49,10 @@ AOESource& AOESource::operator=(AOESource&& other) noexcept {
     config = std::move(other.config);
     filters = std::move(other.filters);
     mutations = std::move(other.mutations);
+    tag_index = other.tag_index;
     collectives = other.collectives;
     other.source = nullptr;
+    other.tag_index = nullptr;
     other.collectives = nullptr;
   }
   return *this;
@@ -56,8 +60,9 @@ AOESource& AOESource::operator=(AOESource&& other) noexcept {
 
 bool AOESource::try_apply(GridObject* target, StatsTracker* game_stats) {
   // Create context: actor=source, target=affected object
-  // Include game_stats for StatsMutation support and collectives for alignment filter lookups
-  HandlerContext ctx(source, target, game_stats, nullptr, collectives);
+  // Include game_stats for StatsMutation support, tag_index for NearFilter, and collectives for alignment filter
+  // lookups
+  HandlerContext ctx(source, target, game_stats, tag_index, collectives);
   ctx.grid = source->grid();
 
   // Check all filters
@@ -76,8 +81,8 @@ bool AOESource::try_apply(GridObject* target, StatsTracker* game_stats) {
 }
 
 bool AOESource::passes_filters(GridObject* target) const {
-  // Include collectives for alignment filter lookups
-  HandlerContext ctx(source, target, nullptr, nullptr, collectives);
+  // Include tag_index for NearFilter and collectives for alignment filter lookups
+  HandlerContext ctx(source, target, nullptr, tag_index, collectives);
   ctx.grid = source->grid();
   for (const auto& filter : filters) {
     if (!filter->passes(ctx)) {
