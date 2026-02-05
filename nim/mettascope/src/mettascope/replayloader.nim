@@ -1,6 +1,7 @@
 import
   std/[tables, sets],
-  replays, worldmap, common, heatmap, heatmapshader, configs, aoepanel
+  windy,
+  replays, worldmap, common, heatmap, heatmapshader, configs, panels, aoepanel
 
 
 proc onReplayLoaded*() =
@@ -38,5 +39,14 @@ proc onReplayLoaded*() =
 
   let config = loadConfig()
   applyUIState(config)
+
+  # Update zoom info rect based on game mode (same logic as switchGameMode)
+  if gameMode == Game:
+    worldMapZoomInfo.rect = irect(0, 0, window.size.x.int32, window.size.y.int32)
+    worldMapZoomInfo.scrollArea = rect(irect(0, 0, window.size.x.int32, window.size.y.int32))
+    worldMapZoomInfo.hasMouse = true
+  else: # Editor mode
+    # Panel drawing will update rect/scrollArea, but we reset hasMouse
+    worldMapZoomInfo.hasMouse = false
 
   echo "Replay loaded: ", replay.fileName

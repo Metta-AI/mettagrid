@@ -1,7 +1,7 @@
 import
   std/[times, math],
   boxy, vmath, windy, silky,
-  common, panels, actions, objectinfo
+  common, panels, actions, objectinfo, configs, gameplayer
 
 const
   TraceWidth = 0.54 / 2
@@ -32,6 +32,9 @@ proc playControls*() =
     playSpeed *= 2
     playSpeed = clamp(playSpeed, 0.00001, 1000.0)
     play = true
+  if window.buttonPressed[KeyF10]:
+    let newMode = if gameMode == Editor: Game else: Editor
+    switchGameMode(newMode)
 
   if play:
     stepFloat += playSpeed * deltaTime
