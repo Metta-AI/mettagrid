@@ -10,7 +10,7 @@ type
     W = 'w'
     E = 'e'
 
-proc sendAction*(agentId: int, actionName: cstring) =
+proc sendAction*(agentId: int, actionName: string) =
   ## Send an action to the Python from the user.
   requestActions.add(ActionRequest(
     agentId: agentId,

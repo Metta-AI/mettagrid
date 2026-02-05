@@ -1,6 +1,6 @@
 import
-  vmath, windy, silky, chroma,
-  common, worldmap, panels, configs, actions
+  vmath, windy, silky,
+  common, worldmap, panels, configs
 
 var
   pendingCenter: Vec2

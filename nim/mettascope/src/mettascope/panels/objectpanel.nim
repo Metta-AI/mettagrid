@@ -1,9 +1,8 @@
 import
-  std/[os, json, algorithm, tables, sets, strutils, strformat],
+  std/[json, algorithm, tables, sets, strutils, strformat],
   vmath, silky, windy,
-  common, panels, replays, configs
-
-const InventoryScale = 0.5f
+  ../common, ../replays, ../configs, ../cognames, ../collectives,
+  widgets
 
 type
   ResourceLimitGroup* = object
@@ -13,48 +12,48 @@ type
     resources*: seq[string]
     modifiers*: Table[string, int]
 
+proc getJsonInt(node: JsonNode): int =
+  ## Get an int from a JSON node, handling both JInt and JFloat.
+  if node.kind == JInt:
+    result = node.getInt
+  elif node.kind == JFloat:
+    result = node.getFloat.int
+  else:
+    result = 0
+
 proc parseResourceLimits(mgConfig: JsonNode): seq[ResourceLimitGroup] =
-  ## Parse resource_limits from the agent config.
+  ## Parse inventory limits from the agent config.
   result = @[]
   if mgConfig.isNil:
     return
-  if "game" notin mgConfig or "agent" notin mgConfig["game"]:
+  if "game" notin mgConfig or "agents" notin mgConfig["game"]:
     return
-  let agentConfig = mgConfig["game"]["agent"]
-  if "resource_limits" notin agentConfig:
+  let agents = mgConfig["game"]["agents"]
+  if agents.kind != JArray or agents.len == 0:
     return
+  let agentConfig = agents[0]
   if "inventory" notin agentConfig:
     return
   let invConfig = agentConfig["inventory"]
   if "limits" notin invConfig:
     return
   let limits = invConfig["limits"]
+  if limits.kind != JObject:
+    return
   for groupName, groupConfig in limits.pairs:
-    var group = ResourceLimitGroup(name: groupName, maxLimit: 65535)
-    if "min_limit" in groupConfig:
-      group.minLimit = groupConfig["min_limit"].getInt
-    elif "limit" in groupConfig:
-      group.minLimit = groupConfig["limit"].getInt
-    if "max_limit" in groupConfig:
-      group.maxLimit = groupConfig["max_limit"].getInt
-    if "resources" in groupConfig:
+    var group = ResourceLimitGroup(name: groupName, minLimit: 0, maxLimit: 65535)
+    if groupConfig.hasKey("min"):
+      group.minLimit = getJsonInt(groupConfig["min"])
+    if groupConfig.hasKey("max"):
+      group.maxLimit = getJsonInt(groupConfig["max"])
+    if groupConfig.hasKey("resources"):
       for r in groupConfig["resources"]:
         group.resources.add(r.getStr)
-    if "modifiers" in groupConfig:
+    if groupConfig.hasKey("modifiers"):
       group.modifiers = initTable[string, int]()
       for k, v in groupConfig["modifiers"].pairs:
-        group.modifiers[k] = v.getInt
+        group.modifiers[k] = getJsonInt(v)
     result.add(group)
-
-proc computeEffectiveLimit(group: ResourceLimitGroup, inventory: seq[ItemAmount], itemNames: seq[string]): int =
-  ## Compute effective limit: clamp(sum(modifier_bonus * quantity), minLimit, maxLimit).
-  var modifierSum = 0
-  for modItem, bonus in group.modifiers.pairs:
-    for itemAmount in inventory:
-      if itemAmount.itemId >= 0 and itemAmount.itemId < itemNames.len:
-        if itemNames[itemAmount.itemId] == modItem:
-          modifierSum += bonus * itemAmount.count
-  result = clamp(modifierSum, group.minLimit, group.maxLimit)
 
 proc getItemName(itemAmount: ItemAmount): string =
   ## Safely resolve an item name from the replay data.
@@ -64,15 +63,6 @@ proc getItemName(itemAmount: ItemAmount): string =
     replay.itemNames[itemAmount.itemId]
   else:
     "item#" & $itemAmount.itemId
-
-proc formatItem(itemAmount: ItemAmount): string =
-  ## Render a compact "name x count" string.
-  let name = getItemName(itemAmount)
-  name & " x" & $itemAmount.count
-
-proc showItem(itemAmount: ItemAmount) =
-  icon("resources/" & replay.config.game.resourceNames[itemAmount.itemId])
-  text("x" & $itemAmount.count)
 
 proc getHeartCount(outputs: seq[ItemAmount]): int =
   ## Returns total hearts produced by this protocol.
@@ -130,9 +120,26 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
       openTempTextFile(cur.typeName & "_config.json", cfgText)
 
     # Basic identity
-    h1text(cur.typeName)
-    text(&"  Object ID: {cur.id}")
-    text(&"  Collective ID: {cur.collectiveId.at}")
+    if cur.isAgent:
+      let cogName = getCogName(cur.agentId)
+      if cogName.len > 0:
+        h1text(&"{cogName} ({cur.agentId})")
+      else:
+        h1text(&"Agent {cur.agentId}")
+    else:
+      h1text(cur.typeName)
+      text(&"  Object ID: {cur.id}")
+    # Display collective with name and color
+    let curCollectiveId = cur.collectiveId.at
+    if curCollectiveId >= 0:
+      let collectiveColor = getCollectiveColor(curCollectiveId)
+      let collectiveName = getCollectiveName(curCollectiveId)
+      let labelText = if collectiveName.len > 0:
+        &"  Collective: {collectiveName}"
+      else:
+        &"  Collective: ({curCollectiveId})"
+      let textSize = sk.drawText(sk.textStyle, labelText, sk.at, collectiveColor)
+      sk.advance(textSize)
 
     # Show AoE fields if this object type has them
     if not replay.mgConfig.isNil and "game" in replay.mgConfig:
@@ -155,8 +162,10 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
     if cur.isAgent:
       # Agent-specific info.
       let reward = cur.totalReward.at
-      text(&"  Agent ID: {cur.agentId}")
       text(&"  Total reward: {formatFloat(reward, ffDecimal, 2)}")
+      let rigName = getAgentRigName(cur)
+      if rigName != "agent":
+        text(&"  Rig: {rigName}")
       let vibeId = cur.vibeId.at
       if vibeId >= 0 and vibeId < replay.config.game.vibeNames.len:
         let vibeName = getVibeName(vibeId)
@@ -179,10 +188,8 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
     sk.advance(vec2(0, sk.theme.spacing.float32))
 
     let currentInventory = cur.inventory.at
-    text("Inventory")
-    if currentInventory.len == 0:
-      text("  Empty")
-    else:
+    if currentInventory.len > 0:
+      text("Inventory")
       if cur.isAgent:
         let resourceLimitGroups = parseResourceLimits(replay.mgConfig)
 
@@ -201,14 +208,21 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
               let itemAmount = itemByName[resourceName]
               usedAmount += itemAmount.count
               groupItems.add(itemAmount)
-              shownItems.incl(resourceName)
+            shownItems.incl(resourceName)
 
+          # Only show the group if it has items
           if groupItems.len > 0:
-            let effectiveLimit = computeEffectiveLimit(group, currentInventory, replay.itemNames)
-            text(&"  {group.name}: {usedAmount}/{effectiveLimit}")
+            text(&"  {group.name}: {usedAmount}/{group.maxLimit}")
             for itemAmount in groupItems:
-              if itemAmount.itemId != replay.itemNames.find("energy"):
-                text("    " & formatItem(itemAmount))
+              let itemName = getItemName(itemAmount)
+              let iconPath =
+                if group.name == "gear":
+                  "icons/agents/" & itemName
+                elif group.name in ["heart", "energy", "cargo"]:
+                  "resources/" & itemName
+                else:
+                  "icons/" & itemName
+              smallIconLabel(iconPath, &"{itemName}: {itemAmount.count}")
 
         var ungroupedItems: seq[ItemAmount] = @[]
         for itemAmount in currentInventory:
@@ -220,10 +234,12 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
         if ungroupedItems.len > 0:
           text("  Other:")
           for itemAmount in ungroupedItems:
-            text("    " & formatItem(itemAmount))
+            let itemName = getItemName(itemAmount)
+            smallIconLabel("icons/" & itemName, &"{itemName}: {itemAmount.count}")
       else:
         for itemAmount in currentInventory:
-          text("  " & formatItem(itemAmount))
+          let itemName = getItemName(itemAmount)
+          smallIconLabel("resources/" & itemName, &"{itemName}: {itemAmount.count}")
 
     sk.advance(vec2(0, sk.theme.spacing.float32))
 

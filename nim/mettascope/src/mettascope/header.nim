@@ -1,5 +1,5 @@
 import
-  std/[strutils, json],
+  std/json,
   silky, chroma, vmath, windy,
   common
 

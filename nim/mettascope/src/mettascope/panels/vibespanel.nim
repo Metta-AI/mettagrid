@@ -5,7 +5,7 @@
 import
   std/[tables, strutils],
   silky, windy,
-  common, panels, replays, actions
+  ../common, ../replays, ../actions
 
 proc getVibes(): seq[string] =
   for vibe in replay.config.game.vibeNames:

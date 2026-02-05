@@ -1,8 +1,9 @@
 import
-  std/[strutils, strformat, os, parseopt, tables],
-  opengl, windy, bumpy, vmath, chroma, silky, boxy, webby,
-  mettascope/[replays, common, worldmap, panels, objectinfo, envconfig, vibes,
-  footer, timeline, minimap, header, replayloader, configs, gameplayer, aoepanel, collectivepanel]
+  std/[strutils, os, parseopt],
+  opengl, windy, bumpy, vmath, silky, boxy,
+  mettascope/[replays, common, worldmap, panels,
+  footer, timeline, minimap, header, replayloader, configs, gameplayer],
+  mettascope/panels/[objectpanel, envpanel, vibespanel, aoepanel, collectivepanel]
 
 proc buildSilkyAtlas*(imagePath, jsonPath: string) =
   ## Build the silky UI atlas.
@@ -30,11 +31,6 @@ when isMainModule:
   makeContextCurrent(window)
   loadExtensions()
 
-const
-  BackgroundColor = parseHtmlColor("#000000").rgbx
-  RibbonColor = parseHtmlColor("#273646").rgbx
-  m = 12f # Default margin
-
 proc parseArgs() =
   ## Parse command line arguments.
   var p = initOptParser(commandLineParams())
@@ -57,11 +53,6 @@ proc parseArgs() =
         quit("Unknown option: " & p.key)
     of cmdArgument:
       quit("Unknown option: " & p.key)
-
-proc parseUrlParams() =
-  ## Parse URL parameters.
-  let url = parseUrl(window.url)
-  commandLineReplay = url.query["replay"]
 
 proc replaySwitch(replay: string) =
   ## Load the replay.
@@ -101,15 +92,6 @@ proc replaySwitch(replay: string) =
   of Realtime:
     echo "Realtime mode"
     onReplayLoaded()
-
-proc genericPanelDraw(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) =
-  frame(frameId, contentPos, contentSize):
-    # Start content a bit inset.
-    sk.at += vec2(8, 8)
-    h1text(panel.name)
-    text("This is the content of " & panel.name)
-    for i in 0 ..< 20:
-      text(&"Scrollable line {i} for " & panel.name)
 
 proc drawWorldMap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) =
   ## Draw the world map.

@@ -1,5 +1,5 @@
 import
-  std/[os, json, strutils, tables],
+  std/[os, strutils, tables],
   pixie, opengl, boxy/[shaders], jsony, shady, vmath,
   allocator
 

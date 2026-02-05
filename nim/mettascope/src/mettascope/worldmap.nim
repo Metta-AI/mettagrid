@@ -1,12 +1,10 @@
 import
-  std/[math, os, strutils, tables, strformat, random, times, json, sets],
+  std/[math, os, tables, random, json, sets],
   vmath, windy, boxy,
-  common, actions, utils, replays,
+  common, actions, replays,
   pathfinding, tilemap, pixelator, shaderquad,
-  panels, objectinfo, heatmap, heatmapshader, aoepanel
-
-proc foo() =
-  echo window.size.x, "x", window.size.y
+  panels, heatmap, heatmapshader, collectives,
+  panels/objectpanel
 
 const
   TILE_SIZE = 128
@@ -624,11 +622,7 @@ proc drawTrajectory*() =
             N
         let a = 1.0f - abs(i - step).float32 / 200.0f
         if a > 0:
-          var
-            tint = color(0, 0, 0, a)
-            image = ""
-
-          let isAgent = selection.typeName == "agent"
+          var image = ""
           if i <= step:
             image = "agents/tracks." & prevDirection.char & thisDirection.char
           else:
@@ -697,7 +691,6 @@ proc drawPlannedPath*() =
       elif dx == 0 and dy < 0:
         rotation = Pi / 2
 
-      let alpha = 0.6
       px.drawSprite(
         "agents/path",
         pos0.ivec2 * TILE_SIZE
@@ -794,10 +787,6 @@ proc drawObjectPips*() =
 
 proc drawWorldMini*() =
   ## Draw the world map at minimap zoom level using pxMini.
-
-  const wallTypeName = "wall"
-  const agentTypeName = "agent"
-
   drawTerrain()
   drawAoeMaps()
 
