@@ -87,6 +87,7 @@ def launch_local_policy_server(
         python = str(venv_dir / ".venv" / "bin" / "python")
     else:
         python = sys.executable
+        venv_dir = None
 
     cmd = [
         python,
