@@ -88,7 +88,7 @@ def main() -> None:
         print("Set JOB_SPEC_URI, RESULTS_URI, REPLAY_URI env vars")
         sys.exit(1)
 
-    logger.info(f"Running with presigned URLs: spec={job_spec_uri[:50]}...")
+    logger.info(f"Running with spec={job_spec_uri[:80]}")
 
     if runtime_info_uri:
         runtime_info = _collect_runtime_info(git_commit)
