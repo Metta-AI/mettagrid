@@ -163,6 +163,7 @@ private:
   // Tag index for efficient tag-based object lookup
   mettagrid::TagIndex _tag_index;
 
+
   // Pre-computed goal_obs tokens per agent (when enabled)
   std::vector<std::vector<PartialObservationToken>> _agent_goal_obs_tokens;
 
