@@ -424,6 +424,13 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
       continue;
     }
 
+    // Track cell staleness for exploration (cell.visited stat)
+    if (obj->visited < current_step) {
+      unsigned int staleness = current_step - obj->visited;
+      obj->visited = current_step;
+      _agents[agent_idx]->stats.add("cell.visited", static_cast<float>(staleness));
+    }
+
     // Prepare observation buffer for this object
     ObservationToken* obs_ptr =
         reinterpret_cast<ObservationToken*>(observation_view.mutable_data(agent_idx, tokens_written, 0));
