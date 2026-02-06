@@ -69,7 +69,6 @@ class RuntimeInfo(BaseModel):
 class SingleEpisodeJob(EpisodeSpec):
     results_uri: Optional[str] = None
     replay_uri: Optional[str] = None
-    debug_uri: Optional[str] = None
     episode_tags: dict[str, str] = Field(default_factory=dict)
 
     def episode_spec(self) -> EpisodeSpec:

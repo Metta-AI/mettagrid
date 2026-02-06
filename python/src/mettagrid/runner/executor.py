@@ -105,7 +105,7 @@ def main() -> None:
     job = SingleEpisodeJob.model_validate_json(read(job_spec_uri))
     logger.info(f"Job spec loaded in {time.monotonic() - t0:.1f}s")
 
-    debug_uri = job.debug_uri
+    debug_uri = os.environ.get("DEBUG_URI")
     capture_replay = replay_uri is not None
 
     with tempfile.TemporaryDirectory() as output_dir_str:
