@@ -112,13 +112,13 @@ class TestPattern:
         # Test with symmetry="none"
         variations = pattern.variations("none")
         assert len(variations) == 1
-        assert len(set([p.index() for p in variations])) == 1
+        assert len({p.index() for p in variations}) == 1
         assert np.array_equal(variations[0].data, pattern.data)
 
         # Test with symmetry="horizontal"
         variations = pattern.variations("horizontal")
         assert len(variations) == 2
-        assert len(set([p.index() for p in variations])) == 2
+        assert len({p.index() for p in variations}) == 2
         assert np.array_equal(variations[0].data, pattern.data)
         assert np.array_equal(variations[1].data, pattern.reflected().data)
 
@@ -126,7 +126,7 @@ class TestPattern:
         variations = pattern.variations("all")
         assert len(variations) == 8
         # Check for uniqueness in the generated patterns
-        assert len(set([p.index() for p in variations])) == 8
+        assert len({p.index() for p in variations}) == 8
 
 
 class TestPatternsWithCounts:
