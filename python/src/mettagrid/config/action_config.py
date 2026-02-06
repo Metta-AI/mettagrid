@@ -7,6 +7,7 @@ attacks, transfers, and vibe changes.
 from __future__ import annotations
 
 from abc import abstractmethod
+from itertools import chain
 from typing import Literal, get_args
 
 from pydantic import Field
@@ -170,5 +171,5 @@ class ActionsConfig(Config):
     change_vibe: ChangeVibeActionConfig = Field(default_factory=lambda: ChangeVibeActionConfig())
 
     def actions(self) -> list[Action]:
-        action_configs = [self.noop, self.move, self.attack, self.change_vibe]
-        return sum([action.actions() for action in action_configs], [])
+        action_configs = (self.noop, self.move, self.attack, self.change_vibe)
+        return list(chain.from_iterable(action.actions() for action in action_configs))
