@@ -8,7 +8,7 @@ export pixelator, common
 
 proc buildSilkyAtlas*(imagePath, jsonPath: string) =
   ## Build the silky UI atlas.
-  var builder = newAtlasBuilder(1024, 4)
+  var builder = newAtlasBuilder(2048, 4)
   builder.addDir(dataDir / "theme/", dataDir / "theme/")
   builder.addDir(dataDir / "ui/", dataDir & "/")
   builder.addDir(dataDir / "vibe/", dataDir & "/")

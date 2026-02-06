@@ -1,5 +1,5 @@
 import
-  vmath, windy, silky,
+  vmath, windy, silky, chroma,
   common, worldmap, panels, configs
 
 var
@@ -61,3 +61,43 @@ proc drawGameWorld*() =
   ## Renders the game world to fill the entire window (no panels).
 
   drawWorldMap(worldMapZoomInfo)
+
+  # Draw UI panels on top of the world map.
+  let
+    winW = window.size.x.float32
+    winH = window.size.y.float32
+
+  # Top-left panel
+  sk.drawImage("ui/panel_topleft", vec2(0, 0))
+
+  # Top-right panel
+  let trSize = sk.getImageSize("ui/panel_topright")
+  sk.drawImage("ui/panel_topright", vec2(winW - trSize.x, 0))
+
+  # Get bottom panel sizes for bar stretch and panel positioning.
+  let blSize = sk.getImageSize("ui/panel_bottomleft")
+  let brSize = sk.getImageSize("ui/panel_bottomright")
+
+  # Bar stretch - fills the gap between bottom-left and bottom-right panels along the bottom edge.
+  # Drawn before bottom panels with 1px overlap on each side so panels cover the fuzzy edges.
+  let barSize = sk.getImageSize("ui/barstretch")
+  let barX = blSize.x - 1
+  let barW = (winW - brSize.x) - blSize.x + 2
+  let uv = sk.atlas.entries["ui/barstretch"]
+  sk.drawQuad(
+    vec2(barX, winH - barSize.y),
+    vec2(barW, barSize.y),
+    vec2(uv.x.float32, uv.y.float32),
+    vec2(uv.width.float32, uv.height.float32),
+    rgbx(255, 255, 255, 255)
+  )
+
+  # Bottom-left panel (drawn on top of bar stretch)
+  sk.drawImage("ui/panel_bottomleft", vec2(0, winH - blSize.y))
+
+  # Bottom-right panel (drawn on top of bar stretch)
+  sk.drawImage("ui/panel_bottomright", vec2(winW - brSize.x, winH - brSize.y))
+
+  # Bottom-center panel (drawn last, raised 20px above the bottom)
+  let bcSize = sk.getImageSize("ui/panel_center")
+  sk.drawImage("ui/panel_center", vec2((winW - bcSize.x) / 2.0, winH - bcSize.y - 20))
