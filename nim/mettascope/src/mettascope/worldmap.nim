@@ -2,7 +2,7 @@ import
   std/[math, os, tables, random, json, sets],
   vmath, windy, boxy,
   common, actions, replays,
-  pathfinding, tilemap, pixelator, shaderquad,
+  pathfinding, tilemap, pixelator, shaderquad, starfield,
   panels, heatmap, heatmapshader, collectives,
   panels/objectpanel
 
@@ -835,6 +835,8 @@ proc centerAt*(zoomInfo: ZoomInfo, entity: Entity) =
 
 proc drawWorldMain*() =
   ## Draw the world map.
+
+  drawStarfield()
   drawTerrain()
   drawAoeMaps()
 
