@@ -141,7 +141,13 @@ proc drawMinimap(panel: panels.Panel, frameId: string, contentPos: Vec2, content
 
   let minimapZoomInfo = ZoomInfo()
   minimapZoomInfo.rect = irect(contentPos.x, contentPos.y, contentSize.x, contentSize.y)
-  minimapZoomInfo.hasMouse = false
+
+  # Check if mouse is over minimap panel
+  let mouseInPanel = window.mousePos.x.float32 >= contentPos.x and
+                     window.mousePos.x.float32 < contentPos.x + contentSize.x and
+                     window.mousePos.y.float32 >= contentPos.y and
+                     window.mousePos.y.float32 < contentPos.y + contentSize.y
+  minimapZoomInfo.hasMouse = mouseInPanel
 
   bxy.saveTransform()
   bxy.translate(contentPos)
