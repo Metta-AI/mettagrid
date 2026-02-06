@@ -33,7 +33,6 @@ class BaseHubConfig(SceneConfig):
     cross_distance: int = 4
     layout: Literal["default", "tight"] = "default"
     junction_object: str = "junction"
-    heart_chest_object: str = "chest"
     # Gear stations: list of station names to place (e.g., ["aligner_station", "scrambler_station"])
     # These are placed in a row below the chest, similar to how the chest is placed
     stations: list[str] = []
@@ -229,7 +228,7 @@ class BaseHub(Scene[BaseHubConfig]):
         grid[1 : h - 1, x0:x1] = "empty"
         grid[y0:y1, 1 : w - 1] = "empty"
 
-        # Place central hub, junction, and chest after carving so they persist
+        # Place central hub, junction after carving so they persist
         if 1 <= cx < w - 1 and 1 <= cy < h - 1:
             grid[cy, cx] = cfg.hub_object
 
@@ -237,12 +236,8 @@ class BaseHub(Scene[BaseHubConfig]):
             if 1 <= junction_y < h - 1:
                 grid[junction_y, cx] = cfg.junction_object
 
-            chest_y = cy + 3
-            if 1 <= chest_y < h - 1:
-                grid[chest_y, cx] = cfg.heart_chest_object
-
-            # Place stations in a row below the chest
-            self._place_stations(cx, chest_y + 2, grid)
+            # Place stations in a row below the hub
+            self._place_stations(cx, cy + 2, grid)
 
         # Spawn pads: ensure at least spawn_count if provided, otherwise place 4
         desired = max(0, int(cfg.spawn_count)) if cfg.spawn_count is not None else 4
@@ -335,10 +330,6 @@ class BaseHub(Scene[BaseHubConfig]):
         junction_y = cy - 2
         if 1 <= cx < w - 1 and 1 <= junction_y < h - 1:
             place_building(cx, junction_y, cfg.junction_object)
-
-        chest_y = cy + 2
-        if 1 <= cx < w - 1 and 1 <= chest_y < h - 1:
-            place_building(cx, chest_y, cfg.heart_chest_object)
 
         corner_positions = [
             (cx - 2, cy - 2),
