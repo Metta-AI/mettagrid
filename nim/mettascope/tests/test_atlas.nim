@@ -1,7 +1,6 @@
 import
   std/[json, os],
-  ../src/mettascope,
-  ../src/mettascope/[pixelator, common]
+  ../tools/gen_atlas
 
 block test_silky_atlas:
   echo "Testing silky atlas generation"
@@ -23,25 +22,13 @@ block test_silky_atlas:
 
 block test_pixel_atlas:
   echo "Testing pixel atlas generation"
-  let pixelImagePath = "atlas.png"
-  let pixelJsonPath = "atlas.json"
 
-  generatePixelAtlas(
-    size = 2048,
-    margin = 4,
-    dirsToScan = @[
-      dataDir / "agents",
-      dataDir / "objects",
-      dataDir / "view"
-    ],
-    outputImagePath = dataDir / pixelImagePath,
-    outputJsonPath = dataDir / pixelJsonPath,
-    stripPrefix = dataDir & "/"
-  )
+  buildPixelAtlas()
 
-  doAssert fileExists(dataDir / pixelJsonPath), "Pixel atlas JSON file should be created"
+  let pixelJsonPath = dataDir / "atlas.json"
+  doAssert fileExists(pixelJsonPath), "Pixel atlas JSON file should be created"
 
-  let pixelJson = parseJson(readFile(dataDir / pixelJsonPath))
+  let pixelJson = parseJson(readFile(pixelJsonPath))
   doAssert pixelJson.hasKey("entries"), "Pixel atlas JSON should have entries"
 
   let pixelEntries = pixelJson["entries"]
@@ -49,3 +36,20 @@ block test_pixel_atlas:
   doAssert pixelEntries.hasKey("objects/selection"), "Pixel atlas should contain objects/selection"
   doAssert pixelEntries.hasKey("objects/altar"), "Pixel atlas should contain objects/altar"
   echo "Pixel atlas test passed"
+
+block test_minimap_atlas:
+  echo "Testing minimap atlas generation"
+
+  buildMinimapAtlas()
+
+  let minimapJsonPath = dataDir / "atlas_mini.json"
+  doAssert fileExists(minimapJsonPath), "Minimap atlas JSON file should be created"
+
+  let minimapJson = parseJson(readFile(minimapJsonPath))
+  doAssert minimapJson.hasKey("entries"), "Minimap atlas JSON should have entries"
+
+  let minimapEntries = minimapJson["entries"]
+  doAssert minimapEntries.hasKey("minimap/agent"), "Minimap atlas should contain minimap/agent"
+  doAssert minimapEntries.hasKey("minimap/hub"), "Minimap atlas should contain minimap/hub"
+  doAssert minimapEntries.hasKey("minimap/unknown"), "Minimap atlas should contain minimap/unknown"
+  echo "Minimap atlas test passed"
