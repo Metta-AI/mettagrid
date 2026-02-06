@@ -78,21 +78,13 @@ proc initStarfield() =
   ## Initialize the shared shader, VAO, and load both layer textures.
   when defined(emscripten):
     starfieldShader = newShader(
-      (
-        "starfieldVert",
-        toGLSL(starfieldVert, "300 es", "precision highp float;\n")
-          .replace("uint(2)", "2")
-          .replace("mod(gl_VertexID, 2)", "gl_VertexID % 2")
-      ),
-      (
-        "starfieldFrag",
-        toGLSL(starfieldFrag, "300 es", "precision highp float;\n")
-      )
+      ("starfieldVert", toGLSL(starfieldVert, glslES3)),
+      ("starfieldFrag", toGLSL(starfieldFrag, glslES3))
     )
   else:
     starfieldShader = newShader(
-      ("starfieldVert", toGLSL(starfieldVert, "410", "")),
-      ("starfieldFrag", toGLSL(starfieldFrag, "410", ""))
+      ("starfieldVert", toGLSL(starfieldVert, glslDesktop)),
+      ("starfieldFrag", toGLSL(starfieldFrag, glslDesktop))
     )
 
   # Empty VAO; vertices are generated from gl_VertexID.

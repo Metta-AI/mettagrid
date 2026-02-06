@@ -67,21 +67,13 @@ proc initHeatmapShader*() =
   ## Initialize the heatmap shader module.
   when defined(emscripten):
     heatmapShader = newShader(
-      (
-        "heatmapVert",
-        toGLSL(heatmapVert, "300 es", "precision highp float;\n")
-          .replace("uint(2)", "2")
-          .replace("mod(gl_VertexID, 2)", "gl_VertexID % 2")
-      ),
-      (
-        "heatmapFrag",
-        toGLSL(heatmapFrag, "300 es", "precision highp float;\n")
-      )
+      ("heatmapVert", toGLSL(heatmapVert, glslES3)),
+      ("heatmapFrag", toGLSL(heatmapFrag, glslES3))
     )
   else:
     heatmapShader = newShader(
-      ("heatmapVert", toGLSL(heatmapVert, "410", "")),
-      ("heatmapFrag", toGLSL(heatmapFrag, "410", ""))
+      ("heatmapVert", toGLSL(heatmapVert, glslDesktop)),
+      ("heatmapFrag", toGLSL(heatmapFrag, glslDesktop))
     )
 
   # Create an empty VAO; vertices are generated from gl_VertexID.

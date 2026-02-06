@@ -244,21 +244,13 @@ proc setupGPU*(tileMap: TileMap) =
   # Compile shader via shady.
   when defined(emscripten):
     tileMap.shader = newShader(
-      (
-        "tileMapVert",
-        toGLSL(tileMapVert, "300 es", "precision highp float;\n")
-      ),
-      (
-        "tileMapFrag",
-        toGLSL(tileMapFrag, "300 es", "precision highp float;\n")
-          .replace("uniform usampler2D", "uniform highp usampler2D")
-          .replace("uniform sampler2DArray", "uniform highp sampler2DArray")
-      )
+      ("tileMapVert", toGLSL(tileMapVert, glslES3)),
+      ("tileMapFrag", toGLSL(tileMapFrag, glslES3))
     )
   else:
     tileMap.shader = newShader(
-      ("tileMapVert", toGLSL(tileMapVert, "410", "")),
-      ("tileMapFrag", toGLSL(tileMapFrag, "410", ""))
+      ("tileMapVert", toGLSL(tileMapVert, glslDesktop)),
+      ("tileMapFrag", toGLSL(tileMapFrag, glslDesktop))
     )
 
   # Quad vertices (position + texture coordinates).

@@ -50,21 +50,13 @@ proc newGridQuad*(imagePath: string, tilesX, tilesY: int): ShaderQuad =
 
   when defined(emscripten):
     result.shader = newShader(
-      (
-        "gridVert",
-        toGLSL(gridVert, "300 es", "precision highp float;\n")
-          .replace("uint(2)", "2")
-          .replace("mod(gl_VertexID, 2)", "gl_VertexID % 2")
-      ),
-      (
-        "gridFrag",
-        toGLSL(gridFrag, "300 es", "precision highp float;\n")
-      )
+      ("gridVert", toGLSL(gridVert, glslES3)),
+      ("gridFrag", toGLSL(gridFrag, glslES3))
     )
   else:
     result.shader = newShader(
-      ("gridVert", toGLSL(gridVert, "410", "")),
-      ("gridFrag", toGLSL(gridFrag, "410", ""))
+      ("gridVert", toGLSL(gridVert, glslDesktop)),
+      ("gridFrag", toGLSL(gridFrag, glslDesktop))
     )
 
   # Upload texture to GL and generate mipmaps.
