@@ -1,4 +1,3 @@
-import socket
 import sys
 import tempfile
 from pathlib import Path
@@ -8,7 +7,6 @@ from mettagrid.runner.policy_server.manager import launch_local_policy_server
 
 
 def _fake_create_policy_venv(mettagrid_version: str, requires_python: str) -> Path:
-    # Shell wrapper instead of symlink so the real python resolves its own pyvenv.cfg and site-packages.
     policy_dir = Path(tempfile.mkdtemp(prefix="policy-test-"))
     bin_dir = policy_dir / ".venv" / "bin"
     bin_dir.mkdir(parents=True)
@@ -27,14 +25,11 @@ def _fake_create_policy_venv(mettagrid_version: str, requires_python: str) -> Pa
     side_effect=_fake_create_policy_venv,
 )
 class TestLaunchLocalPolicyServer:
-    def test_launch_socket_and_shutdown(self, _mock_venv, _mock_pypi):
+    def test_launch_and_shutdown(self, _mock_venv, _mock_pypi):
         handle = launch_local_policy_server("mock://noop", startup_timeout=15.0)
         try:
-            assert handle.socket_path is not None
-            assert handle.base_url.startswith("unix://")
-            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            sock.connect(handle.socket_path)
-            sock.close()
+            assert handle.port > 0
+            assert handle.base_url.startswith("ws://")
         finally:
             handle.shutdown()
         assert handle.process.returncode is not None
@@ -47,10 +42,10 @@ class TestLaunchLocalPolicyServer:
         finally:
             handle.shutdown()
 
-    def test_shutdown_cleans_up_socket(self, _mock_venv, _mock_pypi):
+    def test_shutdown_cleans_up_ready_file(self, _mock_venv, _mock_pypi):
         handle = launch_local_policy_server("mock://noop", startup_timeout=15.0)
-        socket_path = handle.socket_path
-        assert socket_path is not None
-        assert Path(socket_path).exists()
+        ready_file = handle._ready_file_path
+        assert ready_file is not None
+        assert ready_file.exists()
         handle.shutdown()
-        assert not Path(socket_path).exists()
+        assert not ready_file.exists()

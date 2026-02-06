@@ -139,11 +139,12 @@ class LocalPolicyServer:
 @cli.command()
 def main(
     policy: Annotated[str, typer.Option(help="Policy ID")],
-    socket_path: Annotated[str, typer.Option(help="Unix socket path")],
-    ready_file: Annotated[str | None, typer.Option(help="Write 'ready' when listening")] = None,
+    host: Annotated[str, typer.Option(help="Host to bind to")] = "127.0.0.1",
+    port: Annotated[int, typer.Option(help="Port to bind to (0 for auto)")] = 0,
+    ready_file: Annotated[str | None, typer.Option(help="Write port number when listening")] = None,
 ):
-    """Serve a policy over a Unix domain socket using a binary protocol."""
-    from mettagrid.runner.policy_server.socket_transport import SocketPolicyServer  # noqa: PLC0415
+    """Serve a policy over WebSocket."""
+    from mettagrid.runner.policy_server.websocket_transport import WebSocketPolicyServer  # noqa: PLC0415
 
     policy_spec = policy_spec_from_uri(policy)
 
@@ -151,7 +152,7 @@ def main(
         return initialize_or_load_policy(env, policy_spec, device_override="cpu")
 
     service = LocalPolicyServer(policy_factory, lambda req: PolicyEnvInterface.from_proto(req.env_interface))
-    SocketPolicyServer(service, socket_path, ready_file).serve()
+    WebSocketPolicyServer(service, host, port, ready_file).serve()
 
 
 if __name__ == "__main__":

@@ -31,11 +31,10 @@ dependencies = [
   "protobuf>=6.31.1",
   "pyyaml>=6.0.2",
   "scipy-stubs>=1.17.0.0",
-  "fastapi>=0.115.0",
   "typer>=0.15.0",
-  "uvicorn>=0.34.0",
   "requests>=2.32.0",
   "httpx>=0.28.0",
+  "websockets>=13.0",
 ]
 
 [dependency-groups]

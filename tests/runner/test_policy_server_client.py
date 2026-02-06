@@ -1,14 +1,12 @@
-import tempfile
 import threading
-import time
 
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.runner.policy_server.server import LocalPolicyServer
-from mettagrid.runner.policy_server.socket_transport import (
-    SocketPolicyServer,
-    SocketPolicyServerClient,
+from mettagrid.runner.policy_server.websocket_transport import (
+    WebSocketPolicyServer,
+    WebSocketPolicyServerClient,
     _serialize_triplet_v1,
 )
 from mettagrid.simulator import Action, AgentObservation, ObservationToken
@@ -43,27 +41,19 @@ class _ConstantPolicy(MultiAgentPolicy):
         return _ConstantAgentPolicy(self._policy_env_info, self._action_name)
 
 
-def _run_socket_test(action_name: str, test_fn):
+def _run_ws_test(action_name: str, test_fn):
     env = _env_interface()
     service = LocalPolicyServer(
         lambda env_info: _ConstantPolicy(env_info, action_name),
         lambda _: env,
     )
-    # Use /tmp directly for short socket paths
-    socket_path = tempfile.mktemp(prefix="test-policy-", suffix=".sock", dir="/tmp")
-    server = SocketPolicyServer(service, socket_path)
+    server = WebSocketPolicyServer(service)
 
     server_thread = threading.Thread(target=server.serve, daemon=True)
     server_thread.start()
 
-    for _ in range(100):
-        try:
-            client = SocketPolicyServerClient(env, socket_path=socket_path)
-            break
-        except (ConnectionRefusedError, FileNotFoundError):
-            time.sleep(0.01)
-    else:
-        raise RuntimeError("Could not connect to socket server")
+    port = server.port
+    client = WebSocketPolicyServerClient(env, url=f"ws://127.0.0.1:{port}")
 
     try:
         test_fn(client, env)
@@ -72,34 +62,34 @@ def _run_socket_test(action_name: str, test_fn):
         server_thread.join(timeout=2)
 
 
-def test_socket_policy_step_returns_correct_action():
-    def check(client: SocketPolicyServerClient, env: PolicyEnvInterface):
+def test_ws_policy_step_returns_correct_action():
+    def check(client: WebSocketPolicyServerClient, env: PolicyEnvInterface):
         agent = client.agent_policy(0)
         obs = AgentObservation(agent_id=0, tokens=[])
         action = agent.step(obs)
         assert action.name == "move"
 
-    _run_socket_test("move", check)
+    _run_ws_test("move", check)
 
 
-def test_socket_policy_step_with_observations():
+def test_ws_policy_step_with_observations():
     token = ObservationToken(
         feature=ObservationFeatureSpec(id=1, name="health", normalization=1.0),
         value=42,
         raw_token=(0x11, 1, 42),
     )
 
-    def check(client: SocketPolicyServerClient, env: PolicyEnvInterface):
+    def check(client: WebSocketPolicyServerClient, env: PolicyEnvInterface):
         agent = client.agent_policy(0)
         obs = AgentObservation(agent_id=0, tokens=[token])
         action = agent.step(obs)
         assert action.name == "move"
 
-    _run_socket_test("move", check)
+    _run_ws_test("move", check)
 
 
-def test_socket_policy_multiple_agents():
-    def check(client: SocketPolicyServerClient, env: PolicyEnvInterface):
+def test_ws_policy_multiple_agents():
+    def check(client: WebSocketPolicyServerClient, env: PolicyEnvInterface):
         agent0 = client.agent_policy(0)
         agent1 = client.agent_policy(1)
         obs0 = AgentObservation(agent_id=0, tokens=[])
@@ -109,17 +99,17 @@ def test_socket_policy_multiple_agents():
         assert action0.name == "noop"
         assert action1.name == "noop"
 
-    _run_socket_test("noop", check)
+    _run_ws_test("noop", check)
 
 
 def test_agent_policy_deduplicates():
-    def check(client: SocketPolicyServerClient, env: PolicyEnvInterface):
+    def check(client: WebSocketPolicyServerClient, env: PolicyEnvInterface):
         a1 = client.agent_policy(0)
         a2 = client.agent_policy(0)
         assert a1 is a2
         assert len(client._agents) == 1
 
-    _run_socket_test("move", check)
+    _run_ws_test("move", check)
 
 
 def test_serialize_triplet_v1_empty():

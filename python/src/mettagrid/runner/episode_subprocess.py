@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
-from mettagrid.runner.policy_server.socket_transport import PolicyStepError, SocketPolicyServerClient
+from mettagrid.runner.policy_server.websocket_transport import PolicyStepError, WebSocketPolicyServerClient
 from mettagrid.runner.rollout import single_episode_rollout
 from mettagrid.runner.types import PureSingleEpisodeJob
 from mettagrid.util.file import write_data
@@ -23,19 +23,13 @@ def _setup_trace_path(debug_dir: Optional[str]) -> Optional[Path]:
     return debug_path / "trace.json"
 
 
-def _parse_socket_path(uri: str) -> str:
-    if not uri.startswith("unix://"):
-        raise ValueError(f"Expected unix:// URI, got: {uri}")
-    return uri[len("unix://") :]
-
-
 def main() -> None:
     with open(sys.argv[1]) as f:
         args = json.load(f)
     job = PureSingleEpisodeJob.model_validate(args["job"])
 
     env_interface = PolicyEnvInterface.from_mg_cfg(job.env)
-    policies = [SocketPolicyServerClient(env_interface, socket_path=_parse_socket_path(uri)) for uri in job.policy_uris]
+    policies = [WebSocketPolicyServerClient(env_interface, url=uri) for uri in job.policy_uris]
     trace_path = _setup_trace_path(job.debug_dir)
 
     try:

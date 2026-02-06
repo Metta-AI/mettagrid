@@ -56,14 +56,11 @@ def _create_policy_venv(mettagrid_source: str, requires_python: str) -> Path:
 
 @dataclass(kw_only=True)
 class LocalPolicyServerHandle:
-    port: int | None = None
-    socket_path: str | None = None
+    port: int
     process: subprocess.Popen
     policy_uri: str
     _log_file: Path = field(repr=False)
-    _port_file_path: Path | None = None
     _ready_file_path: Path | None = None
-    _socket_dir: Path | None = None
     _venv_dir: Path | None = None
 
     def shutdown(self) -> None:
@@ -73,13 +70,9 @@ class LocalPolicyServerHandle:
         except subprocess.TimeoutExpired:
             self.process.kill()
             self.process.wait()
-        for path in (self._log_file, self._port_file_path, self._ready_file_path):
+        for path in (self._log_file, self._ready_file_path):
             if path is not None:
                 path.unlink(missing_ok=True)
-        if self._socket_dir is not None:
-            shutil.rmtree(self._socket_dir, ignore_errors=True)
-        elif self.socket_path is not None:
-            Path(self.socket_path).unlink(missing_ok=True)
         if self._venv_dir is not None:
             shutil.rmtree(self._venv_dir, ignore_errors=True)
 
@@ -88,11 +81,7 @@ class LocalPolicyServerHandle:
 
     @property
     def base_url(self) -> str:
-        if self.socket_path is not None:
-            return f"unix://{self.socket_path}"
-        if self.port is not None:
-            return f"http://127.0.0.1:{self.port}"
-        raise ValueError("Neither socket_path nor port is set")
+        return f"ws://127.0.0.1:{self.port}"
 
 
 def launch_local_policy_server(
@@ -100,10 +89,7 @@ def launch_local_policy_server(
     *,
     startup_timeout: float = 30.0,
 ) -> LocalPolicyServerHandle:
-    """Launch a local policy server subprocess using Unix domain socket."""
-    # Use /tmp directly - Unix socket paths have ~104 byte limit on macOS
-    socket_dir = tempfile.mkdtemp(prefix="policy-", dir="/tmp")
-    socket_path = str(Path(socket_dir) / "policy.sock")
+    """Launch a local policy server subprocess using WebSocket."""
     ready_file_fd = tempfile.NamedTemporaryFile(suffix=".ready", delete=False)
     ready_file_fd.close()
     ready_file_path = Path(ready_file_fd.name)
@@ -111,7 +97,6 @@ def launch_local_policy_server(
 
     log_file = tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False)
 
-    # TODO: remove this once we've migrated all policies to use isolated venvs
     if os.environ.get("EPISODE_RUNNER_USE_ISOLATED_VENVS") != "0":
         mettagrid_source, requires_python = _get_mettagrid_source()
         venv_dir = _create_policy_venv(mettagrid_source, requires_python)
@@ -126,8 +111,10 @@ def launch_local_policy_server(
         "mettagrid.runner.policy_server.server",
         "--policy",
         policy_uri,
-        "--socket-path",
-        socket_path,
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "0",
         "--ready-file",
         str(ready_file_path),
     ]
@@ -143,14 +130,14 @@ def launch_local_policy_server(
     deadline = time.monotonic() + startup_timeout
     _wait_for_ready_file(ready_file_path, process, log_path, deadline)
 
-    logger.info("Policy server for %s ready on socket %s (pid %d)", policy_uri, socket_path, process.pid)
+    port = int(ready_file_path.read_text().strip())
+    logger.info("Policy server for %s ready on ws://127.0.0.1:%d (pid %d)", policy_uri, port, process.pid)
     return LocalPolicyServerHandle(
-        socket_path=socket_path,
+        port=port,
         process=process,
         policy_uri=policy_uri,
         _log_file=log_path,
         _ready_file_path=ready_file_path,
-        _socket_dir=Path(socket_dir),
         _venv_dir=venv_dir,
     )
 
@@ -175,7 +162,7 @@ def _wait_for_ready_file(ready_file: Path, process: subprocess.Popen, log_path: 
             raise RuntimeError(
                 f"Policy server exited with code {process.returncode} before becoming ready.\noutput:\n{log_tail}"
             )
-        if ready_file.exists():
+        if ready_file.exists() and ready_file.read_text().strip():
             return
         time.sleep(_HEALTH_POLL_INTERVAL)
     process.kill()
