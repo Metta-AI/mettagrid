@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -95,8 +96,13 @@ def run_episode_isolated(
     servers: list[LocalPolicyServerHandle] = []
     policy_temp_dirs: list[Path] = []
     try:
+        t0 = time.monotonic()
         local_policy_uris = [_localize_policy_uri(uri, policy_temp_dirs) for uri in spec.policy_uris]
+        logger.info(f"Policy localization took {time.monotonic() - t0:.1f}s for {len(spec.policy_uris)} policies")
+
+        t1 = time.monotonic()
         servers, http_policy_uris = _spawn_policy_servers(local_policy_uris)
+        logger.info(f"Policy servers spawned in {time.monotonic() - t1:.1f}s")
 
         local_results_uri = results_path.as_uri()
         local_replay_uri = replay_path.as_uri() if replay_path else None
@@ -121,6 +127,8 @@ def run_episode_isolated(
             job_spec_tmp_file.flush()
 
             env = {**os.environ, "PYTHONPERFSUPPORT": "1"} if debug_dir else None
+            t2 = time.monotonic()
+            logger.info("Launching episode subprocess")
             proc = subprocess.Popen(
                 [sys.executable, "-m", "mettagrid.runner.episode_subprocess", job_spec_tmp_file.name],
                 stdout=subprocess.PIPE,
@@ -130,6 +138,7 @@ def run_episode_isolated(
             )
 
             stdout, stderr = proc.communicate()
+            logger.info(f"Episode subprocess finished in {time.monotonic() - t2:.1f}s (exit code {proc.returncode})")
 
             if stdout:
                 logger.info("Episode runner stdout:\n%s", stdout.rstrip())
