@@ -5,6 +5,7 @@ import shutil
 import signal
 import sys
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 
@@ -68,10 +69,11 @@ def _collect_runtime_info(git_commit: str | None) -> RuntimeInfo:
 
 def _init_logging() -> None:
     logging.basicConfig(
-        level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+        level=os.environ.get("LOG_LEVEL", "DEBUG").upper(),
         format="%(asctime)s %(levelname)-8s %(message)s",
-        datefmt="%H:%M:%S",
+        datefmt="%Y-%m-%d %H:%M:%S",
         stream=sys.stdout,
+        force=True,
     )
 
 
@@ -88,6 +90,7 @@ def main() -> None:
         print("Set JOB_SPEC_URI, RESULTS_URI, REPLAY_URI env vars")
         sys.exit(1)
 
+    t0 = time.monotonic()
     logger.info(f"Running with spec={job_spec_uri[:80]}")
 
     if runtime_info_uri:
@@ -100,6 +103,7 @@ def main() -> None:
             logger.warning(f"Failed to upload runtime info: {e}")
 
     job = SingleEpisodeJob.model_validate_json(read(job_spec_uri))
+    logger.info(f"Job spec loaded in {time.monotonic() - t0:.1f}s")
 
     debug_uri = job.debug_uri
     capture_replay = replay_uri is not None
@@ -120,14 +124,21 @@ def main() -> None:
             signal.signal(signal.SIGTERM, sigterm_handler)
 
         try:
+            t_episode = time.monotonic()
+            logger.info("Starting episode run")
             run_episode_isolated(
                 job.episode_spec(),
                 results_path,
                 replay_path=replay_path,
                 debug_dir=debug_dir,
             )
+            logger.info(f"Episode run completed in {time.monotonic() - t_episode:.1f}s")
+
+            t_upload = time.monotonic()
             _upload_results(results_path, replay_path, results_uri, replay_uri, debug_dir, debug_uri)
-            logger.info("Job completed successfully")
+            logger.info(f"Upload completed in {time.monotonic() - t_upload:.1f}s")
+
+            logger.info(f"Job completed successfully, total time {time.monotonic() - t0:.1f}s")
         finally:
             if debug_dir:
                 shutil.rmtree(debug_dir, ignore_errors=True)
