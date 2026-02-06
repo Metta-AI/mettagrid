@@ -93,10 +93,10 @@ def exists(path: str) -> bool:
 
 
 def read(path: str) -> bytes:
-    """Read bytes from a local path or S3 object."""
-    parsed = parse_uri(path, allow_none=False)
+    """Read bytes from a local path, S3 object, or HTTP(S) URL."""
+    parsed = parse_uri(path, allow_none=True)
 
-    if parsed.scheme == "s3":
+    if parsed is not None and parsed.scheme == "s3":
         try:
             body = boto3.client("s3").get_object(Bucket=parsed.bucket, Key=parsed.key)["Body"].read()
             logger.debug("Read %d B from %s", len(body), parsed.canonical)
@@ -105,9 +105,15 @@ def read(path: str) -> bytes:
             logger.error("AWS credentials not found; run 'aws sso login --profile softmax'", exc_info=True)
             raise
 
-    if parsed.scheme == "file":
+    if parsed is not None and parsed.scheme == "file":
         data = parsed.local_path.read_bytes()
         logger.debug("Read %d B from %s", len(data), parsed.local_path)
+        return data
+
+    if path.startswith("http://") or path.startswith("https://"):
+        with urlopen(path, timeout=30) as resp:
+            data = resp.read()
+        logger.debug("Read %d B from %s", len(data), path[:80])
         return data
 
     raise ValueError(f"Unsupported URI for read(): {path}")
