@@ -31,20 +31,29 @@ proc getCollectiveInitialInventory(collectiveId: int): Table[string, int] =
     if value.kind == JInt:
       result[key] = value.getInt
 
-proc getCollectiveLiveInventory(collectiveName: string, currentStep: int): Table[string, int] =
+proc getCollectiveLiveInventory(collectiveName: string, currentStep: int): (bool, Table[string, int]) =
   ## Get the live inventory of a collective at the current step.
+  ## Returns (found, inventory) where found=true if we have live data.
   ## Uses the most recent snapshot at or before the current step.
-  result = initTable[string, int]()
+  var inventory = initTable[string, int]()
   if replay.isNil:
-    return
+    return (false, inventory)
   if collectiveName notin replay.collectiveInventory:
-    return
+    return (false, inventory)
   let snapshots = replay.collectiveInventory[collectiveName]
-  # Find the most recent snapshot at or before currentStep
-  for i in countdown(snapshots.len - 1, 0):
+  if snapshots.len == 0:
+    return (false, inventory)
+  # Find the most recent snapshot at or before currentStep.
+  # Use index-based iteration to avoid issues with seq being modified elsewhere.
+  let numSnapshots = snapshots.len
+  for i in countdown(numSnapshots - 1, 0):
     if snapshots[i].step <= currentStep:
-      return snapshots[i].inventory
-  # No snapshot found before currentStep, return empty
+      # Return a copy to avoid issues if the table is modified.
+      for k, v in snapshots[i].inventory.pairs:
+        inventory[k] = v
+      return (true, inventory)
+  # No snapshot found at or before currentStep - fall back to config initial inventory.
+  return (false, inventory)
 
 proc getCollectiveStats*(): seq[CollectiveStats] =
   ## Collect statistics for all collectives from the replay.
@@ -55,10 +64,9 @@ proc getCollectiveStats*(): seq[CollectiveStats] =
   # Initialize stats for each collective.
   for i in 0 ..< numCollectives:
     let collectiveName = getCollectiveName(i)
-    # Try to get live inventory first, fall back to initial
-    var inv = getCollectiveLiveInventory(collectiveName, step)
-    if inv.len == 0:
-      inv = getCollectiveInitialInventory(i)
+    # Try to get live inventory first, fall back to initial only if no live data exists.
+    let (hasLiveData, liveInv) = getCollectiveLiveInventory(collectiveName, step)
+    var inv = if hasLiveData: liveInv else: getCollectiveInitialInventory(i)
     var stats = CollectiveStats(
       collectiveId: i,
       name: collectiveName,
