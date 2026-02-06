@@ -1,5 +1,5 @@
 import
-  std/[math, os, tables, random, json, sets],
+  std/[algorithm, math, os, tables, random, json, sets],
   vmath, windy, boxy,
   common, actions, replays,
   pathfinding, tilemap, pixelator, shaderquad, starfield,
@@ -530,21 +530,48 @@ proc agentRigName(agent: Entity): string =
   return "agent"
 
 proc drawObjects*() =
-  ## Draw the objects on the map.
-  for thing in replay.objects:
-    let typeName = thing.typeName
+  ## Draw the objects on the map, sorted for correct draw order.
+
+  # Sort: lower Y first (farther away, drawn behind), buildings before agents
+  # at same Y, then by object ID ascending.
+
+  # Collect non-wall objects into a sortable list.
+  var objects = newSeqOfCap[Entity](replay.objects.len)
+  for obj in replay.objects:
+    if obj.typeName != "wall":
+      objects.add(obj)
+
+  # Sort for painter's algorithm draw order.
+  objects.sort(proc(a, b: Entity): int =
+    let
+      aY = a.location.at().y
+      bY = b.location.at().y
+    # Primary: lower Y drawn first (behind).
+    result = cmp(aY, bY)
+    if result != 0: return
+    # Secondary: buildings before agents at same Y.
+    let
+      aOrder = if a.typeName == "agent": 1 else: 0
+      bOrder = if b.typeName == "agent": 1 else: 0
+    result = cmp(aOrder, bOrder)
+    if result != 0: return
+    # Tertiary: lower object ID drawn first.
+    result = cmp(a.id, b.id)
+  )
+
+  # Tracks
+  const SpriteOffset = ivec2(0, -32)
+
+  for thing in objects:
     let pos = thing.location.at().xy
-    case typeName
-    of "wall":
-      discard
-    of "agent":
+    if thing.typeName == "agent":
       let agent = thing
       # Find last orientation action.
       var agentImage = "agents/" & agentRigName(agent) & "." & inferOrientation(agent, step).char
 
       px.drawSprite(
         agentImage,
-        pos * TILE_SIZE
+        pos * TILE_SIZE + SpriteOffset
       )
     else:
       let spriteName =
@@ -558,7 +585,7 @@ proc drawObjects*() =
           "objects/unknown"
       px.drawSprite(
         spriteName,
-        pos * TILE_SIZE,
+        pos * TILE_SIZE + SpriteOffset
       )
 
 proc drawVisualRanges*(alpha = 0.5) =
@@ -610,6 +637,9 @@ proc drawTrajectory*() =
         cx1 = loc1.x.int
         cy1 = loc1.y.int
 
+      if loc0.x == loc1.x and loc0.y == loc1.y:
+        continue
+
       if cx0 != cx1 or cy0 != cy1:
         var thisDirection: Orientation =
           if cx1 > cx0:
@@ -620,19 +650,25 @@ proc drawTrajectory*() =
             S
           else:
             N
+        if prevDirection == N and thisDirection == S or
+          prevDirection == S and thisDirection == N or
+          prevDirection == E and thisDirection == W or
+          prevDirection == W and thisDirection == E:
+          # Turned around, don't draw a track.
+          continue
+
         let a = 1.0f - abs(i - step).float32 / 200.0f
         if a > 0:
           var image = ""
           if i <= step:
             image = "agents/tracks." & prevDirection.char & thisDirection.char
           else:
-            #image = "agents/path"
-            break
+            image = "agents/path." & prevDirection.char & thisDirection.char
 
           # Draw centered at the tile with rotation. Use a slightly larger scale on diagonals.
           px.drawSprite(
             image,
-            ivec2(cx0.int32, cy0.int32) * TILE_SIZE,
+            ivec2(cx0.int32, cy0.int32) * TILE_SIZE
           )
         prevDirection = thisDirection
 
