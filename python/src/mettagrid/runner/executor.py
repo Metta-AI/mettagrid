@@ -12,7 +12,7 @@ import requests
 
 from mettagrid.runner.episode_runner import run_episode_isolated
 from mettagrid.runner.types import RuntimeInfo, SingleEpisodeJob
-from mettagrid.util.file import copy_data, write_data
+from mettagrid.util.file import copy_data, read, write_data
 
 logger = logging.getLogger(__name__)
 
@@ -99,9 +99,7 @@ def main() -> None:
         except Exception as e:
             logger.warning(f"Failed to upload runtime info: {e}")
 
-    response = requests.get(job_spec_uri, timeout=30)
-    response.raise_for_status()
-    job = SingleEpisodeJob.model_validate(response.json())
+    job = SingleEpisodeJob.model_validate_json(read(job_spec_uri))
 
     debug_uri = job.debug_uri
     capture_replay = replay_uri is not None
