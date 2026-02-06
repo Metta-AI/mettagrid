@@ -1,11 +1,11 @@
 FROM ubuntu:24.04
 
-ARG METTAGRID_VERSION
-RUN test -n "${METTAGRID_VERSION}" || (echo "METTAGRID_VERSION build arg is required" && exit 1)
+ARG METTAGRID_VERSION=""
 ARG GIT_COMMIT=""
 ENV GIT_COMMIT=${GIT_COMMIT}
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -22,9 +22,15 @@ RUN curl -fsSL "https://github.com/treeform/nimby/releases/download/${NIMBY_VERS
 ENV PATH="/root/.nimby/nim/bin:$PATH"
 
 # Install Python and create the executor venv with mettagrid.
-RUN uv python install 3.12 && \
-    uv venv /opt/executor && \
-    uv pip install --python /opt/executor/bin/python "mettagrid==${METTAGRID_VERSION}"
+RUN uv python install 3.12 && uv venv /opt/executor
+RUN --mount=type=bind,target=/ctx \
+    if ls /ctx/*.whl 1>/dev/null 2>&1; then \
+        uv pip install --python /opt/executor/bin/python /ctx/*.whl; \
+    elif [ -n "${METTAGRID_VERSION}" ]; then \
+        uv pip install --python /opt/executor/bin/python "mettagrid==${METTAGRID_VERSION}"; \
+    else \
+        echo "ERROR: provide .whl in build context or set METTAGRID_VERSION" && exit 1; \
+    fi
 
 # Pre-warm uv cache with torch so per-policy venv creation is near-instant.
 # mettagrid is already cached from the install above. Install torch into a
