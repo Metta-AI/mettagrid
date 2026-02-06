@@ -1,15 +1,9 @@
-import http
 import logging
-import socket
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Annotated
 
-import fastapi
 import typer
-import uvicorn
-from google.protobuf import json_format
 
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.policy.loader import initialize_or_load_policy
@@ -43,11 +37,6 @@ class UnsupportedObservationFormatError(Exception):
 
 
 def parse_triplet_v1(data: bytes, features: dict[int, ObservationFeatureSpec]) -> list[ObservationToken]:
-    """Parse TRIPLET_V1 format observations into ObservationTokens.
-
-    Every 3 bytes: [location_byte, feature_id, value]
-    - location_byte: row = (b >> 4) & 0x0F, col = b & 0x0F; 0xFF means skip
-    """
     tokens = []
     for i in range(0, len(data), 3):
         if i + 2 >= len(data):
@@ -123,7 +112,7 @@ class LocalPolicyServer:
         return policy_pb2.PreparePolicyResponse()
 
     def batch_step(self, req: policy_pb2.BatchStepRequest) -> policy_pb2.BatchStepResponse:
-        logger.info("BatchStep: %s", req)
+        logger.debug("BatchStep: %s", req)
         episode = self._episodes.get(req.episode_id)
         if episode is None:
             raise EpisodeNotFoundError(req.episode_id)
@@ -147,98 +136,22 @@ class LocalPolicyServer:
         return resp
 
 
-def create_app(service: LocalPolicyServer, *, verbose: bool = False) -> fastapi.FastAPI:
-    app = fastapi.FastAPI()
-
-    @app.exception_handler(EpisodeNotFoundError)
-    async def handle_episode_not_found(request: fastapi.Request, exc: EpisodeNotFoundError):
-        return fastapi.responses.JSONResponse(
-            status_code=http.HTTPStatus.NOT_FOUND,
-            content={"detail": "episode not found"},
-        )
-
-    @app.exception_handler(AgentNotFoundError)
-    async def handle_agent_not_found(request: fastapi.Request, exc: AgentNotFoundError):
-        return fastapi.responses.JSONResponse(
-            status_code=http.HTTPStatus.NOT_FOUND,
-            content={"detail": "agent not found"},
-        )
-
-    @app.exception_handler(UnsupportedObservationFormatError)
-    async def handle_unsupported_format(request: fastapi.Request, exc: UnsupportedObservationFormatError):
-        return fastapi.responses.JSONResponse(
-            status_code=http.HTTPStatus.BAD_REQUEST,
-            content={"detail": "unsupported observation format"},
-        )
-
-    @app.get("/health")
-    def health():
-        return {"status": "ok"}
-
-    # TODO: factor out the repeated handler pattern (parse proto request, call service,
-    # serialize proto response) into a generic wrapper or decorator.
-
-    @app.post("/mettagrid.protobuf.sim.policy_v1.Policy/PreparePolicy")
-    async def prepare_policy(request: fastapi.Request):
-        body = await request.body()
-        try:
-            req = json_format.Parse(body, policy_pb2.PreparePolicyRequest())
-        except json_format.ParseError as e:
-            if verbose:
-                logger.warning("PreparePolicy: invalid request: %s", e)
-            raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="invalid request body") from e
-        resp = service.prepare_policy(req)
-        return fastapi.Response(
-            content=json_format.MessageToJson(resp),
-            media_type="application/json",
-        )
-
-    @app.post("/mettagrid.protobuf.sim.policy_v1.Policy/BatchStep")
-    async def batch_step(request: fastapi.Request):
-        body = await request.body()
-        try:
-            req = json_format.Parse(body, policy_pb2.BatchStepRequest())
-        except json_format.ParseError as e:
-            if verbose:
-                logger.warning("BatchStep: invalid request: %s", e)
-            raise fastapi.HTTPException(status_code=http.HTTPStatus.BAD_REQUEST, detail="invalid request body") from e
-        resp = service.batch_step(req)
-        return fastapi.Response(
-            content=json_format.MessageToJson(resp),
-            media_type="application/json",
-        )
-
-    return app
-
-
 @cli.command()
 def main(
     policy: Annotated[str, typer.Option(help="Policy ID")],
-    host: Annotated[str, typer.Option(help="Host to bind to")] = "127.0.0.1",
-    port: Annotated[int, typer.Option(help="Port to bind to (0 for OS-assigned)")] = 8000,
-    port_file: Annotated[Path | None, typer.Option(help="Write bound port number to this file")] = None,
-    verbose: Annotated[bool, typer.Option(help="Enable verbose logging")] = False,
+    socket_path: Annotated[str, typer.Option(help="Unix socket path")],
+    ready_file: Annotated[str | None, typer.Option(help="Write 'ready' when listening")] = None,
 ):
-    """Serve a policy over HTTP using the Policy protocol (JSON)."""
+    """Serve a policy over a Unix domain socket using a binary protocol."""
+    from mettagrid.runner.policy_server.socket_transport import SocketPolicyServer  # noqa: PLC0415
+
     policy_spec = policy_spec_from_uri(policy)
 
     def policy_factory(env: PolicyEnvInterface) -> MultiAgentPolicy:
         return initialize_or_load_policy(env, policy_spec, device_override="cpu")
 
     service = LocalPolicyServer(policy_factory, lambda req: PolicyEnvInterface.from_proto(req.env_interface))
-    app = create_app(service, verbose=verbose)
-
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((host, port))
-    actual_port = sock.getsockname()[1]
-    if port_file is not None:
-        port_file.write_text(str(actual_port))
-    logger.info("Serving policy %s on %s:%d", policy, host, actual_port)
-
-    config = uvicorn.Config(app, fd=sock.fileno())
-    server = uvicorn.Server(config)
-    server.run()
+    SocketPolicyServer(service, socket_path, ready_file).serve()
 
 
 if __name__ == "__main__":

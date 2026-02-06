@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -6,6 +7,7 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
+from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 
 import requests
@@ -15,23 +17,38 @@ logger = logging.getLogger(__name__)
 _HEALTH_POLL_INTERVAL = 0.1
 
 
-def _get_latest_pypi_info(package: str) -> tuple[str, str]:
+def _get_mettagrid_source() -> tuple[str, str]:
+    """Return (pip install spec, requires_python) from the currently installed mettagrid."""
     try:
-        response = requests.get(f"https://pypi.org/pypi/{package}/json", timeout=10)
-        response.raise_for_status()
-        info = response.json()["info"]
-        return info["version"], info["requires_python"]
-    except requests.RequestException as e:
-        raise RuntimeError(f"Failed to fetch latest {package} version from PyPI: {e}") from e
+        dist = distribution("mettagrid")
+    except PackageNotFoundError:
+        return _get_pypi_latest("mettagrid")
+
+    requires_python = dist.metadata["Requires-Python"]
+
+    direct_url_text = dist.read_text("direct_url.json")
+    if direct_url_text:
+        url = json.loads(direct_url_text).get("url", "")
+        if url.startswith("file://"):
+            return url.removeprefix("file://"), requires_python
+
+    return f"mettagrid=={dist.metadata['Version']}", requires_python
 
 
-def _create_policy_venv(mettagrid_version: str, requires_python: str) -> Path:
+def _get_pypi_latest(package: str) -> tuple[str, str]:
+    response = requests.get(f"https://pypi.org/pypi/{package}/json", timeout=10)
+    response.raise_for_status()
+    info = response.json()["info"]
+    return f"{package}=={info['version']}", info["requires_python"]
+
+
+def _create_policy_venv(mettagrid_source: str, requires_python: str) -> Path:
     policy_dir = Path(tempfile.mkdtemp(prefix="policy-"))
     venv_path = policy_dir / ".venv"
     venv_python = venv_path / "bin" / "python"
     subprocess.run(["uv", "venv", str(venv_path), "--python", requires_python], check=True)
     subprocess.run(
-        ["uv", "pip", "install", "--python", str(venv_python), f"mettagrid=={mettagrid_version}", "torch"],
+        ["uv", "pip", "install", "--python", str(venv_python), mettagrid_source, "torch"],
         check=True,
     )
     return policy_dir
@@ -39,11 +56,14 @@ def _create_policy_venv(mettagrid_version: str, requires_python: str) -> Path:
 
 @dataclass(kw_only=True)
 class LocalPolicyServerHandle:
-    port: int
+    port: int | None = None
+    socket_path: str | None = None
     process: subprocess.Popen
     policy_uri: str
     _log_file: Path = field(repr=False)
     _port_file_path: Path | None = None
+    _ready_file_path: Path | None = None
+    _socket_dir: Path | None = None
     _venv_dir: Path | None = None
 
     def shutdown(self) -> None:
@@ -53,9 +73,13 @@ class LocalPolicyServerHandle:
         except subprocess.TimeoutExpired:
             self.process.kill()
             self.process.wait()
-        for path in (self._log_file, self._port_file_path):
+        for path in (self._log_file, self._port_file_path, self._ready_file_path):
             if path is not None:
                 path.unlink(missing_ok=True)
+        if self._socket_dir is not None:
+            shutil.rmtree(self._socket_dir, ignore_errors=True)
+        elif self.socket_path is not None:
+            Path(self.socket_path).unlink(missing_ok=True)
         if self._venv_dir is not None:
             shutil.rmtree(self._venv_dir, ignore_errors=True)
 
@@ -64,7 +88,11 @@ class LocalPolicyServerHandle:
 
     @property
     def base_url(self) -> str:
-        return f"http://127.0.0.1:{self.port}"
+        if self.socket_path is not None:
+            return f"unix://{self.socket_path}"
+        if self.port is not None:
+            return f"http://127.0.0.1:{self.port}"
+        raise ValueError("Neither socket_path nor port is set")
 
 
 def launch_local_policy_server(
@@ -72,18 +100,21 @@ def launch_local_policy_server(
     *,
     startup_timeout: float = 30.0,
 ) -> LocalPolicyServerHandle:
-    """Launch a local policy server subprocess."""
-    port_file_fd = tempfile.NamedTemporaryFile(suffix=".port", delete=False)
-    port_file_fd.close()
-    port_file_path = Path(port_file_fd.name)
-    port_file_path.unlink()
+    """Launch a local policy server subprocess using Unix domain socket."""
+    # Use /tmp directly - Unix socket paths have ~104 byte limit on macOS
+    socket_dir = tempfile.mkdtemp(prefix="policy-", dir="/tmp")
+    socket_path = str(Path(socket_dir) / "policy.sock")
+    ready_file_fd = tempfile.NamedTemporaryFile(suffix=".ready", delete=False)
+    ready_file_fd.close()
+    ready_file_path = Path(ready_file_fd.name)
+    ready_file_path.unlink()
 
     log_file = tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False)
 
     # TODO: remove this once we've migrated all policies to use isolated venvs
     if os.environ.get("EPISODE_RUNNER_USE_ISOLATED_VENVS") != "0":
-        version, requires_python = _get_latest_pypi_info("mettagrid")
-        venv_dir = _create_policy_venv(version, requires_python)
+        mettagrid_source, requires_python = _get_mettagrid_source()
+        venv_dir = _create_policy_venv(mettagrid_source, requires_python)
         python = str(venv_dir / ".venv" / "bin" / "python")
     else:
         python = sys.executable
@@ -95,10 +126,10 @@ def launch_local_policy_server(
         "mettagrid.runner.policy_server.server",
         "--policy",
         policy_uri,
-        "--port",
-        "0",
-        "--port-file",
-        str(port_file_path),
+        "--socket-path",
+        socket_path,
+        "--ready-file",
+        str(ready_file_path),
     ]
 
     process = subprocess.Popen(
@@ -110,16 +141,16 @@ def launch_local_policy_server(
     log_path = Path(log_file.name)
 
     deadline = time.monotonic() + startup_timeout
-    port = _wait_for_port_file(port_file_path, process, log_path, deadline)
-    _wait_for_health(port, process, log_path, deadline)
+    _wait_for_ready_file(ready_file_path, process, log_path, deadline)
 
-    logger.info("Policy server for %s ready on port %d (pid %d)", policy_uri, port, process.pid)
+    logger.info("Policy server for %s ready on socket %s (pid %d)", policy_uri, socket_path, process.pid)
     return LocalPolicyServerHandle(
-        port=port,
+        socket_path=socket_path,
         process=process,
         policy_uri=policy_uri,
         _log_file=log_path,
-        _port_file_path=port_file_path,
+        _ready_file_path=ready_file_path,
+        _socket_dir=Path(socket_dir),
         _venv_dir=venv_dir,
     )
 
@@ -137,39 +168,16 @@ def _read_log_tail(log_path: Path, max_bytes: int = 8192) -> str:
         return "<log file not available>"
 
 
-def _wait_for_port_file(port_file: Path, process: subprocess.Popen, log_path: Path, deadline: float) -> int:
+def _wait_for_ready_file(ready_file: Path, process: subprocess.Popen, log_path: Path, deadline: float) -> None:
     while time.monotonic() < deadline:
         if process.poll() is not None:
             log_tail = _read_log_tail(log_path)
             raise RuntimeError(
-                f"Policy server exited with code {process.returncode} before writing port file.\noutput:\n{log_tail}"
+                f"Policy server exited with code {process.returncode} before becoming ready.\noutput:\n{log_tail}"
             )
-        if port_file.exists():
-            try:
-                return int(port_file.read_text().strip())
-            except ValueError:
-                pass
+        if ready_file.exists():
+            return
         time.sleep(_HEALTH_POLL_INTERVAL)
     process.kill()
     process.wait()
-    raise TimeoutError("Policy server did not write port file in time")
-
-
-def _wait_for_health(port: int, process: subprocess.Popen, log_path: Path, deadline: float) -> None:
-    url = f"http://127.0.0.1:{port}/health"
-    while time.monotonic() < deadline:
-        if process.poll() is not None:
-            log_tail = _read_log_tail(log_path)
-            raise RuntimeError(
-                f"Policy server exited with code {process.returncode} before becoming healthy.\noutput:\n{log_tail}"
-            )
-        try:
-            resp = requests.get(url, timeout=1)
-            if resp.status_code == 200:
-                return
-        except requests.RequestException:
-            pass
-        time.sleep(_HEALTH_POLL_INTERVAL)
-    process.kill()
-    process.wait()
-    raise TimeoutError(f"Policy server health check at {url} did not pass in time")
+    raise TimeoutError("Policy server did not become ready in time")
