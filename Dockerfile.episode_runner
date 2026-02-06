@@ -1,0 +1,28 @@
+FROM ubuntu:22.04
+
+ARG METTAGRID_VERSION
+RUN test -n "${METTAGRID_VERSION}" || (echo "METTAGRID_VERSION build arg is required" && exit 1)
+ARG GIT_COMMIT=""
+ENV GIT_COMMIT=${GIT_COMMIT}
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:0.9.5 /uv /uvx /bin/
+
+# Install Python and create the executor venv with mettagrid.
+RUN uv python install 3.12 && \
+    uv venv /opt/executor && \
+    uv pip install --python /opt/executor/bin/python "mettagrid==${METTAGRID_VERSION}"
+
+# Pre-warm uv cache with torch so per-policy venv creation is near-instant.
+# mettagrid is already cached from the install above. Install torch into a
+# throwaway venv just to populate the cache, then delete it.
+RUN uv venv /tmp/cache-warm && \
+    uv pip install --python /tmp/cache-warm/bin/python torch && \
+    rm -rf /tmp/cache-warm
+
+ENV PATH="/opt/executor/bin:$PATH"
+
+ENTRYPOINT ["python", "-m", "mettagrid.runner.executor"]
