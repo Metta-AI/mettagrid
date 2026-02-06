@@ -3,7 +3,7 @@ import
   opengl, windy, bumpy, vmath, silky, boxy, webby,
   mettascope/[replays, common, worldmap, panels,
   footer, timeline, minimap, header, replayloader, configs, gameplayer],
-  mettascope/panels/[objectpanel, envpanel, vibespanel, aoepanel, collectivepanel]
+  mettascope/panels/[objectpanel, envpanel, vibespanel, aoepanel, collectivepanel, scorepanel]
 
 when isMainModule:
   let config = loadConfig()
@@ -143,6 +143,24 @@ proc createDefaultPanelLayout() =
   rootArea.areas[1].areas[1].addPanel("Vibes", drawVibes)
   rootArea.areas[1].areas[1].addPanel("AoE", drawAoePanel)
   rootArea.areas[1].areas[1].addPanel("Collectives", drawCollectivesPanel)
+  rootArea.areas[1].areas[1].addPanel("Score", drawScorePanel)
+
+proc collectPanelNames(area: Area): seq[string] =
+  ## Collect all panel names from an area tree.
+  for panel in area.panels:
+    result.add(panel.name)
+  for subarea in area.areas:
+    result.add(collectPanelNames(subarea))
+
+proc findFirstLeafArea(area: Area): Area =
+  ## Find the first leaf area (one that has panels) in the tree.
+  if area.panels.len > 0:
+    return area
+  for subarea in area.areas:
+    let leaf = findFirstLeafArea(subarea)
+    if leaf != nil:
+      return leaf
+  return nil
 
 proc initPanels() =
   ## Initialize panels, loading layout from config if available.
@@ -150,14 +168,38 @@ proc initPanels() =
   applyUIState(config)
   createDefaultPanelLayout()
 
+  # Remember the default panels before potentially overwriting with saved layout.
+  let defaultArea = rootArea
+
   var layoutLoaded = false
   if config.panelLayout.areas.len > 0 or config.panelLayout.panelNames.len > 0:
     try:
-      rootArea = deserializeArea(config.panelLayout, rootArea)
+      rootArea = deserializeArea(config.panelLayout, defaultArea)
       if validateAreaStructure(rootArea, true):
         layoutLoaded = true
+      else:
+        rootArea = defaultArea
     except:
       echo "Error loading panel layout from config, using default: ", getCurrentExceptionMsg()
+      rootArea = defaultArea
+
+  # Add any new panels from the default layout that are missing from the saved layout.
+  if layoutLoaded:
+    let savedNames = collectPanelNames(rootArea)
+    let defaultNames = collectPanelNames(defaultArea)
+    var missingPanels: seq[Panel] = @[]
+    for name in defaultNames:
+      if name notin savedNames:
+        let refPanel = getPanelByName(defaultArea, name)
+        if refPanel != nil:
+          missingPanels.add(refPanel)
+    if missingPanels.len > 0:
+      let targetArea = findFirstLeafArea(rootArea)
+      if targetArea != nil:
+        for panel in missingPanels:
+          let newPanel = Panel(name: panel.name, parentArea: targetArea, draw: panel.draw)
+          targetArea.panels.add(newPanel)
+          echo "Added missing panel: ", panel.name
 
 
 proc onFrame() =
