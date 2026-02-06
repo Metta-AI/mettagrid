@@ -94,6 +94,12 @@ def exists(path: str) -> bool:
 
 def read(path: str) -> bytes:
     """Read bytes from a local path, S3 object, or HTTP(S) URL."""
+    if _is_presigned_s3_url(path):
+        with urlopen(path, timeout=30) as resp:
+            data = resp.read()
+        logger.debug("Read %d B from presigned URL", len(data))
+        return data
+
     parsed = parse_uri(path, allow_none=True)
 
     if parsed is not None and parsed.scheme == "s3":
