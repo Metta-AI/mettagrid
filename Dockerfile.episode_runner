@@ -15,10 +15,10 @@ COPY --from=ghcr.io/astral-sh/uv:0.9.5 /uv /uvx /bin/
 # Install Nim via nimby (matches .nim-version / .nimby-version).
 ARG NIMBY_VERSION=0.1.19
 ARG NIM_VERSION=2.2.6
-RUN curl -sSL "https://github.com/nicholasgasior/nimby/releases/download/${NIMBY_VERSION}/nimby_linux_amd64" \
+RUN curl -fsSL "https://github.com/treeform/nimby/releases/download/${NIMBY_VERSION}/nimby-Linux-X64" \
         -o /usr/local/bin/nimby && \
     chmod +x /usr/local/bin/nimby && \
-    nimby install ${NIM_VERSION}
+    nimby use ${NIM_VERSION}
 ENV PATH="/root/.nimby/nim/bin:$PATH"
 
 # Install Python and create the executor venv with mettagrid.
