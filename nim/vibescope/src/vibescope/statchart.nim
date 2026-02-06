@@ -73,15 +73,17 @@ proc rebuildCache(chart: var StatChart) =
     raw[i] = newSeq[float32](maxSteps)
 
   # Fill from snapshots for each collective.
+  # Use index-based iteration to avoid issues with seq being modified elsewhere.
   for i in 0 ..< numCollectives:
     let name = getCollectiveName(i)
     if name notin replay.collectiveStats:
       continue
     let snapshots = replay.collectiveStats[name]
+    let numSnapshots = snapshots.len
     var snapshotIdx = 0
     var currentValue: float32 = 0
     for s in 0 ..< maxSteps:
-      while snapshotIdx < snapshots.len and snapshots[snapshotIdx].step <= s:
+      while snapshotIdx < numSnapshots and snapshots[snapshotIdx].step <= s:
         if chart.statName in snapshots[snapshotIdx].stats:
           currentValue = snapshots[snapshotIdx].stats[chart.statName].float32
         snapshotIdx += 1
