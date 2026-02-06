@@ -237,7 +237,7 @@ class BaseHub(Scene[BaseHubConfig]):
                 grid[junction_y, cx] = cfg.junction_object
 
             # Place stations in a row below the hub
-            self._place_stations(cx, cy + 2, grid)
+            self._place_stations(cx, cy + 4, grid)
 
         # Spawn pads: ensure at least spawn_count if provided, otherwise place 4
         desired = max(0, int(cfg.spawn_count)) if cfg.spawn_count is not None else 4
