@@ -1,14 +1,16 @@
-import urllib.parse
-from unittest.mock import patch
-
-import httpx
-from fastapi.testclient import TestClient
+import tempfile
+import threading
+import time
 
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
-from mettagrid.runner.policy_server.client import LocalPolicyServerClient, _serialize_triplet_v1
-from mettagrid.runner.policy_server.server import LocalPolicyServer, create_app
+from mettagrid.runner.policy_server.server import LocalPolicyServer
+from mettagrid.runner.policy_server.socket_transport import (
+    SocketPolicyServer,
+    SocketPolicyServerClient,
+    _serialize_triplet_v1,
+)
 from mettagrid.simulator import Action, AgentObservation, ObservationToken
 
 
@@ -41,102 +43,83 @@ class _ConstantPolicy(MultiAgentPolicy):
         return _ConstantAgentPolicy(self._policy_env_info, self._action_name)
 
 
-def _make_test_client(action_name: str = "move") -> TestClient:
-    service = LocalPolicyServer(
-        lambda env: _ConstantPolicy(env, action_name),
-        lambda _: _env_interface(),
-    )
-    return TestClient(create_app(service))
-
-
-def _patch_httpx_with_test_client(test_client: TestClient):
-    class _MockResponse:
-        def __init__(self, starlette_resp):
-            self._resp = starlette_resp
-            self.status_code = starlette_resp.status_code
-
-        def raise_for_status(self):
-            if self.status_code >= 400:
-                raise httpx.HTTPStatusError(
-                    f"HTTP {self.status_code}",
-                    request=httpx.Request("POST", "http://fake"),
-                    response=httpx.Response(self.status_code),
-                )
-
-        def json(self):
-            return self._resp.json()
-
-    class _MockClient:
-        def post(self, url, *, json=None, timeout=None):
-            path = urllib.parse.urlparse(url).path
-            return _MockResponse(test_client.post(path, json=json))
-
-        def close(self):
-            pass
-
-    return patch("mettagrid.runner.policy_server.client.httpx.Client", return_value=_MockClient())
-
-
-def test_remote_policy_step_returns_correct_action():
-    client = _make_test_client("move")
+def _run_socket_test(action_name: str, test_fn):
     env = _env_interface()
+    service = LocalPolicyServer(
+        lambda env_info: _ConstantPolicy(env_info, action_name),
+        lambda _: env,
+    )
+    # Use /tmp directly for short socket paths
+    socket_path = tempfile.mktemp(prefix="test-policy-", suffix=".sock", dir="/tmp")
+    server = SocketPolicyServer(service, socket_path)
 
-    with _patch_httpx_with_test_client(client):
-        policy = LocalPolicyServerClient(env, base_url="http://fake:1234")
-        agent = policy.agent_policy(0)
+    server_thread = threading.Thread(target=server.serve, daemon=True)
+    server_thread.start()
+
+    for _ in range(100):
+        try:
+            client = SocketPolicyServerClient(env, socket_path=socket_path)
+            break
+        except (ConnectionRefusedError, FileNotFoundError):
+            time.sleep(0.01)
+    else:
+        raise RuntimeError("Could not connect to socket server")
+
+    try:
+        test_fn(client, env)
+    finally:
+        client.close()
+        server_thread.join(timeout=2)
+
+
+def test_socket_policy_step_returns_correct_action():
+    def check(client: SocketPolicyServerClient, env: PolicyEnvInterface):
+        agent = client.agent_policy(0)
         obs = AgentObservation(agent_id=0, tokens=[])
         action = agent.step(obs)
+        assert action.name == "move"
 
-    assert action.name == "move"
+    _run_socket_test("move", check)
 
 
-def test_remote_policy_step_with_observations():
-    client = _make_test_client("move")
-    env = _env_interface()
-
+def test_socket_policy_step_with_observations():
     token = ObservationToken(
         feature=ObservationFeatureSpec(id=1, name="health", normalization=1.0),
         value=42,
         raw_token=(0x11, 1, 42),
     )
 
-    with _patch_httpx_with_test_client(client):
-        policy = LocalPolicyServerClient(env, base_url="http://fake:1234")
-        agent = policy.agent_policy(0)
+    def check(client: SocketPolicyServerClient, env: PolicyEnvInterface):
+        agent = client.agent_policy(0)
         obs = AgentObservation(agent_id=0, tokens=[token])
         action = agent.step(obs)
+        assert action.name == "move"
 
-    assert action.name == "move"
+    _run_socket_test("move", check)
 
 
-def test_remote_policy_multiple_agents():
-    client = _make_test_client("noop")
-    env = _env_interface()
-
-    with _patch_httpx_with_test_client(client):
-        policy = LocalPolicyServerClient(env, base_url="http://fake:1234")
-        agent0 = policy.agent_policy(0)
-        agent1 = policy.agent_policy(1)
+def test_socket_policy_multiple_agents():
+    def check(client: SocketPolicyServerClient, env: PolicyEnvInterface):
+        agent0 = client.agent_policy(0)
+        agent1 = client.agent_policy(1)
         obs0 = AgentObservation(agent_id=0, tokens=[])
         obs1 = AgentObservation(agent_id=1, tokens=[])
         action0 = agent0.step(obs0)
         action1 = agent1.step(obs1)
+        assert action0.name == "noop"
+        assert action1.name == "noop"
 
-    assert action0.name == "noop"
-    assert action1.name == "noop"
+    _run_socket_test("noop", check)
 
 
 def test_agent_policy_deduplicates():
-    client = _make_test_client()
-    env = _env_interface()
+    def check(client: SocketPolicyServerClient, env: PolicyEnvInterface):
+        a1 = client.agent_policy(0)
+        a2 = client.agent_policy(0)
+        assert a1 is a2
+        assert len(client._agents) == 1
 
-    with _patch_httpx_with_test_client(client):
-        policy = LocalPolicyServerClient(env, base_url="http://fake:1234")
-        a1 = policy.agent_policy(0)
-        a2 = policy.agent_policy(0)
-
-    assert a1 is a2
-    assert len(policy._agents) == 1
+    _run_socket_test("move", check)
 
 
 def test_serialize_triplet_v1_empty():

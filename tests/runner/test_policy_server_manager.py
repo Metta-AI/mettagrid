@@ -1,9 +1,8 @@
+import socket
 import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
-
-import requests
 
 from mettagrid.runner.policy_server.manager import launch_local_policy_server
 
@@ -20,21 +19,22 @@ def _fake_create_policy_venv(mettagrid_version: str, requires_python: str) -> Pa
 
 
 @patch(
-    "mettagrid.runner.policy_server.manager._get_latest_pypi_info",
-    return_value=("0.0.0", ">=3.11"),
+    "mettagrid.runner.policy_server.manager._get_mettagrid_source",
+    return_value=("mettagrid==0.0.0", ">=3.11"),
 )
 @patch(
     "mettagrid.runner.policy_server.manager._create_policy_venv",
     side_effect=_fake_create_policy_venv,
 )
 class TestLaunchLocalPolicyServer:
-    def test_launch_health_and_shutdown(self, _mock_venv, _mock_pypi):
+    def test_launch_socket_and_shutdown(self, _mock_venv, _mock_pypi):
         handle = launch_local_policy_server("mock://noop", startup_timeout=15.0)
         try:
-            assert handle.port > 0
-            resp = requests.get(f"{handle.base_url}/health", timeout=5)
-            assert resp.status_code == 200
-            assert resp.json() == {"status": "ok"}
+            assert handle.socket_path is not None
+            assert handle.base_url.startswith("unix://")
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.connect(handle.socket_path)
+            sock.close()
         finally:
             handle.shutdown()
         assert handle.process.returncode is not None
@@ -47,16 +47,10 @@ class TestLaunchLocalPolicyServer:
         finally:
             handle.shutdown()
 
-    def test_read_logs_captures_errors(self, _mock_venv, _mock_pypi):
+    def test_shutdown_cleans_up_socket(self, _mock_venv, _mock_pypi):
         handle = launch_local_policy_server("mock://noop", startup_timeout=15.0)
-        try:
-            resp = requests.post(
-                f"{handle.base_url}/mettagrid.protobuf.sim.policy_v1.Policy/PreparePolicy",
-                data=b"not valid json",
-                timeout=5,
-            )
-            assert resp.status_code == 400
-            logs = handle.read_logs()
-            assert len(logs) > 0, "Expected logs to contain server output after error"
-        finally:
-            handle.shutdown()
+        socket_path = handle.socket_path
+        assert socket_path is not None
+        assert Path(socket_path).exists()
+        handle.shutdown()
+        assert not Path(socket_path).exists()
