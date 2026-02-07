@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import Literal, overload
 from urllib.parse import parse_qs, unquote, urlparse
 
-import boto3
-
 from mettagrid.policy.submission import POLICY_SPEC_FILENAME
 from mettagrid.util.module import load_symbol
 from mettagrid.util.uri_resolvers.base import (
@@ -124,6 +122,8 @@ class S3SchemeResolver(SchemeResolver):
         prefix = parsed.key
         if not prefix.endswith("/"):
             prefix = prefix + "/"
+        import boto3  # noqa: PLC0415
+
         s3_client = boto3.client("s3")
         response = s3_client.list_objects_v2(Bucket=parsed.bucket, Prefix=prefix)
         if response["KeyCount"] == 0:
