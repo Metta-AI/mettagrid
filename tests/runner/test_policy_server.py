@@ -1,7 +1,8 @@
+from unittest.mock import patch
+
 import pytest
 
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
-from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.protobuf.sim.policy_v1 import policy_pb2
 from mettagrid.runner.policy_server.server import (
     AgentNotFoundError,
@@ -10,10 +11,6 @@ from mettagrid.runner.policy_server.server import (
     UnsupportedObservationFormatError,
 )
 from mettagrid.simulator import Action, AgentObservation
-
-
-def null_env_adapter(_: policy_pb2.PreparePolicyRequest) -> PolicyEnvInterface:
-    return None  # type: ignore[return-value]
 
 
 class ConstantActionAgentPolicy(AgentPolicy):
@@ -32,11 +29,16 @@ class ConstantActionPolicy(MultiAgentPolicy):
         return ConstantActionAgentPolicy(self.action_id)
 
 
-def _make_service(action_id: int = 42) -> LocalPolicyServer:
-    return LocalPolicyServer(lambda _: ConstantActionPolicy(action_id), null_env_adapter)
+def _make_service() -> LocalPolicyServer:
+    return LocalPolicyServer("fake://policy")
 
 
-def _prepare(service: LocalPolicyServer, episode_id: str = "ep-123", agent_ids: list[int] | None = None):
+def _prepare(
+    service: LocalPolicyServer,
+    policy: MultiAgentPolicy,
+    episode_id: str = "ep-123",
+    agent_ids: list[int] | None = None,
+):
     req = policy_pb2.PreparePolicyRequest(
         episode_id=episode_id,
         game_rules=policy_pb2.GameRules(
@@ -46,12 +48,16 @@ def _prepare(service: LocalPolicyServer, episode_id: str = "ep-123", agent_ids: 
         agent_ids=agent_ids or [0],
         observations_format=policy_pb2.AgentObservations.Format.TRIPLET_V1,
     )
-    return service.prepare_policy(req)
+    with (
+        patch("mettagrid.runner.policy_server.server.policy_spec_from_uri", return_value=None),
+        patch("mettagrid.runner.policy_server.server.initialize_or_load_policy", return_value=policy),
+    ):
+        return service.prepare_policy(req)
 
 
 def test_prepare_policy():
     service = _make_service()
-    resp = _prepare(service)
+    resp = _prepare(service, ConstantActionPolicy(42))
     assert resp == policy_pb2.PreparePolicyResponse()
 
 
@@ -68,7 +74,7 @@ def test_prepare_policy_unsupported_observation_format():
 
 def test_batch_step():
     service = _make_service()
-    _prepare(service)
+    _prepare(service, ConstantActionPolicy(42))
 
     req = policy_pb2.BatchStepRequest(
         episode_id="ep-123",
@@ -95,7 +101,7 @@ def test_batch_step_unknown_episode():
 
 def test_batch_step_unknown_agent():
     service = _make_service()
-    _prepare(service, agent_ids=[0])
+    _prepare(service, ConstantActionPolicy(42), agent_ids=[0])
 
     req = policy_pb2.BatchStepRequest(
         episode_id="ep-123",

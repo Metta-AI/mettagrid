@@ -1,4 +1,5 @@
 import threading
+from unittest.mock import patch
 
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
@@ -43,23 +44,26 @@ class _ConstantPolicy(MultiAgentPolicy):
 
 def _run_ws_test(action_name: str, test_fn):
     env = _env_interface()
-    service = LocalPolicyServer(
-        lambda env_info: _ConstantPolicy(env_info, action_name),
-        lambda _: env,
-    )
-    server = WebSocketPolicyServer(service)
+    policy = _ConstantPolicy(env, action_name)
+    service = LocalPolicyServer("fake://policy")
 
-    server_thread = threading.Thread(target=server.serve, daemon=True)
-    server_thread.start()
+    with (
+        patch("mettagrid.runner.policy_server.server.policy_spec_from_uri", return_value=None),
+        patch("mettagrid.runner.policy_server.server.initialize_or_load_policy", return_value=policy),
+    ):
+        server = WebSocketPolicyServer(service)
 
-    port = server.port
-    client = WebSocketPolicyServerClient(env, url=f"ws://127.0.0.1:{port}")
+        server_thread = threading.Thread(target=server.serve, daemon=True)
+        server_thread.start()
 
-    try:
-        test_fn(client, env)
-    finally:
-        client.close()
-        server_thread.join(timeout=2)
+        port = server.port
+        client = WebSocketPolicyServerClient(env, url=f"ws://127.0.0.1:{port}")
+
+        try:
+            test_fn(client, env)
+        finally:
+            client.close()
+            server_thread.join(timeout=2)
 
 
 def test_ws_policy_step_returns_correct_action():
