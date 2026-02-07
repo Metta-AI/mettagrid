@@ -78,13 +78,8 @@ EnvInterfaceAdapter = Callable[[policy_pb2.PreparePolicyRequest], PolicyEnvInter
 
 
 class LocalPolicyServer:
-    def __init__(
-        self,
-        policy_factory: Callable[[PolicyEnvInterface], MultiAgentPolicy],
-        env_interface_adapter: EnvInterfaceAdapter,
-    ):
-        self._policy_factory = policy_factory
-        self._env_interface_adapter = env_interface_adapter
+    def __init__(self, policy_uri: str) -> None:
+        self._policy_uri = policy_uri
         self._episodes: dict[str, Episode] = {}
 
     def prepare_policy(self, req: policy_pb2.PreparePolicyRequest) -> policy_pb2.PreparePolicyResponse:
@@ -92,14 +87,19 @@ class LocalPolicyServer:
         parse_observations = OBSERVATION_PARSERS.get(req.observations_format)
         if parse_observations is None:
             raise UnsupportedObservationFormatError(req.observations_format)
-        policy_env = self._env_interface_adapter(req)
-        policy = self._policy_factory(policy_env)
+        policy_env = PolicyEnvInterface.from_proto(req.env_interface)
+        logger.info("Preparing policy for policy %s with env_interface %s", self._policy_uri, policy_env)
+        policy_spec = policy_spec_from_uri(self._policy_uri)
+        logger.info("Policy spec for policy %s: %s", self._policy_uri, policy_spec)
+        policy = initialize_or_load_policy(policy_env, policy_spec, device_override="cpu")
+        logger.info("Policy for policy %s: %s", self._policy_uri, policy)
         features = {
             f.id: ObservationFeatureSpec(id=f.id, name=f.name, normalization=f.normalization)
             for f in req.game_rules.features
         }
         actions = {a.name: a.id for a in req.game_rules.actions}
         agent_policies = {agent_id: policy.agent_policy(agent_id) for agent_id in req.agent_ids}
+        logger.info("Agent policies for policy %s: %s", self._policy_uri, agent_policies)
         episode = Episode(
             episode_id=req.episode_id,
             policy=policy,
@@ -146,12 +146,7 @@ def main(
     """Serve a policy over WebSocket."""
     from mettagrid.runner.policy_server.websocket_transport import WebSocketPolicyServer  # noqa: PLC0415
 
-    policy_spec = policy_spec_from_uri(policy)
-
-    def policy_factory(env: PolicyEnvInterface) -> MultiAgentPolicy:
-        return initialize_or_load_policy(env, policy_spec, device_override="cpu")
-
-    service = LocalPolicyServer(policy_factory, lambda req: PolicyEnvInterface.from_proto(req.env_interface))
+    service = LocalPolicyServer(policy_uri=policy)
     WebSocketPolicyServer(service, host, port, ready_file).serve()
 
 

@@ -29,6 +29,7 @@ def main() -> None:
     job = PureSingleEpisodeJob.model_validate(args["job"])
 
     env_interface = PolicyEnvInterface.from_mg_cfg(job.env)
+    # TODO: spawn these in parallel since each will need to handle its own prepare step
     policies = [WebSocketPolicyServerClient(env_interface, url=uri) for uri in job.policy_uris]
     trace_path = _setup_trace_path(job.debug_dir)
 
