@@ -94,17 +94,12 @@ class Handler(Config):
         default_factory=list,
         description="Mutations applied when handler triggers",
     )
-    radius: int = Field(
-        default=0,
-        ge=0,
-        description="AOE radius (L-infinity/Chebyshev distance). Only used for aoe handlers.",
-    )
 
 
 class AOEConfig(Handler):
     """Configuration for Area of Effect (AOE) systems.
 
-    Extends Handler with AOE-specific fields. Inherits filters, mutations, and radius.
+    Extends Handler with AOE-specific fields. Inherits filters and mutations.
 
     Supports two modes:
     - Static (is_static=True, default): Pre-computed cell registration for efficiency.

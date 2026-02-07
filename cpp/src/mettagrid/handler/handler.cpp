@@ -5,7 +5,7 @@
 
 namespace mettagrid {
 
-Handler::Handler(const HandlerConfig& config, TagIndex* tag_index) : _name(config.name), _radius(config.radius) {
+Handler::Handler(const HandlerConfig& config, TagIndex* tag_index) : _name(config.name) {
   // Create filters from config
   for (const auto& filter_config : config.filters) {
     auto filter = create_filter(filter_config, tag_index);
