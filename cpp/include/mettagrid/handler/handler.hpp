@@ -25,10 +25,13 @@ namespace mettagrid {
  *   1. Create handler with HandlerConfig
  *   2. Call try_apply() with appropriate context
  *   3. Returns true if all filters passed and mutations were applied
+ *
+ * This is a virtual base class; MultiHandler also inherits from Handler.
  */
 class Handler {
 public:
   explicit Handler(const HandlerConfig& config, TagIndex* tag_index = nullptr);
+  virtual ~Handler() = default;
 
   // Get handler name
   const std::string& name() const {
@@ -37,7 +40,7 @@ public:
 
   // Try to apply this handler with the given context
   // Returns true if all filters passed and mutations were applied
-  bool try_apply(HandlerContext& ctx);
+  virtual bool try_apply(HandlerContext& ctx);
 
   // Try to apply this handler to the given actor and target
   // Returns true if all filters passed and mutations were applied

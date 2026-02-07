@@ -33,6 +33,12 @@ enum class AlignTo {
   none               // Remove target's collective alignment
 };
 
+// Handler dispatch mode for MultiHandler
+enum class HandlerMode {
+  FirstMatch,  // Return on first handler that applies (for on_use)
+  All          // Apply all handlers that match filters (for AOE)
+};
+
 // Target for stats logging - which stats tracker to log to
 enum class StatsTarget {
   game,       // Log to game-level stats tracker

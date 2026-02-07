@@ -7,6 +7,7 @@
 #include "core/game_value_config.hpp"
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
+#include "handler/multi_handler.hpp"
 
 namespace py = pybind11;
 
@@ -52,6 +53,9 @@ inline void bind_handler_config(py::module& m) {
 
   // AlignTo enum
   py::enum_<AlignTo>(m, "AlignTo").value("actor_collective", AlignTo::actor_collective).value("none", AlignTo::none);
+
+  // HandlerMode enum
+  py::enum_<HandlerMode>(m, "HandlerMode").value("FirstMatch", HandlerMode::FirstMatch).value("All", HandlerMode::All);
 
   // StatsTarget enum
   py::enum_<StatsTarget>(m, "StatsTarget")
@@ -547,6 +551,20 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("is_static", &AOEConfig::is_static)
       .def_readwrite("effect_self", &AOEConfig::effect_self)
       .def_readwrite("presence_deltas", &AOEConfig::presence_deltas);
+
+  // Handler - single handler with filters and mutations
+  py::class_<Handler, std::shared_ptr<Handler>>(m, "Handler")
+      .def(py::init<const HandlerConfig&, TagIndex*>(), py::arg("config"), py::arg("tag_index") = nullptr)
+      .def("try_apply", py::overload_cast<HandlerContext&>(&Handler::try_apply))
+      .def_property_readonly("name", &Handler::name);
+
+  // MultiHandler - dispatches to multiple handlers
+  py::class_<MultiHandler, Handler, std::shared_ptr<MultiHandler>>(m, "MultiHandler")
+      .def(py::init<std::vector<std::shared_ptr<Handler>>, HandlerMode>(), py::arg("handlers"), py::arg("mode"))
+      .def("try_apply", &MultiHandler::try_apply)
+      .def_property_readonly("mode", &MultiHandler::mode)
+      .def("__len__", &MultiHandler::size)
+      .def("__bool__", [](const MultiHandler& m) { return !m.empty(); });
 }
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_HANDLER_BINDINGS_HPP_
