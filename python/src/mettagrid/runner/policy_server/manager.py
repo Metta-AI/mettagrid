@@ -54,7 +54,7 @@ def _create_policy_venv(mettagrid_source: str, requires_python: str) -> Path:
     return policy_dir
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class LocalPolicyServerHandle:
     port: int
     process: subprocess.Popen
