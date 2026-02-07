@@ -26,7 +26,7 @@ dependencies = [
   "gymnasium>=1.1.1",
   "importnb>=2023.11.1",
   "pettingzoo>=1.25",
-  "pufferlib-core",
+  "pufferlib-core>=3.0.16",
   "pydantic>=2.12.2",
   "protobuf>=6.31.1",
   "pyyaml>=6.0.2",
