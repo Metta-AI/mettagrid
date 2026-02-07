@@ -99,7 +99,6 @@ def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource
 
     for handler_name, handler in handlers_dict.items():
         cpp_handler = CppHandlerConfig(handler_name)
-        cpp_handler.radius = handler.radius
 
         _convert_filters(
             handler.filters,

@@ -56,12 +56,6 @@ class AlignTo(Enum):
     actor_collective = ...
     none = ...
 
-class HandlerType(Enum):
-    """Handler type enum."""
-
-    on_use = ...
-    aoe = ...
-
 class StatsTarget(Enum):
     """Stats target for StatsMutation."""
 
@@ -288,7 +282,6 @@ class HandlerConfig:
     name: str
     filters: list
     mutations: list
-    radius: int
 
     def add_alignment_filter(self, filter: AlignmentFilterConfig) -> None: ...
     def add_resource_filter(self, filter: ResourceFilterConfig) -> None: ...
@@ -317,6 +310,7 @@ class AOEConfig(HandlerConfig):
     """AOE configuration inheriting filters/mutations from HandlerConfig."""
 
     def __init__(self) -> None: ...
+    radius: int
     is_static: bool
     effect_self: bool
     presence_deltas: list[ResourceDelta]

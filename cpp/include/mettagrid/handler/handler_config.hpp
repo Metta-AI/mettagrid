@@ -33,12 +33,6 @@ enum class AlignTo {
   none               // Remove target's collective alignment
 };
 
-// Handler types
-enum class HandlerType {
-  on_use,  // Triggered when agent uses/activates the object
-  aoe      // Triggered per-tick for objects within radius
-};
-
 // Target for stats logging - which stats tracker to log to
 enum class StatsTarget {
   game,       // Log to game-level stats tracker
@@ -205,9 +199,6 @@ struct HandlerConfig {
   std::vector<FilterConfig> filters;      // All must pass for handler to trigger
   std::vector<MutationConfig> mutations;  // Applied sequentially if filters pass
 
-  // AOE-specific fields (only used for aoe handlers)
-  int radius = 0;  // L-infinity (Chebyshev) distance for AOE
-
   HandlerConfig() = default;
   explicit HandlerConfig(const std::string& handler_name) : name(handler_name) {}
 };
@@ -237,16 +228,13 @@ struct ResourceDelta {
  * the affected object.
  */
 struct AOEConfig : public HandlerConfig {
+  int radius = 1;            // L-infinity (Chebyshev) distance for AOE
   bool is_static = true;     // true = fixed (default), false = mobile (for agents)
   bool effect_self = false;  // Whether source is affected by its own AOE
 
   // One-time resource changes when target enters/exits AOE
   // Enter: apply +delta, Exit: apply -delta
   std::vector<ResourceDelta> presence_deltas;
-
-  AOEConfig() {
-    radius = 1;  // Override default radius for AOE
-  }
 };
 
 // ============================================================================

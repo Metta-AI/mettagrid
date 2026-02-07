@@ -53,9 +53,6 @@ inline void bind_handler_config(py::module& m) {
   // AlignTo enum
   py::enum_<AlignTo>(m, "AlignTo").value("actor_collective", AlignTo::actor_collective).value("none", AlignTo::none);
 
-  // HandlerType enum
-  py::enum_<HandlerType>(m, "HandlerType").value("on_use", HandlerType::on_use).value("aoe", HandlerType::aoe);
-
   // StatsTarget enum
   py::enum_<StatsTarget>(m, "StatsTarget")
       .value("game", StatsTarget::game)
@@ -454,7 +451,6 @@ inline void bind_handler_config(py::module& m) {
       .def(py::init<>())
       .def(py::init<const std::string&>(), py::arg("name"))
       .def_readwrite("name", &HandlerConfig::name)
-      .def_readwrite("radius", &HandlerConfig::radius)
       // Add filter methods - each type wraps into the variant
       .def(
           "add_vibe_filter",
@@ -547,6 +543,7 @@ inline void bind_handler_config(py::module& m) {
   // AOEConfig inherits from HandlerConfig - filter/mutation methods are inherited
   py::class_<AOEConfig, HandlerConfig, std::shared_ptr<AOEConfig>>(m, "AOEConfig")
       .def(py::init<>())
+      .def_readwrite("radius", &AOEConfig::radius)
       .def_readwrite("is_static", &AOEConfig::is_static)
       .def_readwrite("effect_self", &AOEConfig::effect_self)
       .def_readwrite("presence_deltas", &AOEConfig::presence_deltas);

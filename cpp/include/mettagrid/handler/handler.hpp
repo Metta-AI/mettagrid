@@ -35,11 +35,6 @@ public:
     return _name;
   }
 
-  // Get AOE radius (0 for non-AOE handlers)
-  int radius() const {
-    return _radius;
-  }
-
   // Try to apply this handler with the given context
   // Returns true if all filters passed and mutations were applied
   bool try_apply(HandlerContext& ctx);
@@ -56,7 +51,6 @@ public:
 
 private:
   std::string _name;
-  int _radius = 0;  // AOE radius (0 for non-AOE handlers)
   std::vector<std::unique_ptr<Filter>> _filters;
   std::vector<std::unique_ptr<Mutation>> _mutations;
 };
