@@ -112,20 +112,21 @@ def test_len(cache):
 
 
 def test_seed(cache):
-    assert len(cache) == 0
-
     config = RandomMapBuilder.Config(width=4, height=4, agents=1, seed=42)
+    key = cache._make_key(config, num_agents=1)
+    assert len(_map_cache_module._load_registry().get(key, [])) == 0
 
     cache.get_or_create(config, num_agents=1)
-    assert len(cache) == 1
+    assert len(_map_cache_module._load_registry().get(key, [])) == 1
 
     cache.get_or_create(config, num_agents=1)
-    assert len(cache) == 1
+    assert len(_map_cache_module._load_registry().get(key, [])) == 1
 
     config.seed = None
 
     cache.get_or_create(config, num_agents=1)
-    assert len(cache) == 2
+    key_without_seed = cache._make_key(config, num_agents=1)
+    assert len(_map_cache_module._load_registry().get(key_without_seed, [])) == 1
 
     ## test that without seed it will produce a new map - TODO, I think map cache behavior is broken here
     # cache.get_or_create(config, num_agents=1)
