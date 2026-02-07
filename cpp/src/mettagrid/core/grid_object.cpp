@@ -7,9 +7,15 @@
 #include "core/tag_index.hpp"
 #include "handler/handler.hpp"
 #include "handler/handler_context.hpp"
+#include "handler/multi_handler.hpp"
 #include "objects/agent.hpp"
 #include "objects/collective.hpp"
 #include "systems/observation_encoder.hpp"
+
+// Constructor and destructor must be defined here where Handler is a complete type
+GridObject::GridObject(const InventoryConfig& inv_config) : HasInventory(inv_config) {}
+
+GridObject::~GridObject() = default;
 
 void GridObject::init(TypeId object_type_id,
                       const std::string& object_type_name,
@@ -25,16 +31,16 @@ void GridObject::init(TypeId object_type_id,
   this->vibe = object_vibe;
 }
 
-void GridObject::set_on_use_handlers(std::vector<std::shared_ptr<mettagrid::Handler>> handlers) {
-  _on_use_handlers = std::move(handlers);
+void GridObject::set_on_use_handler(std::shared_ptr<mettagrid::Handler> handler) {
+  _on_use_handler = std::move(handler);
 }
 
 void GridObject::set_aoe_configs(std::vector<mettagrid::AOEConfig> configs) {
   _aoe_configs = std::move(configs);
 }
 
-bool GridObject::has_on_use_handlers() const {
-  return !_on_use_handlers.empty();
+bool GridObject::has_on_use_handler() const {
+  return _on_use_handler != nullptr;
 }
 
 const std::vector<mettagrid::AOEConfig>& GridObject::aoe_configs() const {
@@ -42,15 +48,12 @@ const std::vector<mettagrid::AOEConfig>& GridObject::aoe_configs() const {
 }
 
 bool GridObject::onUse(Agent& actor, ActionArg /*arg*/) {
+  if (!_on_use_handler) {
+    return false;
+  }
   mettagrid::HandlerContext ctx(&actor, this, nullptr, _tag_index);
   ctx.grid = _grid;
-  // Try each on_use handler in order until one succeeds
-  for (auto& handler : _on_use_handlers) {
-    if (handler->try_apply(ctx)) {
-      return true;
-    }
-  }
-  return false;
+  return _on_use_handler->try_apply(ctx);
 }
 
 bool GridObject::has_tag(int tag_id) const {

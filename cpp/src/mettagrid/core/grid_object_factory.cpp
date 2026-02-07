@@ -7,6 +7,7 @@
 
 #include "core/grid.hpp"
 #include "handler/handler.hpp"
+#include "handler/multi_handler.hpp"
 #include "objects/agent.hpp"
 #include "objects/agent_config.hpp"
 #include "objects/alignable.hpp"
@@ -18,16 +19,8 @@
 namespace mettagrid {
 
 // Set up handlers on a GridObject from its config
-static void _set_up_handlers(GridObject* obj, const GridObjectConfig* config, TagIndex* tag_index) {
-  // on_use handlers
-  std::vector<std::shared_ptr<Handler>> on_use_handlers;
-  on_use_handlers.reserve(config->on_use_handlers.size());
-  for (const auto& handler_config : config->on_use_handlers) {
-    on_use_handlers.push_back(std::make_shared<Handler>(handler_config, tag_index));
-  }
-  obj->set_on_use_handlers(std::move(on_use_handlers));
-
-  // AOE configs - just copy them, AOETracker will instantiate filters/mutations
+static void _set_up_handlers(GridObject* obj, const GridObjectConfig* config, [[maybe_unused]] TagIndex* tag_index) {
+  obj->set_on_use_handler(config->on_use_handler);
   obj->set_aoe_configs(config->aoe_configs);
 
   // on_tick handlers (agent-only)

@@ -27,10 +27,13 @@ from mettagrid.mettagrid_c import GameConfig as CppGameConfig
 from mettagrid.mettagrid_c import GameValueFilterConfig as CppGameValueFilterConfig
 from mettagrid.mettagrid_c import GlobalObsConfig as CppGlobalObsConfig
 from mettagrid.mettagrid_c import GridObjectConfig as CppGridObjectConfig
+from mettagrid.mettagrid_c import Handler as CppHandler
 from mettagrid.mettagrid_c import HandlerConfig as CppHandlerConfig
+from mettagrid.mettagrid_c import HandlerMode as CppHandlerMode
 from mettagrid.mettagrid_c import InventoryConfig as CppInventoryConfig
 from mettagrid.mettagrid_c import LimitDef as CppLimitDef
 from mettagrid.mettagrid_c import MoveActionConfig as CppMoveActionConfig
+from mettagrid.mettagrid_c import MultiHandler as CppMultiHandler
 from mettagrid.mettagrid_c import NearFilterConfig as CppNearFilterConfig
 from mettagrid.mettagrid_c import NegFilterConfig as CppNegFilterConfig
 from mettagrid.mettagrid_c import ObsValueConfig as CppObsValueConfig
@@ -121,6 +124,39 @@ def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource
         cpp_handlers.append(cpp_handler)
 
     return cpp_handlers
+
+
+def _create_on_use_handler(
+    handlers_dict, resource_name_to_id, limit_name_to_resource_ids, vibe_name_to_id, tag_name_to_id
+):
+    """Create a single Handler (or MultiHandler) from Python Handler dict.
+
+    This creates actual C++ Handler objects, not just configs. The handlers are wrapped
+    in a MultiHandler with FirstMatch mode (first matching handler's mutations are applied).
+
+    Args:
+        handlers_dict: Dict mapping handler name to Handler config
+        resource_name_to_id: Dict mapping resource names to IDs
+        limit_name_to_resource_ids: Dict mapping limit names to lists of resource IDs
+        vibe_name_to_id: Dict mapping vibe names to IDs
+        tag_name_to_id: Dict mapping tag names to IDs
+
+    Returns:
+        A single Handler (possibly a MultiHandler wrapping multiple handlers), or None if empty
+    """
+    if not handlers_dict:
+        return None
+
+    # Convert to HandlerConfig objects first
+    handler_configs = _convert_handlers(
+        handlers_dict, resource_name_to_id, limit_name_to_resource_ids, vibe_name_to_id, tag_name_to_id
+    )
+
+    # Create Handler objects from configs
+    handlers = [CppHandler(config) for config in handler_configs]
+
+    # Wrap in MultiHandler with FirstMatch mode
+    return CppMultiHandler(handlers, CppHandlerMode.FirstMatch)
 
 
 def _add_filter_to_target(cpp_filter, cpp_target, filter_type):
@@ -961,9 +997,9 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             if object_config.collective and object_config.collective in collective_name_to_id:
                 cpp_config.collective_id = collective_name_to_id[object_config.collective]
 
-            # Convert the three handler types
+            # Convert the on_use handler - create actual Handler objects in Python
             if object_config.on_use_handlers:
-                cpp_config.on_use_handlers = _convert_handlers(
+                cpp_config.on_use_handler = _create_on_use_handler(
                     object_config.on_use_handlers,
                     resource_name_to_id,
                     limit_name_to_resource_ids,

@@ -58,6 +58,11 @@ public:
   }
 };
 
+// Forward declarations for GridObjectConfig
+namespace mettagrid {
+class Handler;
+}  // namespace mettagrid
+
 struct GridObjectConfig {
   TypeId type_id;
   std::string type_name;
@@ -71,7 +76,7 @@ struct GridObjectConfig {
   // Two types of handlers on GridObject:
   // - on_use: Triggered when agent uses/activates this object (context: actor=agent, target=this)
   // - aoe: Triggered per-tick for objects within radius (context: actor=this, target=affected)
-  std::vector<mettagrid::HandlerConfig> on_use_handlers;
+  std::shared_ptr<mettagrid::Handler> on_use_handler;  // Handler created by Python
   std::vector<mettagrid::AOEConfig> aoe_configs;
 
   GridObjectConfig(TypeId type_id, const std::string& type_name, ObservationType initial_vibe = 0)
@@ -81,15 +86,14 @@ struct GridObjectConfig {
         tag_ids({}),
         initial_vibe(initial_vibe),
         inventory_config(),
-        on_use_handlers(),
+        on_use_handler(nullptr),
         aoe_configs() {}
 
   virtual ~GridObjectConfig() = default;
 };
 
-// Forward declarations
+// Forward declaration for GridObject
 namespace mettagrid {
-class Handler;
 class TagIndex;
 }  // namespace mettagrid
 
@@ -104,9 +108,9 @@ public:
   std::set<int> tag_ids;
 
   // Constructor with optional inventory config (defaults to empty)
-  explicit GridObject(const InventoryConfig& inv_config = InventoryConfig()) : HasInventory(inv_config) {}
+  explicit GridObject(const InventoryConfig& inv_config = InventoryConfig());
 
-  ~GridObject() override = default;
+  ~GridObject() override;
 
   void init(TypeId object_type_id,
             const std::string& object_type_name,
@@ -115,12 +119,12 @@ public:
             ObservationType object_vibe = 0,
             const std::string& object_name = "");
 
-  // Set handlers for each type
-  void set_on_use_handlers(std::vector<std::shared_ptr<mettagrid::Handler>> handlers);
+  // Set handler for on_use events (takes shared_ptr for Python interop)
+  void set_on_use_handler(std::shared_ptr<mettagrid::Handler> handler);
   void set_aoe_configs(std::vector<mettagrid::AOEConfig> configs);
 
-  // Check if this object has any handlers of each type
-  bool has_on_use_handlers() const;
+  // Check if this object has an on_use handler
+  bool has_on_use_handler() const;
 
   // Get AOE configs for AOE processing
   const std::vector<mettagrid::AOEConfig>& aoe_configs() const;
@@ -160,7 +164,7 @@ public:
   }
 
 protected:
-  std::vector<std::shared_ptr<mettagrid::Handler>> _on_use_handlers;
+  std::shared_ptr<mettagrid::Handler> _on_use_handler;
   std::vector<mettagrid::AOEConfig> _aoe_configs;
   class Grid* _grid = nullptr;
 

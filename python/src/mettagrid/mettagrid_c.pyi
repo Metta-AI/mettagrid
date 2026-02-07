@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import NotRequired, Optional, TypeAlias, TypedDict
+from typing import Any, NotRequired, Optional, TypeAlias, TypedDict
 
 import numpy as np
 
@@ -55,6 +55,12 @@ class AlignTo(Enum):
 
     actor_collective = ...
     none = ...
+
+class HandlerMode(Enum):
+    """Handler dispatch mode for MultiHandler."""
+
+    FirstMatch = ...
+    All = ...
 
 class StatsTarget(Enum):
     """Stats target for StatsMutation."""
@@ -325,6 +331,30 @@ class EventConfig(HandlerConfig):
     max_targets: int
     fallback: str
 
+# Handler classes
+
+class Handler:
+    """Single handler with filters and mutations."""
+
+    def __init__(self, config: HandlerConfig, tag_index: Any = None) -> None: ...
+
+    @property
+    def name(self) -> str: ...
+
+    def try_apply(self, ctx: Any) -> bool: ...
+
+class MultiHandler(Handler):
+    """Dispatches to multiple handlers with configurable mode."""
+
+    def __init__(self, handlers: list[Handler], mode: HandlerMode) -> None: ...
+
+    @property
+    def mode(self) -> HandlerMode: ...
+
+    def try_apply(self, ctx: Any) -> bool: ...
+    def __len__(self) -> int: ...
+    def __bool__(self) -> bool: ...
+
 # Data types exported from C++
 dtype_observations: np.dtype
 dtype_terminals: np.dtype
@@ -392,7 +422,7 @@ class GridObjectConfig:
     tag_ids: list[int]
     initial_vibe: int
     collective_id: int
-    on_use_handlers: list[HandlerConfig]
+    on_use_handler: Handler | None
     aoe_configs: list[AOEConfig]
     initial_inventory: dict[int, int]
     inventory_config: InventoryConfig
