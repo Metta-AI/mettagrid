@@ -87,7 +87,7 @@ class LocalPolicyServerHandle:
 def launch_local_policy_server(
     policy_uri: str,
     *,
-    startup_timeout: float = 30.0,
+    startup_timeout: float = 300.0,
 ) -> LocalPolicyServerHandle:
     """Launch a local policy server subprocess using WebSocket."""
     ready_file_fd = tempfile.NamedTemporaryFile(suffix=".ready", delete=False)
@@ -99,9 +99,17 @@ def launch_local_policy_server(
 
     if os.environ.get("EPISODE_RUNNER_USE_ISOLATED_VENVS") != "0":
         mettagrid_source, requires_python = _get_mettagrid_source()
+        logger.info(
+            "Creating policy server venv with mettagrid source %s and requires_python %s for policy %s",
+            mettagrid_source,
+            requires_python,
+            policy_uri,
+        )
         venv_dir = _create_policy_venv(mettagrid_source, requires_python)
+        logger.info("Policy server venv created at %s for policy %s", venv_dir, policy_uri)
         python = str(venv_dir / ".venv" / "bin" / "python")
     else:
+        logger.info("Using system Python for policy server for policy %s", policy_uri)
         python = sys.executable
         venv_dir = None
 
@@ -119,6 +127,7 @@ def launch_local_policy_server(
         str(ready_file_path),
     ]
 
+    logger.info("Launching policy server for policy %s with command %s", policy_uri, cmd)
     process = subprocess.Popen(
         cmd,
         stdout=log_file,
@@ -128,10 +137,11 @@ def launch_local_policy_server(
     log_path = Path(log_file.name)
 
     deadline = time.monotonic() + startup_timeout
+    logger.info("Waiting for policy server to become ready for policy %s with deadline %s", policy_uri, deadline)
     _wait_for_ready_file(ready_file_path, process, log_path, deadline)
 
     port = int(ready_file_path.read_text().strip())
-    logger.info("Policy server for %s ready on ws://127.0.0.1:%d (pid %d)", policy_uri, port, process.pid)
+    logger.info("Policy server for policy %s ready on ws://127.0.0.1:%d (pid %d)", policy_uri, port, process.pid)
     return LocalPolicyServerHandle(
         port=port,
         process=process,

@@ -16,6 +16,8 @@ from mettagrid.simulator import Action, AgentObservation
 
 logger = logging.getLogger(__name__)
 
+PREPARE_TIMEOUT = 300.0
+
 
 class PolicyStepError(Exception):
     pass
@@ -92,7 +94,8 @@ class WebSocketPolicyServer:
 class WebSocketPolicyServerClient(MultiAgentPolicy):
     def __init__(self, policy_env_info: PolicyEnvInterface, *, url: str):
         super().__init__(policy_env_info)
-        self._ws = ws_connect(url)
+        self._url = url
+        self._ws = ws_connect(url, open_timeout=PREPARE_TIMEOUT)
         self._agents: dict[int, WebSocketPolicyServerAgentClient] = {}
         self._prepare(list(range(policy_env_info.num_agents)))
 
@@ -114,8 +117,11 @@ class WebSocketPolicyServerClient(MultiAgentPolicy):
             observations_format=policy_pb2.AgentObservations.Format.TRIPLET_V1,
             env_interface=self._policy_env_info.to_proto(),
         )
+        logger.info("Sending prepare policy request to policy server for %s", self._url)
         self._ws.send(json_format.MessageToJson(req))
-        self._ws.recv()
+        logger.info("Waiting for prepare policy response from policy server for %s", self._url)
+        self._ws.recv(timeout=PREPARE_TIMEOUT)
+        logger.info("Received prepare policy response from policy server for %s", self._url)
 
     def step_agent(self, agent_id: int, obs_bytes: bytes) -> int:
         self._ws.send(struct.pack("<i", agent_id) + obs_bytes)
