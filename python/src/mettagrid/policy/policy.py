@@ -1,14 +1,17 @@
 """Base policy classes and interfaces."""
 
+from __future__ import annotations
+
 import ctypes
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, Generic, Optional, Sequence, Tuple, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, Optional, Sequence, Tuple, TypeVar, cast
 
 import numpy as np
-import torch
-import torch.nn as nn
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    import torch.nn as nn
 
 from mettagrid.mettagrid_c import dtype_observations
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
@@ -263,6 +266,8 @@ class StatefulAgentPolicy(AgentPolicy, Generic[StateType]):
             self._initialize_state(self._simulation)
         if hasattr(self._base_policy, "set_active_agent"):
             self._base_policy.set_active_agent(self._agent_id)
+        import torch  # noqa: PLC0415
+
         with torch.no_grad():
             action, self._state = self._base_policy.step_with_state(
                 obs,

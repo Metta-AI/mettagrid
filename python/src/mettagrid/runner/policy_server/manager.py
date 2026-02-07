@@ -48,7 +48,7 @@ def _create_policy_venv(mettagrid_source: str, requires_python: str) -> Path:
     venv_python = venv_path / "bin" / "python"
     subprocess.run(["uv", "venv", str(venv_path), "--python", requires_python], check=True)
     subprocess.run(
-        ["uv", "pip", "install", "--python", str(venv_python), mettagrid_source, "torch"],
+        ["uv", "pip", "install", "--python", str(venv_python), mettagrid_source],
         check=True,
     )
     return policy_dir
