@@ -63,6 +63,9 @@ class LocalPolicyServerHandle:
     _ready_file_path: Path | None = None
     _venv_dir: Path | None = None
 
+    def __hash__(self) -> int:
+        return hash((self.port, self.policy_uri))
+
     def shutdown(self) -> None:
         self.process.terminate()
         try:
@@ -175,6 +178,7 @@ def _wait_for_ready_file(ready_file: Path, process: subprocess.Popen, log_path: 
         if ready_file.exists() and ready_file.read_text().strip():
             return
         time.sleep(_HEALTH_POLL_INTERVAL)
+    log_tail = _read_log_tail(log_path)
     process.kill()
     process.wait()
-    raise TimeoutError("Policy server did not become ready in time")
+    raise TimeoutError(f"Policy server did not become ready in time.\noutput:\n{log_tail}")
