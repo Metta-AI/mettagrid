@@ -121,7 +121,10 @@ def main() -> None:
             sys.exit(128 + signal.SIGTERM)
 
         if debug_dir:
-            signal.signal(signal.SIGTERM, sigterm_handler)
+            try:
+                signal.signal(signal.SIGTERM, sigterm_handler)
+            except ValueError:
+                pass  # Not in main thread of the main interpreter
 
         try:
             t_episode = time.monotonic()
