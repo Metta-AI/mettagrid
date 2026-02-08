@@ -67,11 +67,12 @@ def _spawn_policy_servers(
     except Exception:
         for f in futures:
             f.cancel()
-        all_handles = set(servers)
+        all_handles: dict[int, LocalPolicyServerHandle] = {id(h): h for h in servers}
         for f in futures:
             if f.done() and not f.cancelled() and f.exception() is None:
-                all_handles.add(f.result())
-        for h in all_handles:
+                h = f.result()
+                all_handles[id(h)] = h
+        for h in all_handles.values():
             try:
                 h.shutdown()
             except Exception:
