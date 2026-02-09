@@ -288,6 +288,8 @@ proc rebuildAoeMap*(aoeMap: TileMap, collectiveId: int) =
   # Process objects if this collective is enabled
   if isEnabled:
     for obj in replay.objects:
+      if not obj.alive.at:
+        continue
       markAoeCoverage(obj)
 
   # Also show selected object's AoE regardless of filter (if it matches this map)
@@ -535,11 +537,14 @@ proc drawObjects*() =
   # Sort: lower Y first (farther away, drawn behind), buildings before agents
   # at same Y, then by object ID ascending.
 
-  # Collect non-wall objects into a sortable list.
+  # Collect non-wall, alive objects into a sortable list.
   var objects = newSeqOfCap[Entity](replay.objects.len)
   for obj in replay.objects:
-    if obj.typeName != "wall":
-      objects.add(obj)
+    if obj.typeName == "wall":
+      continue
+    if not obj.alive.at:
+      continue
+    objects.add(obj)
 
   # Sort for painter's algorithm draw order.
   objects.sort(proc(a, b: Entity): int =
@@ -807,6 +812,8 @@ proc drawObjectPips*() =
   ## Draw the pips for the objects on the minimap using the mini pixelator.
   for obj in replay.objects:
     if obj.typeName == "wall":
+      continue
+    if not obj.alive.at:
       continue
     var pipName = "minimap/" & obj.typeName
     if pipName notin pxMini:

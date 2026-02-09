@@ -71,6 +71,7 @@ var
 
   settings* = Settings()
   selection*: Entity
+  activeCollective*: int = 1  ## Currently active faction (0 = Clips, 1 = Cogs). Defaults to Cogs.
 
   step*: int = 0
   stepFloat*: float32 = 0

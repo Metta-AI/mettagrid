@@ -1,4 +1,4 @@
-## Replay format specification (versions 3-4)
+## Replay format specification (versions 4)
 
 MettaScope uses a custom replay format to store the replay data. The replay is a zlib compressed json file with
 `.json.z` extension.
@@ -16,7 +16,7 @@ json_data = json.loads(decompressed_data)
 In JavaScript it's a bit more complicated, but you can use the `decompressStream` with a streaming API.
 
 The first key in the format is `version`, which is a number that contains the version of the replay format. Valid values
-are `1`, `2`, `3`, `4`. This document describes versions 3-4.
+are `1`, `2`, `3`, `4`. This document describes versions 4.
 
 ```json
 {
@@ -95,6 +95,7 @@ can be a number, boolean, or a list of numbers.
 ```json
 {
   "id": 99,
+  "alive": [[0, true], [100, false]],
   "type_name": "agent",
   "agent_id": 0,
   "rotation": [[0, 1], [10, 2], [20, 3]],
@@ -104,11 +105,12 @@ can be a number, boolean, or a list of numbers.
 }
 ```
 
-In this example, the agent `type_name` is `"agent"`, which must appear in the `type_names` array. Legacy files might
-also include a numeric `type_id`; when present it maps into `type_names[type_id]`. The mapping between entries and names
-can change between replays. The `id` is a constant as well. All objects have IDs. The `agent_id` is a constant as well.
-Note there are two IDs, one for the object and one for the agent. Agents have two IDs. The `rotation` is a time series
-of values. The rotation is 1 at step 0, 2 at step 10, and 3 at step 20.
+Alive represents whether the object is alive or not. It starts out alive on step 0 and then dies at step 100. In this
+example, the agent `type_name` is `"agent"`, which must appear in the `type_names` array. Legacy files might also
+include a numeric `type_id`; when present it maps into `type_names[type_id]`. The mapping between entries and names can
+change between replays. The `id` is a constant as well. All objects have IDs. The `agent_id` is a constant as well. Note
+there are two IDs, one for the object and one for the agent. Agents have two IDs. The `rotation` is a time series of
+values. The rotation is 1 at step 0, 2 at step 10, and 3 at step 20.
 
 Here is the expanded version of the `rotation` key:
 
@@ -134,6 +136,9 @@ As another example, if the `rotation` key was always 1, it could also be stored 
 Here are the keys supported for both agents and objects:
 
 - `id` - The id of the object.
+- `alive` - Boolean time series indicating whether the object is alive. When an object is removed from the simulation
+  (e.g., a depleted extractor), `alive` transitions to `false`. Objects can become alive again if they reappear.
+  Defaults to `true` if missing. Example: `[[0, true], [100, false]]` means alive from step 0, removed at step 100.
 - `type_name` - The type of the object; its value must be present in the `type_names` array. Legacy data may include a
   numeric `type_id` as an additional field mapping into the same array.
 - `location` - The [x, y] location of the object (sometimes called the column and row).
@@ -172,46 +177,9 @@ Agent specific keys:
 - `frozen_time` - How many steps does it take to unfreeze the agent.
 - `group_id` - The id of the group the object belongs to.
 
-Hub specific keys:
-
-- `protocols` - Array of protocol objects that define what the hub can do. Each protocol contains:
-  - `minAgents`: Minimum number of agents required to activate this protocol
-  - `vibes`: Array of required vibe IDs that agents must have to participate
-  - `inputs`: Array of `[item_id, count]` pairs required as input
-  - `outputs`: Array of `[item_id, count]` pairs produced as output
-  - `cooldown`: Number of steps the hub must wait after using this protocol
-- `current_recipe_id` - Index into the `protocols` array indicating which protocol is currently active.
-- `cooldown_remaining` - Time series of remaining cooldown steps before the hub can be used again.
-- `cooldown_duration` - Total cooldown time in steps.
-- `uses_count` - Time series of how many times the hub has been used.
-- `max_uses` - Maximum number of times the hub can be used before exhaustion.
-- `allow_partial_usage` - Boolean indicating if partial usage is allowed.
-- `exhaustion` - Time series boolean indicating if the hub is exhausted.
-- `cooldown_multiplier` - Time series float multiplier applied to cooldown duration.
-
 Keys are allowed to be missing. If a key is missing, missing keys are always 0, false, or []. Extra keys are ignored but
 can be used by later implementations. If a time series starts from some other step like 100, then the first 99 steps are
 just the default value.
-
-## Reward sharing matrix
-
-The reward sharing matrix is a constant that stores the reward sharing between agents. It is a two-dimensional array of
-numbers. The first dimension is the agent_id taking the action and the second dimension is the agent_id receiving the
-reward. If you look closer, in this 4x4 matrix you can see that there are two groups sharing 10% of reward with each
-other; agents don't share reward with themselves.
-
-```json
-{
-  ...
-  "reward_sharing_matrix": [
-    [0.0, 0.1, 0.0, 0.0],
-    [0.1, 0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0, 0.1],
-    [0.0, 0.0, 0.1, 0.0],
-  ]
-  ...
-}
-```
 
 ## Version 4 additions
 
