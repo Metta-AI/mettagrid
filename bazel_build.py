@@ -52,12 +52,12 @@ def _cleanup_nimby_lock() -> None:
     shutil.rmtree(_NIMBY_LOCK, ignore_errors=True)
 
 
-def cmd(args: list[str], *, cwd: Path, max_attempts: int = 1) -> None:
+def cmd(args: list[str], *, cwd: Path, max_attempts: int = 1, env: dict | None = None) -> None:
     for attempt in range(1, max_attempts + 1):
         if args[0] == "nimby":
             _cleanup_nimby_lock()
         print(f"Running: {args}")
-        result = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+        result = subprocess.run(args, cwd=cwd, capture_output=True, text=True, env=env)
         print(result.stderr, file=sys.stderr)
         print(result.stdout, file=sys.stderr)
 
@@ -109,7 +109,7 @@ def _run_bazel_build() -> None:
     Path(output_user_root).mkdir(parents=True, exist_ok=True)
 
     # Build the Python extension with auto-detected parallelism
-    cmd = [
+    bazel_cmd = [
         "bazel",
         "--batch",
         f"--output_user_root={output_user_root}",
@@ -120,15 +120,8 @@ def _run_bazel_build() -> None:
         "//cpp:mettagrid_c",  # Build from new cpp location
     ]
 
-    print(f"Running Bazel build: {' '.join(cmd)}")
-    result = subprocess.run(cmd, cwd=PROJECT_ROOT, capture_output=True, text=True, env=env)
-
-    if result.returncode != 0:
-        print("Bazel build failed. STDERR:", file=sys.stderr)
-        print(result.stderr, file=sys.stderr)
-        print("Bazel build STDOUT:", file=sys.stderr)
-        print(result.stdout, file=sys.stderr)
-        raise RuntimeError("Bazel build failed")
+    print(f"Running Bazel build: {' '.join(bazel_cmd)}")
+    cmd(bazel_cmd, cwd=PROJECT_ROOT, max_attempts=3, env=env)
 
     # Copy the built extension to the package directory
     bazel_bin = PROJECT_ROOT / "bazel-bin"
