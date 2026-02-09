@@ -723,6 +723,10 @@ proc validateObject*(obj: JsonNode, objIndex: int, replayData: JsonNode, issues:
   validateTimeSeries(obj, "inventory_max", objName & ".inventory_max", "int", issues)
   validateTimeSeries(obj, "color", objName & ".color", "int", issues)
 
+  # Validate alive field (optional bool time series, defaults to true).
+  if "alive" in obj:
+    validateTimeSeries(obj, "alive", objName & ".alive", "bool", issues)
+
   # Validate specific object types.
   if obj.getOrDefault("is_agent").getBool() or "agent_id" in obj:
     validateAgentFields(obj, objName, replayData, issues)

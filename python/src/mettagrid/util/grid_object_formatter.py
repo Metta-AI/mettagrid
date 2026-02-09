@@ -9,6 +9,7 @@ def format_grid_object_base(grid_object: dict) -> dict:
     """Format the base properties common to all grid objects."""
     update_object = {}
     update_object["id"] = grid_object["id"]
+    update_object["alive"] = True
     update_object["type_name"] = grid_object["type_name"]
     update_object["location"] = grid_object["location"]
     # Note, orientation no longer exists. It might in (old) replays, but we should be able to deprecate this.

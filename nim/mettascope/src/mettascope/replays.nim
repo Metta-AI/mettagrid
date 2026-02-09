@@ -85,6 +85,9 @@ type
     cooldownProgress*: seq[int]
     cooldownTime*: int
 
+    # Lifecycle fields.
+    alive*: seq[bool]  ## Whether the object is alive at each step (default: true).
+
     # Hub specific keys.
     cooldownRemaining*: seq[int]
     cooldownDuration*: int
@@ -171,6 +174,9 @@ type
     productionTime*: int
     cooldownProgress*: int
     cooldownTime*: int
+
+    # Lifecycle fields.
+    alive*: bool = true  ## Whether the object is alive this step.
 
     # Hub specific keys.
     cooldownRemaining*: int
@@ -717,6 +723,17 @@ proc convertReplayV3ToV4*(replayData: JsonNode): JsonNode =
   if "collective_inventory" notin data:
     data["collective_inventory"] = newJArray()
 
+  # Add alive=[[0, true]] to all objects that don't have it.
+  if "objects" in data and data["objects"].kind == JArray:
+    for obj in data["objects"].getElems():
+      if obj.kind == JObject and "alive" notin obj:
+        var entry = newJArray()
+        entry.add(newJInt(0))
+        entry.add(newJBool(true))
+        var aliveSeries = newJArray()
+        aliveSeries.add(entry)
+        obj["alive"] = aliveSeries
+
   return data
 
 proc loadReplayString*(jsonData: string, fileName: string): Replay =
@@ -883,6 +900,16 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
       else:
         entity.cooldownTime = 0
 
+    # Also read cooldown_duration for converters (overlaps with hub field).
+    if "cooldown_duration" in obj and entity.cooldownDuration == 0:
+      entity.cooldownDuration = getInt(obj, "cooldown_duration", 0)
+
+    # Lifecycle: alive flag (defaults to true for backwards compatibility).
+    if "alive" in obj:
+      entity.alive = expand[bool](obj["alive"], replay.maxSteps, true)
+    else:
+      entity.alive = @[true]
+
     if "protocols" in obj:
       entity.protocols = fromJson($(obj["protocols"]), seq[Protocol])
 
@@ -979,12 +1006,36 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) =
     entity.cooldownProgress.add(obj.cooldownProgress)
     entity.cooldownTime = obj.cooldownTime
 
+    entity.alive.add(obj.alive)
+
     entity.cooldownRemaining.add(obj.cooldownRemaining)
     entity.cooldownDuration = obj.cooldownDuration
     entity.usesCount.add(obj.usesCount)
     entity.maxUses = obj.maxUses
     entity.allowPartialUsage = obj.allowPartialUsage
     entity.protocols = obj.protocols
+
+  # Mark objects as dead if they existed before but weren't in this step.
+  if replay.objects.len > 0:
+    var seenIds = newSeq[bool](replay.objects.len)
+    for obj in objects:
+      let index = obj.id - 1
+      if index < seenIds.len:
+        seenIds[index] = true
+    for i in 0 ..< replay.objects.len:
+      let entity = replay.objects[i]
+      if entity.alive.len > 0 and not seenIds[i]:
+        # Static types like "wall" are only sent on step 0 by the Python
+        # renderer (ignore_types = ["wall"]).  Their absence in later steps
+        # does NOT mean they died, so skip them.
+        if entity.typeName == "wall":
+          continue
+        # Object was not in this step - mark as dead if currently alive.
+        if entity.alive[^1]:
+          entity.alive.add(false)
+        else:
+          # Already dead, just extend the series.
+          entity.alive.add(false)
 
   # Extend the max steps.
   replay.maxSteps = max(replay.maxSteps, step + 1)

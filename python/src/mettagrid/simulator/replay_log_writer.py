@@ -159,13 +159,21 @@ class EpisodeReplay:
         else:
             grid_objects = self.sim.grid_objects(ignore_types=list(self.STATIC_OBJECT_TYPES))
 
+        seen_indices: set[int] = set()
+
         for obj_id, grid_object in grid_objects.items():
             # Use object ID as index for consistent ordering
             idx = self._object_id_to_index.get(obj_id)
             if idx is None:
                 idx = len(self.objects)
                 self._object_id_to_index[obj_id] = idx
-                self.objects.append({})
+                # Objects appearing after step 0 start as not-alive.
+                if self.step == 0:
+                    self.objects.append({})
+                else:
+                    self.objects.append({"alive": [[0, False]]})
+
+            seen_indices.add(idx)
 
             update_object = format_grid_object(
                 grid_object,
@@ -176,6 +184,28 @@ class EpisodeReplay:
             )
 
             self._seq_key_merge(self.objects[idx], self.step, update_object)
+
+        # Mark objects not seen this step as dead (skip static objects like walls).
+        if self.step > 0:
+            for _, idx in self._object_id_to_index.items():
+                if idx in seen_indices:
+                    continue
+                obj_data = self.objects[idx]
+                # Skip static objects (walls etc.) - they are excluded from grid_objects after step 0.
+                type_name_entries = obj_data.get("type_name")
+                if type_name_entries:
+                    last_type = (
+                        type_name_entries[-1][1]
+                        if isinstance(type_name_entries[-1], (list, tuple))
+                        else type_name_entries
+                    )
+                    if last_type in self.STATIC_OBJECT_TYPES:
+                        continue
+                # Set alive to False if it was True.
+                alive_entries = obj_data.get("alive")
+                if alive_entries and isinstance(alive_entries[-1], (list, tuple)):
+                    if alive_entries[-1][1] is not False:
+                        obj_data["alive"].append([self.step, False])
 
         # Log collective inventory time-series
         self._log_collective_inventory(self.step)
