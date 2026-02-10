@@ -13,6 +13,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <array>
 #include <memory>
 #include <random>
 #include <string>
@@ -133,9 +134,11 @@ private:
 
   size_t _num_observation_tokens;
 
-  // TODO: currently these are owned and destroyed by the grid, but we should
-  // probably move ownership here.
-  std::vector<Agent*> _agents;
+	  // TODO: currently these are owned and destroyed by the grid, but we should
+	  // probably move ownership here.
+	  std::vector<Agent*> _agents;
+	  // Per-group agent counters for role assignment by index-within-group.
+	  std::array<uint32_t, 256> _agent_counts_by_group = {};
 
   // We'd prefer to store these as more raw c-style arrays, but we need to both
   // operate on the memory directly and return them to python.

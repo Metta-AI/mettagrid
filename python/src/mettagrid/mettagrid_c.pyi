@@ -451,6 +451,7 @@ class RewardEntry:
     weight: float
     max_value: float
     has_max: bool
+    role: int
 
 class RewardConfig:
     def __init__(self) -> None: ...
@@ -476,6 +477,8 @@ class AgentConfig(GridObjectConfig):
         reward_config: RewardConfig = ...,
         initial_inventory: dict[int, int] = {},
         on_tick: list[HandlerConfig] | None = None,
+        role_order: list[int] | None = None,
+        role_mix_order: list[list[int]] | None = None,
     ) -> None: ...
     type_id: int
     type_name: str
@@ -488,6 +491,8 @@ class AgentConfig(GridObjectConfig):
     reward_config: RewardConfig
     initial_inventory: dict[int, int]
     on_tick: list[HandlerConfig]
+    role_order: list[int]
+    role_mix_order: list[list[int]]
 
 class ActionConfig:
     def __init__(
