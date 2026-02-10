@@ -22,9 +22,10 @@ from typing import IO, Self
 class Span:
     """A timed span that records start/end times and metadata."""
 
-    def __init__(self, tracer: "Tracer", name: str, **initial_metadata):
+    def __init__(self, tracer: "Tracer", name: str, pid: int | None = None, **initial_metadata):
         self._tracer = tracer
         self._name = name
+        self._pid = pid
         self._metadata = initial_metadata
         self._start_ns: int = 0
 
@@ -33,7 +34,7 @@ class Span:
         self._metadata.update(metadata)
 
     def __enter__(self) -> Self:
-        self._start_ns = time.perf_counter_ns()
+        self._start_ns = time.time_ns()
         return self
 
     def __exit__(
@@ -42,8 +43,8 @@ class Span:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        end_ns = time.perf_counter_ns()
-        self._tracer._write_span(self._name, self._start_ns, end_ns - self._start_ns, self._metadata)
+        end_ns = time.time_ns()
+        self._tracer._write_span(self._name, self._start_ns, end_ns - self._start_ns, self._metadata, pid=self._pid)
 
 
 class NullSpan(Span):
@@ -77,6 +78,7 @@ class Tracer:
     # Environment uses a high pid to stay out of the agent range; tracing UIs
     # will break well before we have 100k agents.
     PID_ENV = 100000
+    PID_EXECUTOR = 200000
 
     def __init__(self, output_path: Path | str):
         self._file: IO[str] = open(output_path, "w")
@@ -91,19 +93,19 @@ class Tracer:
     def _gc_callback(self, phase: str, info: dict) -> None:
         """Record GC events in the trace."""
         if phase == "start":
-            self._gc_start_ns = time.perf_counter_ns()
+            self._gc_start_ns = time.time_ns()
         elif self._gc_start_ns != 0:  # "stop", but only if we saw the start
             self._write_span(
                 "gc",
                 self._gc_start_ns,
-                time.perf_counter_ns() - self._gc_start_ns,
+                time.time_ns() - self._gc_start_ns,
                 {"generation": info["generation"], "collected": info["collected"]},
             )
             self._gc_start_ns = 0
 
-    def span(self, name: str, **metadata) -> Span:
+    def span(self, name: str, pid: int | None = None, **metadata) -> Span:
         """Create a span context manager for timing a block of code."""
-        return Span(self, name, **metadata)
+        return Span(self, name, pid=pid, **metadata)
 
     def _write_event(self, event: dict) -> None:
         """Write a single event to the trace file."""
@@ -120,18 +122,17 @@ class Tracer:
             {"name": "process_sort_index", "ph": "M", "pid": pid, "tid": 0, "args": {"sort_index": sort_index}}
         )
 
-    def _write_span(self, name: str, ts_ns: int, dur_ns: int, metadata: dict) -> None:
+    def _write_span(self, name: str, ts_ns: int, dur_ns: int, metadata: dict, *, pid: int | None = None) -> None:
         """Write a completed span in Chrome Trace Format."""
-        # pid = agent_id for agents, PID_ENV for env_step and gc
-        pid = self.PID_ENV
-
-        if name == "agent_step":
-            agent_id = metadata.get("agent", 0)
-            pid = agent_id
-            # Emit process name on first occurrence of each agent
-            if pid not in self._known_pids:
-                self._known_pids.add(pid)
-                self._write_process_name(pid, "Agent", sort_index=agent_id)
+        if pid is None:
+            # pid = agent_id for agents, PID_ENV for env_step and gc
+            pid = self.PID_ENV
+            if name == "agent_step":
+                agent_id: int = metadata.get("agent", 0)
+                pid = agent_id
+                if pid not in self._known_pids:
+                    self._known_pids.add(pid)
+                    self._write_process_name(pid, "Agent", sort_index=agent_id)
 
         self._write_event(
             {
@@ -168,10 +169,10 @@ class NullTracer(Tracer):
     def __init__(self):
         pass
 
-    def span(self, name: str, **metadata) -> Span:
+    def span(self, name: str, pid: int | None = None, **metadata) -> Span:
         return _NULL_SPAN
 
-    def _write_span(self, name: str, ts_ns: int, dur_ns: int, metadata: dict) -> None:
+    def _write_span(self, name: str, ts_ns: int, dur_ns: int, metadata: dict, *, pid: int | None = None) -> None:
         pass
 
     def flush(self) -> None:
