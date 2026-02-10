@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import shutil
@@ -7,46 +6,40 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
-from importlib.metadata import PackageNotFoundError, distribution
+from importlib.metadata import version as pkg_version
 from pathlib import Path
 
-import requests
+import mettagrid
 
 logger = logging.getLogger(__name__)
 
 _HEALTH_POLL_INTERVAL = 0.1
 
 
-def _get_mettagrid_source() -> tuple[str, str]:
-    """Return (pip install spec, requires_python) from the currently installed mettagrid."""
-    try:
-        dist = distribution("mettagrid")
-    except PackageNotFoundError:
-        return _get_pypi_latest("mettagrid")
-
-    requires_python = dist.metadata["Requires-Python"]
-
-    direct_url_text = dist.read_text("direct_url.json")
-    if direct_url_text:
-        url = json.loads(direct_url_text).get("url", "")
-        if url.startswith("file://"):
-            return url.removeprefix("file://"), requires_python
-
-    return f"mettagrid=={dist.metadata['Version']}", requires_python
+def _find_package_root(pkg_path: Path) -> Path | None:
+    """Walk up from a package directory to find the installable root (has pyproject.toml)."""
+    candidate = pkg_path.parent
+    while candidate != candidate.parent:
+        if (candidate / "pyproject.toml").exists():
+            return candidate.resolve()
+        candidate = candidate.parent
+    return None
 
 
-def _get_pypi_latest(package: str) -> tuple[str, str]:
-    response = requests.get(f"https://pypi.org/pypi/{package}/json", timeout=10)
-    response.raise_for_status()
-    info = response.json()["info"]
-    return f"{package}=={info['version']}", info["requires_python"]
+def _get_mettagrid_source() -> str:
+    """Return a pip-installable spec for the currently running mettagrid."""
+    pkg_root = _find_package_root(Path(mettagrid.__path__[0]))
+    if pkg_root is not None:
+        return str(pkg_root)
+    return f"mettagrid=={pkg_version('mettagrid')}"
 
 
-def _create_policy_venv(mettagrid_source: str, requires_python: str) -> Path:
+def _create_policy_venv(mettagrid_source: str) -> Path:
     policy_dir = Path(tempfile.mkdtemp(prefix="policy-"))
     venv_path = policy_dir / ".venv"
     venv_python = venv_path / "bin" / "python"
-    subprocess.run(["uv", "venv", str(venv_path), "--python", requires_python], check=True)
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    subprocess.run(["uv", "venv", str(venv_path), "--python", python_version], check=True)
     subprocess.run(
         ["uv", "pip", "install", "--python", str(venv_python), mettagrid_source],
         check=True,
@@ -101,14 +94,13 @@ def launch_local_policy_server(
     log_file = tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False)
 
     if os.environ.get("EPISODE_RUNNER_USE_ISOLATED_VENVS") != "0":
-        mettagrid_source, requires_python = _get_mettagrid_source()
+        mettagrid_source = _get_mettagrid_source()
         logger.info(
-            "Creating policy server venv with mettagrid source %s and requires_python %s for policy %s",
+            "Creating policy server venv with mettagrid source %s for policy %s",
             mettagrid_source,
-            requires_python,
             policy_uri,
         )
-        venv_dir = _create_policy_venv(mettagrid_source, requires_python)
+        venv_dir = _create_policy_venv(mettagrid_source)
         logger.info("Policy server venv created at %s for policy %s", venv_dir, policy_uri)
         python = str(venv_dir / ".venv" / "bin" / "python")
     else:
