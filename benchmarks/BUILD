@@ -12,6 +12,7 @@ cc_binary(
         "//cpp:bindings/mettagrid_c.cpp",
         "//cpp:bindings/mettagrid_c.hpp",
         "//cpp:bindings/mettagrid_py.cpp",
+        "//cpp:bindings/profiling_py.cpp",
     ],
     copts = [
         "-std=c++20",

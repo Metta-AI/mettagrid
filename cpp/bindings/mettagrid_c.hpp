@@ -28,6 +28,7 @@
 #include "handler/event_scheduler.hpp"
 #include "core/aoe_tracker.hpp"
 #include "core/game_value_config.hpp"
+#include "profiling.hpp"
 #include "systems/packed_coordinate.hpp"
 #include "systems/encoding_utils.hpp"
 
@@ -115,7 +116,18 @@ public:
     return _tag_index;
   }
 
+  // Performance instrumentation: time spent computing observations in last step (nanoseconds)
+  double last_obs_time_ns() const {
+    return _step_timing.observations_ns;
+  }
+
+  const StepTimingStats& step_timing() const {
+    return _step_timing;
+  }
+
 private:
+  bool _profiling_enabled = false;
+  StepTimingStats _step_timing;
   // Member variables
   GlobalObsConfig _global_obs_config;
   GameConfig _game_config;

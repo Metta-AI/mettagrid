@@ -214,10 +214,10 @@ bazel build --config=opt //:mettagrid_c
 ./build-release/benchmarks/grid_object_benchmark
 ```
 
-For a quick benchmark of MettaGrid performance on a single CPU core, use the `test_perf.sh` script:
+For a single-core benchmark of MettaGrid performance (triggers a rebuild on first run), use the `test_perf.sh` script:
 
 ```bash
-bash test_perf.sh
+bash benchmarks/perf_optimization/test_perf.sh
 ```
 
 ## Debugging C++ Code
