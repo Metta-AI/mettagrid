@@ -67,6 +67,7 @@ def _spawn_policy_servers(
     except Exception:
         for f in futures:
             f.cancel()
+        # LocalPolicyServerHandle is not hashable (it contains a Popen), so de-dup by identity.
         all_handles: dict[int, LocalPolicyServerHandle] = {id(h): h for h in servers}
         for f in futures:
             if f.done() and not f.cancelled() and f.exception() is None:
