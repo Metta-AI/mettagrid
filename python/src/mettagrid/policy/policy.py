@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import json
 from abc import abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Optional, Sequence, Tuple, TypeVar, cast
@@ -136,9 +137,11 @@ class NimMultiAgentPolicy(MultiAgentPolicy):
         nim_policy_factory,
         agent_ids: Sequence[int] | None = None,
         device: str = "cpu",
+        init_config_json: str | None = None,
     ) -> None:
         super().__init__(policy_env_info, device=device)
-        self._nim_policy = nim_policy_factory(policy_env_info.to_json())
+        config_json = init_config_json if init_config_json is not None else policy_env_info.to_json()
+        self._nim_policy = nim_policy_factory(config_json)
         self._num_agents = policy_env_info.num_agents
         obs_shape = policy_env_info.observation_space.shape
         self._num_tokens = obs_shape[0]
@@ -226,6 +229,17 @@ class _NimAgentPolicy(AgentPolicy):
 
     def step(self, obs: AgentObservation) -> Action:
         action_index = self._parent.step_single(self._agent_id, obs)
+        # Optional per-step metadata for renderers/debugging.
+        # Only some Nim policies (e.g. Planky) implement this.
+        get_infos_json = getattr(self._parent._nim_policy, "get_infos_json", None)
+        if get_infos_json is not None:
+            raw = get_infos_json(self._agent_id)
+            if raw:
+                if isinstance(raw, (bytes, bytearray)):
+                    raw = raw.decode("utf8")
+                self._infos = json.loads(raw)
+            else:
+                self._infos = {}
         return Action(name=self.policy_env_info.action_names[action_index])
 
 
