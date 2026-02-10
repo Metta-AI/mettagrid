@@ -3,10 +3,14 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from mettagrid.runner.policy_server.manager import launch_local_policy_server
+from mettagrid.runner.policy_server.manager import (
+    _find_package_root,
+    _get_mettagrid_source,
+    launch_local_policy_server,
+)
 
 
-def _fake_create_policy_venv(mettagrid_version: str, requires_python: str) -> Path:
+def _fake_create_policy_venv(mettagrid_source: str) -> Path:
     policy_dir = Path(tempfile.mkdtemp(prefix="policy-test-"))
     bin_dir = policy_dir / ".venv" / "bin"
     bin_dir.mkdir(parents=True)
@@ -16,9 +20,39 @@ def _fake_create_policy_venv(mettagrid_version: str, requires_python: str) -> Pa
     return policy_dir
 
 
+class TestFindPackageRoot:
+    def test_finds_pyproject_toml(self, tmp_path: Path):
+        pkg_dir = tmp_path / "src" / "mypkg"
+        pkg_dir.mkdir(parents=True)
+        (tmp_path / "pyproject.toml").touch()
+        assert _find_package_root(pkg_dir) == tmp_path.resolve()
+
+    def test_returns_none_without_pyproject(self, tmp_path: Path):
+        pkg_dir = tmp_path / "site-packages" / "mypkg"
+        pkg_dir.mkdir(parents=True)
+        assert _find_package_root(pkg_dir) is None
+
+
+class TestGetMettagridSource:
+    def test_local_source_returns_path(self):
+        source = _get_mettagrid_source()
+        # In dev, this should be a local path (not a version pin)
+        assert not source.startswith("mettagrid==")
+        assert Path(source).is_dir()
+        assert (Path(source) / "pyproject.toml").exists()
+
+    def test_site_packages_returns_version_pin(self, tmp_path: Path):
+        fake_pkg = tmp_path / "site-packages" / "mettagrid"
+        fake_pkg.mkdir(parents=True)
+        (fake_pkg / "__init__.py").write_text("__path__ = []\n")
+        with patch("mettagrid.__path__", [str(fake_pkg)]):
+            source = _get_mettagrid_source()
+        assert source.startswith("mettagrid==")
+
+
 @patch(
     "mettagrid.runner.policy_server.manager._get_mettagrid_source",
-    return_value=("mettagrid==0.0.0", ">=3.11"),
+    return_value="mettagrid==0.0.0",
 )
 @patch(
     "mettagrid.runner.policy_server.manager._create_policy_venv",
