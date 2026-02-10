@@ -538,13 +538,24 @@ proc drawWarningPopup*() =
   # Semi-transparent overlay covering entire screen
   sk.drawRect(vec2(0, 0), sk.size, rgbx(0, 0, 0, 128))
 
-  let popupWidth = 400.0
-  let popupHeight = 150.0
-  let popupPos = vec2((sk.size.x - popupWidth) / 2, (sk.size.y - popupHeight) / 2)
+  let
+    popupWidth = 400.0
+    popupHeight = 150.0
+    popupPos = vec2((sk.size.x - popupWidth) / 2, (sk.size.y - popupHeight) / 2)
+    textPos = popupPos + vec2(8, 48)
+    textWidth = popupWidth - 16.0
+    textHeight = popupHeight - 56.0
 
   sk.draw9Patch("header.9patch", 4, popupPos, vec2(popupWidth, popupHeight), rgbx(255, 255, 255, 255))
 
   sk.at = popupPos + vec2(8, 4)
   h1text("Error")
-  sk.at = popupPos + vec2(8, 48)
-  text(popupWarning)
+  discard sk.drawText(
+    "Default",
+    popupWarning,
+    textPos,
+    rgbx(255, 255, 255, 255),
+    maxWidth = textWidth,
+    maxHeight = textHeight,
+    wordWrap = true
+  )

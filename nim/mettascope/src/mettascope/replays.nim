@@ -749,7 +749,9 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
   if getInt(jsonObj, "version") == 3:
     jsonObj = convertReplayV3ToV4(jsonObj)
 
-  doAssert getInt(jsonObj, "version") == 4
+  let fileVersion = getInt(jsonObj, "version")
+  if fileVersion != 4:
+    raise newException(ValueError, "Unsupported replay version. This app supports version 4, but the file is version " & $fileVersion & ". Please update the app to load this replay.")
 
   # Check for validation issues and log them to console.
   let issues = validateReplay(jsonObj)
