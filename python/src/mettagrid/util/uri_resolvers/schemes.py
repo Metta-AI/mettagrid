@@ -249,7 +249,7 @@ def resolve_uri(uri: str) -> ParsedScheme:
     """Resolve a URI to its canonical form, finding :latest checkpoints if needed."""
     resolver = _get_resolver(uri)
     if not resolver:
-        raise ValueError("Unsupported URI")
+        raise ValueError(f"Unsupported URI: {uri}")
     resolved_uri_str = resolver.get_path_to_policy_spec(uri)
     return parse_uri(resolved_uri_str, allow_none=False)
 
