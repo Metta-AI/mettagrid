@@ -69,6 +69,25 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
                              std::to_string(obs_height) + ") exceeds maximum packable size");
   }
 
+  // Pre-compute observation pattern offsets (Manhattan distance order)
+  _observation_offsets.reserve(static_cast<size_t>(obs_height) * static_cast<size_t>(obs_width));
+  for (const auto& offset : PackedCoordinate::ObservationPattern{obs_height, obs_width}) {
+    _observation_offsets.push_back(offset);
+  }
+
+  // Reserve capacity for global tokens buffer (reused per agent to avoid allocation).
+  // Breakdown: episode_completion(1) + last_action(1) + last_reward(1) + goal_tokens(N) +
+  // local_position(up to 2) + obs_value_tokens(varies). 32 covers typical configs with margin.
+  _global_tokens_buffer.reserve(32);
+
+  // Compute max scratch buffer size from config
+  {
+    size_t max_tags = game_config.tag_id_map.size();
+    size_t num_resources = resource_names.size();
+    size_t tokens_per_item = ObservationEncoder::compute_num_tokens(65535, game_config.token_value_base);
+    _obs_features_scratch.resize(Agent::max_obs_features(max_tags, num_resources, tokens_per_item));
+  }
+
   GridCoord height = static_cast<GridCoord>(py::len(map));
   GridCoord width = static_cast<GridCoord>(py::len(map[0]));
 
@@ -86,6 +105,11 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   }
 
   _stats = std::make_unique<StatsTracker>(&resource_names);
+
+  // Pre-resolve stat IDs for hot-path observation stats (avoids string hashing per agent per step)
+  _stat_tokens_written = _stats->get_or_create_id("tokens_written");
+  _stat_tokens_dropped = _stats->get_or_create_id("tokens_dropped");
+  _stat_tokens_free_space = _stats->get_or_create_id("tokens_free_space");
   _aoe_tracker->set_game_stats(_stats.get());
   _token_encoder = std::make_unique<ObservationTokenEncoder>(_game_config.token_value_base);
 
@@ -585,7 +609,7 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
   _stats->add("tokens_free_space", static_cast<size_t>(observation_view.shape(1)) - tokens_written);
 }
 
-// Optimized path: currently identical to original (optimizations added in next branch)
+// Optimized path: pre-computed offsets, buffer reuse, direct encoding
 void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
                                                GridCoord observer_col,
                                                ObservationCoord observable_width,
@@ -616,8 +640,9 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
   ObservationTokens agent_obs_tokens(
       agent_obs_ptr, static_cast<size_t>(observation_view.shape(1)) - static_cast<size_t>(tokens_written));
 
-  // Build global tokens based on configuration
-  std::vector<PartialObservationToken> global_tokens;
+  // Build global tokens based on configuration (reusing pre-allocated buffer)
+  _global_tokens_buffer.clear();
+  auto& global_tokens = _global_tokens_buffer;
 
   if (_global_obs_config.episode_completion_pct) {
     ObservationType episode_completion_pct = 0;
@@ -680,8 +705,8 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
       _emit_obs_value_tokens(agent_idx, tokens_written, global_location);
   tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
 
-  // Process locations in increasing manhattan distance order
-  for (const auto& [r_offset, c_offset] : PackedCoordinate::ObservationPattern{observable_height, observable_width}) {
+  // Process locations in increasing manhattan distance order (using pre-computed offsets)
+  for (const auto& [r_offset, c_offset] : _observation_offsets) {
     int r = static_cast<int>(observer_row) + r_offset;
     int c = static_cast<int>(observer_col) + c_offset;
 
@@ -704,25 +729,34 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
       _agents[agent_idx]->stats.add("cell.visited", static_cast<float>(staleness));
     }
 
+    // Once buffer is full, we still compute features to track exact tokens_dropped.
+    // Alternative: count objects only (cheaper, but tokens_dropped becomes objects_dropped).
+    size_t buffer_capacity = static_cast<size_t>(observation_view.shape(1));
+    if (tokens_written >= buffer_capacity) {
+      attempted_tokens_written += obj->write_obs_features(
+          _obs_features_scratch.data(), _obs_features_scratch.size());
+      continue;
+    }
+
     // Prepare observation buffer for this object
     ObservationToken* obs_ptr =
         reinterpret_cast<ObservationToken*>(observation_view.mutable_data(agent_idx, tokens_written, 0));
-    ObservationTokens obs_tokens(obs_ptr,
-                                 static_cast<size_t>(observation_view.shape(1)) - static_cast<size_t>(tokens_written));
+    ObservationTokens obs_tokens(obs_ptr, buffer_capacity - tokens_written);
 
     // Calculate position within the observation window (agent is at the center)
     int obs_r = r - static_cast<int>(observer_row) + static_cast<int>(obs_height_radius);
     int obs_c = c - static_cast<int>(observer_col) + static_cast<int>(obs_width_radius);
 
-    // Encode location and add tokens
+    // Encode location and add tokens (using allocation-free path with scratch buffer)
     uint8_t location = PackedCoordinate::pack(static_cast<uint8_t>(obs_r), static_cast<uint8_t>(obs_c));
-    attempted_tokens_written += _obs_encoder->encode_tokens(obj, obs_tokens, location);
-    tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
+    attempted_tokens_written += _obs_encoder->encode_tokens_direct(
+        obj, obs_tokens, location, _obs_features_scratch.data(), _obs_features_scratch.size());
+    tokens_written = std::min(attempted_tokens_written, buffer_capacity);
   }
 
-  _stats->add("tokens_written", tokens_written);
-  _stats->add("tokens_dropped", attempted_tokens_written - tokens_written);
-  _stats->add("tokens_free_space", static_cast<size_t>(observation_view.shape(1)) - tokens_written);
+  *_stats->get_ptr(_stat_tokens_written) += tokens_written;
+  *_stats->get_ptr(_stat_tokens_dropped) += (attempted_tokens_written - tokens_written);
+  *_stats->get_ptr(_stat_tokens_free_space) += (static_cast<size_t>(observation_view.shape(1)) - tokens_written);
 }
 
 void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_actions) {

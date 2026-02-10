@@ -121,6 +121,24 @@ public:
     return append_tokens_if_room_available(tokens, obj->obs_features(), location);
   }
 
+  // Write object features directly into observation tokens using allocation-free path.
+  // Uses a scratch buffer (provided by caller) for intermediate PartialObservationTokens.
+  // Returns total tokens produced, which may exceed buffer capacity (for overflow tracking).
+  size_t encode_tokens_direct(const GridObject* obj,
+                              ObservationTokens tokens,
+                              ObservationType location,
+                              PartialObservationToken* scratch,
+                              size_t scratch_size) {
+    size_t num_features = obj->write_obs_features(scratch, scratch_size);
+    size_t tokens_to_write = std::min(tokens.size(), num_features);
+    for (size_t i = 0; i < tokens_to_write; i++) {
+      tokens[i].location = location;
+      tokens[i].feature_id = scratch[i].feature_id;
+      tokens[i].value = scratch[i].value;
+    }
+    return num_features;
+  }
+
   size_t get_resource_count() const {
     return resource_count;
   }
@@ -173,6 +191,37 @@ public:
     for (size_t p = 1; p < tokens.size() && (p - 1) < power_ids.size(); ++p) {
       features.push_back({power_ids[p - 1], tokens[p].value});
     }
+  }
+
+  // Write inventory tokens directly to buffer (avoids allocation).
+  // Returns number of tokens written.
+  size_t write_inventory_tokens(PartialObservationToken* out,
+                                size_t max_tokens,
+                                InventoryItem item,
+                                InventoryQuantity amount) const {
+    if (max_tokens == 0) return 0;
+
+    // Use allocation-free encoder for the base-N decomposition.
+    // Max tokens for uint16: 16 (base-2), 11 (base-3), 3 (base-256 default).
+    static constexpr size_t kMaxInventoryTokens = 16;  // ceil(log2(65536))
+    PartialObservationToken encode_buf[kMaxInventoryTokens];
+    size_t num_encoded = _encoder.encode_direct(
+        _inventory_feature_ids[item], amount, encode_buf, std::min(max_tokens, kMaxInventoryTokens));
+
+    size_t written = 0;
+
+    // Base token uses the correct feature ID already
+    if (num_encoded > 0) {
+      out[written++] = encode_buf[0];
+    }
+
+    // Higher power tokens need remapped feature IDs from _inventory_power_feature_ids
+    const auto& power_ids = _inventory_power_feature_ids[item];
+    for (size_t p = 1; p < num_encoded && (p - 1) < power_ids.size() && written < max_tokens; ++p) {
+      out[written++] = {power_ids[p - 1], encode_buf[p].value};
+    }
+
+    return written;
   }
 
   unsigned int get_token_value_base() const {

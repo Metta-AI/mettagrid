@@ -103,3 +103,26 @@ std::vector<PartialObservationToken> Agent::obs_features() const {
 
   return features;
 }
+
+size_t Agent::max_obs_features(size_t max_tags, size_t num_resources, size_t tokens_per_item) {
+  // GridObject features + 3 agent-specific (group, frozen, agent_id)
+  return GridObject::max_obs_features(max_tags, num_resources, tokens_per_item) + 3;
+}
+
+size_t Agent::write_obs_features(PartialObservationToken* out, size_t max_tokens) const {
+  // Start with base class features (collective, tags, vibe, inventory)
+  size_t written = GridObject::write_obs_features(out, max_tokens);
+
+  // Agent-specific observations
+  if (written < max_tokens) {
+    out[written++] = {ObservationFeature::Group, static_cast<ObservationType>(group)};
+  }
+  if (written < max_tokens) {
+    out[written++] = {ObservationFeature::Frozen, static_cast<ObservationType>(frozen != 0 ? 1 : 0)};
+  }
+  if (written < max_tokens) {
+    out[written++] = {ObservationFeature::AgentId, static_cast<ObservationType>(agent_id)};
+  }
+
+  return written;
+}

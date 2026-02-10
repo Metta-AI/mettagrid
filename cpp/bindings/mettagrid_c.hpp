@@ -199,6 +199,20 @@ private:
   // Pre-computed goal_obs tokens per agent (when enabled)
   std::vector<std::vector<PartialObservationToken>> _agent_goal_obs_tokens;
 
+  // Pre-computed observation pattern offsets (Manhattan distance order)
+  std::vector<std::pair<int, int>> _observation_offsets;
+
+  // Reusable buffer for global observation tokens (avoids allocation per agent per step)
+  std::vector<PartialObservationToken> _global_tokens_buffer;
+
+  // Scratch buffer for object observation features (avoids allocation per object per step)
+  std::vector<PartialObservationToken> _obs_features_scratch;
+
+  // Pre-resolved stat IDs for hot-path stats (avoids string hashing per agent per step)
+  uint16_t _stat_tokens_written = 0;
+  uint16_t _stat_tokens_dropped = 0;
+  uint16_t _stat_tokens_free_space = 0;
+
   void init_action_handlers();
   void _compute_agent_goal_obs_tokens(size_t agent_idx);
   size_t _emit_obs_value_tokens(size_t agent_idx,
