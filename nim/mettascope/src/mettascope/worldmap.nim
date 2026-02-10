@@ -3,7 +3,7 @@ import
   vmath, windy, boxy,
   common, actions, replays,
   pathfinding, tilemap, pixelator, shaderquad, starfield,
-  panels, heatmap, heatmapshader, collectives,
+  panels, heatmap, heatmapshader, collectives, colors,
   panels/objectpanel
 
 const
@@ -257,9 +257,9 @@ proc hasInfluenceAoe*(obj: Entity): bool =
 proc collectiveToSlot*(collectiveId: int): int =
   ## Map a game collective ID to an AoE map slot index.
   ## Collective IDs 0..N-1 map to slots 0..N-1; negative (neutral) maps to the last slot.
-  if collectiveId < 0: 
+  if collectiveId < 0:
     getNumCollectives()
-  else: 
+  else:
     collectiveId
 
 proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) =
@@ -743,14 +743,75 @@ proc drawTrajectory*() =
           )
         prevDirection = thisDirection
 
+proc getInventoryItem*(entity: Entity, itemName: string, atStep: int = step): int =
+  ## Get the count of a named item in the entity's inventory at a given step.
+  let itemId = replay.itemNames.find(itemName)
+  if itemId < 0:
+    return 0
+  let inv = entity.inventory.at(atStep)
+  for item in inv:
+    if item.itemId == itemId:
+      return item.count
+  return 0
+
+type PipSize* = enum
+  SmallPip   # 2x3 px
+  MediumPip  # 3x4 px
+  LargePip   # 5x6 px
+
+proc drawBar*(pos: IVec2, tint: ColorRGBX, numPips: int, maxValue: int, current: int, prev: int, size: PipSize) =
+  ## Draw a bar centered horizontally at pos (in tile-pixel coords).
+  ## Converts raw current/prev values to pips using maxValue.
+  ## Delta between current and prev is shown in white.
+  ## Sub-pip changes also flash the last filled pip white.
+  let pipWidth = case size
+    of SmallPip: 3
+    of MediumPip: 4
+    of LargePip: 6
+  let (bgSprite, fgSprite) = case size
+    of SmallPip: ("agents/barPip2x3Bg", "agents/barPip2x3")
+    of MediumPip: ("agents/barPip3x4Bg", "agents/barPip3x4")
+    of LargePip: ("agents/barPip5x6Bg", "agents/barPip5x6")
+  let
+    currentPips = clamp(current * numPips div max(maxValue, 1), 0, numPips)
+    prevPips = clamp(prev * numPips div max(maxValue, 1), 0, numPips)
+    barWidth = numPips * pipWidth
+    startX = pos.x - int32(barWidth div 2) + int32(pipWidth div 2)
+  # Pass 1: backgrounds
+  for i in 0 ..< numPips:
+    px.drawSprite(bgSprite, ivec2(startX + int32(i * pipWidth), pos.y))
+  # Pass 2: colored current pips
+  for i in 0 ..< currentPips:
+    px.drawSprite(fgSprite, ivec2(startX + int32(i * pipWidth), pos.y), tint)
+  # Pass 3: white delta pips (overwrites colored where whole pips changed)
+  let deltaLo = min(currentPips, prevPips)
+  let deltaHi = max(currentPips, prevPips)
+  for i in deltaLo ..< deltaHi:
+    px.drawSprite(fgSprite, ivec2(startX + int32(i * pipWidth), pos.y))
+  # Sub-pip change: if raw value changed but pip count is the same, white-out last pip
+  if current != prev and currentPips > 0 and currentPips == prevPips:
+    px.drawSprite(fgSprite, ivec2(startX + int32((currentPips - 1) * pipWidth), pos.y))
+
 proc drawAgentDecorations*() =
-  # Draw energy bars, shield and frozen status.
+  # Draw health and energy bars, and frozen status.
+  const
+    MaxHp = 100
+    MaxEnergy = 20
+    NumPips = 10
+  let prevStep = max(0, step - 1)
   for agent in replay.agents:
-    if agent.isFrozen.at:
-      px.drawSprite(
-        "agents/frozen",
-        agent.location.at.xy.ivec2 * TILE_SIZE,
-      )
+    if not agent.alive.at:
+      continue
+    let pos = agent.location.at.xy.ivec2 * TILE_SIZE
+    let tint = getCollectiveColor(agent.collectiveId.at(step))
+    # HP bar - large pips, colored by collective
+    let hp = getInventoryItem(agent, "hp")
+    let hpPrev = getInventoryItem(agent, "hp", prevStep)
+    drawBar(ivec2(pos.x, pos.y - 68), tint, NumPips, MaxHp, hp, hpPrev, LargePip)
+    # Energy bar - medium pips, yellow
+    let energy = getInventoryItem(agent, "energy")
+    let energyPrev = getInventoryItem(agent, "energy", prevStep)
+    drawBar(ivec2(pos.x, pos.y - 61), colors.Yellow, NumPips, MaxEnergy, energy, energyPrev, MediumPip)
 
 proc drawGrid*() =
   # Draw the grid using a single quad and shader-based lines.
