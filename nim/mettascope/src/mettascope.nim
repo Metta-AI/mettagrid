@@ -54,9 +54,11 @@ proc replaySwitch(replay: string) =
         echo "fetching replay from URL: ", commandLineReplay
         let req = startHttpRequest(commandLineReplay)
         req.onError = proc(msg: string) =
+          echo "Failed to load replay from URL (network error): ", msg
           popupWarning = "Failed to load replay from URL.\nNetwork error: " & msg
         req.onResponse = proc(response: HttpResponse) =
           if response.code != 200:
+            echo "Failed to load replay from URL (HTTP ", response.code, "): ", response.body
             case response.code:
             of 403:
               popupWarning = "Access denied (403 Forbidden).\nThe replay requires authentication or you don't have permission to access it."
@@ -68,17 +70,31 @@ proc replaySwitch(replay: string) =
               popupWarning = "Failed to load replay (HTTP " & $response.code & ").\n" & response.body
             return
           echo "replay fetched, loading..."
-          common.replay = loadReplay(response.body, commandLineReplay)
-          onReplayLoaded()
+          try:
+            common.replay = loadReplay(response.body, commandLineReplay)
+            onReplayLoaded()
+          except:
+            let err = getCurrentExceptionMsg()
+            echo "Failed to load replay from URL (parse/load error): ", err
+            popupWarning = "Failed to load replay from URL.\n" & err
+            common.replay = EmptyReplay
       else:
         echo "Loading replay from file: ", commandLineReplay
-        common.replay = loadReplay(commandLineReplay)
-        onReplayLoaded()
+        try:
+          common.replay = loadReplay(commandLineReplay)
+          onReplayLoaded()
+        except:
+          popupWarning = "Failed to load replay file.\n" & getCurrentExceptionMsg()
+          common.replay = EmptyReplay
     elif common.replay == nil:
       let defaultReplay = dataDir / "replays" / "planky.json.z"
       echo "Loading replay from default file: ", defaultReplay
-      common.replay = loadReplay(defaultReplay)
-      onReplayLoaded()
+      try:
+        common.replay = loadReplay(defaultReplay)
+        onReplayLoaded()
+      except:
+        popupWarning = "Failed to load default replay file.\n" & getCurrentExceptionMsg()
+        common.replay = EmptyReplay
   of Realtime:
     echo "Realtime mode"
     onReplayLoaded()

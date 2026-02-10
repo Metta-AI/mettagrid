@@ -86,9 +86,9 @@ when defined(emscripten):
         echo "Loaded replay from postMessage: ", fileName
       except:
         echo "Error loading replay: ", getCurrentExceptionMsg()
+        popupWarning = "Failed to load replay from notebook.\n" & getCurrentExceptionMsg()
 
   proc setupPostMessageReplayHandler*(userData: pointer) =
     ## Set up postMessage handler for receiving replay data from Jupyter notebooks.
     when defined(emscripten):
       setup_postmessage_replay_handler_internal(userData)
-
