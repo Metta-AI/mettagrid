@@ -1,6 +1,7 @@
 # Custom build backend for building mettagrid with Bazel
 # This backend compiles the C++ extension using Bazel during package installation
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -217,18 +218,100 @@ def _sanitize_nim_cfg(nim_dir: Path) -> None:
     cfg_path = nim_dir / "nim.cfg"
     if not cfg_path.exists():
         return
+    # Nimby writes a Nim config file here. In rare cases we have observed non-config
+    # stdout/stderr lines ending up in nim.cfg (e.g. from a crashed/partial run).
+    # Keep valid config directives and only drop clearly-invalid noise.
     lines = cfg_path.read_text().splitlines()
     cleaned: list[str] = []
     for line in lines:
         stripped = line.strip()
         if not stripped:
-            cleaned.append(line)
+            cleaned.append("")
             continue
-        if stripped.startswith(("-", "#")):
-            cleaned.append(line)
+
+        # Comments and standard Nim cfg switches.
+        if stripped.startswith(("#", "-")):
+            cleaned.append(stripped)
             continue
+
+        # If nimby ever writes config directives in "key:value"/"key=value" form,
+        # keep them as well (e.g. "path:\"...\"" or "path=\"...\"").
+        if stripped.split(":", 1)[0].isidentifier() or stripped.split("=", 1)[0].isidentifier():
+            cleaned.append(stripped)
+            continue
+
+        # Drop obvious non-config output.
+        if stripped.startswith(("Using global packages directory.", "Updated package:", "Took:")):
+            continue
+
+        # Default: keep the line. Being permissive here is safer than deleting
+        # something Nim actually needs to resolve imports.
+        cleaned.append(stripped)
+
     if cleaned != lines:
         cfg_path.write_text("\n".join(cleaned) + "\n")
+
+
+def _ensure_nim_cfg_has_nimby_paths(nim_dir: Path) -> None:
+    """Make sure nim.cfg contains --path entries for packages in nimby.lock.
+
+    This is a guardrail for cases where nimby generates an incomplete nim.cfg,
+    which can lead to import errors like "cannot open file: genny".
+    """
+
+    lock_path = nim_dir / "nimby.lock"
+    cfg_path = nim_dir / "nim.cfg"
+    if not lock_path.exists() or not cfg_path.exists():
+        return
+
+    try:
+        lock_lines = lock_path.read_text().splitlines()
+        cfg_text = cfg_path.read_text()
+    except OSError:
+        return
+
+    pkgs_dir = Path.home() / ".nimby" / "pkgs"
+    if not pkgs_dir.exists():
+        return
+
+    # Match either /name/ or /name" or /name$ in an existing path line.
+    def _has_pkg_path(pkg: str) -> bool:
+        return re.search(rf"/{re.escape(pkg)}(?:/|\"|$)", cfg_text) is not None
+
+    missing: list[str] = []
+    for line in lock_lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        pkg = stripped.split()[0]
+        if _has_pkg_path(pkg):
+            continue
+
+        # Prefer ~/.nimby/pkgs/<pkg>/src when present, otherwise ~/.nimby/pkgs/<pkg>.
+        candidates: list[Path] = []
+        direct = pkgs_dir / pkg
+        if direct.exists():
+            candidates.append(direct)
+        candidates.extend(sorted(p for p in pkgs_dir.glob(f"{pkg}*") if p.is_dir()))
+
+        chosen: Path | None = None
+        for base in candidates:
+            src = base / "src"
+            if src.is_dir():
+                chosen = src
+                break
+            if base.is_dir():
+                chosen = base
+                break
+
+        if chosen is not None:
+            missing.append(f'--path:"{chosen}"')
+
+    if not missing:
+        return
+
+    print(f"nim.cfg missing {len(missing)} nimby paths; appending.")
+    cfg_path.write_text(cfg_text.rstrip() + "\n" + "\n".join(missing) + "\n")
 
 
 def _run_nim_build(name: str, nim_dir: Path, package_dir: Path, *, copy_bindings: bool = False) -> None:
@@ -248,6 +331,7 @@ def _run_nim_build(name: str, nim_dir: Path, package_dir: Path, *, copy_bindings
 
     cmd(["nimby", "sync", "-g", "nimby.lock"], cwd=nim_dir, max_attempts=3)
     _sanitize_nim_cfg(nim_dir)
+    _ensure_nim_cfg_has_nimby_paths(nim_dir)
     cmd(["nim", "c", "--skipProjCfg:on", "bindings/bindings.nim"], cwd=nim_dir)
 
     print(f"Successfully built {name}")
