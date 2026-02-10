@@ -36,6 +36,17 @@ var
   heatmapShaderInitialized*: bool = false
   needsInitialFit*: bool = true
 
+proc ensureHeatmapReady*() =
+  ## Lazily initialize heatmap data and shader on first use.
+  if replay.isNil:
+    return
+  if worldHeatmap == nil:
+    worldHeatmap = newHeatmap(replay)
+  worldHeatmap.update(step, replay)
+  if not heatmapShaderInitialized:
+    initHeatmapShader()
+    heatmapShaderInitialized = true
+
 proc weightedRandomInt*(weights: seq[int]): int =
   ## Return a random integer between 0 and 7, with a weighted distribution.
   var r = rand(sum(weights))
@@ -969,24 +980,22 @@ proc drawWorldMini*() =
   drawAoeMaps()
 
   # Draw heatmap if enabled.
-  if settings.showHeatmap and worldHeatmap != nil:
-    # Initialize heatmap shader if needed.
-    if not heatmapShaderInitialized:
-      initHeatmapShader()
-      heatmapShaderInitialized = true
+  if settings.showHeatmap:
+    ensureHeatmapReady()
 
-    # Update heatmap texture if step changed.
-    updateTexture(worldHeatmap, step)
-    # Draw heatmap overlay.
-    bxy.enterRawOpenGLMode()
-    let maxHeat = worldHeatmap.getMaxHeat(step).float32
-    draw(
-      worldHeatmap,
-      getProjectionView(),
-      vec2(replay.mapSize[0].float32, replay.mapSize[1].float32),
-      maxHeat
-    )
-    bxy.exitRawOpenGLMode()
+    if worldHeatmap != nil:
+      # Update heatmap texture if step changed.
+      updateTexture(worldHeatmap, step)
+      # Draw heatmap overlay.
+      bxy.enterRawOpenGLMode()
+      let maxHeat = worldHeatmap.getMaxHeat(step).float32
+      draw(
+        worldHeatmap,
+        getProjectionView(),
+        vec2(replay.mapSize[0].float32, replay.mapSize[1].float32),
+        maxHeat
+      )
+      bxy.exitRawOpenGLMode()
 
   # Overlays
   if settings.showVisualRange:
@@ -1019,24 +1028,22 @@ proc drawWorldMain*() =
   drawAoeMaps()
 
   # Draw heatmap if enabled.
-  if settings.showHeatmap and worldHeatmap != nil:
-    # Initialize heatmap shader if needed.
-    if not heatmapShaderInitialized:
-      initHeatmapShader()
-      heatmapShaderInitialized = true
+  if settings.showHeatmap:
+    ensureHeatmapReady()
 
-    # Update heatmap texture if step changed.
-    updateTexture(worldHeatmap, step)
-    # Draw heatmap overlay.
-    bxy.enterRawOpenGLMode()
-    let maxHeat = worldHeatmap.getMaxHeat(step).float32
-    draw(
-      worldHeatmap,
-      getProjectionView(),
-      vec2(replay.mapSize[0].float32, replay.mapSize[1].float32),
-      maxHeat
-    )
-    bxy.exitRawOpenGLMode()
+    if worldHeatmap != nil:
+      # Update heatmap texture if step changed.
+      updateTexture(worldHeatmap, step)
+      # Draw heatmap overlay.
+      bxy.enterRawOpenGLMode()
+      let maxHeat = worldHeatmap.getMaxHeat(step).float32
+      draw(
+        worldHeatmap,
+        getProjectionView(),
+        vec2(replay.mapSize[0].float32, replay.mapSize[1].float32),
+        maxHeat
+      )
+      bxy.exitRawOpenGLMode()
 
   drawTrajectory()
 

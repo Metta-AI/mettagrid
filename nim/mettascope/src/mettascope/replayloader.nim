@@ -1,7 +1,7 @@
 import
   std/[tables, sets],
   windy,
-  replays, worldmap, common, heatmap, heatmapshader, configs, panels, collectives
+  replays, worldmap, common, configs, panels
 
 
 proc onReplayLoaded*() =
@@ -26,11 +26,6 @@ proc onReplayLoaded*() =
 
   # Clear hidden AoE set so all collectives are shown by default
   settings.hiddenCollectiveAoe.clear()
-
-  # Initialize heatmap for the new replay
-  worldHeatmap = newHeatmap(replay)
-  worldHeatmap.initialize(replay)
-  initHeatmapShader()
 
   needsInitialFit = true
 
