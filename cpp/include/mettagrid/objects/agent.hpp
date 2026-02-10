@@ -24,18 +24,11 @@ public:
   ObservationType group;
   short frozen;
   short freeze_duration;
-  // Role-conditioning token (0..3). Used for `agent:role` observations and role-gated rewards.
-  uint8_t role = 255;
-  // Soft role weights (0..255 per role: miner/aligner/scrambler/scout). Used for role-weight tokens and
-  // scaling role-gated rewards.
-  std::array<uint8_t, 4> role_weights = {0, 0, 0, 0};
   RewardHelper reward_helper;
   std::string group_name;
   // Despite being a GridObjectId, this is different from the `id` property.
   // This is the index into MettaGrid._agents (std::vector<Agent*>)
   GridObjectId agent_id;
-  // Index within the agent's group (assigned at registration time).
-  uint32_t group_index = 0;
   StatsTracker stats;
   GridLocation prev_location;
   GridLocation spawn_location;
@@ -78,18 +71,8 @@ public:
     this->current_step_ptr = step_ptr;
   }
 
-  const std::vector<uint8_t>& get_role_order() const {
-    return role_order;
-  }
-
-  const std::vector<std::vector<uint8_t>>& get_role_mix_order() const {
-    return role_mix_order;
-  }
-
 private:
   const ObservationEncoder* obs_encoder = nullptr;
-  std::vector<uint8_t> role_order;
-  std::vector<std::vector<uint8_t>> role_mix_order;
 };
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_OBJECTS_AGENT_HPP_

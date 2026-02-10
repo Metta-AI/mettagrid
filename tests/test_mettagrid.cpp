@@ -39,9 +39,6 @@ const char ARMOR[] = "armor";
 const char HEART[] = "heart";
 }  // namespace TestItemStrings
 
-// Helper: role 0 (miner) at full weight, others disabled.
-static constexpr std::array<uint8_t, 4> kRole0Weights = {255, 0, 0, 0};
-
 namespace TestRewards {
 constexpr float ORE = 0.125f;
 constexpr float LASER = 0.0f;
@@ -69,7 +66,6 @@ protected:
         {"cooldown_remaining", 16},
         {"remaining_uses", 17},
         {"collective", 18},
-        {"agent:role", 19},
     };
     ObservationFeature::Initialize(feature_ids);
     resource_names = create_test_resource_names();
@@ -171,7 +167,7 @@ TEST_F(MettaGridCppTest, AgentRewardsFromCollectiveStats) {
 
   // Attach agent to collective and init reward entries
   agent->setCollective(&collective);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, &collective.stats, nullptr, &resource_names, kRole0Weights);
+  agent->reward_helper.init_entries(&agent->stats, nullptr, &collective.stats, nullptr, &resource_names);
 
   // Deposit resources to the collective
   collective.inventory.update(TestItems::ORE, 10);
@@ -206,7 +202,7 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate) {
 
   float agent_reward = 0.0f;
   agent->init(&agent_reward);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, nullptr, &resource_names, kRole0Weights);
+  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, nullptr, &resource_names);
 
   // Test adding items
   int delta = agent->inventory.update(TestItems::ORE, 5);
@@ -346,7 +342,7 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate_RewardCappingBehavior) {
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
   float agent_reward = 0.0f;
   agent->init(&agent_reward);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, nullptr, &resource_names, kRole0Weights);
+  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, nullptr, &resource_names);
 
   // Test 1: Add items up to the cap
   // 16 ORE * 0.125 = 2.0 (exactly at cap)
@@ -414,7 +410,7 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate_MultipleItemCaps) {
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
   float agent_reward = 0.0f;
   agent->init(&agent_reward);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, nullptr, &resource_names, kRole0Weights);
+  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, nullptr, &resource_names);
 
   // Add ORE beyond its cap
   agent->inventory.update(TestItems::ORE, 50);  // 50 * 0.125 = 6.25, capped at 2.0

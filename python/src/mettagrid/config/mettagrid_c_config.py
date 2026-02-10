@@ -823,26 +823,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         reward_entries = []
         for reward_name, agent_reward in first_agent.rewards.items():
             entry = CppRewardEntry()
-            # Role-gated rewards: reward keys may be prefixed with `role:{name}:...` to
-            # only apply to agents whose `agent:role` token matches that role.
-            # If no explicit role assignment is configured, `agent:role` defaults to `agent_id % 4`.
-            # 255 means "all roles" (default).
-            entry.role = 255
-            if reward_name.startswith("role:"):
-                parts = reward_name.split(":", 2)
-                if len(parts) != 3 or parts[1] == "" or parts[2] == "":
-                    raise ValueError(
-                        f"Invalid role-gated reward key {reward_name!r}. Expected format: "
-                        "role:<miner|aligner|scrambler|scout>:<reward_name>"
-                    )
-                role_name = parts[1]
-                role_ids = {"miner": 0, "aligner": 1, "scrambler": 2, "scout": 3}
-                if role_name not in role_ids:
-                    raise ValueError(
-                        f"Unknown role-gated reward prefix {reward_name!r}. Expected "
-                        "role:<miner|aligner|scrambler|scout>:..."
-                    )
-                entry.role = role_ids[role_name]
             if len(agent_reward.nums) != 1:
                 raise ValueError(
                     f"Reward '{reward_name}' has {len(agent_reward.nums)} numerators, "
@@ -918,39 +898,6 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             initial_inventory=initial_inventory,
         )
         cpp_agent_config.tag_ids = tag_ids
-
-        # Optional role conditioning for `agent:role`: accept a role order by name and encode it as 0..3 IDs.
-        # This is applied per-agent at runtime by index-within-group (see C++).
-        role_order = agent_props.get("role_order") or []
-        role_mix_order = agent_props.get("role_mix_order") or []
-        if role_order:
-            role_ids = {"miner": 0, "aligner": 1, "scrambler": 2, "scout": 3}
-            try:
-                cpp_agent_config.role_order = [role_ids[str(name)] for name in role_order]
-            except KeyError as exc:
-                raise ValueError(
-                    f"Invalid AgentConfig.role_order entry {exc.args[0]!r}. "
-                    "Allowed: 'miner', 'aligner', 'scrambler', 'scout'."
-                ) from exc
-        if role_mix_order:
-            role_ids = {"miner": 0, "aligner": 1, "scrambler": 2, "scout": 3}
-            encoded: list[list[int]] = []
-            for entry in role_mix_order:
-                weights = [0, 0, 0, 0]
-                for role_name, weight in entry.items():
-                    if role_name not in role_ids:
-                        raise ValueError(
-                            f"Invalid AgentConfig.role_mix_order role {role_name!r}. "
-                            "Allowed: 'miner', 'aligner', 'scrambler', 'scout'."
-                        )
-                    w = int(weight)
-                    if w < 0 or w > 255:
-                        raise ValueError(
-                            f"Invalid AgentConfig.role_mix_order weight {w!r} for role {role_name!r}. Expected 0..255."
-                        )
-                    weights[role_ids[role_name]] = w
-                encoded.append(weights)
-            cpp_agent_config.role_mix_order = encoded
 
         # Set collective_id if agent belongs to a collective
         if first_agent.collective and first_agent.collective in collective_name_to_id:

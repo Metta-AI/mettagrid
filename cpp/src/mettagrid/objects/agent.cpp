@@ -13,17 +13,13 @@ Agent::Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vec
       group(config.group_id),
       frozen(0),
       freeze_duration(config.freeze_duration),
-      role(255),
       reward_helper(config.reward_config),
       group_name(config.group_name),
       agent_id(0),
-      group_index(0),
       stats(resource_names),
       prev_location(r, c),
       spawn_location(r, c),
-      steps_without_motion(0),
-      role_order(config.role_order),
-      role_mix_order(config.role_mix_order) {
+      steps_without_motion(0) {
   populate_initial_inventory(config.initial_inventory);
   GridObject::init(config.type_id, config.type_name, GridLocation(r, c), config.tag_ids, config.initial_vibe);
 }
@@ -37,8 +33,7 @@ void Agent::init_reward(StatsTracker* game_stats,
                         const std::vector<std::string>* resource_names) {
   Collective* collective = this->getCollective();
   StatsTracker* collective_stats = collective ? &collective->stats : nullptr;
-  this->reward_helper.init_entries(
-      &this->stats, game_stats, collective_stats, tag_index, resource_names, this->role_weights);
+  this->reward_helper.init_entries(&this->stats, game_stats, collective_stats, tag_index, resource_names);
 }
 
 void Agent::set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers) {
@@ -105,23 +100,6 @@ std::vector<PartialObservationToken> Agent::obs_features() const {
   features.push_back({ObservationFeature::Group, static_cast<ObservationType>(group)});
   features.push_back({ObservationFeature::Frozen, static_cast<ObservationType>(frozen != 0 ? 1 : 0)});
   features.push_back({ObservationFeature::AgentId, static_cast<ObservationType>(agent_id)});
-  const uint8_t agent_role = (this->role == 255) ? static_cast<uint8_t>(static_cast<uint32_t>(agent_id) % 4)
-                                                 : static_cast<uint8_t>(this->role);
-  features.push_back({ObservationFeature::AgentRole, static_cast<ObservationType>(agent_role)});
-
-  // Soft role weights (emit only non-zero entries).
-  if (ObservationFeature::AgentRoleMiner != 0 && role_weights[0] != 0) {
-    features.push_back({ObservationFeature::AgentRoleMiner, static_cast<ObservationType>(role_weights[0])});
-  }
-  if (ObservationFeature::AgentRoleAligner != 0 && role_weights[1] != 0) {
-    features.push_back({ObservationFeature::AgentRoleAligner, static_cast<ObservationType>(role_weights[1])});
-  }
-  if (ObservationFeature::AgentRoleScrambler != 0 && role_weights[2] != 0) {
-    features.push_back({ObservationFeature::AgentRoleScrambler, static_cast<ObservationType>(role_weights[2])});
-  }
-  if (ObservationFeature::AgentRoleScout != 0 && role_weights[3] != 0) {
-    features.push_back({ObservationFeature::AgentRoleScout, static_cast<ObservationType>(role_weights[3])});
-  }
 
   return features;
 }

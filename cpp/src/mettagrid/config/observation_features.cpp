@@ -21,11 +21,6 @@ ObservationType LpWest;
 ObservationType LpNorth;
 ObservationType LpSouth;
 ObservationType AgentId;
-ObservationType AgentRole;
-ObservationType AgentRoleMiner;
-ObservationType AgentRoleAligner;
-ObservationType AgentRoleScrambler;
-ObservationType AgentRoleScout;
 
 void Initialize(const std::unordered_map<std::string, ObservationType>& feature_ids) {
   _instance = std::make_shared<ObservationFeaturesImpl>(feature_ids);
@@ -47,10 +42,5 @@ void Initialize(const std::unordered_map<std::string, ObservationType>& feature_
   LpNorth = _instance->LpNorth;
   LpSouth = _instance->LpSouth;
   AgentId = _instance->AgentId;
-  AgentRole = _instance->AgentRole;
-  AgentRoleMiner = _instance->AgentRoleMiner;
-  AgentRoleAligner = _instance->AgentRoleAligner;
-  AgentRoleScrambler = _instance->AgentRoleScrambler;
-  AgentRoleScout = _instance->AgentRoleScout;
 }
 }  // namespace ObservationFeature

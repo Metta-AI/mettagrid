@@ -2,7 +2,6 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_SYSTEMS_REWARD_HPP_
 
 #include <algorithm>
-#include <array>
 #include <string>
 #include <vector>
 
@@ -42,25 +41,10 @@ public:
                     StatsTracker* game_stats_tracker,
                     StatsTracker* collective_stats_tracker,
                     mettagrid::TagIndex* tag_index,
-                    const std::vector<std::string>* resource_names,
-                    const std::array<uint8_t, 4>& role_weights) {
+                    const std::vector<std::string>* resource_names) {
     _resolved_entries.clear();
     for (const auto& entry : config.entries) {
       ResolvedEntry re;
-      if (entry.role != 255) {
-        const uint8_t role_id = entry.role;
-        if (role_id >= role_weights.size()) {
-          continue;
-        }
-        const uint8_t role_weight = role_weights[role_id];
-        if (role_weight == 0) {
-          continue;
-        }
-        // Scale role-specific shaping by the agent's soft-role weight (0..255).
-        re.weight = entry.weight * (static_cast<float>(role_weight) / 255.0f);
-      } else {
-        re.weight = entry.weight;
-      }
       re.numerator = resolve_game_value(entry.numerator,
                                         agent_stats_tracker,
                                         game_stats_tracker,
@@ -71,6 +55,7 @@ public:
         re.denominators.push_back(resolve_game_value(
             denom, agent_stats_tracker, game_stats_tracker, collective_stats_tracker, tag_index, resource_names));
       }
+      re.weight = entry.weight;
       re.max_value = entry.max_value;
       re.has_max = entry.has_max;
       _resolved_entries.push_back(std::move(re));
