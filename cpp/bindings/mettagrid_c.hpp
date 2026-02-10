@@ -125,9 +125,29 @@ public:
     return _step_timing;
   }
 
+  // Validation statistics for observations path comparison
+  struct ObsValidationStats {
+    uint64_t comparison_count = 0;
+    uint64_t mismatch_count = 0;
+    double original_time_ns = 0;
+    double optimized_time_ns = 0;
+  };
+
+  const ObsValidationStats& obs_validation_stats() const {
+    return _obs_validation_stats;
+  }
+
 private:
   bool _profiling_enabled = false;
   StepTimingStats _step_timing;
+
+  // Validation configuration (read from environment variables at construction)
+  bool _validation_enabled = false;
+  bool _use_optimized_primary = false;
+  ObsValidationStats _obs_validation_stats;
+
+  // Shadow buffer for validation comparison (allocated if validation enabled)
+  std::vector<ObservationType> _shadow_obs_buffer;
   // Member variables
   GlobalObsConfig _global_obs_config;
   GameConfig _game_config;
@@ -189,12 +209,40 @@ private:
                   const std::vector<Collective*>& collectives_by_id);
   void _make_buffers(unsigned int num_agents);
   void _init_buffers(unsigned int num_agents);
+  // Dispatcher: routes to original or optimized based on validation config
   void _compute_observation(GridCoord observer_r,
                             GridCoord observer_c,
                             ObservationCoord obs_width,
                             ObservationCoord obs_height,
                             size_t agent_idx,
                             ActionType action);
+
+  // Original path: matches main branch behavior (uses ObservationPattern iterator, allocates per call)
+  void _compute_observation_original(GridCoord observer_r,
+                                     GridCoord observer_c,
+                                     ObservationCoord obs_width,
+                                     ObservationCoord obs_height,
+                                     size_t agent_idx,
+                                     ActionType action);
+
+  // Optimized path: pre-computed offsets, buffer reuse, direct encoding
+  void _compute_observation_optimized(GridCoord observer_r,
+                                      GridCoord observer_c,
+                                      ObservationCoord obs_width,
+                                      ObservationCoord obs_height,
+                                      size_t agent_idx,
+                                      ActionType action);
+
+  // Shadow validation helper: runs secondary path, compares, logs mismatches
+  void _shadow_validate_observation(GridCoord observer_r,
+                                    GridCoord observer_c,
+                                    ObservationCoord obs_width,
+                                    ObservationCoord obs_height,
+                                    size_t agent_idx,
+                                    ActionType action,
+                                    double primary_time_ns,
+                                    bool primary_was_optimized);
+
   void _compute_observations(const std::vector<ActionType>& executed_actions);
   void _step();
 

@@ -18,6 +18,13 @@ void bind_profiling_properties(py::class_<MettaGrid>& cls) {
       .def_readonly("truncation_ns", &StepTimingStats::truncation_ns)
       .def_readonly("total_ns", &StepTimingStats::total_ns);
 
+  py::class_<MettaGrid::ObsValidationStats>(cls, "ObsValidationStats")
+      .def_readonly("comparison_count", &MettaGrid::ObsValidationStats::comparison_count)
+      .def_readonly("mismatch_count", &MettaGrid::ObsValidationStats::mismatch_count)
+      .def_readonly("original_time_ns", &MettaGrid::ObsValidationStats::original_time_ns)
+      .def_readonly("optimized_time_ns", &MettaGrid::ObsValidationStats::optimized_time_ns);
+
   cls.def_property_readonly("last_obs_time_ns", &MettaGrid::last_obs_time_ns)
-      .def_property_readonly("step_timing", &MettaGrid::step_timing, py::return_value_policy::reference_internal);
+      .def_property_readonly("step_timing", &MettaGrid::step_timing, py::return_value_policy::reference_internal)
+      .def_property_readonly("obs_validation_stats", &MettaGrid::obs_validation_stats, py::return_value_policy::reference_internal);
 }

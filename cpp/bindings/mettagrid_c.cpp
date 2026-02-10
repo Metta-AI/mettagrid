@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <numeric>
@@ -133,6 +134,19 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   // Initialize reward entries (resolve stat names to IDs, get pointers)
   for (auto* agent : _agents) {
     agent->init_reward(_stats.get(), &_tag_index, &resource_names);
+  }
+
+  // Validation configuration from environment variables
+  if (const char* val = std::getenv("METTAGRID_OBS_VALIDATION")) {
+    _validation_enabled = (std::string(val) == "1");
+  }
+  if (const char* val = std::getenv("METTAGRID_OBS_USE_OPTIMIZED")) {
+    _use_optimized_primary = (std::string(val) == "1");
+  }
+
+  if (_validation_enabled) {
+    std::cerr << "[METTAGRID OBS_VALIDATION] ENABLED, primary="
+              << (_use_optimized_primary ? "optimized" : "original") << std::endl;
   }
 
   // Create buffers
@@ -312,12 +326,132 @@ void MettaGrid::_compute_agent_goal_obs_tokens(size_t agent_idx) {
   _agent_goal_obs_tokens[agent_idx] = std::move(goal_tokens);
 }
 
+// Dispatcher: routes to original or optimized based on validation config
 void MettaGrid::_compute_observation(GridCoord observer_row,
                                      GridCoord observer_col,
                                      ObservationCoord observable_width,
                                      ObservationCoord observable_height,
                                      size_t agent_idx,
                                      ActionType action) {
+  if (_use_optimized_primary) {
+    if (_validation_enabled) {
+      auto start = std::chrono::steady_clock::now();
+      _compute_observation_optimized(observer_row, observer_col, observable_width, observable_height, agent_idx, action);
+      auto end = std::chrono::steady_clock::now();
+      double elapsed_ns = std::chrono::duration<double, std::nano>(end - start).count();
+      _shadow_validate_observation(observer_row, observer_col, observable_width, observable_height,
+                                   agent_idx, action, elapsed_ns, true);
+    } else {
+      _compute_observation_optimized(observer_row, observer_col, observable_width, observable_height, agent_idx, action);
+    }
+  } else {
+    if (_validation_enabled) {
+      auto start = std::chrono::steady_clock::now();
+      _compute_observation_original(observer_row, observer_col, observable_width, observable_height, agent_idx, action);
+      auto end = std::chrono::steady_clock::now();
+      double elapsed_ns = std::chrono::duration<double, std::nano>(end - start).count();
+      _shadow_validate_observation(observer_row, observer_col, observable_width, observable_height,
+                                   agent_idx, action, elapsed_ns, false);
+    } else {
+      _compute_observation_original(observer_row, observer_col, observable_width, observable_height, agent_idx, action);
+    }
+  }
+}
+
+// Shadow validation: runs the other path and compares outputs
+void MettaGrid::_shadow_validate_observation(GridCoord observer_row,
+                                             GridCoord observer_col,
+                                             ObservationCoord observable_width,
+                                             ObservationCoord observable_height,
+                                             size_t agent_idx,
+                                             ActionType action,
+                                             double primary_time_ns,
+                                             bool primary_was_optimized) {
+  auto observation_view = _observations.mutable_unchecked<3>();
+  size_t num_tokens = static_cast<size_t>(observation_view.shape(1));
+  size_t token_size = static_cast<size_t>(observation_view.shape(2));
+  size_t agent_obs_size = num_tokens * token_size;
+
+  // Ensure shadow buffer is sized correctly
+  if (_shadow_obs_buffer.size() < agent_obs_size) {
+    _shadow_obs_buffer.resize(agent_obs_size);
+  }
+
+  // Save current observation to shadow buffer
+  ObservationType* primary_obs = observation_view.mutable_data(agent_idx, 0, 0);
+  std::copy(primary_obs, primary_obs + agent_obs_size, _shadow_obs_buffer.begin());
+
+  // Clear observation buffer and run secondary path.
+  // NOTE: This temporarily corrupts the agent's observation buffer. Safe only because
+  // observations are computed sequentially per agent (no concurrent readers).
+  std::fill(primary_obs, primary_obs + agent_obs_size, EmptyTokenByte);
+
+  auto start = std::chrono::steady_clock::now();
+  if (primary_was_optimized) {
+    _compute_observation_original(observer_row, observer_col, observable_width, observable_height, agent_idx, action);
+  } else {
+    _compute_observation_optimized(observer_row, observer_col, observable_width, observable_height, agent_idx, action);
+  }
+  auto end = std::chrono::steady_clock::now();
+  double secondary_time_ns = std::chrono::duration<double, std::nano>(end - start).count();
+
+  // Compare outputs
+  bool mismatch = false;
+  size_t first_mismatch_idx = 0;
+  for (size_t i = 0; i < agent_obs_size; ++i) {
+    if (_shadow_obs_buffer[i] != primary_obs[i]) {
+      mismatch = true;
+      first_mismatch_idx = i;
+      break;
+    }
+  }
+
+  // Update stats
+  _obs_validation_stats.comparison_count++;
+  if (mismatch) {
+    _obs_validation_stats.mismatch_count++;
+    // Log first few mismatches for debugging
+    if (_obs_validation_stats.mismatch_count <= 10) {
+      size_t token_idx = first_mismatch_idx / token_size;
+      size_t component = first_mismatch_idx % token_size;
+      const char* component_names[] = {"location", "feature_id", "value"};
+      std::cerr << "[METTAGRID OBS_VALIDATION] Mismatch at agent " << agent_idx
+                << " token " << token_idx << " " << component_names[component]
+                << ": primary=" << static_cast<int>(_shadow_obs_buffer[first_mismatch_idx])
+                << " secondary=" << static_cast<int>(primary_obs[first_mismatch_idx]) << std::endl;
+    }
+  }
+
+  // Accumulate timing
+  if (primary_was_optimized) {
+    _obs_validation_stats.optimized_time_ns += primary_time_ns;
+    _obs_validation_stats.original_time_ns += secondary_time_ns;
+  } else {
+    _obs_validation_stats.original_time_ns += primary_time_ns;
+    _obs_validation_stats.optimized_time_ns += secondary_time_ns;
+  }
+
+  // Periodic timing ratio log for production monitoring
+  // Tiered reporting: early data at 1K and 10K, then every 100K
+  auto count = _obs_validation_stats.comparison_count;
+  if (count == 1000 || count == 10000 || (count >= 100000 && count % 100000 == 0)) {
+    double ratio = _obs_validation_stats.original_time_ns / std::max(_obs_validation_stats.optimized_time_ns, 1.0);
+    std::cerr << "[METTAGRID OBS_VALIDATION] " << _obs_validation_stats.comparison_count
+              << " comparisons, " << _obs_validation_stats.mismatch_count << " mismatches, "
+              << "timing ratio=" << std::fixed << std::setprecision(2) << ratio << "x" << std::endl;
+  }
+
+  // Restore primary observation (the one we want to keep)
+  std::copy(_shadow_obs_buffer.begin(), _shadow_obs_buffer.begin() + agent_obs_size, primary_obs);
+}
+
+// Original path: matches main branch behavior exactly
+void MettaGrid::_compute_observation_original(GridCoord observer_row,
+                                              GridCoord observer_col,
+                                              ObservationCoord observable_width,
+                                              ObservationCoord observable_height,
+                                              size_t agent_idx,
+                                              ActionType action) {
   // Calculate observation boundaries
   ObservationCoord obs_width_radius = observable_width >> 1;
   ObservationCoord obs_height_radius = observable_height >> 1;
@@ -329,9 +463,6 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
                        static_cast<int>(_grid->height));
   int c_end =
       std::min(static_cast<int>(observer_col) + static_cast<int>(obs_width_radius) + 1, static_cast<int>(_grid->width));
-
-  const int map_center_r = static_cast<int>(_grid->height) / 2;
-  const int map_center_c = static_cast<int>(_grid->width) / 2;
 
   // Fill in visible objects. Observations should have been cleared in _step, so
   // we don't need to do that here.
@@ -352,8 +483,6 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
     ObservationType episode_completion_pct = 0;
     if (max_steps > 0) {
       if (current_step >= max_steps) {
-        // The episode should be over, so this observation shouldn't matter. But let's max our for
-        // better continuity.
         episode_completion_pct = std::numeric_limits<ObservationType>::max();
       } else {
         episode_completion_pct = static_cast<ObservationType>(
@@ -400,7 +529,6 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
   }
 
   // Global tokens use a dedicated location marker (0xFE) distinct from spatial coordinates.
-  // This allows policies to easily identify global vs spatial tokens by position alone.
   uint8_t global_location = PackedCoordinate::GLOBAL_LOCATION;
 
   attempted_tokens_written +=
@@ -422,7 +550,147 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
       continue;
     }
 
-    //  process a single grid location
+    // Process a single grid location
+    GridLocation object_loc(static_cast<GridCoord>(r), static_cast<GridCoord>(c));
+    auto obj = _grid->object_at(object_loc);
+    if (!obj) {
+      continue;
+    }
+
+    // Track cell staleness for exploration (cell.visited stat)
+    if (obj->visited < current_step) {
+      unsigned int staleness = current_step - obj->visited;
+      obj->visited = current_step;
+      _agents[agent_idx]->stats.add("cell.visited", static_cast<float>(staleness));
+    }
+
+    // Prepare observation buffer for this object
+    ObservationToken* obs_ptr =
+        reinterpret_cast<ObservationToken*>(observation_view.mutable_data(agent_idx, tokens_written, 0));
+    ObservationTokens obs_tokens(obs_ptr,
+                                 static_cast<size_t>(observation_view.shape(1)) - static_cast<size_t>(tokens_written));
+
+    // Calculate position within the observation window (agent is at the center)
+    int obs_r = r - static_cast<int>(observer_row) + static_cast<int>(obs_height_radius);
+    int obs_c = c - static_cast<int>(observer_col) + static_cast<int>(obs_width_radius);
+
+    // Encode location and add tokens
+    uint8_t location = PackedCoordinate::pack(static_cast<uint8_t>(obs_r), static_cast<uint8_t>(obs_c));
+    attempted_tokens_written += _obs_encoder->encode_tokens(obj, obs_tokens, location);
+    tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
+  }
+
+  _stats->add("tokens_written", tokens_written);
+  _stats->add("tokens_dropped", attempted_tokens_written - tokens_written);
+  _stats->add("tokens_free_space", static_cast<size_t>(observation_view.shape(1)) - tokens_written);
+}
+
+// Optimized path: currently identical to original (optimizations added in next branch)
+void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
+                                               GridCoord observer_col,
+                                               ObservationCoord observable_width,
+                                               ObservationCoord observable_height,
+                                               size_t agent_idx,
+                                               ActionType action) {
+  // Calculate observation boundaries
+  ObservationCoord obs_width_radius = observable_width >> 1;
+  ObservationCoord obs_height_radius = observable_height >> 1;
+
+  int r_start = std::max(static_cast<int>(observer_row) - static_cast<int>(obs_height_radius), 0);
+  int c_start = std::max(static_cast<int>(observer_col) - static_cast<int>(obs_width_radius), 0);
+
+  int r_end = std::min(static_cast<int>(observer_row) + static_cast<int>(obs_height_radius) + 1,
+                       static_cast<int>(_grid->height));
+  int c_end =
+      std::min(static_cast<int>(observer_col) + static_cast<int>(obs_width_radius) + 1, static_cast<int>(_grid->width));
+
+  // Fill in visible objects. Observations should have been cleared in _step, so
+  // we don't need to do that here.
+  size_t attempted_tokens_written = 0;
+  size_t tokens_written = 0;
+  auto observation_view = _observations.mutable_unchecked<3>();
+  auto rewards_view = _rewards.unchecked<1>();
+
+  // Global tokens
+  ObservationToken* agent_obs_ptr = reinterpret_cast<ObservationToken*>(observation_view.mutable_data(agent_idx, 0, 0));
+  ObservationTokens agent_obs_tokens(
+      agent_obs_ptr, static_cast<size_t>(observation_view.shape(1)) - static_cast<size_t>(tokens_written));
+
+  // Build global tokens based on configuration
+  std::vector<PartialObservationToken> global_tokens;
+
+  if (_global_obs_config.episode_completion_pct) {
+    ObservationType episode_completion_pct = 0;
+    if (max_steps > 0) {
+      if (current_step >= max_steps) {
+        episode_completion_pct = std::numeric_limits<ObservationType>::max();
+      } else {
+        episode_completion_pct = static_cast<ObservationType>(
+            (static_cast<uint32_t>(std::numeric_limits<ObservationType>::max()) + 1) * current_step / max_steps);
+      }
+    }
+    global_tokens.push_back({ObservationFeature::EpisodeCompletionPct, episode_completion_pct});
+  }
+
+  if (_global_obs_config.last_action) {
+    global_tokens.push_back({ObservationFeature::LastAction, static_cast<ObservationType>(action)});
+  }
+
+  if (_global_obs_config.last_reward) {
+    ObservationType reward_int = static_cast<ObservationType>(std::round(rewards_view(agent_idx) * 100.0f));
+    global_tokens.push_back({ObservationFeature::LastReward, reward_int});
+  }
+
+  // Add pre-computed goal tokens for rewarding resources when enabled
+  if (_global_obs_config.goal_obs) {
+    global_tokens.insert(
+        global_tokens.end(), _agent_goal_obs_tokens[agent_idx].begin(), _agent_goal_obs_tokens[agent_idx].end());
+  }
+
+  // Local position: directional offset from spawn (at most 2 tokens, skip zero axes)
+  if (_global_obs_config.local_position) {
+    auto& agent = *_agents[agent_idx];
+    int dc = static_cast<int>(agent.location.c) - static_cast<int>(agent.spawn_location.c);
+    int dr = static_cast<int>(agent.spawn_location.r) - static_cast<int>(agent.location.r);
+    if (dc > 0) {
+      global_tokens.push_back(
+          {ObservationFeature::LpEast, static_cast<ObservationType>(std::min(dc, 255))});
+    } else if (dc < 0) {
+      global_tokens.push_back(
+          {ObservationFeature::LpWest, static_cast<ObservationType>(std::min(-dc, 255))});
+    }
+    if (dr > 0) {
+      global_tokens.push_back(
+          {ObservationFeature::LpNorth, static_cast<ObservationType>(std::min(dr, 255))});
+    } else if (dr < 0) {
+      global_tokens.push_back(
+          {ObservationFeature::LpSouth, static_cast<ObservationType>(std::min(-dr, 255))});
+    }
+  }
+
+  // Global tokens use a dedicated location marker (0xFE) distinct from spatial coordinates.
+  uint8_t global_location = PackedCoordinate::GLOBAL_LOCATION;
+
+  attempted_tokens_written +=
+      _obs_encoder->append_tokens_if_room_available(agent_obs_tokens, global_tokens, global_location);
+  tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
+
+  // Emit obs tokens - resolve each GameValueConfig inline
+  attempted_tokens_written +=
+      _emit_obs_value_tokens(agent_idx, tokens_written, global_location);
+  tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
+
+  // Process locations in increasing manhattan distance order
+  for (const auto& [r_offset, c_offset] : PackedCoordinate::ObservationPattern{observable_height, observable_width}) {
+    int r = static_cast<int>(observer_row) + r_offset;
+    int c = static_cast<int>(observer_col) + c_offset;
+
+    // Skip if outside map bounds
+    if (r < r_start || r >= r_end || c < c_start || c >= c_end) {
+      continue;
+    }
+
+    // Process a single grid location
     GridLocation object_loc(static_cast<GridCoord>(r), static_cast<GridCoord>(c));
     auto obj = _grid->object_at(object_loc);
     if (!obj) {
