@@ -26,7 +26,7 @@ type
     image: Image
     shader: Shader
     vao: GLuint              ## Vertex array object
-    instanceVbo: GLuint      ## Per-instance buffer (uint16 * 6): aPos(x,y), aUv(x,y,w,h)
+    instanceVbo: GLuint      ## Per-instance buffer: aPos(2 x uint16), aUv(4 x uint16), aTint(4 x uint8)
     atlasTexture: GLuint     ## GL texture for the atlas image
     instanceData: seq[uint16]
     instanceCount: int
@@ -36,7 +36,7 @@ var
   atlasSize: Uniform[Vec2]
   atlas: Uniform[Sampler2D]
 
-proc pixelatorVert*(vertexPos: UVec2, uv: UVec4, fragmentUv: var Vec2) =
+proc pixelatorVert*(vertexPos: UVec2, uv: UVec4, tint: Vec4, fragmentUv: var Vec2, vTint: var Vec4) =
   # Compute the corner of the quad based on the vertex ID.
   # 0:(0,0), 1:(1,0), 2:(0,1), 3:(1,1)
   let corner = ivec2(gl_VertexID mod 2, gl_VertexID div 2)
@@ -51,12 +51,15 @@ proc pixelatorVert*(vertexPos: UVec2, uv: UVec4, fragmentUv: var Vec2) =
   let sy = float(uv.y) + float(corner.y) * float(uv.w)
   fragmentUv = vec2(sx, sy) / atlasSize
 
-proc pixelatorFrag*(fragmentUv: Vec2, FragColor: var Vec4) =
+  # Tint is auto-normalized from 4 x uint8 by GL.
+  vTint = tint
+
+proc pixelatorFrag*(fragmentUv: Vec2, vTint: Vec4, FragColor: var Vec4) =
   # Compute the texture coordinates of the pixel.
   let pixCoord = fragmentUv * atlasSize
   # Compute the AA pixel coordinates.
   let pixAA = floor(pixCoord) + min(fract(pixCoord) / fwidth(pixCoord), 1.0) - 0.5
-  FragColor = texture(atlas, pixAA / atlasSize)
+  FragColor = texture(atlas, pixAA / atlasSize) * vTint
 
 proc generatePixelAtlas*(
   size: int,
@@ -149,26 +152,34 @@ proc newPixelator*(imagePath, jsonPath: string): Pixelator =
   glBindBuffer(GL_ARRAY_BUFFER, result.instanceVbo)
   glBufferData(GL_ARRAY_BUFFER, 0, nil, GL_STREAM_DRAW)  # will resize each frame
 
-  # Interleaved attributes of 12 bytes (6 * uint16).
+  # Interleaved attributes of 16 bytes (8 * uint16).
+  let stride = 8 * sizeof(uint16)
   # Location 0: aPos (2 x uint16) at offset 0.
   glEnableVertexAttribArray(0)
-  glVertexAttribIPointer(0, 2, GL_UNSIGNED_SHORT, 6 * sizeof(uint16), cast[pointer](0))
+  glVertexAttribIPointer(0, 2, GL_UNSIGNED_SHORT, stride.GLsizei, cast[pointer](0))
   glVertexAttribDivisor(0, 1)
   # Location 1: aUv (4 x uint16) at offset 2 * uint16.
   glEnableVertexAttribArray(1)
-  glVertexAttribIPointer(1, 4, GL_UNSIGNED_SHORT, 6 * sizeof(uint16), cast[pointer](2 * sizeof(uint16)))
+  glVertexAttribIPointer(1, 4, GL_UNSIGNED_SHORT, stride.GLsizei, cast[pointer](2 * sizeof(uint16)))
   glVertexAttribDivisor(1, 1)
+  # Location 2: aTint (4 x uint8, normalized to 0.0-1.0) at offset 12 bytes.
+  glEnableVertexAttribArray(2)
+  glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride.GLsizei, cast[pointer](6 * sizeof(uint16)))
+  glVertexAttribDivisor(2, 1)
 
   # Unbind the buffers.
   glBindBuffer(GL_ARRAY_BUFFER, 0)
   glBindVertexArray(0)
 
+const WhiteTint* = rgbx(255, 255, 255, 255)
+
 proc drawSprite*(
   px: Pixelator,
   name: string,
-  x, y: uint16
+  x, y: uint16,
+  tint: ColorRGBX = WhiteTint
 ) =
-  ## Draws a sprite at the given position.
+  ## Draws a sprite at the given position with optional tint color.
   if name notin px.atlas.entries:
     echo "[Warning] Sprite not found in atlas: " & name
     return
@@ -179,15 +190,19 @@ proc drawSprite*(
   px.instanceData.add(uv.y.uint16)
   px.instanceData.add(uv.width.uint16)
   px.instanceData.add(uv.height.uint16)
+  # Pack 4 tint bytes into 2 uint16 slots (read as 4 x GL_UNSIGNED_BYTE on GPU)
+  px.instanceData.add(uint16(tint.r) or (uint16(tint.g) shl 8))
+  px.instanceData.add(uint16(tint.b) or (uint16(tint.a) shl 8))
   inc px.instanceCount
 
 proc drawSprite*(
   px: Pixelator,
   name: string,
-  pos: IVec2
+  pos: IVec2,
+  tint: ColorRGBX = WhiteTint
 ) =
-  ## Draws a sprite at the given position.
-  px.drawSprite(name, pos.x.uint16, pos.y.uint16)
+  ## Draws a sprite at the given position with optional tint color.
+  px.drawSprite(name, pos.x.uint16, pos.y.uint16, tint)
 
 proc contains*(px: Pixelator, name: string): bool =
   ## Checks if the given sprite is in the atlas.
