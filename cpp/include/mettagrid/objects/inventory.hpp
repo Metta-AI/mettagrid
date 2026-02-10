@@ -63,8 +63,13 @@ public:
   // Get the free space for a specific item
   InventoryQuantity free_space(InventoryItem item) const;
 
-  // Get all inventory items
+  // Get all inventory items (copy)
   std::unordered_map<InventoryItem, InventoryQuantity> get() const;
+
+  // Get all inventory items (const reference, no copy)
+  const std::unordered_map<InventoryItem, InventoryQuantity>& items() const {
+    return _inventory;
+  }
 
   // Enforce all limits - drop excess items when limits decrease (e.g., after losing gear modifiers)
   void enforce_all_limits();

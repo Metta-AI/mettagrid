@@ -34,6 +34,33 @@ public:
     return tokens;
   }
 
+  // Allocation-free encode: writes tokens directly to caller-provided buffer.
+  // Returns number of tokens written.
+  size_t encode_direct(ObservationType base_feature_id,
+                       uint32_t value,
+                       PartialObservationToken* out,
+                       size_t max_tokens) const {
+    size_t written = 0;
+    uint32_t remaining = value;
+    ObservationType current_feature_id = base_feature_id;
+
+    // Base token (always emitted)
+    if (written < max_tokens) {
+      out[written++] = {current_feature_id, static_cast<ObservationType>(remaining % _token_value_base)};
+    }
+    remaining /= _token_value_base;
+    current_feature_id++;
+
+    // Higher-order tokens (only if needed)
+    while (remaining > 0 && written < max_tokens) {
+      out[written++] = {current_feature_id, static_cast<ObservationType>(remaining % _token_value_base)};
+      remaining /= _token_value_base;
+      current_feature_id++;
+    }
+
+    return written;
+  }
+
   unsigned int token_value_base() const {
     return _token_value_base;
   }

@@ -105,3 +105,42 @@ std::vector<PartialObservationToken> GridObject::obs_features() const {
 
   return features;
 }
+
+size_t GridObject::max_obs_features(size_t max_tags, size_t num_resources, size_t tokens_per_item) {
+  // 1 (collective) + max_tags + 1 (vibe) + (num_resources * tokens_per_item)
+  return 1 + max_tags + 1 + (num_resources * tokens_per_item);
+}
+
+size_t GridObject::write_obs_features(PartialObservationToken* out, size_t max_tokens) const {
+  size_t written = 0;
+
+  // Emit collective ID if this object belongs to a collective and the feature is configured
+  Collective* collective = getCollective();
+  if (collective != nullptr && ObservationFeature::Collective != 0) {
+    if (written < max_tokens) {
+      out[written++] = {ObservationFeature::Collective, static_cast<ObservationType>(collective->id)};
+    }
+  }
+
+  // Emit tag features
+  for (int tag_id : tag_ids) {
+    if (written >= max_tokens) break;
+    out[written++] = {ObservationFeature::Tag, static_cast<ObservationType>(tag_id)};
+  }
+
+  // Emit vibe if non-zero
+  if (vibe != 0 && written < max_tokens) {
+    out[written++] = {ObservationFeature::Vibe, static_cast<ObservationType>(vibe)};
+  }
+
+  // Emit inventory using multi-token encoding (if obs_encoder is available)
+  if (obs_encoder) {
+    for (const auto& [item, amount] : inventory.items()) {
+      if (written >= max_tokens) break;
+      assert(amount > 0);
+      written += obs_encoder->write_inventory_tokens(out + written, max_tokens - written, item, amount);
+    }
+  }
+
+  return written;
+}

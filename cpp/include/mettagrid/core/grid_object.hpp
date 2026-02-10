@@ -151,6 +151,15 @@ public:
   // Subclasses should call this base implementation and append their specific features
   virtual std::vector<PartialObservationToken> obs_features() const;
 
+  // Write observable features directly into provided buffer, returns number of tokens written.
+  // This avoids allocation per call - preferred for hot path in observation computation.
+  // Subclasses should override and call base implementation first.
+  virtual size_t write_obs_features(PartialObservationToken* out, size_t max_tokens) const;
+
+  // Must reflect the maximum number of tokens write_obs_features can emit.
+  // Update this if adding new features.
+  static size_t max_obs_features(size_t max_tags, size_t num_resources, size_t tokens_per_item);
+
   const ObservationEncoder* obs_encoder = nullptr;
 
   // Set grid access (used for removing depleted objects from grid)

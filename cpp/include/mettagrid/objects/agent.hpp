@@ -60,6 +60,11 @@ public:
   bool onUse(Agent& actor, ActionArg arg) override;
 
   std::vector<PartialObservationToken> obs_features() const override;
+  size_t write_obs_features(PartialObservationToken* out, size_t max_tokens) const override;
+
+  // Must reflect the maximum number of tokens write_obs_features can emit.
+  // Update this if adding new features.
+  static size_t max_obs_features(size_t max_tags, size_t num_resources, size_t tokens_per_item);
 
   // Set observation encoder for inventory feature ID lookup
   void set_obs_encoder(const ObservationEncoder* encoder) {
