@@ -12,6 +12,8 @@ const
   MINI_TILE_SIZE = 16
   MTS = 1.0 / MINI_TILE_SIZE.float32 # Mini tile scale for minimap.
   MINI_VIEW_ZOOM_THRESHOLD = 4.25f # Show mini/pip overlays at a less zoomed-out level.
+  AoeMapSlots* = NumCollectives + 1  # 0=Clips, 1=Cogs, 2=Neutral
+  NeutralAoeSlot* = NumCollectives   # Index 2 for neutral/unaligned objects
 
 proc centerAt*(zoomInfo: ZoomInfo, entity: Entity)
 
@@ -22,10 +24,11 @@ var
   visibilityMapLockFocus*: bool = false
   visibilityMap*: TileMap
 
-  # AoE tilemap system - one map per collective
-  aoeMaps*: array[NumCollectives, TileMap]
+  # AoE tilemap system - one map per collective + one for neutral
+  aoeMaps*: array[AoeMapSlots, TileMap]
   aoeMapStep*: int = -1
   aoeMapEnabledCollectives*: HashSet[int]
+  aoeMapSelectionId*: int = -1
 
   px*: Pixelator
   pxMini*: Pixelator
@@ -220,8 +223,47 @@ proc getProjectionView*(): Mat4 =
   let projection = ortho(0.0f, window.size.x.float32, window.size.y.float32, 0.0f, -1.0f, 1.0f)
   projection * view
 
-proc rebuildAoeMap*(aoeMap: TileMap, collectiveId: int) =
-  ## Rebuild the AoE map for a specific collective (collectiveId is the array index).
+proc hasInfluenceAoe*(obj: Entity): bool =
+  ## Check if an object has influence (non-attack) AoE in its config.
+  if obj.isNil or obj.typeName == "agent":
+    return false
+  if replay.isNil or replay.mgConfig.isNil:
+    return false
+  if "game" notin replay.mgConfig:
+    return false
+  let game = replay.mgConfig["game"]
+  if "objects" notin game:
+    return false
+  let objects = game["objects"]
+  if obj.typeName notin objects:
+    return false
+  let objConfig = objects[obj.typeName]
+  if "aoes" notin objConfig:
+    return false
+  let aoes = objConfig["aoes"]
+  if aoes.kind != JObject:
+    return false
+  for aoeName, aoeConfig in aoes.pairs:
+    if aoeName == "attack":
+      continue
+    if "radius" in aoeConfig:
+      var r = 0
+      if aoeConfig["radius"].kind == JInt:
+        r = aoeConfig["radius"].getInt
+      elif aoeConfig["radius"].kind == JFloat:
+        r = aoeConfig["radius"].getFloat.int
+      if r > 0:
+        return true
+  return false
+
+proc collectiveToSlot*(collectiveId: int): int =
+  ## Map a game collective ID to an AoE map slot index.
+  ## Collective IDs 0..N-1 map to slots 0..N-1; negative (neutral) maps to NeutralAoeSlot.
+  if collectiveId < 0: NeutralAoeSlot
+  else: collectiveId
+
+proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) =
+  ## Rebuild the AoE map for a specific slot (0=Clips, 1=Cogs, 2=Neutral).
   let
     width = aoeMap.width
     height = aoeMap.height
@@ -232,13 +274,13 @@ proc rebuildAoeMap*(aoeMap: TileMap, collectiveId: int) =
   for i in 0 ..< coverageMap.len:
     coverageMap[i] = true
 
-  # Check if this collective is enabled (or if we're always showing selection's AoE)
-  let isEnabled = collectiveId in settings.aoeEnabledCollectives
+  # Check if this collective is enabled (neutral is never enabled via checkbox)
+  let isEnabled = slotId < NumCollectives and slotId in settings.aoeEnabledCollectives
 
   # Mark AoE coverage for objects with matching collective
   proc markAoeCoverage(obj: Entity) =
-    # Check if object's collective matches this map
-    if obj.collectiveId.at(step) != collectiveId:
+    # Check if object's collective maps to this slot
+    if collectiveToSlot(obj.collectiveId.at(step)) != slotId:
       return
 
     # Get AoE range for this object type
@@ -263,6 +305,8 @@ proc rebuildAoeMap*(aoeMap: TileMap, collectiveId: int) =
 
     var maxRange = 0
     for aoeName, aoeConfig in aoes.pairs:
+      if aoeName == "attack":
+        continue  # Skip attack AoE, only show influence AoE
       if "radius" in aoeConfig:
         var r = 0
         if aoeConfig["radius"].kind == JInt:
@@ -285,16 +329,22 @@ proc rebuildAoeMap*(aoeMap: TileMap, collectiveId: int) =
         if tx >= 0 and tx < width and ty >= 0 and ty < height:
           coverageMap[ty * width + tx] = false  # false = has AoE coverage
 
-  # Process objects if this collective is enabled
-  if isEnabled:
-    for obj in replay.objects:
-      if not obj.alive.at:
-        continue
-      markAoeCoverage(obj)
+  # If a selected object has influence AoE, show only its AoE.
+  # Otherwise show combined AoE for all objects in enabled collectives.
+  let selectionHasInfluence = selection != nil and hasInfluenceAoe(selection)
 
-  # Also show selected object's AoE regardless of filter (if it matches this map)
-  if selection != nil and selection.collectiveId.at(step) == collectiveId:
-    markAoeCoverage(selection)
+  if selectionHasInfluence:
+    # Only show the selected object's influence AoE
+    if collectiveToSlot(selection.collectiveId.at(step)) == slotId:
+      markAoeCoverage(selection)
+  else:
+    # Show combined AoE for all objects in enabled collectives (like before)
+    # Neutral slot is never shown in combined mode (only on selection)
+    if isEnabled:
+      for obj in replay.objects:
+        if not obj.alive.at:
+          continue
+        markAoeCoverage(obj)
 
   # Generate the tile edges using marching squares
   for i in 0 ..< aoeMap.indexData.len:
@@ -326,8 +376,8 @@ proc rebuildAoeMap*(aoeMap: TileMap, collectiveId: int) =
       tile = patternToTile[pattern].uint8
     aoeMap.indexData[i] = tile
 
-proc generateAoeMap(collectiveId: int): TileMap =
-  ## Generate an AoE tilemap for a specific collective.
+proc generateAoeMap(slotId: int): TileMap =
+  ## Generate an AoE tilemap for a specific slot.
   let
     width = ceil(replay.mapSize[0].float32 / 32.0f).int * 32
     height = ceil(replay.mapSize[1].float32 / 32.0f).int * 32
@@ -338,31 +388,34 @@ proc generateAoeMap(collectiveId: int): TileMap =
     tileSize = 64,
     atlasPath = dataDir / "aoe7x8.png"
   )
-  aoeMap.rebuildAoeMap(collectiveId)
+  aoeMap.rebuildAoeMap(slotId)
   aoeMap.setupGPU()
   return aoeMap
 
-proc updateAoeMap*(aoeMap: TileMap, collectiveId: int) =
+proc updateAoeMap*(aoeMap: TileMap, slotId: int) =
   ## Update the AoE map.
-  aoeMap.rebuildAoeMap(collectiveId)
+  aoeMap.rebuildAoeMap(slotId)
   aoeMap.updateGPU()
 
 proc initAoeMaps*() =
-  ## Initialize all AoE tilemaps.
-  for collectiveId in 0 ..< NumCollectives:
-    aoeMaps[collectiveId] = generateAoeMap(collectiveId)
+  ## Initialize all AoE tilemaps (including neutral).
+  for slotId in 0 ..< AoeMapSlots:
+    aoeMaps[slotId] = generateAoeMap(slotId)
   aoeMapStep = step
   aoeMapEnabledCollectives = settings.aoeEnabledCollectives
 
 proc updateAoeMaps*() =
   ## Update all AoE tilemaps if step or enabled collectives changed.
-  for collectiveId in 0 ..< NumCollectives:
-    aoeMaps[collectiveId].updateAoeMap(collectiveId)
+  for slotId in 0 ..< AoeMapSlots:
+    aoeMaps[slotId].updateAoeMap(slotId)
   aoeMapStep = step
   aoeMapEnabledCollectives = settings.aoeEnabledCollectives
 
 proc drawAoeMaps*() =
   ## Draw all enabled AoE tilemaps with their respective tint colors.
+  ## Only shows influence AoE (not attack AoE).
+  ## When a selected object has influence AoE, shows only that object's AoE.
+  ## Otherwise shows combined AoE for all enabled collectives.
   if replay.isNil:
     return
 
@@ -372,21 +425,32 @@ proc drawAoeMaps*() =
   if aoeMaps[0] == nil:
     initAoeMaps()
 
-  # Check if we need to rebuild
-  let needsRebuild = aoeMapStep != step or aoeMapEnabledCollectives != settings.aoeEnabledCollectives
+  # Check if we need to rebuild (including when selection changes)
+  let currentSelectionId = if selection != nil: selection.id else: -1
+  let needsRebuild = aoeMapStep != step or
+    aoeMapEnabledCollectives != settings.aoeEnabledCollectives or
+    aoeMapSelectionId != currentSelectionId
   if needsRebuild:
     updateAoeMaps()
+    aoeMapSelectionId = currentSelectionId
 
-  # Draw each enabled map with its tint color (collectiveId is the array index)
-  for collectiveId in 0 ..< NumCollectives:
-    # Only draw if this collective is enabled (or has selected object)
-    let hasSelection = selection != nil and selection.collectiveId.at(step) == collectiveId
-    if collectiveId in settings.aoeEnabledCollectives or hasSelection:
-      aoeMaps[collectiveId].draw(
+  # Determine if selection has influence AoE to decide what to draw
+  let selectionHasInfluence = selection != nil and hasInfluenceAoe(selection)
+
+  # Draw each map with its tint color
+  for slotId in 0 ..< AoeMapSlots:
+    let shouldDraw = if selectionHasInfluence:
+      # Only draw the selected object's slot
+      collectiveToSlot(selection.collectiveId.at(step)) == slotId
+    else:
+      # Draw enabled collectives; neutral slot is never shown in combined mode
+      slotId < NumCollectives and slotId in settings.aoeEnabledCollectives
+    if shouldDraw:
+      aoeMaps[slotId].draw(
         getProjectionView(),
         zoom = 2.0f,
         zoomThreshold = 1.5f,
-        tint = getAoeColor(collectiveId).color
+        tint = getAoeColor(slotId).color
       )
 
   bxy.exitRawOpenGLMode()
