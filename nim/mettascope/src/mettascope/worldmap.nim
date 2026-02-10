@@ -874,6 +874,7 @@ proc drawTerrain*() =
 
 proc drawObjectPips*() =
   ## Draw the pips for the objects on the minimap using the mini pixelator.
+  ## Junction pips are colored by their collective.
   for obj in replay.objects:
     if obj.typeName == "wall":
       continue
@@ -887,9 +888,15 @@ proc drawObjectPips*() =
     if pipName notin pxMini:
       pipName = "minimap/unknown"
     let loc = obj.location.at(step).xy
+    # Color junction pips by collective (everything else keeps default white)
+    let pipTint = if normalizeTypeName(obj.typeName) == "junction":
+      getAoeColor(obj.collectiveId.at(step))
+    else:
+      WhiteTint
     pxMini.drawSprite(
       pipName,
-      loc.ivec2 * MINI_TILE_SIZE
+      loc.ivec2 * MINI_TILE_SIZE,
+      pipTint
     )
 
 proc drawWorldMini*() =
