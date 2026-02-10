@@ -20,6 +20,9 @@
 
 namespace py = pybind11;
 
+// Defined in profiling_py.cpp
+void bind_profiling_properties(py::class_<MettaGrid>& cls);
+
 py::dict MettaGrid::grid_objects(py::object self_ref,
                                  int min_row,
                                  int max_row,
@@ -248,7 +251,7 @@ PYBIND11_MODULE(mettagrid_c, m) {
   bind_protocol(m);
 
   // MettaGrid class bindings
-  py::class_<MettaGrid>(m, "MettaGrid")
+  auto mettagrid_cls = py::class_<MettaGrid>(m, "MettaGrid")
       .def(py::init<const GameConfig&, const py::list&, unsigned int>())
       .def("step", &MettaGrid::step)
       .def("set_buffers",
@@ -288,6 +291,9 @@ PYBIND11_MODULE(mettagrid_c, m) {
       .def("set_inventory", &MettaGrid::set_inventory, py::arg("agent_id"), py::arg("inventory"))
       .def("get_collective_inventories", &MettaGrid::get_collective_inventories)
       .def("tag_index", &MettaGrid::tag_index, py::return_value_policy::reference_internal);
+
+  // Profiling bindings (defined in profiling_py.cpp)
+  bind_profiling_properties(mettagrid_cls);
 
   // Expose this so we can cast python WallConfig / AgentConfig to a common GridConfig cpp object.
   py::class_<GridObjectConfig, std::shared_ptr<GridObjectConfig>>(m, "GridObjectConfig")

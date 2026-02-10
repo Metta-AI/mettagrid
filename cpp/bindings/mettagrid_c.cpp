@@ -4,7 +4,9 @@
 #include <pybind11/stl.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <numeric>
@@ -49,6 +51,9 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
       _num_observation_tokens(game_config.num_observation_tokens) {
   _seed = seed;
   _rng = std::mt19937(seed);
+
+  const char* profiling_env = std::getenv("METTAGRID_PROFILING");
+  _profiling_enabled = profiling_env && std::string(profiling_env) == "1";
 
   // `map` is a list of lists of strings, which are the map cells.
 
@@ -468,9 +473,14 @@ void MettaGrid::_handle_invalid_action(size_t agent_idx, const std::string& stat
 }
 
 void MettaGrid::_step() {
+  std::chrono::steady_clock::time_point step_start, phase_start, phase_end;
+  if (_profiling_enabled) {
+    step_start = std::chrono::steady_clock::now();
+  }
   auto actions_view = _actions.unchecked<1>();
 
   // Reset rewards and observations
+  if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   auto rewards_view = _rewards.mutable_unchecked<1>();
 
   std::fill(
@@ -481,16 +491,26 @@ void MettaGrid::_step() {
   std::fill(obs_ptr, obs_ptr + obs_size, EmptyTokenByte);
 
   std::fill(_action_success.begin(), _action_success.end(), false);
+  if (_profiling_enabled) {
+    phase_end = std::chrono::steady_clock::now();
+    _step_timing.reset_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
+  }
 
   // Increment timestep and process events
+  if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   current_step++;
 
   // Process events at current timestep
   if (_event_scheduler) {
     _event_scheduler->process_timestep(current_step, _tag_index);
   }
+  if (_profiling_enabled) {
+    phase_end = std::chrono::steady_clock::now();
+    _step_timing.events_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
+  }
 
   // Create and shuffle agent indices for randomized action order
+  if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   std::vector<size_t> agent_indices(_agents.size());
   std::iota(agent_indices.begin(), agent_indices.end(), 0);
   std::shuffle(agent_indices.begin(), agent_indices.end(), _rng);
@@ -523,8 +543,13 @@ void MettaGrid::_step() {
       }
     }
   }
+  if (_profiling_enabled) {
+    phase_end = std::chrono::steady_clock::now();
+    _step_timing.actions_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
+  }
 
   // Apply per-agent on_tick handlers
+  if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   for (auto* agent : _agents) {
     mettagrid::HandlerContext ctx;
     ctx.actor = agent;
@@ -535,24 +560,44 @@ void MettaGrid::_step() {
     ctx.collectives = &_collectives;
     agent->apply_on_tick(ctx);
   }
+  if (_profiling_enabled) {
+    phase_end = std::chrono::steady_clock::now();
+    _step_timing.on_tick_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
+  }
 
   // Apply fixed AOE effects to all agents at their current location
+  if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   for (auto* agent : _agents) {
     _aoe_tracker->apply_fixed(*agent);
   }
 
   // Apply mobile AOE effects (sources checked against all agents)
   _aoe_tracker->apply_mobile(_agents);
+  if (_profiling_enabled) {
+    phase_end = std::chrono::steady_clock::now();
+    _step_timing.aoe_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
+  }
 
   // Update held stats for all collectives (tracks how long objects are aligned)
+  if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   for (auto& collective : _collectives) {
     collective->update_held_stats();
   }
+  if (_profiling_enabled) {
+    phase_end = std::chrono::steady_clock::now();
+    _step_timing.collectives_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
+  }
 
   // Compute observations for next step
+  if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   _compute_observations(executed_actions);
+  if (_profiling_enabled) {
+    phase_end = std::chrono::steady_clock::now();
+    _step_timing.observations_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
+  }
 
   // Compute rewards for all agents
+  if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   for (auto& agent : _agents) {
     agent->reward_helper.compute_entries();
   }
@@ -562,8 +607,13 @@ void MettaGrid::_step() {
   for (py::ssize_t i = 0; i < rewards_view.shape(0); i++) {
     episode_rewards_view(i) += rewards_view(i);
   }
+  if (_profiling_enabled) {
+    phase_end = std::chrono::steady_clock::now();
+    _step_timing.rewards_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
+  }
 
   // Check for truncation
+  if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   if (max_steps > 0 && current_step >= max_steps) {
     if (episode_truncates) {
       std::fill(static_cast<bool*>(_truncations.request().ptr),
@@ -574,6 +624,11 @@ void MettaGrid::_step() {
                 static_cast<bool*>(_terminals.request().ptr) + _terminals.size(),
                 1);
     }
+  }
+  if (_profiling_enabled) {
+    phase_end = std::chrono::steady_clock::now();
+    _step_timing.truncation_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
+    _step_timing.total_ns = std::chrono::duration<double, std::nano>(phase_end - step_start).count();
   }
 }
 
