@@ -83,7 +83,8 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   _aoe_tracker->set_game_stats(_stats.get());
   _token_encoder = std::make_unique<ObservationTokenEncoder>(_game_config.token_value_base);
 
-  _action_success.resize(num_agents);
+	  _action_success.resize(num_agents);
+	  _agent_counts_by_group.fill(0);
 
   init_action_handlers();
 
@@ -261,6 +262,46 @@ void MettaGrid::init_action_handlers() {
 
 void MettaGrid::add_agent(Agent* agent) {
   agent->init(&_rewards.mutable_unchecked<1>()(_agents.size()));
+
+  // Assign role by index-within-group when configured. This is intentionally decoupled from `agent_id`
+  // so training can control role distributions independently of map spawn ordering.
+  const uint8_t group_id = static_cast<uint8_t>(agent->group);
+  agent->group_index = _agent_counts_by_group[group_id]++;
+  const auto& role_mix_order = agent->get_role_mix_order();
+  const auto& role_order = agent->get_role_order();
+  if (!role_mix_order.empty()) {
+    const auto& weights = role_mix_order[agent->group_index % role_mix_order.size()];
+    if (weights.size() != 4) {
+      throw std::runtime_error("Invalid role_mix_order entry (expected 4 weights)");
+    }
+    for (size_t i = 0; i < 4; i++) {
+      agent->role_weights[i] = weights[i];
+    }
+    // For the categorical `agent:role` token, pick the max-weight role. Break ties toward lower role id.
+    uint8_t best_role = 0;
+    uint8_t best_weight = agent->role_weights[0];
+    for (uint8_t i = 1; i < 4; i++) {
+      if (agent->role_weights[i] > best_weight) {
+        best_weight = agent->role_weights[i];
+        best_role = i;
+      }
+    }
+    agent->role = best_role;
+  } else if (!role_order.empty()) {
+    const uint8_t role = role_order[agent->group_index % role_order.size()];
+    if (role > 3) {
+      throw std::runtime_error("Invalid agent role id (expected 0..3)");
+    }
+    agent->role = role;
+    agent->role_weights = {0, 0, 0, 0};
+    agent->role_weights[role] = 255;
+  } else {
+    const uint8_t role = static_cast<uint8_t>(static_cast<uint32_t>(agent->agent_id) % 4);
+    agent->role = role;
+    agent->role_weights = {0, 0, 0, 0};
+    agent->role_weights[role] = 255;
+  }
+
   _agents.push_back(agent);
   if (_global_obs_config.goal_obs) {
     _agent_goal_obs_tokens.resize(_agents.size());

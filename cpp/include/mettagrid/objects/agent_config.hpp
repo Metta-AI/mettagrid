@@ -26,7 +26,9 @@ struct AgentConfig : public GridObjectConfig {
               const InventoryConfig& inventory_config = InventoryConfig(),
               const RewardConfig& reward_config = RewardConfig(),
               const std::unordered_map<InventoryItem, InventoryQuantity>& initial_inventory = {},
-              const std::vector<mettagrid::HandlerConfig>& on_tick = {})
+              const std::vector<mettagrid::HandlerConfig>& on_tick = {},
+              const std::vector<uint8_t>& role_order = {},
+              const std::vector<std::vector<uint8_t>>& role_mix_order = {})
       : GridObjectConfig(type_id, type_name, initial_vibe),
         group_id(group_id),
         group_name(group_name),
@@ -34,7 +36,9 @@ struct AgentConfig : public GridObjectConfig {
         inventory_config(inventory_config),
         reward_config(reward_config),
         initial_inventory(initial_inventory),
-        on_tick(on_tick) {}
+        on_tick(on_tick),
+        role_order(role_order),
+        role_mix_order(role_mix_order) {}
 
   unsigned char group_id;
   std::string group_name;
@@ -43,6 +47,12 @@ struct AgentConfig : public GridObjectConfig {
   RewardConfig reward_config;
   std::unordered_map<InventoryItem, InventoryQuantity> initial_inventory;
   std::vector<mettagrid::HandlerConfig> on_tick;
+  // Optional role-conditioning schedule for `agent:role`. Values must be 0..3.
+  // When empty, agents default to `agent_id % 4` for backwards compatibility.
+  std::vector<uint8_t> role_order;
+  // Optional soft-role schedule: each entry is a 4-vector (miner/aligner/scrambler/scout) of uint8 weights.
+  // When present, this overrides role_order for both `agent:role:*` tokens and role-gated reward scaling.
+  std::vector<std::vector<uint8_t>> role_mix_order;
 };
 
 namespace py = pybind11;
@@ -58,7 +68,9 @@ inline void bind_agent_config(py::module& m) {
                     const InventoryConfig&,
                     const RewardConfig&,
                     const std::unordered_map<InventoryItem, InventoryQuantity>&,
-                    const std::vector<mettagrid::HandlerConfig>&>(),
+                    const std::vector<mettagrid::HandlerConfig>&,
+                    const std::vector<uint8_t>&,
+                    const std::vector<std::vector<uint8_t>>&>(),
            py::arg("type_id"),
            py::arg("type_name") = "agent",
            py::arg("group_id"),
@@ -68,7 +80,9 @@ inline void bind_agent_config(py::module& m) {
            py::arg("inventory_config") = InventoryConfig(),
            py::arg("reward_config") = RewardConfig(),
            py::arg("initial_inventory") = std::unordered_map<InventoryItem, InventoryQuantity>(),
-           py::arg("on_tick") = std::vector<mettagrid::HandlerConfig>())
+           py::arg("on_tick") = std::vector<mettagrid::HandlerConfig>(),
+           py::arg("role_order") = std::vector<uint8_t>(),
+           py::arg("role_mix_order") = std::vector<std::vector<uint8_t>>())
       .def_readwrite("type_id", &AgentConfig::type_id)
       .def_readwrite("type_name", &AgentConfig::type_name)
       .def_readwrite("tag_ids", &AgentConfig::tag_ids)
@@ -79,7 +93,9 @@ inline void bind_agent_config(py::module& m) {
       .def_readwrite("inventory_config", &AgentConfig::inventory_config)
       .def_readwrite("reward_config", &AgentConfig::reward_config)
       .def_readwrite("initial_inventory", &AgentConfig::initial_inventory)
-      .def_readwrite("on_tick", &AgentConfig::on_tick);
+      .def_readwrite("on_tick", &AgentConfig::on_tick)
+      .def_readwrite("role_order", &AgentConfig::role_order)
+      .def_readwrite("role_mix_order", &AgentConfig::role_mix_order);
 }
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_OBJECTS_AGENT_CONFIG_HPP_

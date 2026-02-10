@@ -175,6 +175,26 @@ class AgentConfig(GridObjectConfig):
     team_id: int = Field(default=0, ge=0, description="Team ID for grouping agents")
     rewards: dict[str, AgentReward] = Field(default_factory=dict)
     freeze_duration: int = Field(default=10, ge=-1)
+    role_order: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Optional role-conditioning schedule for the `agent:role` observation token and role-gated rewards. "
+            "If set, agents in a group are assigned roles by their index-within-group using this list "
+            "(cycling if the group has more agents than entries). "
+            "Allowed values: 'miner', 'aligner', 'scrambler', 'scout'. "
+            "If empty, defaults to `agent_id % 4` for backwards compatibility."
+        ),
+    )
+    role_mix_order: list[dict[str, int]] = Field(
+        default_factory=list,
+        description=(
+            "Optional soft-role schedule. Each entry is a dict mapping role names "
+            "('miner'|'aligner'|'scrambler'|'scout') to uint8 weights (0..255). "
+            "Agents in a group are assigned entries by their index-within-group (cycling as needed). "
+            "When set, this emits per-role observation tokens (`agent:role:<name>`) and scales "
+            "role-prefixed rewards by the agent's corresponding weight / 255. Overrides role_order."
+        ),
+    )
     on_tick: dict[str, Handler] = Field(
         default_factory=dict,
         description="Handlers run every tick with actor=target=this agent (name -> handler)",

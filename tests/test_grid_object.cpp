@@ -95,6 +95,7 @@ protected:
         {"cooldown_remaining", 8},
         {"remaining_uses", 9},
         {"collective", 10},
+        {"agent:role", 11},
     };
     ObservationFeature::Initialize(feature_ids);
   }
