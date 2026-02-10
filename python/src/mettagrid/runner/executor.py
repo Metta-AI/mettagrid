@@ -7,6 +7,7 @@ import sys
 import tempfile
 import time
 import zipfile
+from contextlib import nullcontext
 from pathlib import Path
 
 import requests
@@ -14,6 +15,7 @@ import requests
 from mettagrid.runner.episode_runner import run_episode_isolated
 from mettagrid.runner.types import RuntimeInfo, SingleEpisodeJob
 from mettagrid.util.file import copy_data, read, write_data
+from mettagrid.util.tracer import Tracer
 
 logger = logging.getLogger(__name__)
 
@@ -105,18 +107,27 @@ def main() -> None:
     job = SingleEpisodeJob.model_validate_json(read(job_spec_uri))
     logger.info(f"Job spec loaded in {time.monotonic() - t0:.1f}s")
 
-    debug_uri = os.environ.get("DEBUG_URI")
+    debug_uri = job.debug_uri
     capture_replay = replay_uri is not None
 
     with tempfile.TemporaryDirectory() as output_dir_str:
         output_dir = Path(output_dir_str)
         debug_dir = Path(tempfile.mkdtemp()) if debug_uri else None
 
+        tracer: Tracer | None = None
+        if debug_dir:
+            tracer = Tracer(debug_dir / "setup_trace.json")
+            tracer._write_process_name(Tracer.PID_EXECUTOR, "Executor", sort_index=-2)
+
+        pid = Tracer.PID_EXECUTOR
+
         results_path = output_dir / "results.json"
         replay_path = output_dir / "replay.json.z" if capture_replay else None
 
         def sigterm_handler(_signum: int, _frame: object) -> None:
             logger.warning("Received SIGTERM, uploading debug_dir before exit...")
+            if tracer:
+                tracer.flush()
             _upload_debug_dir(str(debug_dir) if debug_dir else None, debug_uri)
             sys.exit(128 + signal.SIGTERM)
 
@@ -129,13 +140,17 @@ def main() -> None:
         try:
             t_episode = time.monotonic()
             logger.info("Starting episode run")
-            run_episode_isolated(
-                job.episode_spec(),
-                results_path,
-                replay_path=replay_path,
-                debug_dir=debug_dir,
-            )
+            with tracer.span("run_episode", pid=pid) if tracer else nullcontext():
+                run_episode_isolated(
+                    job.episode_spec(),
+                    results_path,
+                    replay_path=replay_path,
+                    debug_dir=debug_dir,
+                )
             logger.info(f"Episode run completed in {time.monotonic() - t_episode:.1f}s")
+
+            if tracer:
+                tracer.flush()
 
             t_upload = time.monotonic()
             _upload_results(results_path, replay_path, results_uri, replay_uri, debug_dir, debug_uri)
@@ -143,6 +158,8 @@ def main() -> None:
 
             logger.info(f"Job completed successfully, total time {time.monotonic() - t0:.1f}s")
         finally:
+            if tracer:
+                tracer.flush()
             if debug_dir:
                 shutil.rmtree(debug_dir, ignore_errors=True)
 
