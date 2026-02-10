@@ -242,6 +242,27 @@ def run_performance(env, iterations: int, rounds: int, warmup: int, profile: boo
         stats["step_timing"] = {phase: avg_phases[f"{phase}_ns"] / 1000 for phase in STEP_TIMING_PHASES}
         stats["step_timing"]["total"] = mean_total / 1000
 
+    # Report observations validation stats if validation was enabled
+    c_sim = env.current_simulation._c_sim
+    val_stats = c_sim.obs_validation_stats
+    if val_stats.comparison_count > 0:
+        mismatches = val_stats.mismatch_count
+        comparisons = val_stats.comparison_count
+        original_ns = val_stats.original_time_ns
+        optimized_ns = val_stats.optimized_time_ns
+
+        status = "PASS" if mismatches == 0 else "FAIL"
+        timing_ratio = original_ns / optimized_ns if optimized_ns > 0 else float("inf")
+
+        print("\nObservations Validation:")
+        print(f"  Comparisons: {comparisons:,}")
+        print(f"  Mismatches: {mismatches:,} — {status}")
+        print(f"  Timing ratio: original/optimized = {timing_ratio:.2f}x")
+
+        stats["validation_comparisons"] = comparisons
+        stats["validation_mismatches"] = mismatches
+        stats["validation_timing_ratio"] = timing_ratio
+
     return stats
 
 
@@ -456,6 +477,11 @@ Examples:
     if stats["cv"] > 0.20:
         print("\nPerformance measurement unstable!")
         sys.exit(1)
+
+    # Return non-zero exit code if observations validation found mismatches
+    if stats.get("validation_mismatches", 0) > 0:
+        print("\nObservations validation FAILED!")
+        sys.exit(2)
 
 
 if __name__ == "__main__":
