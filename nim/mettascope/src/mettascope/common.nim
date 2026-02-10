@@ -43,7 +43,7 @@ type
     showHeatmap* = false
     showObservations* = -1
     lockFocus* = false
-    aoeEnabledCollectives*: HashSet[int]  ## Set of collective IDs to show AoE for. -1 = unaligned.
+    hiddenCollectiveAoe*: HashSet[int]  ## Set of collective IDs to hide AoE for. Empty = all shown.
 
   PlayMode* = enum
     Historical
