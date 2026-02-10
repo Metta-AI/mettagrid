@@ -4,9 +4,7 @@
 import
   std/[algorithm, json, tables],
   chroma,
-  common, replays
-
-const NumCollectives* = 2
+  common, replays, colors
 
 proc getCollectivesNode*(): JsonNode =
   ## Get the collectives JSON node (dict) from the replay config.
@@ -55,15 +53,46 @@ proc getCollectiveConfig*(collectiveId: int): JsonNode =
   return nil
 
 proc getCollectiveColor*(collectiveId: int): ColorRGBX =
-  ## Get the color for a collective by ID.
-  case collectiveId
-  of 0: rgbx(230, 51, 51, 255)              # Clips = red
-  of 1: rgbx(51, 204, 51, 255)              # Cogs = green
-  else: rgbx(128, 128, 128, 255)            # Others = grey
+  ## Get the color for a collective by looking up its name.
+  if collectiveId < 0:
+    return Gray
+  let name = getCollectiveName(collectiveId)
+  case name
+    of "clips":
+      Red
+    of "cogs", "cogs_green":
+      Green
+    of "cogs_dark_green":
+      DarkGreen
+    of "cogs_blue":
+      Blue
+    of "cogs_dark_blue":
+      DarkBlue
+    of "cogs_dark_red":
+      DarkRed
+    of "cogs_yellow":
+      Yellow
+    of "cogs_orange":
+      Orange
+    of "cogs_dark_orange":
+      DarkOrange
+    of "cogs_pumpkin":
+      Pumpkin
+    of "cogs_purple":
+      Purple
+    of "cogs_dark_purple":
+      DarkPurple
+    of "cogs_turquoise":
+      Turquoise
+    of "cogs_teal":
+      Teal
+    of "cogs_slate":
+      Slate
+    of "cogs_midnight_blue":
+      MidnightBlue
+    else:
+      Gray
 
-# Alias for backward compatibility
-proc getAoeColor*(collectiveId: int): ColorRGBX =
-  getCollectiveColor(collectiveId)
 
 type
   CollectiveStats* = object

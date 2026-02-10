@@ -11,10 +11,9 @@ proc onReplayLoaded*() =
   visibilityMap = nil
   worldHeatmap = nil
   # Clear AoE tilemaps so they get regenerated for the new replay
-  for i in 0 ..< NumCollectives:
-    aoeMaps[i] = nil
+  aoeMaps = @[]
   aoeMapStep = -1
-  aoeMapEnabledCollectives.clear()
+  aoeMapHiddenCollectives.clear()
 
   # Reset global state for the new replay
   step = 0
@@ -25,10 +24,8 @@ proc onReplayLoaded*() =
   agentPaths = initTable[int, seq[PathAction]]()
   agentObjectives = initTable[int, seq[Objective]]()
 
-  # Enable AoE overlays for collectives 0 and 1 by default
-  settings.aoeEnabledCollectives.clear()
-  settings.aoeEnabledCollectives.incl(0)
-  settings.aoeEnabledCollectives.incl(1)
+  # Clear hidden AoE set so all collectives are shown by default
+  settings.hiddenCollectiveAoe.clear()
 
   # Initialize heatmap for the new replay
   worldHeatmap = newHeatmap(replay)
