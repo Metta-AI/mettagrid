@@ -32,12 +32,6 @@ public:
     _lp_north = has("lp:north") ? get("lp:north") : 0;
     _lp_south = has("lp:south") ? get("lp:south") : 0;
     _agent_id = has("agent_id") ? get("agent_id") : 0;
-    _agent_role = get("agent:role");
-    // Soft role weights are optional; older tests/configs may not include them.
-    _agent_role_miner = has("agent:role:miner") ? get("agent:role:miner") : 0;
-    _agent_role_aligner = has("agent:role:aligner") ? get("agent:role:aligner") : 0;
-    _agent_role_scrambler = has("agent:role:scrambler") ? get("agent:role:scrambler") : 0;
-    _agent_role_scout = has("agent:role:scout") ? get("agent:role:scout") : 0;
 
     // Initialize public members (must be done AFTER private members are set above)
     Group = _group;
@@ -56,11 +50,6 @@ public:
     LpNorth = _lp_north;
     LpSouth = _lp_south;
     AgentId = _agent_id;
-    AgentRole = _agent_role;
-    AgentRoleMiner = _agent_role_miner;
-    AgentRoleAligner = _agent_role_aligner;
-    AgentRoleScrambler = _agent_role_scrambler;
-    AgentRoleScout = _agent_role_scout;
   }
 
   // Get feature ID by name (throws if not found)
@@ -94,11 +83,6 @@ public:
   ObservationType LpNorth;
   ObservationType LpSouth;
   ObservationType AgentId;
-  ObservationType AgentRole;
-  ObservationType AgentRoleMiner;
-  ObservationType AgentRoleAligner;
-  ObservationType AgentRoleScrambler;
-  ObservationType AgentRoleScout;
 
 private:
   std::unordered_map<std::string, ObservationType> _name_to_id;
@@ -120,11 +104,6 @@ private:
   ObservationType _lp_north;
   ObservationType _lp_south;
   ObservationType _agent_id;
-  ObservationType _agent_role;
-  ObservationType _agent_role_miner;
-  ObservationType _agent_role_aligner;
-  ObservationType _agent_role_scrambler;
-  ObservationType _agent_role_scout;
 };
 
 // Global singleton instance
@@ -153,11 +132,6 @@ extern ObservationType LpWest;
 extern ObservationType LpNorth;
 extern ObservationType LpSouth;
 extern ObservationType AgentId;
-extern ObservationType AgentRole;
-extern ObservationType AgentRoleMiner;
-extern ObservationType AgentRoleAligner;
-extern ObservationType AgentRoleScrambler;
-extern ObservationType AgentRoleScout;
 }  // namespace ObservationFeature
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CONFIG_OBSERVATION_FEATURES_HPP_

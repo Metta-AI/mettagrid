@@ -249,16 +249,4 @@ class IdMap:
             token_features, feature_id = make_multi_token_features(prefix, feature_id, normalization, num_inv_tokens)
             features.extend(token_features)
 
-        # Role-conditioning token. Appended last to avoid renumbering existing features.
-        # Values are small categorical IDs (0..3), used for role-conditioned policies and role-gated rewards.
-        # When role conditioning is not configured, MettaGrid defaults this to `agent_id % 4`.
-        add_feature("agent:role", 3.0)
-        # Soft role weights. These allow policies to condition on mixtures of roles, using per-role weights
-        # in the 0..255 range (e.g. miner=128, aligner=128 for a 50/50 blend). These are appended to avoid
-        # renumbering existing features.
-        add_feature("agent:role:miner", 255.0)
-        add_feature("agent:role:aligner", 255.0)
-        add_feature("agent:role:scrambler", 255.0)
-        add_feature("agent:role:scout", 255.0)
-
         return features
