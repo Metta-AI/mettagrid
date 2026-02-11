@@ -2,6 +2,7 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_SYSTEMS_STATS_TRACKER_HPP_
 
 #include <algorithm>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -91,6 +92,14 @@ public:
     auto it = _name_to_id.find(key);
     if (it == _name_to_id.end()) {
       return 0.0f;
+    }
+    return _values[it->second];
+  }
+
+  std::optional<float> get_if_present(const std::string& key) const {
+    auto it = _name_to_id.find(key);
+    if (it == _name_to_id.end()) {
+      return std::nullopt;
     }
     return _values[it->second];
   }

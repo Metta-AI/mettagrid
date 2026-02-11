@@ -14,6 +14,7 @@
 #include <pybind11/stl.h>
 
 #include <memory>
+#include <optional>
 #include <random>
 #include <string>
 #include <unordered_map>
@@ -95,6 +96,9 @@ public:
   py::none set_inventory(GridObjectId agent_id, const std::unordered_map<InventoryItem, InventoryQuantity>& inventory);
   py::array_t<float> get_episode_rewards();
   py::dict get_episode_stats();
+  std::optional<float> get_game_stat(const std::string& key) const;
+  std::optional<float> get_agent_stat(uint32_t agent_id, const std::string& key) const;
+  std::optional<float> get_collective_stat(const std::string& collective_name, const std::string& key) const;
   py::list action_success_py();
   py::dict get_collective_inventories();
 
