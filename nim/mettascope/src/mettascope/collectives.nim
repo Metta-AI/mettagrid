@@ -1,98 +1,29 @@
 ## Collectives module - utilities for working with collectives (teams/factions).
-## Provides functions to get collective names, colors, configs, and stats.
+## Provides functions to get collective names, colors, and stats.
+## Collective data (name, color) is cached in replay.collectives at load time.
 
 import
-  std/[algorithm, json, tables],
+  std/tables,
   chroma,
   common, replays, colors
 
-proc getCollectivesNode*(): JsonNode =
-  ## Get the collectives JSON node (dict) from the replay config.
-  if replay.isNil or replay.mgConfig.isNil:
-    return nil
-  if "game" notin replay.mgConfig or "collectives" notin replay.mgConfig["game"]:
-    return nil
-  let collectives = replay.mgConfig["game"]["collectives"]
-  if collectives.kind != JObject:
-    return nil
-  return collectives
-
 proc getNumCollectives*(): int =
-  ## Get the number of collectives from the replay config.
-  let collectives = getCollectivesNode()
-  if collectives.isNil:
+  ## Get the number of collectives from the cached replay data.
+  if replay.isNil:
     return 0
-  return collectives.len
+  return replay.collectives.len
 
 proc getCollectiveName*(collectiveId: int): string =
-  ## Get the collective name by ID from the mg_config.
-  ## IDs are assigned alphabetically (matching C++/Python), so we sort keys first.
-  let collectives = getCollectivesNode()
-  if collectives.isNil or collectiveId < 0:
+  ## Get the collective name by ID from the cached replay data.
+  if replay.isNil or collectiveId < 0 or collectiveId >= replay.collectives.len:
     return ""
-  var names: seq[string] = @[]
-  for key in collectives.keys:
-    names.add(key)
-  names.sort()
-  if collectiveId < names.len:
-    return names[collectiveId]
-  return ""
-
-proc getCollectiveConfig*(collectiveId: int): JsonNode =
-  ## Get the collective config by ID from the mg_config.
-  ## IDs are assigned alphabetically (matching C++/Python), so we sort keys first.
-  let collectives = getCollectivesNode()
-  if collectives.isNil or collectiveId < 0:
-    return nil
-  var names: seq[string] = @[]
-  for key in collectives.keys:
-    names.add(key)
-  names.sort()
-  if collectiveId < names.len:
-    return collectives[names[collectiveId]]
-  return nil
+  return replay.collectives[collectiveId].name
 
 proc getCollectiveColor*(collectiveId: int): ColorRGBX =
-  ## Get the color for a collective by looking up its name.
-  if collectiveId < 0:
+  ## Get the color for a collective from the cached replay data.
+  if replay.isNil or collectiveId < 0 or collectiveId >= replay.collectives.len:
     return Gray
-  let name = getCollectiveName(collectiveId)
-  case name
-    of "clips":
-      Red
-    of "cogs", "cogs_green":
-      Green
-    of "cogs_dark_green":
-      DarkGreen
-    of "cogs_blue":
-      Blue
-    of "cogs_dark_blue":
-      DarkBlue
-    of "cogs_dark_red":
-      DarkRed
-    of "cogs_yellow":
-      Yellow
-    of "cogs_orange":
-      Orange
-    of "cogs_dark_orange":
-      DarkOrange
-    of "cogs_pumpkin":
-      Pumpkin
-    of "cogs_purple":
-      Purple
-    of "cogs_dark_purple":
-      DarkPurple
-    of "cogs_turquoise":
-      Turquoise
-    of "cogs_teal":
-      Teal
-    of "cogs_slate":
-      Slate
-    of "cogs_midnight_blue":
-      MidnightBlue
-    else:
-      Gray
-
+  return replay.collectives[collectiveId].color
 
 type
   CollectiveStats* = object
@@ -101,24 +32,6 @@ type
     inventory*: Table[string, int]       ## itemName -> count
     buildingsByType*: Table[string, int] ## typeName -> count
     agentsByRig*: Table[string, int]     ## rigName -> count
-
-proc getCollectiveInventory*(collectiveId: int): Table[string, int] =
-  ## Get the inventory of a collective from the config.
-  result = initTable[string, int]()
-  let collectiveConfig = getCollectiveConfig(collectiveId)
-  if collectiveConfig.isNil or collectiveConfig.kind != JObject:
-    return
-  if "inventory" notin collectiveConfig:
-    return
-  let inventoryConfig = collectiveConfig["inventory"]
-  if inventoryConfig.kind != JObject or "initial" notin inventoryConfig:
-    return
-  let initial = inventoryConfig["initial"]
-  if initial.kind != JObject:
-    return
-  for key, value in initial.pairs:
-    if value.kind == JInt:
-      result[key] = value.getInt
 
 proc getAgentRigName*(agent: Entity): string =
   ## Get the rig of the agent by looking at inventory.
@@ -139,17 +52,16 @@ proc getCollectiveStats*(): seq[CollectiveStats] =
   if replay.isNil:
     return
 
-  let numCollectives = getNumCollectives()
+  let numCollectives = replay.collectives.len
   if numCollectives == 0:
     return
 
   # Initialize stats for each collective.
   for i in 0 ..< numCollectives:
-    let collectiveName = getCollectiveName(i)
     var stats = CollectiveStats(
       collectiveId: i,
-      name: collectiveName,
-      inventory: getCollectiveInventory(i),
+      name: replay.collectives[i].name,
+      inventory: initTable[string, int](),
       buildingsByType: initTable[string, int](),
       agentsByRig: initTable[string, int]()
     )

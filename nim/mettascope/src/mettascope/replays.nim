@@ -1,6 +1,7 @@
-import std/[json, tables, strutils],
+import std/[algorithm, json, tables, strutils],
+  chroma,
   zippy, vmath, jsony,
-  ./validation
+  ./validation, ./colors
 
 type
 
@@ -51,6 +52,49 @@ type
     itemId*: int
     count*: int
 
+  CollectiveData* = object
+    name*: string
+    color*: ColorRGBX
+
+proc collectiveColor*(name: string): ColorRGBX =
+  ## Map a collective name to its display color.
+  case name
+    of "clips":
+      Red
+    of "cogs", "cogs_green":
+      Green
+    of "cogs_dark_green":
+      DarkGreen
+    of "cogs_blue":
+      Blue
+    of "cogs_dark_blue":
+      DarkBlue
+    of "cogs_dark_red":
+      DarkRed
+    of "cogs_yellow":
+      Yellow
+    of "cogs_orange":
+      Orange
+    of "cogs_dark_orange":
+      DarkOrange
+    of "cogs_pumpkin":
+      Pumpkin
+    of "cogs_purple":
+      Purple
+    of "cogs_dark_purple":
+      DarkPurple
+    of "cogs_turquoise":
+      Turquoise
+    of "cogs_teal":
+      Teal
+    of "cogs_slate":
+      Slate
+    of "cogs_midnight_blue":
+      MidnightBlue
+    else:
+      Gray
+
+type
   Entity* = ref object
     # Common keys.
     id*: int
@@ -115,6 +159,7 @@ type
     actionNames*: seq[string]
     itemNames*: seq[string]
     groupNames*: seq[string]
+    collectives*: seq[CollectiveData]
     typeImages*: Table[string, string]
     actionImages*: seq[string]
     actionAttackImages*: seq[string]
@@ -790,6 +835,32 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
   if mgConfig != nil:
     replay.mgConfig = mgConfig
     replay.config = fromJson($mgConfig, Config)
+
+  # Parse collectives: prefer collective_names array (index = collective ID),
+  # fall back to mg_config["game"]["collectives"] dict sorted alphabetically.
+  let collectiveNamesArr = getArray(jsonObj, "collective_names")
+  if collectiveNamesArr != nil and collectiveNamesArr.len > 0:
+    for nameNode in collectiveNamesArr:
+      let name = nameNode.getStr
+      replay.collectives.add(CollectiveData(
+        name: name,
+        color: collectiveColor(name),
+      ))
+  elif replay.mgConfig != nil and "game" in replay.mgConfig and
+      "collectives" in replay.mgConfig["game"]:
+    let collectivesNode = replay.mgConfig["game"]["collectives"]
+    if collectivesNode.kind == JObject:
+      var names: seq[string]
+      for key in collectivesNode.keys:
+        names.add(key)
+      names.sort()
+      for name in names:
+        replay.collectives.add(CollectiveData(
+          name: name,
+          color: collectiveColor(name),
+        ))
+
+
 
   let objectsArr = getArray(jsonObj, "objects", newJArray())
   for obj in objectsArr:
