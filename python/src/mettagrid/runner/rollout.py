@@ -60,6 +60,9 @@ def single_episode_rollout(
     )
     rollout.run_until_done()
 
+    if tracer:
+        tracer.flush()
+
     results = PureSingleEpisodeResult(
         rewards=list(rollout._sim.episode_rewards),
         action_timeouts=list(rollout.timeout_counts),
