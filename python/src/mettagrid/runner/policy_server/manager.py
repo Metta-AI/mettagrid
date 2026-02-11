@@ -34,16 +34,32 @@ def _get_mettagrid_source() -> str:
     return f"mettagrid=={pkg_version('mettagrid')}"
 
 
-def _create_policy_venv(mettagrid_source: str) -> Path:
+_POLICY_REQUIREMENTS = Path("/opt/policy-requirements.txt")
+_POLICY_OVERRIDES = Path("/opt/policy-overrides.txt")
+_POLICY_WHEELS = Path("/opt/wheels")
+
+
+def _create_policy_venv() -> Path:
     policy_dir = Path(tempfile.mkdtemp(prefix="policy-"))
     venv_path = policy_dir / ".venv"
     venv_python = venv_path / "bin" / "python"
     python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     subprocess.run(["uv", "venv", str(venv_path), "--python", python_version], check=True)
-    subprocess.run(
-        ["uv", "pip", "install", "--python", str(venv_python), mettagrid_source],
-        check=True,
-    )
+    if _POLICY_REQUIREMENTS.is_file():
+        logger.info("Creating policy server venv with requirements from %s", _POLICY_REQUIREMENTS)
+        cmd = ["uv", "pip", "install", "--python", str(venv_python), "-r", str(_POLICY_REQUIREMENTS)]
+        if _POLICY_WHEELS.is_dir():
+            cmd.extend(["--find-links", str(_POLICY_WHEELS)])
+        if _POLICY_OVERRIDES.is_file():
+            cmd.extend(["--override", str(_POLICY_OVERRIDES)])
+        subprocess.run(cmd, check=True)
+    else:
+        mettagrid_source = _get_mettagrid_source()
+        logger.info("Creating policy server venv with mettagrid source %s", mettagrid_source)
+        subprocess.run(
+            ["uv", "pip", "install", "--python", str(venv_python), mettagrid_source],
+            check=True,
+        )
     return policy_dir
 
 
@@ -94,13 +110,7 @@ def launch_local_policy_server(
     log_file = tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False)
 
     if os.environ.get("EPISODE_RUNNER_USE_ISOLATED_VENVS") != "0":
-        mettagrid_source = _get_mettagrid_source()
-        logger.info(
-            "Creating policy server venv with mettagrid source %s for policy %s",
-            mettagrid_source,
-            policy_uri,
-        )
-        venv_dir = _create_policy_venv(mettagrid_source)
+        venv_dir = _create_policy_venv()
         logger.info("Policy server venv created at %s for policy %s", venv_dir, policy_uri)
         python = str(venv_dir / ".venv" / "bin" / "python")
     else:
