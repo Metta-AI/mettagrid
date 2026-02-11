@@ -1,6 +1,6 @@
 import
   std/[os, strutils, tables],
-  pixie, opengl, boxy/[shaders], jsony, shady, vmath,
+  pixie, opengl, silky/[shaders], jsony, shady, vmath,
   allocator
 
 # This file specifically deals with the pixel atlas texture.

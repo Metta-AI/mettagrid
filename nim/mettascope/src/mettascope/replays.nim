@@ -1,5 +1,4 @@
 import std/[json, tables, strutils],
-  boxy,
   zippy, vmath, jsony,
   ./validation
 

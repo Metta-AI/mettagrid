@@ -1,6 +1,6 @@
 import
   std/strutils,
-  pixie, opengl, boxy/shaders, shady, vmath
+  pixie, opengl, silky/shaders, shady, vmath
 
 type
   TileMap* = ref object
@@ -217,7 +217,7 @@ proc setupGPU*(tileMap: TileMap) =
         GL_UNSIGNED_BYTE,
         cast[pointer](subImg.data[0].addr)
       )
-      tileMap.avgColors.add(subImg.averageColor())
+      tileMap.avgColors[layer] = subImg.averageColor()
       inc layer
   glGenerateMipmap(GL_TEXTURE_2D_ARRAY)
 
@@ -347,7 +347,7 @@ proc draw*(
   tint: Color = color(1, 1, 1, 1)
 ) =
 
-  # Do not clear here; Boxy manages the target/FBO.
+  # Do not clear here; the caller manages the target/FBO.
   # Use our custom shader.
   glUseProgram(tileMap.shader.programId)
 
@@ -381,7 +381,7 @@ proc draw*(
   # Draw the quad.
   glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nil)
 
-  # Restore minimal GL state so Boxy continues to work after exitRawOpenGLMode.
+  # Restore minimal GL state.
   # Unbind textures in reverse order
   glActiveTexture(GL_TEXTURE2)
   glBindTexture(GL_TEXTURE_2D, 0)
@@ -390,8 +390,8 @@ proc draw*(
   glActiveTexture(GL_TEXTURE0)
   glBindTexture(GL_TEXTURE_2D, 0)
 
-  # Unbind VAO (Boxy will restore its own in exitRawOpenGLMode).
+  # Unbind VAO.
   glBindVertexArray(0)
 
-  # Unbind our shader program (Boxy will bind its own when needed).
+  # Unbind shader program.
   glUseProgram(0)

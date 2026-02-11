@@ -1,15 +1,11 @@
 import
-  std/[strformat],
-  boxy, windy, pixie,
+  std/[strformat, random],
+  opengl, windy, vmath,
   ../src/mettascope/[tilemap], perlin
-
-import boxy, opengl, pixie, windy, random, boxy/shaders
 
 let window = newWindow("Tilemap", ivec2(1280, 800))
 makeContextCurrent(window)
 loadExtensions()
-
-let bxy = newBoxy()
 
 proc weightedRandomInt*(weights: seq[int]): int =
   ## Return a random integer between 0 and 7, with a weighted distribution.
@@ -110,11 +106,13 @@ var
 let terrainMap = generateTileMap(1024, 1024, 64, "tools/blob7x8.png")
 
 window.onFrame = proc() =
-  ## Clear the screen and begin a new frame.
-  bxy.beginFrame(window.size)
+  glViewport(0, 0, window.size.x, window.size.y)
 
   glClearColor(0.0, 0.0, 0.0, 1.0)
   glClear(GL_COLOR_BUFFER_BIT)
+
+  glEnable(GL_BLEND)
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
   # Handle input for panning and zooming.
   # Left mouse button: drag to pan.
@@ -127,14 +125,14 @@ window.onFrame = proc() =
   pos += vel
 
   if window.scrollDelta.y != 0:
-    zoomVel = window.scrollDelta.y * 0.005
+    zoomVel = window.scrollDelta.y * 0.002
   else:
     zoomVel *= 0.95
 
   var zoomPow2 = zoom * zoom
   let oldMat = translate(vec2(pos.x, pos.y)) * scale(vec2(zoomPow2, zoomPow2))
   zoom += zoomVel
-  zoom = clamp(zoom, 0.1, 100.0)
+  zoom = clamp(zoom, 0.01, 100.0)
   zoomPow2 = zoom * zoom
   let newMat = translate(vec2(pos.x, pos.y)) * scale(vec2(zoomPow2, zoomPow2))
   let newAt = newMat.inverse() * window.mousePos.vec2
@@ -147,13 +145,8 @@ window.onFrame = proc() =
              scale(vec3(zoomPow2 * terrainMap.width.float32/2, zoomPow2 * terrainMap.height.float32/2, 1.0f))
   let mvp = projection * view
 
-  terrainMap.draw(mvp, zoom, 1.25f)
-  #terrainMap.draw(mat4(), 1.0f, 1.25f)
+  terrainMap.draw(mvp, zoom, 0.1f)
 
-  # End this frame, flushing the draw commands.
-  bxy.endFrame()
-
-  # Swap buffers displaying the new Boxy frame.
   window.swapBuffers()
   inc frame
 

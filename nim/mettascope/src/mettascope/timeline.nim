@@ -1,6 +1,6 @@
 import
   std/[times, math],
-  boxy, vmath, windy, silky,
+  chroma, vmath, windy, silky,
   common, actions, gameplayer
 
 const

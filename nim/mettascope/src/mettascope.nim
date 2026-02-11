@@ -1,6 +1,6 @@
 import
   std/[strutils, os, parseopt],
-  opengl, windy, bumpy, vmath, silky, boxy, webby,
+  opengl, windy, bumpy, vmath, silky, webby,
   mettascope/[replays, common, worldmap, panels,
   footer, timeline, minimap, header, replayloader, configs, gameplayer],
   mettascope/panels/[objectpanel, envpanel, vibespanel, aoepanel, collectivepanel, scorepanel]
@@ -87,7 +87,7 @@ proc replaySwitch(replay: string) =
           popupWarning = "Failed to load replay file.\n" & getCurrentExceptionMsg()
           common.replay = EmptyReplay
     elif common.replay == nil:
-      let defaultReplay = dataDir / "replays" / "planky.json.z"
+      let defaultReplay = dataDir / "replays" / "default.json.z"
       echo "Loading replay from default file: ", defaultReplay
       try:
         common.replay = loadReplay(defaultReplay)
@@ -112,10 +112,10 @@ proc drawWorldMap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: 
   glScissor(contentPos.x.int32, window.size.y.int32 - contentPos.y.int32 - contentSize.y.int32, contentSize.x.int32, contentSize.y.int32)
   glClearColor(1.0f, 0.0f, 0.0f, 1.0f)
 
-  bxy.saveTransform()
-  bxy.translate(contentPos)
+  saveTransform()
+  translateTransform(contentPos)
   drawWorldMap(worldMapZoomInfo)
-  bxy.restoreTransform()
+  restoreTransform()
 
   glDisable(GL_SCISSOR_TEST)
 
@@ -131,10 +131,10 @@ proc drawMinimap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: V
   # Adjust zoom info and draw the minimap.
   minimapZoomInfo.hasMouse = false
 
-  bxy.saveTransform()
-  bxy.translate(contentPos)
+  saveTransform()
+  translateTransform(contentPos)
   drawMinimap(minimapZoomInfo)
-  bxy.restoreTransform()
+  restoreTransform()
 
   glDisable(GL_SCISSOR_TEST)
 
@@ -227,6 +227,11 @@ proc onFrame() =
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f)
   glClear(GL_COLOR_BUFFER_BIT)
 
+  # Enable premultiplied alpha blending for all raw OpenGL shader draws.
+  # Pixie textures (tilemaps, sprites, clouds, AoE overlays) are premultiplied.
+  glEnable(GL_BLEND)
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
+
   if gameMode == Editor:
     ## Editor mode UI.
     drawHeader()
@@ -274,7 +279,6 @@ proc initMettascope*() =
   initPanels()
 
   sk = newSilky(dataDir / "silky.atlas.png", dataDir / "silky.atlas.json")
-  bxy = newBoxy()
 
   ## Initialize the world map zoom info.
   worldMapZoomInfo = ZoomInfo()

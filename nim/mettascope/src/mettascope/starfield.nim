@@ -1,6 +1,6 @@
 import
   std/[os, strutils],
-  opengl, boxy, boxy/[shaders], shady, vmath, pixie, windy,
+  opengl, silky/[shaders], shady, vmath, pixie, windy,
   common, replays, panels
 
 ## Starfield and cloud background layers.
@@ -117,8 +117,6 @@ proc drawStarfield*() =
   if replay.isNil:
     return
 
-  bxy.enterRawOpenGLMode()
-
   if not starfieldInitialized:
     initStarfield()
 
@@ -145,12 +143,7 @@ proc drawStarfield*() =
     offsetY = (cy / mapH - 0.5) * parallaxStrength
 
   # Draw clouds: slightly larger (scale 1.2) with parallax offset, blended on top.
-  glEnable(GL_BLEND)
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
   drawLayer(bgClouds, screenSize, vec2(offsetX, offsetY), 1.2)
-  glDisable(GL_BLEND)
 
   # Restore viewport.
   glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3])
-
-  bxy.exitRawOpenGLMode()

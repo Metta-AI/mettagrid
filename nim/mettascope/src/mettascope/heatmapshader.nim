@@ -1,6 +1,6 @@
 import
   std/[math, strutils],
-  opengl, boxy/[shaders], shady, vmath, pixie,
+  opengl, silky/[shaders], shady, vmath, pixie,
   heatmap, common
 
 var
@@ -152,13 +152,13 @@ proc draw*(
   heatmapShader.setUniform("heatmapTexture", 0)
   heatmapShader.bindUniforms()
 
-  # Enable blending for transparency.
-  glEnable(GL_BLEND)
+  # Heatmap generates non-premultiplied data, so use standard alpha blending.
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
   glBindVertexArray(heatmapVao)
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
   glBindVertexArray(0)
 
-  glDisable(GL_BLEND)
+  # Restore premultiplied alpha blending for subsequent draws.
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
   glUseProgram(0)

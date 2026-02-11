@@ -1,6 +1,6 @@
 import
   std/[times, tables, os, pathnorm, sets, strutils],
-  boxy, windy, vmath, silky,
+  bumpy, windy, vmath, silky,
   replays
 
 var dataDir* = "packages/mettagrid/nim/mettascope/data"
@@ -65,10 +65,34 @@ type
 
 var
   sk*: Silky
-  bxy*: Boxy
   window*: Window
   frame*: int
 
+  # Transform stack (replaces boxy's transform management).
+  transformMat*: Mat3 = mat3()
+  transformStack*: seq[Mat3]
+
+proc saveTransform*() =
+  ## Push the current transform onto the stack.
+  transformStack.add(transformMat)
+
+proc restoreTransform*() =
+  ## Pop a transform off the stack.
+  transformMat = transformStack.pop()
+
+proc getTransform*(): Mat3 =
+  ## Get the current transform.
+  transformMat
+
+proc translateTransform*(v: Vec2) =
+  ## Translate the current transform.
+  transformMat = transformMat * translate(v)
+
+proc scaleTransform*(s: Vec2) =
+  ## Scale the current transform.
+  transformMat = transformMat * scale(s)
+
+var
   settings* = Settings()
   selection*: Entity
   activeCollective*: int = 1  ## Currently active faction (0 = Clips, 1 = Cogs). Defaults to Cogs.
