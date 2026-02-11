@@ -24,9 +24,6 @@ proc onReplayLoaded*() =
   agentPaths = initTable[int, seq[PathAction]]()
   agentObjectives = initTable[int, seq[Objective]]()
 
-  # Clear hidden AoE set so all collectives are shown by default
-  settings.hiddenCollectiveAoe.clear()
-
   needsInitialFit = true
 
   let config = loadConfig()
