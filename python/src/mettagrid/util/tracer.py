@@ -108,12 +108,14 @@ class Tracer:
         return Span(self, name, pid=pid, **metadata)
 
     def _write_event(self, event: dict) -> None:
-        """Write a single event to the trace file."""
-        if not self._first:
-            self._file.write(",")
+        """Write a single event to the trace file.
+
+        Must be a single write() call: GC callbacks can re-enter this method
+        between any two bytecodes, so multi-call writes get interleaved.
+        """
+        prefix = "" if self._first else ","
         self._first = False
-        json.dump(event, self._file)
-        self._file.write("\n")
+        self._file.write(prefix + json.dumps(event) + "\n")
 
     def _write_process_name(self, pid: int, name: str, sort_index: int) -> None:
         """Write process name and sort index metadata events."""
