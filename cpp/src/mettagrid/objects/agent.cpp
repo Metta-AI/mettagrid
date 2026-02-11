@@ -48,7 +48,8 @@ void Agent::apply_on_tick(mettagrid::HandlerContext& ctx) {
 
 void Agent::populate_initial_inventory(const std::unordered_map<InventoryItem, InventoryQuantity>& initial_inventory) {
   for (const auto& [item, amount] : initial_inventory) {
-    this->inventory.update(item, amount, /*ignore_limits=*/true);
+    this->inventory.update(item, amount, /*ignore_limits=*/true, /*notify=*/false);
+    this->stats.set(this->stats.resource_name(item) + ".amount", static_cast<float>(amount));
   }
 }
 

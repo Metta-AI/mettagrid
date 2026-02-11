@@ -53,9 +53,14 @@ public:
   explicit Inventory(const InventoryConfig& cfg, HasInventory* owner = nullptr);
   ~Inventory();
 
-  // Update the inventory for a specific item
-  // If ignore_limits is true, the update will bypass limit checks (used for initial inventory)
-  InventoryDelta update(InventoryItem item, InventoryDelta attempted_delta, bool ignore_limits = false);
+  // Update the inventory for a specific item.
+  // ignore_limits: bypass limit checks (used for initial inventory).
+  // notify: call owner's on_inventory_change callback. False for initial setup
+  //         where the change is not a gameplay event.
+  InventoryDelta update(InventoryItem item,
+                        InventoryDelta attempted_delta,
+                        bool ignore_limits = false,
+                        bool notify = true);
 
   // Get the amount of a specific item
   InventoryQuantity amount(InventoryItem item) const;

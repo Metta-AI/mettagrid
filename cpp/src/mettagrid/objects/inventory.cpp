@@ -35,7 +35,7 @@ Inventory::~Inventory() {
 }
 
 // Update method implementation
-InventoryDelta Inventory::update(InventoryItem item, InventoryDelta attempted_delta, bool ignore_limits) {
+InventoryDelta Inventory::update(InventoryItem item, InventoryDelta attempted_delta, bool ignore_limits, bool notify) {
   InventoryQuantity initial_amount = this->_inventory[item];
   int new_amount = static_cast<int>(initial_amount + attempted_delta);
 
@@ -72,7 +72,7 @@ InventoryDelta Inventory::update(InventoryItem item, InventoryDelta attempted_de
   InventoryDelta clamped_delta = clamped_amount - initial_amount;
 
   // Notify owner if inventory actually changed
-  if (_owner && clamped_delta != 0) {
+  if (notify && _owner && clamped_delta != 0) {
     _owner->on_inventory_change(item, clamped_delta);
   }
 
