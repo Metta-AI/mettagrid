@@ -50,3 +50,5 @@ when not defined(debug):
   --define:release
 
 --define:ssl
+--define:profile
+--define:nimTypeNames

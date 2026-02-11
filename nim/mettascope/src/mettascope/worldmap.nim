@@ -1,6 +1,6 @@
 import
   std/[algorithm, math, os, tables, random, json, sets],
-  chroma, vmath, windy,
+  chroma, vmath, windy, silky,
   common, actions, replays,
   pathfinding, tilemap, pixelator, shaderquad, starfield,
   panels, heatmap, heatmapshader, collectives, colors,
@@ -27,6 +27,10 @@ var
   aoeMapStep*: int = -1
   aoeMapHiddenCollectives*: HashSet[int]
   aoeMapSelectionId*: int = -1
+
+  # Allocated coverage map for AoE map generation,
+  # so that it's not reallocated every time and cause GC pressure.
+  reuseableCoverageMap: seq[bool]
 
   px*: Pixelator
   pxMini*: Pixelator
@@ -73,7 +77,7 @@ const patternToTile = @[
   1, 34, 34, 0, 0, 34, 34, 0, 0
 ]
 
-proc generateTerrainMap(): TileMap =
+proc generateTerrainMap(): TileMap {.measure.} =
   ## Generate a 1024x1024 texture where each pixel is a byte index into the 16x16 tile map.
   let
     width = ceil(replay.mapSize[0].float32 / 32.0f).int * 32
@@ -141,7 +145,7 @@ proc generateTerrainMap(): TileMap =
   terrainMap.setupGPU()
   return terrainMap
 
-proc rebuildVisibilityMap*(visibilityMap: TileMap) =
+proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
   ## Rebuild the visibility map.
   let
     width = visibilityMap.width
@@ -273,17 +277,17 @@ proc collectiveToSlot*(collectiveId: int): int =
   else:
     collectiveId
 
-proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) =
+
+proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
   ## Rebuild the AoE map for a specific slot (0=Clips, 1=Cogs, 2=Neutral).
   let
     width = aoeMap.width
     height = aoeMap.height
 
-  # Create coverage map - true where AoE is NOT present (similar to fog of war logic)
-  var coverageMap: seq[bool] = newSeq[bool](width * height)
+  reuseableCoverageMap.setLen(width * height)
   # Initialize all to true (no AoE coverage = fog)
-  for i in 0 ..< coverageMap.len:
-    coverageMap[i] = true
+  for i in 0 ..< reuseableCoverageMap.len:
+    reuseableCoverageMap[i] = true
 
   # Check if this collective is visible (not hidden). Neutral slot is never shown in combined mode.
   let isEnabled = slotId < getNumCollectives() and slotId notin settings.hiddenCollectiveAoe
@@ -338,7 +342,7 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) =
           tx = pos.x + dx.int32
           ty = pos.y + dy.int32
         if tx >= 0 and tx < width and ty >= 0 and ty < height:
-          coverageMap[ty * width + tx] = false  # false = has AoE coverage
+          reuseableCoverageMap[ty * width + tx] = false  # false = has AoE coverage
 
   # If a selected object has influence AoE, show only its AoE.
   # Otherwise show combined AoE for all objects in enabled collectives.
@@ -370,19 +374,19 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) =
       return 0
 
     var tile: uint8 = 0
-    if coverageMap[y * width + x]:
+    if reuseableCoverageMap[y * width + x]:
       tile = 49  # Fully covered/empty tile
     else:
       let
         pattern = (
-          1 * coverageMap.get(x-1, y-1) + # NW
-          2 * coverageMap.get(x, y-1) + # N
-          4 * coverageMap.get(x+1, y-1) + # NE
-          8 * coverageMap.get(x+1, y) + # E
-          16 * coverageMap.get(x+1, y+1) + # SE
-          32 * coverageMap.get(x, y+1) + # S
-          64 * coverageMap.get(x-1, y+1) + # SW
-          128 * coverageMap.get(x-1, y) # W
+          1 * reuseableCoverageMap.get(x-1, y-1) + # NW
+          2 * reuseableCoverageMap.get(x, y-1) + # N
+          4 * reuseableCoverageMap.get(x+1, y-1) + # NE
+          8 * reuseableCoverageMap.get(x+1, y) + # E
+          16 * reuseableCoverageMap.get(x+1, y+1) + # SE
+          32 * reuseableCoverageMap.get(x, y+1) + # S
+          64 * reuseableCoverageMap.get(x-1, y+1) + # SW
+          128 * reuseableCoverageMap.get(x-1, y) # W
         )
       tile = patternToTile[pattern].uint8
     aoeMap.indexData[i] = tile
@@ -408,7 +412,7 @@ proc updateAoeMap*(aoeMap: TileMap, slotId: int) =
   aoeMap.rebuildAoeMap(slotId)
   aoeMap.updateGPU()
 
-proc initAoeMaps*() =
+proc initAoeMaps*() {.measure.} =
   ## Initialize all AoE tilemaps (including neutral).
   let count = getNumCollectives() + 1
   aoeMaps = newSeq[TileMap](count)
@@ -417,14 +421,14 @@ proc initAoeMaps*() =
   aoeMapStep = step
   aoeMapHiddenCollectives = settings.hiddenCollectiveAoe
 
-proc updateAoeMaps*() =
+proc updateAoeMaps*() {.measure.} =
   ## Update all AoE tilemaps if step or hidden collectives changed.
   for slotId in 0 ..< aoeMaps.len:
     aoeMaps[slotId].updateAoeMap(slotId)
   aoeMapStep = step
   aoeMapHiddenCollectives = settings.hiddenCollectiveAoe
 
-proc drawAoeMaps*() =
+proc drawAoeMaps*() {.measure.} =
   ## Draw all enabled AoE tilemaps with their respective tint colors.
   ## Only shows influence AoE (not attack AoE).
   ## When a selected object has influence AoE, shows only that object's AoE.
@@ -604,7 +608,7 @@ proc agentRigName(agent: Entity): string =
       return "scrambler"
   return "agent"
 
-proc drawObjects*() =
+proc drawObjects*() {.measure.} =
   ## Draw the objects on the map, sorted for correct draw order.
 
   # Sort: lower Y first (farther away, drawn behind), buildings before agents
@@ -666,7 +670,7 @@ proc drawObjects*() =
         pos * TILE_SIZE + SpriteOffset
       )
 
-proc drawVisualRanges*(alpha = 0.5) =
+proc drawVisualRanges*(alpha = 0.5) {.measure.} =
   ## Draw the visual ranges of the selected agent.
 
   if visibilityMap == nil:
@@ -698,7 +702,7 @@ proc drawFogOfWar*() =
   ## Draw the fog of war.
   drawVisualRanges(alpha = 1.0)
 
-proc drawTrajectory*() =
+proc drawTrajectory*() {.measure.} =
   ## Draw the trajectory of the selected object, with footprints or a future arrow.
   if selection != nil and selection.location.len > 1:
     var prevDirection = S
@@ -795,7 +799,7 @@ proc drawBar*(pos: IVec2, tint: ColorRGBX, numPips: int, maxValue: int, current:
   if current != prev and currentPips > 0 and currentPips == prevPips:
     px.drawSprite(fgSprite, ivec2(startX + int32((currentPips - 1) * pipWidth), pos.y))
 
-proc drawAgentDecorations*() =
+proc drawAgentDecorations*() {.measure.} =
   # Draw health and energy bars, and frozen status.
   const
     MaxHp = 100
@@ -816,7 +820,7 @@ proc drawAgentDecorations*() =
     let energyPrev = getInventoryItem(agent, "energy", prevStep)
     drawBar(ivec2(pos.x, pos.y - 61), colors.Yellow, NumPips, MaxEnergy, energy, energyPrev, MediumPip)
 
-proc drawGrid*() =
+proc drawGrid*() {.measure.} =
   # Draw the grid using a single quad and shader-based lines.
   if sq == nil:
     sq = newGridQuad(dataDir / "view/grid10.png", 10, 10)
@@ -827,7 +831,7 @@ proc drawGrid*() =
     gridColor = vec4(1.0f, 1.0f, 1.0f, 1.0f) # subtle white grid
   sq.draw(mvp, mapSize, tileSize, gridColor, 1.0f)
 
-proc drawPlannedPath*() =
+proc drawPlannedPath*() {.measure.} =
   ## Draw the planned paths for all agents.
   ## Only show paths when in realtime mode and viewing the latest step.
   if playMode != Realtime or step != replay.maxSteps - 1:
@@ -917,7 +921,7 @@ proc applyOrientationOffset*(x: int, y: int, orientation: int): (int, int) =
   else:
     return (x, y)
 
-proc drawTerrain*() =
+proc drawTerrain*() {.measure.} =
   ## Draw the terrain, space and asteroid tiles using the terrainMap tilemap.
   if terrainMap == nil:
     terrainMap = generateTerrainMap()
@@ -932,7 +936,7 @@ proc drawTerrain*() =
 
   terrainMap.draw(getProjectionView(), 2.0f, 1.5f)
 
-proc drawObjectPips*() =
+proc drawObjectPips*() {.measure.} =
   ## Draw the pips for the objects on the minimap using the mini pixelator.
   ## Junction pips are colored by their collective.
   for obj in replay.objects:
@@ -960,7 +964,7 @@ proc drawObjectPips*() =
       pipTint
     )
 
-proc drawWorldMini*() =
+proc drawWorldMini*() {.measure.} =
   ## Draw the world map at minimap zoom level using pxMini.
   drawTerrain()
   drawAoeMaps()
@@ -1004,7 +1008,7 @@ proc centerAt*(zoomInfo: ZoomInfo, entity: Entity) =
   zoomInfo.pos.x = rectW / 2.0f - location.x.float32 * z
   zoomInfo.pos.y = rectH / 2.0f - location.y.float32 * z
 
-proc drawWorldMain*() =
+proc drawWorldMain*() {.measure.} =
   ## Draw the world map.
 
   drawStarfield()
@@ -1148,7 +1152,7 @@ proc adjustPanelForResize*(zoomInfo: ZoomInfo) =
   # Update previous size
   previousPanelSize = currentSize
 
-proc drawWorldMap*(zoomInfo: ZoomInfo) =
+proc drawWorldMap*(zoomInfo: ZoomInfo) {.measure.} =
   ## Draw the world map.
 
   if replay == nil or replay.mapSize[0] == 0 or replay.mapSize[1] == 0:
