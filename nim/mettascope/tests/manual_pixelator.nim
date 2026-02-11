@@ -1,13 +1,10 @@
 import
-  boxy, windy, pixie,
-  ../src/mettascope/[pixelator],
-  opengl, boxy/shaders
+  opengl, windy, vmath,
+  ../src/mettascope/[pixelator]
 
 let window = newWindow("Test Pixelator", ivec2(1280, 800))
 makeContextCurrent(window)
 loadExtensions()
-
-let bxy = newBoxy()
 
 var
   vel: Vec2
@@ -24,18 +21,21 @@ let spriteNames = @[
   "agents/agent.e",
   "agents/agent.w",
   "objects/chest",
-  "objects/factory",
-  "objects/water_well",
+  "objects/silicon_extractor",
+  "objects/junction",
   "objects/oxygen_extractor",
-  "objects/mine",
+  "objects/carbon_extractor",
   "view/grid"
 ]
 
 window.onFrame = proc() =
-  bxy.beginFrame(window.size)
+  glViewport(0, 0, window.size.x, window.size.y)
 
   glClearColor(0.1, 0.1, 0.1, 1.0)
   glClear(GL_COLOR_BUFFER_BIT)
+
+  glEnable(GL_BLEND)
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
   # Panning with middle mouse, inertial feel.
   if window.buttonDown[MouseMiddle] or window.buttonDown[MouseLeft]:
@@ -80,7 +80,6 @@ window.onFrame = proc() =
 
   px.flush(mvp)
 
-  bxy.endFrame()
   window.swapBuffers()
   inc frame
 

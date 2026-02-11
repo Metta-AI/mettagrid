@@ -1,6 +1,6 @@
 import
   std/json,
-  boxy, silky, windy,
+  silky, windy,
   ../common, ../replays
 
 proc drawEnvironmentInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) =

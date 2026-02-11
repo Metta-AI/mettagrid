@@ -31,7 +31,7 @@ Imports should start with std modules then external modules, then local modules.
 ```
 import
   std/[os, random, strutils],
-  fidget2, boxy, windy,
+  fidget2, silky, windy,
   common, internal, models, widgets.
 ```
 

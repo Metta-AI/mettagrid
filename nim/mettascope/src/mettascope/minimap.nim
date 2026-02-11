@@ -1,26 +1,21 @@
 import
-  boxy, chroma, vmath, windy,
+  chroma, vmath, windy, silky,
   common, worldmap, panels
 
 proc drawMinimap*(zoomInfo: ZoomInfo) =
   ## Draw the minimap with automatic fitting to panel size.
   let box = irect(0, 0, zoomInfo.rect.w, zoomInfo.rect.h)
 
-  bxy.drawRect(
-    rect = box.rect,
-    color = color(0, 0, 0, 1.0)
-  )
-
   if replay.isNil or replay.mapSize == (0, 0):
     return
 
-  bxy.saveTransform()
+  saveTransform()
 
   # Calculate transform to fit entire world in minimap panel.
   let rectW = zoomInfo.rect.w.float32
   let rectH = zoomInfo.rect.h.float32
   if rectW <= 0 or rectH <= 0:
-    bxy.restoreTransform()
+    restoreTransform()
     return
 
   let
@@ -38,9 +33,9 @@ proc drawMinimap*(zoomInfo: ZoomInfo) =
     posX = rectW / 2.0f - cx * zoomScale
     posY = rectH / 2.0f - cy * zoomScale
 
-  bxy.translate(vec2(posX, posY))
-  bxy.scale(vec2(zoomScale, zoomScale))
+  translateTransform(vec2(posX, posY))
+  scaleTransform(vec2(zoomScale, zoomScale))
 
   drawWorldMini()
 
-  bxy.restoreTransform()
+  restoreTransform()

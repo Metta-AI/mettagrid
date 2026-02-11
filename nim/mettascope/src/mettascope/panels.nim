@@ -1,7 +1,7 @@
 # This example shows a draggable panel UI like in a large editor like VS Code or Blender.
 
 import
-  bumpy, chroma, windy, boxy, silky,
+  bumpy, chroma, windy, silky,
   ./[common, configs]
 
 type
@@ -92,7 +92,7 @@ proc clampMapPan*(zoomInfo: ZoomInfo) =
 proc beginPanAndZoom*(zoomInfo: ZoomInfo) =
   ## Pan and zoom the map.
 
-  bxy.saveTransform()
+  saveTransform()
 
   if zoomInfo.hasMouse:
     if window.buttonPressed[MouseLeft]:
@@ -144,12 +144,12 @@ proc beginPanAndZoom*(zoomInfo: ZoomInfo) =
 
   clampMapPan(zoomInfo)
 
-  bxy.translate(zoomInfo.pos)
+  translateTransform(zoomInfo.pos)
   let zoomScale = zoomInfo.zoom * zoomInfo.zoom
-  bxy.scale(vec2(zoomScale, zoomScale))
+  scaleTransform(vec2(zoomScale, zoomScale))
 
 proc endPanAndZoom*(zoomInfo: ZoomInfo) =
-  bxy.restoreTransform()
+  restoreTransform()
 
 proc snapToPixels(rect: Rect): Rect =
   rect(rect.x.int.float32, rect.y.int.float32, rect.w.int.float32, rect.h.int.float32)

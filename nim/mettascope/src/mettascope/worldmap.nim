@@ -1,6 +1,6 @@
 import
   std/[algorithm, math, os, tables, random, json, sets],
-  vmath, windy, boxy,
+  chroma, vmath, windy,
   common, actions, replays,
   pathfinding, tilemap, pixelator, shaderquad, starfield,
   panels, heatmap, heatmapshader, collectives, colors,
@@ -222,7 +222,7 @@ proc updateVisibilityMap*(visibilityMap: TileMap) =
 
 proc getProjectionView*(): Mat4 =
   ## Get the projection and view matrix.
-  let m = bxy.getTransform()
+  let m = getTransform()
   let view = mat4(
     m[0, 0], m[0, 1], m[0, 2], 0,
     m[1, 0], m[1, 1], m[1, 2], 0,
@@ -432,8 +432,6 @@ proc drawAoeMaps*() =
   if replay.isNil:
     return
 
-  bxy.enterRawOpenGLMode()
-
   # Initialize maps if needed (empty seq or collective count changed)
   let expectedCount = getNumCollectives() + 1
   if aoeMaps.len != expectedCount:
@@ -468,8 +466,6 @@ proc drawAoeMaps*() =
         tint = getCollectiveColor(slotId).color
       )
 
-  bxy.exitRawOpenGLMode()
-
 proc useSelections*(zoomInfo: ZoomInfo) =
   ## Reads the mouse position and selects the thing under it.
   let modifierDown = when defined(macosx):
@@ -497,7 +493,7 @@ proc useSelections*(zoomInfo: ZoomInfo) =
     if mouseDragDistance < maxClickDragDistance:
       selection = nil
       let
-        mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+        mousePos = getTransform().inverse * window.mousePos.vec2
         gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
       if gridPos.x >= 0 and gridPos.x < replay.mapSize[0] and
         gridPos.y >= 0 and gridPos.y < replay.mapSize[1]:
@@ -509,7 +505,7 @@ proc useSelections*(zoomInfo: ZoomInfo) =
   if window.buttonPressed[MouseRight] or (window.buttonPressed[MouseLeft] and modifierDown):
     if selection != nil and selection.isAgent:
       let
-        mousePos = bxy.getTransform().inverse * window.mousePos.vec2
+        mousePos = getTransform().inverse * window.mousePos.vec2
         gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
       if gridPos.x >= 0 and gridPos.x < replay.mapSize[0] and
         gridPos.y >= 0 and gridPos.y < replay.mapSize[1]:
@@ -673,8 +669,6 @@ proc drawObjects*() =
 proc drawVisualRanges*(alpha = 0.5) =
   ## Draw the visual ranges of the selected agent.
 
-  bxy.enterRawOpenGLMode()
-
   if visibilityMap == nil:
     visibilityMapStep = step
     visibilityMapSelectionId = if selection != nil: selection.id else: -1
@@ -698,8 +692,6 @@ proc drawVisualRanges*(alpha = 0.5) =
     zoomThreshold = 1.5f,
     tint = color(0, 0, 0, alpha)
   )
-
-  bxy.exitRawOpenGLMode()
 
 
 proc drawFogOfWar*() =
@@ -826,7 +818,6 @@ proc drawAgentDecorations*() =
 
 proc drawGrid*() =
   # Draw the grid using a single quad and shader-based lines.
-  bxy.enterRawOpenGLMode()
   if sq == nil:
     sq = newGridQuad(dataDir / "view/grid10.png", 10, 10)
   let
@@ -835,7 +826,6 @@ proc drawGrid*() =
     tileSize = vec2(1.0f, 1.0f) # world units per tile
     gridColor = vec4(1.0f, 1.0f, 1.0f, 1.0f) # subtle white grid
   sq.draw(mvp, mapSize, tileSize, gridColor, 1.0f)
-  bxy.exitRawOpenGLMode()
 
 proc drawPlannedPath*() =
   ## Draw the planned paths for all agents.
@@ -929,8 +919,6 @@ proc applyOrientationOffset*(x: int, y: int, orientation: int): (int, int) =
 
 proc drawTerrain*() =
   ## Draw the terrain, space and asteroid tiles using the terrainMap tilemap.
-  bxy.enterRawOpenGLMode()
-
   if terrainMap == nil:
     terrainMap = generateTerrainMap()
     px = newPixelator(
@@ -943,8 +931,6 @@ proc drawTerrain*() =
     )
 
   terrainMap.draw(getProjectionView(), 2.0f, 1.5f)
-
-  bxy.exitRawOpenGLMode()
 
 proc drawObjectPips*() =
   ## Draw the pips for the objects on the minimap using the mini pixelator.
@@ -987,7 +973,6 @@ proc drawWorldMini*() =
       # Update heatmap texture if step changed.
       updateTexture(worldHeatmap, step)
       # Draw heatmap overlay.
-      bxy.enterRawOpenGLMode()
       let maxHeat = worldHeatmap.getMaxHeat(step).float32
       draw(
         worldHeatmap,
@@ -995,7 +980,6 @@ proc drawWorldMini*() =
         vec2(replay.mapSize[0].float32, replay.mapSize[1].float32),
         maxHeat
       )
-      bxy.exitRawOpenGLMode()
 
   # Overlays
   if settings.showVisualRange:
@@ -1035,7 +1019,6 @@ proc drawWorldMain*() =
       # Update heatmap texture if step changed.
       updateTexture(worldHeatmap, step)
       # Draw heatmap overlay.
-      bxy.enterRawOpenGLMode()
       let maxHeat = worldHeatmap.getMaxHeat(step).float32
       draw(
         worldHeatmap,
@@ -1043,7 +1026,6 @@ proc drawWorldMain*() =
         vec2(replay.mapSize[0].float32, replay.mapSize[1].float32),
         maxHeat
       )
-      bxy.exitRawOpenGLMode()
 
   drawTrajectory()
 
