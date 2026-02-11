@@ -3,7 +3,7 @@
 import
   std/sets,
   bumpy, silky, chroma, vmath, windy,
-  ../common, ../collectives
+  ../common, ../collectives, ../configs
 
 template coloredCheckBoxInverse*(label: string, hiddenSet: var HashSet[int], value: int, tint: ColorRGBX) =
   ## Checkbox with tint color that toggles visibility via a "hidden" set.
@@ -21,6 +21,7 @@ template coloredCheckBoxInverse*(label: string, hiddenSet: var HashSet[int], val
       hiddenSet.excl(value)
     else:
       hiddenSet.incl(value)
+    saveUIState()
 
   let
     iconPos = vec2(sk.at.x, sk.at.y + (height - iconSize.y.float32) * 0.5)
