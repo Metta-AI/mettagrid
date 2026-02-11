@@ -67,7 +67,6 @@ class RuntimeInfo(BaseModel):
 class SingleEpisodeJob(EpisodeSpec):
     model_config = {"extra": "ignore"}
 
-    skip_replay: bool = False
     episode_tags: dict[str, str] = Field(default_factory=dict)
 
     def episode_spec(self) -> EpisodeSpec:
