@@ -182,6 +182,33 @@ py::dict MettaGrid::get_episode_stats() {
   return stats;
 }
 
+std::optional<float> MettaGrid::get_game_stat(const std::string& key) const {
+  if (_stats == nullptr) {
+    return std::nullopt;
+  }
+  return _stats->get_if_present(key);
+}
+
+std::optional<float> MettaGrid::get_agent_stat(uint32_t agent_id, const std::string& key) const {
+  if (agent_id >= _agents.size()) {
+    return std::nullopt;
+  }
+  const auto* agent = _agents[agent_id];
+  if (agent == nullptr) {
+    return std::nullopt;
+  }
+  return agent->stats.get_if_present(key);
+}
+
+std::optional<float> MettaGrid::get_collective_stat(
+    const std::string& collective_name, const std::string& key) const {
+  auto it = _collectives_by_name.find(collective_name);
+  if (it == _collectives_by_name.end() || it->second == nullptr) {
+    return std::nullopt;
+  }
+  return it->second->stats.get_if_present(key);
+}
+
 py::list MettaGrid::action_success_py() {
   return py::cast(_action_success);
 }
@@ -281,6 +308,9 @@ PYBIND11_MODULE(mettagrid_c, m) {
       .def_property_readonly("map_height", &MettaGrid::map_height)
       .def("get_episode_rewards", &MettaGrid::get_episode_rewards)
       .def("get_episode_stats", &MettaGrid::get_episode_stats)
+      .def("get_game_stat", &MettaGrid::get_game_stat)
+      .def("get_agent_stat", &MettaGrid::get_agent_stat)
+      .def("get_collective_stat", &MettaGrid::get_collective_stat)
       .def("action_success", &MettaGrid::action_success_py)
       .def_readonly("obs_width", &MettaGrid::obs_width)
       .def_readonly("obs_height", &MettaGrid::obs_height)
