@@ -1,5 +1,5 @@
 import
-  std/[strutils, os, parseopt],
+  std/[strutils, strformat, os, parseopt, times],
   opengl, windy, bumpy, vmath, silky, webby,
   mettascope/[replays, common, worldmap, panels,
   footer, timeline, minimap, header, replayloader, configs, gameplayer],
@@ -99,7 +99,7 @@ proc replaySwitch(replay: string) =
     echo "Realtime mode"
     onReplayLoaded()
 
-proc drawWorldMap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) =
+proc drawWorldMap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) {.measure.} =
   ## Draw the world map.
   sk.draw9Patch("panel.body.empty.9patch", 3, contentPos, contentSize)
 
@@ -119,7 +119,7 @@ proc drawWorldMap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: 
 
   glDisable(GL_SCISSOR_TEST)
 
-proc drawMinimap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) =
+proc drawMinimap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) {.measure.} =
   ## Draw the minimap.
   sk.draw9Patch("panel.body.empty.9patch", 3, contentPos, contentSize)
 
@@ -243,12 +243,6 @@ proc onFrame() =
     drawGameWorld()
 
   drawWarningPopup()
-
-  when defined(profile):
-    let ms = sk.avgFrameTime * 1000
-    sk.at = sk.pos + vec2(sk.size.x - 250, 20)
-    text(&"frame time: {ms:>7.3f}ms\nquads: {sk.instanceCount}")
-
   sk.endUi()
   window.swapBuffers()
 

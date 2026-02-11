@@ -72,6 +72,9 @@ var
   transformMat*: Mat3 = mat3()
   transformStack*: seq[Mat3]
 
+  # Fluffy tracing.
+  isTracing* = false
+
 proc saveTransform*() =
   ## Push the current transform onto the stack.
   transformStack.add(transformMat)

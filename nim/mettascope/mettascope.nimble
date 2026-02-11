@@ -9,6 +9,7 @@ requires "nim >= 2.2.4"
 requires "cligen >= 1.9.0"
 requires "fidget2 >= 0.1.2"
 requires "genny >= 0.1.1"
+requires "fluffy >= 0.1.0"
 
 task bindings, "Generate bindings":
 
