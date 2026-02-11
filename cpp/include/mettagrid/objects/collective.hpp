@@ -25,11 +25,11 @@ public:
 
   explicit Collective(const CollectiveConfig& cfg, const std::vector<std::string>* resource_names)
       : HasInventory(cfg.inventory_config), name(cfg.name), stats(resource_names) {
-    // Set initial inventory (ignore limits for initial setup)
+    // Set initial inventory. notify=false: initial wealth is not a gameplay deposit,
+    // so don't fire on_inventory_change (which would pollute .deposited stats).
     for (const auto& [resource, amount] : cfg.initial_inventory) {
       if (amount > 0) {
-        inventory.update(resource, amount, /*ignore_limits=*/true);
-        // Track initial amount for observations
+        inventory.update(resource, amount, /*ignore_limits=*/true, /*notify=*/false);
         stats.set(stats.resource_name(resource) + ".amount", static_cast<float>(amount));
       }
     }
