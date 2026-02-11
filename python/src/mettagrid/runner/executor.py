@@ -10,8 +10,6 @@ import zipfile
 from contextlib import nullcontext
 from pathlib import Path
 
-import requests
-
 from mettagrid.runner.episode_runner import run_episode_isolated
 from mettagrid.runner.types import RuntimeInfo, SingleEpisodeJob
 from mettagrid.util.file import copy_data, read, write_data
@@ -59,14 +57,7 @@ def _upload_results(
 
 
 def _collect_runtime_info(git_commit: str | None) -> RuntimeInfo:
-    instance_type: str | None = None
-    try:
-        resp = requests.get("http://169.254.169.254/latest/meta-data/instance-type", timeout=2)
-        if resp.ok:
-            instance_type = resp.text.strip()
-    except Exception:
-        pass
-    return RuntimeInfo(git_commit=git_commit, instance_type=instance_type)
+    return RuntimeInfo(git_commit=git_commit)
 
 
 def _init_logging() -> None:
@@ -107,7 +98,7 @@ def main() -> None:
     job = SingleEpisodeJob.model_validate_json(read(job_spec_uri))
     logger.info(f"Job spec loaded in {time.monotonic() - t0:.1f}s")
 
-    debug_uri = job.debug_uri
+    debug_uri = os.environ.get("DEBUG_URI")
     capture_replay = replay_uri is not None
 
     with tempfile.TemporaryDirectory() as output_dir_str:
