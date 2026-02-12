@@ -122,12 +122,27 @@ class EpisodeReplay:
         # Track last values to only record changes (keyed by collective_id)
         self._last_collective_inventory: Dict[int, Dict[str, int]] = {}
 
+        # Build capacity_names from the first agent's inventory limits config (sorted for determinism).
+        # Each capacity group (e.g., "gear", "cargo") is assigned an ID = index in this sorted list.
+        agent_inv_limits = sim.config.game.agents[0].inventory.limits if sim.config.game.agents else {}
+        self._capacity_names: List[str] = sorted(agent_inv_limits.keys())
+
+        # Build resource_id -> capacity_id mapping for converting per-resource C++ limits
+        # to per-capacity-group format in the replay.
+        self._resource_to_capacity_id: Dict[int, int] = {}
+        for cap_id, cap_name in enumerate(self._capacity_names):
+            for resource_name in agent_inv_limits[cap_name].resources:
+                if resource_name in sim.resource_names:
+                    resource_id = sim.resource_names.index(resource_name)
+                    self._resource_to_capacity_id[resource_id] = cap_id
+
         self.replay_data = {
             "version": 4,
             "action_names": sim.action_names,
             "item_names": sim.resource_names,
             "type_names": sim.object_type_names,
             "collective_names": self._collective_names,
+            "capacity_names": self._capacity_names,
             "map_size": [sim.map_width, sim.map_height],
             "num_agents": sim.num_agents,
             "max_steps": sim.config.game.max_steps,
@@ -183,6 +198,9 @@ class EpisodeReplay:
                 self.total_rewards,
             )
 
+            # Convert raw per-resource capacities to per-capacity-group format
+            self._convert_raw_capacities(update_object)
+
             self._seq_key_merge(self.objects[idx], self.step, update_object)
 
         # Mark objects not seen this step as dead (skip static objects like walls).
@@ -217,6 +235,37 @@ class EpisodeReplay:
                 "Probably a vecenv issue."
             )
 
+    def _convert_raw_capacities(self, update_object: dict) -> None:
+        """Convert raw per-resource capacities to per-capacity-group format.
+
+        Removes the ``inventory_capacities_raw`` key (a dict of
+        ``{resource_id: effective_limit}``) and replaces it with
+        ``inventory_capacities`` as ``[[capacity_id, effective_limit], ...]``
+        sorted by capacity_id.
+        """
+        raw = update_object.pop("inventory_capacities_raw", {})
+        group_caps: Dict[int, int] = {}
+        for resource_id, eff_limit in raw.items():
+            cap_id = self._resource_to_capacity_id.get(resource_id)
+            if cap_id is not None and cap_id not in group_caps:
+                group_caps[cap_id] = eff_limit
+        # Format as [[capacity_id, effective_limit], ...] sorted by capacity_id
+        update_object["inventory_capacities"] = sorted(group_caps.items())
+
+    @staticmethod
+    def _default_for(value):
+        """Return the appropriate zero/empty default for a replay value."""
+        if isinstance(value, list):
+            return []
+        elif isinstance(value, int):
+            return 0
+        elif isinstance(value, float):
+            return 0.0
+        elif isinstance(value, bool):
+            return False
+        else:
+            raise ValueError(f"Unknown value type: {type(value)}")
+
     def _seq_key_merge(self, grid_object: dict, step: int, update_object: dict):
         """Add a sequence keys to replay grid object."""
         for key, value in update_object.items():
@@ -225,16 +274,17 @@ class EpisodeReplay:
                 if step == 0:
                     grid_object[key] = [[step, value]]
                 else:
-                    grid_object[key] = [[0, 0], [step, value]]
+                    grid_object[key] = [[0, self._default_for(value)], [step, value]]
             else:
-                # Only add new entry if it has changed:
                 if grid_object[key][-1][1] != value:
                     grid_object[key].append([step, value])
-        # If key has vanished, add a zero entry.
+        # If key has vanished, add a default entry.
         for key in grid_object.keys():
             if key not in update_object:
-                if grid_object[key][-1][1] != 0:
-                    grid_object[key].append([step, 0])
+                last = grid_object[key][-1][1]
+                default = self._default_for(last)
+                if last != default:
+                    grid_object[key].append([step, default])
 
     def _log_collective_inventory(self, step: int):
         """Log collective inventory for the current step."""

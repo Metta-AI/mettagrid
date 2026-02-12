@@ -128,6 +128,15 @@ bool Inventory::is_modifier(InventoryItem item) const {
   return false;
 }
 
+// Get per-resource effective limits
+std::unordered_map<InventoryItem, InventoryQuantity> Inventory::get_effective_limits() const {
+  std::unordered_map<InventoryItem, InventoryQuantity> result;
+  for (const auto& [item, limit] : _limits) {
+    result[item] = limit->effective_limit(_inventory);
+  }
+  return result;
+}
+
 // Enforce all limits - drop excess items when limits decrease
 void Inventory::enforce_all_limits() {
   // Collect unique limits (multiple resources can share a limit)

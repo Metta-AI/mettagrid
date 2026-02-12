@@ -52,6 +52,10 @@ type
     itemId*: int
     count*: int
 
+  CapacityAmount* = object
+    capacityId*: int
+    limit*: int
+
   CollectiveData* = object
     name*: string
     color*: ColorRGBX
@@ -105,6 +109,7 @@ type
     orientation*: seq[int]
     inventory*: seq[seq[ItemAmount]]
     inventoryMax*: int
+    inventoryCapacities*: seq[seq[CapacityAmount]]
     color*: seq[int]
     vibeId*: seq[int]
 
@@ -162,6 +167,7 @@ type
     actionNames*: seq[string]
     itemNames*: seq[string]
     groupNames*: seq[string]
+    capacityNames*: seq[string]  ## Maps capacity_id to group name (e.g., "cargo", "gear").
     collectives*: seq[CollectiveData]
     typeImages*: Table[string, string]
     actionImages*: seq[string]
@@ -199,6 +205,7 @@ type
     orientation*: int
     inventory*: seq[ItemAmount]
     inventoryMax*: int
+    inventoryCapacities*: seq[CapacityAmount]  ## Per-capacity-group effective limits (current step).
     color*: int
     vibeId*: int
 
@@ -312,6 +319,11 @@ proc parseHook*(s: string, i: var int, v: var ItemAmount) =
   var arr: array[2, int32]
   parseHook(s, i, arr)
   v = ItemAmount(itemId: arr[0], count: arr[1])
+
+proc parseHook*(s: string, i: var int, v: var CapacityAmount) =
+  var arr: array[2, int32]
+  parseHook(s, i, arr)
+  v = CapacityAmount(capacityId: arr[0], limit: arr[1])
 
 proc expand[T](data: JsonNode, numSteps: int, defaultValue: T): seq[T] =
   if data == nil:
@@ -866,7 +878,11 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
           color: collectiveColor(name),
         ))
 
-
+  # Parse capacity_names (maps capacity_id to group name like "cargo", "gear").
+  let capacityNamesArr = getArray(jsonObj, "capacity_names")
+  if capacityNamesArr != nil:
+    for nameNode in capacityNamesArr:
+      replay.capacityNames.add(nameNode.getStr)
 
   let objectsArr = getArray(jsonObj, "objects", newJArray())
   for obj in objectsArr:
@@ -883,6 +899,20 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
               count: itemPair[1]
             ))
         inventory.add(itemAmounts)
+
+    # Parse inventory_capacities: same format as inventory but capacity_id instead of item_id.
+    var inventoryCapacities: seq[seq[CapacityAmount]]
+    if "inventory_capacities" in obj:
+      let capsRaw = expandInventory(obj["inventory_capacities"], replay.maxSteps)
+      for i in 0 ..< capsRaw.len:
+        var capAmounts: seq[CapacityAmount]
+        for capPair in capsRaw[i]:
+          if capPair.len >= 2:
+            capAmounts.add(CapacityAmount(
+              capacityId: capPair[0],
+              limit: capPair[1]
+            ))
+        inventoryCapacities.add(capAmounts)
 
     var location: seq[IVec2]
     if "location" in obj:
@@ -909,6 +939,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
       orientation: obj.getExpandedIntSeq("orientation", replay.maxSteps),
       inventory: inventory,
       inventoryMax: obj.getInt("inventory_max", 0),
+      inventoryCapacities: inventoryCapacities,
       color: obj.getExpandedIntSeq("color", replay.maxSteps),
     )
     entity.groupId = getInt(obj, "group_id", 0)
@@ -1068,6 +1099,7 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) =
     entity.orientation.add(obj.orientation)
     entity.inventory.add(obj.inventory)
     entity.inventoryMax = obj.inventoryMax
+    entity.inventoryCapacities.add(obj.inventoryCapacities)
     entity.color.add(obj.color)
     entity.vibeId.add(obj.vibeId)
     entity.actionId.add(obj.actionId)

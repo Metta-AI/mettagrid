@@ -93,6 +93,14 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
         inventory_dict[py::int_(resource)] = quantity;
       }
       obj_dict["inventory"] = inventory_dict;
+
+      // Export per-resource effective limits (dynamic capacities).
+      // Python will group these by capacity ID using the config's limit group definitions.
+      py::dict capacity_dict;
+      for (const auto& [resource, eff_limit] : has_inventory->inventory.get_effective_limits()) {
+        capacity_dict[py::int_(resource)] = eff_limit;
+      }
+      obj_dict["inventory_capacities"] = capacity_dict;
     }
 
     // Add collective_id/name for alignable objects
@@ -119,13 +127,6 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
       obj_dict["agent_id"] = agent->agent_id;
       obj_dict["current_stat_reward"] = agent->reward_helper._current_reward;
       obj_dict["steps_without_motion"] = agent->steps_without_motion;
-
-      // We made resource limits more complicated than this, and need to review how to expose them.
-      // py::dict resource_limits_dict;
-      // for (const auto& [resource, quantity] : agent->inventory.limits) {
-      //   resource_limits_dict[py::int_(resource)] = quantity;
-      // }
-      // obj_dict["resource_limits"] = resource_limits_dict;
     }
 
     // Add tag mutation methods (capture obj pointer and self_ref to prevent use-after-free)

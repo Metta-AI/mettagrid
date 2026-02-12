@@ -16,6 +16,7 @@ def format_grid_object_base(grid_object: dict) -> dict:
     update_object["orientation"] = grid_object.get("orientation", 0)
     update_object["inventory"] = list(grid_object.get("inventory", {}).items())
     update_object["inventory_max"] = grid_object.get("inventory_max", 0)
+    update_object["inventory_capacities_raw"] = dict(grid_object.get("inventory_capacities", {}))
     update_object["color"] = grid_object.get("color", 0)
     # Always include collective_id (-1 = unaligned). jsony (Nim) defaults missing
     # ints to 0, which would incorrectly map to the first collective.

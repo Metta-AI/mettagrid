@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -36,11 +36,24 @@ class MettascopeRenderer(Renderer):
         game_config = self._sim.config.game
         game_config_dict = game_config.model_dump(mode="json", exclude_none=True)
 
+        # Build capacity mapping from agent config (same logic as replay_log_writer).
+        agent_inv_limits = game_config.agents[0].inventory.limits if game_config.agents else {}
+        self._capacity_names: List[str] = sorted(agent_inv_limits.keys())
+        self._resource_to_capacity_id: Dict[int, int] = {}
+        for cap_id, cap_name in enumerate(self._capacity_names):
+            for resource_name in agent_inv_limits[cap_name].resources:
+                assert resource_name in self._sim.resource_names, (
+                    f"Resource {resource_name} not found in resource names"
+                )
+                resource_id = self._sim.resource_names.index(resource_name)
+                self._resource_to_capacity_id[resource_id] = cap_id
+
         initial_replay = {
             "version": 2,
             "action_names": list(self._sim.action_ids.keys()),
             "item_names": self._sim.resource_names,
             "type_names": self._sim.object_type_names,
+            "capacity_names": self._capacity_names,
             "map_size": [
                 self._sim.map_width,
                 self._sim.map_height,
@@ -81,18 +94,32 @@ class MettascopeRenderer(Renderer):
         all_policy_infos = self._sim._context.get("policy_infos", {})
 
         for grid_object in self._sim.grid_objects(ignore_types=ignore_types).values():
-            agent_id = grid_object.get("agent_id")
-            pi = all_policy_infos.get(agent_id) if agent_id is not None else None
-            grid_objects.append(
-                format_grid_object(
-                    grid_object,
-                    placeholder_actions,
-                    self._sim.action_success,
-                    placeholder_rewards,
-                    total_rewards,
-                    policy_infos=pi,
-                )
+            formatted = format_grid_object(
+                grid_object,
+                placeholder_actions,
+                self._sim.action_success,
+                placeholder_rewards,
+                total_rewards,
             )
+
+            # Add policy infos for agents if available.
+            agent_id = grid_object.get("agent_id")
+            if agent_id is not None:
+                pi = all_policy_infos.get(agent_id)
+                if pi:
+                    formatted["policy_infos"] = pi
+
+            # Convert raw per-resource capacities to per-capacity-group format
+            # so the Nim side can parse them as [[capacity_id, effective_limit], ...].
+            raw = formatted.pop("inventory_capacities_raw", {})
+            group_caps: Dict[int, int] = {}
+            for resource_id, eff_limit in raw.items():
+                cap_id = self._resource_to_capacity_id.get(resource_id)
+                if cap_id is not None and cap_id not in group_caps:
+                    group_caps[cap_id] = eff_limit
+            formatted["inventory_capacities"] = sorted(group_caps.items())
+
+            grid_objects.append(formatted)
 
         # Get collective inventories for mettascope commons panel
         collective_inventory = self._sim._c_sim.get_collective_inventories()

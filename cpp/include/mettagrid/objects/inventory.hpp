@@ -84,6 +84,10 @@ public:
 
   // Check if an item is a modifier for any limit
   bool is_modifier(InventoryItem item) const;
+
+  // Get per-resource effective limits. Returns {resource_id: effective_limit} for each resource
+  // that has a limit. Resources sharing a limit will have the same effective_limit value.
+  std::unordered_map<InventoryItem, InventoryQuantity> get_effective_limits() const;
 };
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_OBJECTS_INVENTORY_HPP_
