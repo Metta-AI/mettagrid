@@ -145,6 +145,9 @@ type
     # Alignable fields.
     collectiveId*: seq[int]
 
+    # Policy info (per-step arbitrary metadata from policy).
+    policyInfos*: seq[JsonNode]
+
     # Computed fields.
     gainMap*: seq[seq[ItemAmount]]
     isAgent*: bool
@@ -232,6 +235,9 @@ type
 
     # Alignable fields.
     collectiveId*: int = -1
+
+    # Policy info (arbitrary metadata from policy).
+    policyInfos*: JsonNode
 
   ReplayStep* = ref object
     step*: int
@@ -982,6 +988,9 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
     else:
       entity.alive = @[true]
 
+    # Policy info is sourced from streamed replay steps only.
+    entity.policyInfos = @[newJNull()]
+
     if "protocols" in obj:
       entity.protocols = fromJson($(obj["protocols"]), seq[Protocol])
 
@@ -1086,6 +1095,13 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) =
     entity.maxUses = obj.maxUses
     entity.allowPartialUsage = obj.allowPartialUsage
     entity.protocols = obj.protocols
+    if not obj.policyInfos.isNil:
+      entity.policyInfos.add(obj.policyInfos)
+    else:
+      if entity.policyInfos.len > 0:
+        entity.policyInfos.add(entity.policyInfos[^1])
+      else:
+        entity.policyInfos.add(newJNull())
 
   # Mark objects as dead if they existed before but weren't in this step.
   if replay.objects.len > 0:

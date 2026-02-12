@@ -1,5 +1,5 @@
 import
-  std/[times, tables, os, pathnorm, sets, strutils],
+  std/[times, tables, os, pathnorm, sets, strutils, options],
   bumpy, windy, vmath, silky,
   replays
 
@@ -98,6 +98,7 @@ proc scaleTransform*(s: Vec2) =
 var
   settings* = Settings()
   selection*: Entity
+  policyTarget*: Option[IVec2]  ## Target cell from policy_infos to highlight on map.
   activeCollective*: int = 1  ## Currently active faction (0 = Clips, 1 = Cogs). Defaults to Cogs.
 
   step*: int = 0
