@@ -164,6 +164,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   if (const char* val = std::getenv("METTAGRID_OBS_VALIDATION")) {
     _validation_enabled = (std::string(val) == "1");
   }
+  _use_optimized_primary = true;
   if (const char* val = std::getenv("METTAGRID_OBS_USE_OPTIMIZED")) {
     _use_optimized_primary = (std::string(val) == "1");
   }
