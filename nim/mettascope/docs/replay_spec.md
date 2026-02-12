@@ -63,6 +63,11 @@ include a numeric `type_id`, but new data should rely on the string `type_name` 
 The `collective_names` array (added in version 4) maps collective IDs to names. The array index corresponds to the
 collective ID, matching the C++ implementation which assigns IDs based on sorted alphabetical order of names.
 
+The `capacity_names` array maps capacity group IDs to names. Each index is a `capacity_id` used in per-object
+`inventory_capacities` time series. Built from the inventory limit group names in the agent config, sorted
+alphabetically for determinism. Example: `["cargo", "energy", "gear", "heart"]`. Multiple resources can share a single
+capacity group (e.g., different ore types share the "cargo" capacity pool).
+
 ## Objects and time series
 
 The most important key in the format is `objects` which is a list of objects that are in the replay. Everything is an
@@ -151,7 +156,14 @@ Here are the keys supported for both agents and objects:
   over time (e.g., `[[0, []], [100, [[1, 1]]], [200, [[1, 2]]]]`), where each entry contains a timestamp and the
   inventory state at that time and into the future.
 
-- `inventory_max` - Maximum number of items that can be in the inventory.
+- `inventory_max` - Maximum number of items that can be in the inventory. (Legacy; superseded by `inventory_capacities`
+  for per-group limits.)
+- `inventory_capacities` - Per-capacity-group effective limits as `[[capacity_id, effective_limit], ...]` pairs. Each
+  `capacity_id` is an index into the top-level `capacity_names` array. This is a time series that changes as agents
+  equip/unequip modifier items (e.g., picking up gear increases cargo capacity). Resources sharing a capacity group draw
+  from the same pool. Example: `[[0, 20], [2, 10]]` means capacity group 0 has effective limit 20 and capacity group 2
+  has effective limit 10. As a time series: `[[0, [[0, 20], [2, 10]]], [50, [[0, 15], [2, 10]]]]` means at step 50,
+  capacity group 0 decreased to 15.
 - `color` - The color of the object. Must be an integer between 0 and 255.
 - `collective_id` - The collective (team/faction) this object belongs to. This is a time series value that can change
   during gameplay (e.g., when a junction is captured by a different team). Valid values:

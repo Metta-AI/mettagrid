@@ -1,7 +1,7 @@
 import
   std/[json, algorithm, tables, sets, strutils, strformat],
   vmath, silky, windy,
-  ../common, ../replays, ../configs, ../cognames, ../collectives,
+  ../common, ../replays, ../configs, ../cognames, ../collectives, ../colors,
   widgets
 
 type
@@ -287,6 +287,9 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
 
         var shownItems = initOrderedSet[string]()
 
+        # Get dynamic capacity data for the current step.
+        let currentCapacities = cur.inventoryCapacities.at
+
         for group in resourceLimitGroups:
           var usedAmount = 0
           var groupItems: seq[ItemAmount] = @[]
@@ -297,9 +300,20 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
               groupItems.add(itemAmount)
             shownItems.incl(resourceName)
 
-          # Only show the group if it has items
+          # Look up dynamic capacity by matching group name to capacity_names.
+          # Falls back to static config maxLimit for old replays without capacity_names.
+          var groupCapacity = group.maxLimit
+          if replay.capacityNames.len > 0:
+            let capIdx = replay.capacityNames.find(group.name)
+            if capIdx >= 0:
+              for cap in currentCapacities:
+                if cap.capacityId == capIdx:
+                  groupCapacity = cap.limit
+                  break
+
+          # Always show the group (capacities are dynamic, so empty groups are informative).
+          text(&"  {group.name}: {usedAmount}/{groupCapacity}")
           if groupItems.len > 0:
-            text(&"  {group.name}: {usedAmount}/{group.maxLimit}")
             for itemAmount in groupItems:
               let itemName = getItemName(itemAmount)
               let iconPath =
@@ -310,6 +324,9 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
                 else:
                   "icons/" & itemName
               smallIconLabel(iconPath, &"{itemName}: {itemAmount.count}")
+          else:
+            let emptySize = sk.drawText(sk.textStyle, "    empty", sk.at, Gray)
+            sk.advance(emptySize)
 
         var ungroupedItems: seq[ItemAmount] = @[]
         for itemAmount in currentInventory:
