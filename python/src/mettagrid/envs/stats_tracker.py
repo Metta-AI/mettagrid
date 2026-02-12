@@ -44,6 +44,8 @@ class StatsTracker(SimulatorEventHandler):
         for n, v in infos["agent"].items():
             infos["agent"][n] = v / num_agents
 
+        infos["per_agent"] = {str(i): dict(s) for i, s in enumerate(stats["agent"])}
+
         collective_stats = stats.get("collective")
         if collective_stats:
             infos["collective"] = collective_stats
