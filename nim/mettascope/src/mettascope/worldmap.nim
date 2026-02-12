@@ -203,7 +203,7 @@ proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
       tile = patternToTile[pattern].uint8
     visibilityMap.indexData[i] = tile
 
-proc generateVisibilityMap(): TileMap =
+proc generateVisibilityMap(): TileMap {.measure.} =
   ## Generate a 1024x1024 texture where each pixel is a byte index into the 16x16 tile map.
   let
     width = ceil(replay.mapSize[0].float32 / 32.0f).int * 32
@@ -224,7 +224,7 @@ proc updateVisibilityMap*(visibilityMap: TileMap) =
   visibilityMap.rebuildVisibilityMap()
   visibilityMap.updateGPU()
 
-proc getProjectionView*(): Mat4 =
+proc getProjectionView*(): Mat4 {.measure.} =
   ## Get the projection and view matrix.
   let m = getTransform()
   let view = mat4(
@@ -276,7 +276,6 @@ proc collectiveToSlot*(collectiveId: int): int =
     getNumCollectives()
   else:
     collectiveId
-
 
 proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
   ## Rebuild the AoE map for a specific slot (0=Clips, 1=Cogs, 2=Neutral).
@@ -391,7 +390,7 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
       tile = patternToTile[pattern].uint8
     aoeMap.indexData[i] = tile
 
-proc generateAoeMap(slotId: int): TileMap =
+proc generateAoeMap(slotId: int): TileMap {.measure.} =
   ## Generate an AoE tilemap for a specific slot.
   let
     width = ceil(replay.mapSize[0].float32 / 32.0f).int * 32
@@ -407,7 +406,7 @@ proc generateAoeMap(slotId: int): TileMap =
   aoeMap.setupGPU()
   return aoeMap
 
-proc updateAoeMap*(aoeMap: TileMap, slotId: int) =
+proc updateAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
   ## Update the AoE map.
   aoeMap.rebuildAoeMap(slotId)
   aoeMap.updateGPU()
@@ -470,7 +469,7 @@ proc drawAoeMaps*() {.measure.} =
         tint = getCollectiveColor(slotId).color
       )
 
-proc useSelections*(zoomInfo: ZoomInfo) =
+proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
   ## Reads the mouse position and selects the thing under it.
   let modifierDown = when defined(macosx):
     window.buttonDown[KeyLeftSuper] or window.buttonDown[KeyRightSuper]
@@ -697,8 +696,7 @@ proc drawVisualRanges*(alpha = 0.5) {.measure.} =
     tint = color(0, 0, 0, alpha)
   )
 
-
-proc drawFogOfWar*() =
+proc drawFogOfWar*() {.measure.} =
   ## Draw the fog of war.
   drawVisualRanges(alpha = 1.0)
 
@@ -900,7 +898,7 @@ proc drawPlannedPath*() {.measure.} =
             approachPos.ivec2 * TILE_SIZE + offset.ivec2
           )
 
-proc drawSelection*() =
+proc drawSelection*() {.measure.} =
   # Draw selection.
   if selection != nil:
     px.drawSprite(
@@ -1017,6 +1015,7 @@ proc drawWorldMain*() {.measure.} =
 
   # Draw heatmap if enabled.
   if settings.showHeatmap:
+    measurePush("drawWorldMain.heatmap")
     ensureHeatmapReady()
 
     if worldHeatmap != nil:
@@ -1024,12 +1023,12 @@ proc drawWorldMain*() {.measure.} =
       updateTexture(worldHeatmap, step)
       # Draw heatmap overlay.
       let maxHeat = worldHeatmap.getMaxHeat(step).float32
-      draw(
-        worldHeatmap,
+      worldHeatmap.draw(
         getProjectionView(),
         vec2(replay.mapSize[0].float32, replay.mapSize[1].float32),
         maxHeat
       )
+    measurePop()
 
   drawTrajectory()
 
@@ -1047,7 +1046,6 @@ proc drawWorldMain*() {.measure.} =
     drawFogOfWar()
   if settings.showGrid:
     drawGrid()
-
 
 proc fitFullMap*(zoomInfo: ZoomInfo) =
   ## Set zoom and pan so the full map fits in the panel.
