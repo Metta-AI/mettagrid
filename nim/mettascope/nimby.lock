@@ -4,7 +4,7 @@ cligen 1.9.3 https://github.com/c-blake/cligen.git bb10deea8139313d2d223dd7e05ab
 crunchy 0.1.11 https://github.com/guzba/crunchy 98eb6526982bb8aae8eec6e8781f4539fa19e049
 fidget2 0.1.2 https://github.com/treeform/fidget2 001934071a9a97b90fbf47fefe18d27a737a0b32
 flatty 0.3.4 https://github.com/treeform/flatty 05d878b397933331966a7f80dd0c55664559201f
-fluffy 1.0.0 https://github.com/treeform/fluffy 64ddcbdd9e78f5f1c0fe498ae528717afb8ea947
+fluffy 1.0.0 https://github.com/treeform/fluffy 28346d071511bf30ffd65eec97673bda1f4842a1
 genny 0.1.1 https://github.com/treeform/genny 8c69fa6fc52ee3936a528aece84e8385509a6f99
 jsony 1.1.5 https://github.com/treeform/jsony c081acd7f6af1ecadfca6ccba633a339cc6c80cd
 libcurl 1.0.0 https://github.com/Araq/libcurl 7a420498f60a31d99fc8513886ce36c4e8c3a4ae
@@ -13,7 +13,7 @@ opengl 1.2.9 https://github.com/nim-lang/opengl 8e2e098f82dc5eefd874488c37b58302
 pixie 5.1.0 https://github.com/treeform/pixie 5eda4949a3c8bea318cfac8e42060a8f90f3f35d
 puppy 2.1.2 https://github.com/treeform/puppy 700044e8baa1d33b58847f4f6c13224d6a964867
 shady 0.1.4 https://github.com/treeform/shady 4638b43517ac3afa474514746f2640551ad0694c
-silky 0.0.1 https://github.com/treeform/silky 2a56e5ae6d50b6eb25dbe551bc1172c918356abb
+silky 0.0.1 https://github.com/treeform/silky 49eee950b924ce6bbad40f52a9fae4cc2af4d207
 urlly 1.1.1 https://github.com/treeform/urlly 99784779f05649df25fd9c33003d8ef6de027345
 vmath 2.0.1 https://github.com/treeform/vmath b1cb7ec85f6e7690cf1261227cd2d552275e3e53
 webby 0.2.1 https://github.com/treeform/webby/ 55a2c03abbd32abf4775712c1959d975dc982549

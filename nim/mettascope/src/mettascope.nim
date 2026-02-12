@@ -250,7 +250,7 @@ proc onFrame() =
   if window.cursor.kind != sk.cursor.kind:
     window.cursor = sk.cursor
 
-proc initMettascope*() =
+proc initMettascope*() {.measure.} =
   window.onFrame = onFrame
 
   window.onResize = proc() =
@@ -297,6 +297,13 @@ proc tickMettascope*() =
 
 proc main() =
   ## Main entry point.
+  ##
+  when defined(profileOnStart):
+    # Compile with -d:profileOnStart to start tracing on startup.
+    # Don't forget to press F3 soon after startup dump the trace.
+    traceActive = true
+    startTrace()
+
   initMettascope()
 
   while not window.closeRequested:

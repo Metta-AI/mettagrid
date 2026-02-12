@@ -1,6 +1,6 @@
 import
   std/[math, strutils],
-  opengl, silky/[shaders], shady, vmath, pixie,
+  opengl, silky, silky/[shaders], shady, vmath, pixie,
   heatmap, common
 
 var
@@ -63,7 +63,7 @@ proc heatmapFrag*(fragmentWorldPos: Vec2, FragColor: var Vec4) =
 
   FragColor = vec4(r, g, b, opacity)
 
-proc initHeatmapShader*() =
+proc initHeatmapShader*() {.measure.} =
   ## Initialize the heatmap shader module.
   when defined(emscripten):
     heatmapShader = newShader(
@@ -91,7 +91,7 @@ proc initHeatmapShader*() =
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE.GLint)
   glBindTexture(GL_TEXTURE_2D, 0)
 
-proc updateTexture*(heatmap: Heatmap, step: int) =
+proc updateTexture*(heatmap: Heatmap, step: int) {.measure.} =
   ## Upload heatmap data for the given step to the texture.
   if step == heatmap.currentTextureStep:
     return # Already up to date
@@ -136,7 +136,7 @@ proc draw*(
   maxHeat: float32,
   minOpacity: float32 = 0.4,
   maxOpacity: float32 = 0.8
-) =
+) {.measure.} =
   ## Draw the heatmap overlay.
   if maxHeat <= 0.0:
     return

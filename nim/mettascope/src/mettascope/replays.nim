@@ -1,5 +1,5 @@
 import std/[algorithm, json, tables, strutils],
-  chroma,
+  chroma, silky,
   zippy, vmath, jsony,
   ./validation, ./colors
 
@@ -424,7 +424,7 @@ proc getAttrV1(obj: JsonNode, attr: string, atStep: int, defaultValue: JsonNode)
     return prop[atStep]
   return defaultValue
 
-proc convertReplayV1ToV2(replayData: JsonNode): JsonNode =
+proc convertReplayV1ToV2(replayData: JsonNode): JsonNode {.measure.} =
   ## Converts a replay from version 1 to version 2.
   echo "Converting replay from version 1 to version 2..."
   var data = newJObject()
@@ -612,7 +612,7 @@ proc convertReplayV1ToV2(replayData: JsonNode): JsonNode =
 
   return data
 
-proc computeGainMap(replay: Replay) =
+proc computeGainMap(replay: Replay) {.measure.} =
   ## Compute gain/loss for agents.
   var items = [
     newSeq[int](replay.itemNames.len),
@@ -724,7 +724,7 @@ proc convertInventoryField(obj: JsonNode, fieldName: string) =
     # Empty array stays empty
     discard
 
-proc convertReplayV2ToV3*(replayData: JsonNode): JsonNode =
+proc convertReplayV2ToV3*(replayData: JsonNode): JsonNode {.measure.} =
   ## Convert a V2 replay to V3 format by compressing inventory arrays.
   ## V2: inventory as [itemId, itemId, ...] (repeated IDs)
   ## V3: inventory as [[itemId, count], [itemId, count], ...] (compressed pairs)
@@ -758,7 +758,7 @@ proc convertReplayV2ToV3*(replayData: JsonNode): JsonNode =
 
   return data
 
-proc convertReplayV3ToV4*(replayData: JsonNode): JsonNode =
+proc convertReplayV3ToV4*(replayData: JsonNode): JsonNode {.measure.} =
   ## Convert a V3 replay to V4 format by ensuring new V4 fields exist.
   ## V4 adds: collective_names, policy_env_interface, infos, collective_inventory
   echo "Converting replay from version 3 to version 4..."
@@ -798,10 +798,13 @@ proc convertReplayV3ToV4*(replayData: JsonNode): JsonNode =
 
   return data
 
-proc loadReplayString*(jsonData: string, fileName: string): Replay =
+proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
   ## Load a replay from a string.
+  measurePush("loadReplayString.parseJson")
   var jsonObj = fromJson(jsonData)
+  measurePop()
 
+  measurePush("loadReplayString.versionConvert")
   if getInt(jsonObj, "version") == 1:
     jsonObj = convertReplayV1ToV2(jsonObj)
 
@@ -810,18 +813,22 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
 
   if getInt(jsonObj, "version") == 3:
     jsonObj = convertReplayV3ToV4(jsonObj)
+  measurePop()
 
   let fileVersion = getInt(jsonObj, "version")
   if fileVersion != 4:
     raise newException(ValueError, "Unsupported replay version. This app supports version 4, but the file is version " & $fileVersion & ". Please update the app to load this replay.")
 
+  measurePush("loadReplayString.validate")
   # Check for validation issues and log them to console.
   let issues = validateReplay(jsonObj)
   if issues.len > 0:
     issues.prettyPrint()
   else:
     echo "No validation issues found"
+  measurePop()
 
+  measurePush("loadReplayString.parseMetadata")
   # Safe access to required fields with defaults.
   let version = getInt(jsonObj, "version", 4)
   let actionNamesArr = getArray(jsonObj, "action_names")
@@ -877,6 +884,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
           name: name,
           color: collectiveColor(name),
         ))
+  measurePop()
 
   # Parse capacity_names (maps capacity_id to group name like "cargo", "gear").
   let capacityNamesArr = getArray(jsonObj, "capacity_names")
@@ -884,6 +892,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
     for nameNode in capacityNamesArr:
       replay.capacityNames.add(nameNode.getStr)
 
+  measurePush("loadReplayString.parseObjects")
   let objectsArr = getArray(jsonObj, "objects", newJArray())
   for obj in objectsArr:
 
@@ -1030,6 +1039,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
     # Populate the agents field for agent entities.
     if "agent_id" in obj:
       replay.agents.add(entity)
+  measurePop()
 
   # Compute gain maps for static replays.
   computeGainMap(replay)
@@ -1046,7 +1056,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
 
   return replay
 
-proc loadReplay*(data: string, fileName: string): Replay =
+proc loadReplay*(data: string, fileName: string): Replay {.measure.} =
   ## Load a replay from a string.
   if fileName.endsWith(".json"):
     return loadReplayString(data, fileName)
@@ -1071,12 +1081,12 @@ proc loadReplay*(data: string, fileName: string): Replay =
       return Replay()
   return loadReplayString(jsonData, fileName)
 
-proc loadReplay*(fileName: string): Replay =
+proc loadReplay*(fileName: string): Replay {.measure.} =
   ## Load a replay from a file.
   let data = readFile(fileName)
   return loadReplay(data, fileName)
 
-proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) =
+proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
   ## Apply a replay step to the replay.
   const agentTypeName = "agent"
   for obj in objects:

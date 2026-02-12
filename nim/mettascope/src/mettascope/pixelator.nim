@@ -1,6 +1,6 @@
 import
   std/[os, strutils, tables],
-  pixie, opengl, silky/[shaders], jsony, shady, vmath,
+  pixie, opengl, silky, silky/[shaders], jsony, shady, vmath,
   allocator
 
 # This file specifically deals with the pixel atlas texture.
@@ -68,7 +68,7 @@ proc generatePixelAtlas*(
   outputImagePath: string,
   outputJsonPath: string,
   stripPrefix: string = "data/"
-) =
+) {.measure.} =
   ## Generates a pixel atlas from the given directories.
   let atlasImage = newImage(size, size)
   let atlas = PixelAtlas(size: size)
@@ -105,7 +105,7 @@ proc generatePixelAtlas*(
   atlasImage.writeFile(outputImagePath)
   writeFile(outputJsonPath, atlas.toJson())
 
-proc newPixelator*(imagePath, jsonPath: string): Pixelator =
+proc newPixelator*(imagePath, jsonPath: string): Pixelator {.measure.} =
   ## Creates a new pixelator.
   result = Pixelator()
   result.image = readImage(imagePath)
@@ -216,7 +216,7 @@ proc clear*(px: Pixelator) =
 proc flush*(
   px: Pixelator,
   mvp: Mat4
-) =
+) {.measure.} =
   ## Draw all queued instances for the current sprite.
   if px.instanceCount == 0:
     return

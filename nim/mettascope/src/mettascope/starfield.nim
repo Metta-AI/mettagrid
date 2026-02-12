@@ -1,6 +1,6 @@
 import
   std/[os, strutils],
-  opengl, silky/[shaders], shady, vmath, pixie, windy,
+  opengl, silky, silky/[shaders], shady, vmath, pixie, windy,
   common, replays, panels
 
 ## Starfield and cloud background layers.
@@ -53,7 +53,7 @@ proc starfieldFrag(fragUV: Vec2, FragColor: var Vec4) =
 
   FragColor = texture(starfieldTex, vec2(u, v))
 
-proc loadLayer(imagePath: string): BackgroundLayer =
+proc loadLayer(imagePath: string): BackgroundLayer {.measure.} =
   ## Load an image as a background layer texture.
   let image = readImage(imagePath)
   result.texW = image.width.float32
@@ -112,7 +112,7 @@ proc drawLayer(layer: BackgroundLayer, screenSize: Vec2, offset: Vec2, scale: fl
   glBindVertexArray(0)
   glUseProgram(0)
 
-proc drawStarfield*() =
+proc drawStarfield*() {.measure.} =
   ## Draw the starfield background and parallax cloud layer.
   if replay.isNil:
     return
