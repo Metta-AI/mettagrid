@@ -22,9 +22,7 @@ public:
 
   void apply(HandlerContext& ctx) override {
     HasInventory* entity = ctx.resolve(_config.entity);
-    if (entity == nullptr) {
-      return;
-    }
+    assert(entity && "ResourceDeltaMutation entity must resolve");
 
     entity->inventory.update(_config.resource_id, _config.delta);
   }
@@ -43,10 +41,8 @@ public:
   void apply(HandlerContext& ctx) override {
     HasInventory* source = ctx.resolve(_config.source);
     HasInventory* dest = ctx.resolve(_config.destination);
-
-    if (source == nullptr || dest == nullptr) {
-      return;
-    }
+    assert(source && "ResourceTransferMutation source must resolve");
+    assert(dest && "ResourceTransferMutation destination must resolve");
 
     InventoryDelta amount = _config.amount;
     if (amount < 0) {
@@ -87,9 +83,7 @@ public:
 
   void apply(HandlerContext& ctx) override {
     HasInventory* entity = ctx.resolve(_config.entity);
-    if (entity == nullptr) {
-      return;
-    }
+    assert(entity && "ClearInventoryMutation entity must resolve");
 
     if (_config.resource_ids.empty()) {
       // Clear all resources

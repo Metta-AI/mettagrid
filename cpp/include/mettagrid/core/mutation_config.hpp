@@ -1,7 +1,9 @@
 #ifndef PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_MUTATION_CONFIG_HPP_
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_MUTATION_CONFIG_HPP_
 
+#include <memory>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -10,6 +12,9 @@
 #include "core/types.hpp"
 
 namespace mettagrid {
+
+// Forward declaration
+struct QueryConfig;
 
 // Align-to options for AlignmentMutation
 enum class AlignTo {
@@ -98,6 +103,13 @@ struct RecomputeQueryTagMutationConfig {
   int tag_id = -1;
 };
 
+struct QueryInventoryMutationConfig {
+  std::shared_ptr<QueryConfig> query;
+  std::vector<std::pair<InventoryItem, InventoryDelta>> deltas;
+  EntityRef source = EntityRef::actor;  // Only used if has_source=true
+  bool has_source = false;              // Transfer mode
+};
+
 // Variant type for all mutation configs
 using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     ResourceTransferMutationConfig,
@@ -109,7 +121,8 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     AddTagMutationConfig,
                                     RemoveTagMutationConfig,
                                     GameValueMutationConfig,
-                                    RecomputeQueryTagMutationConfig>;
+                                    RecomputeQueryTagMutationConfig,
+                                    QueryInventoryMutationConfig>;
 
 }  // namespace mettagrid
 
