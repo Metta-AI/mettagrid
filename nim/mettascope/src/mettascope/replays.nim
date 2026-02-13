@@ -1,4 +1,4 @@
-import std/[algorithm, json, tables, strutils],
+import std/[algorithm, json, os, tables, strutils],
   chroma, zippy, vmath, jsony, silky,
   ./validation, ./colors
 
@@ -186,6 +186,9 @@ type
     drawnAgentActionMask*: uint64
     mgConfig*: JsonNode
     config*: Config
+    tutorialOverlay*: string
+    tutorialOverlayPhases*: seq[string]
+    tutorialOverlayPhase*: int
 
     # Cached action IDs for common actions.
     noopActionId*: int
@@ -252,6 +255,8 @@ type
   ReplayStep* = ref object
     step*: int
     objects*: seq[ReplayEntity]
+    tutorial_overlay*: string = ""
+    tutorial_overlay_phases*: seq[string] = @[]
 
 ## Empty replays is used before a real replay is loaded,
 ## so that we don't need to check for nil everywhere.
@@ -825,10 +830,12 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
   measurePush("loadReplayString.validate")
   # Check for validation issues and log them to console.
   let issues = validateReplay(jsonObj)
-  if issues.len > 0:
-    issues.prettyPrint()
-  else:
-    echo "No validation issues found"
+  let showValidation = getEnv("METTASCOPE_SHOW_VALIDATION", "").toLowerAscii() in ["1", "true", "yes"]
+  if showValidation:
+    if issues.len > 0:
+      issues.prettyPrint()
+    else:
+      echo "No validation issues found"
   measurePop()
 
   measurePush("loadReplayString.parseMetadata")
@@ -1185,4 +1192,12 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
 proc apply*(replay: Replay, replayStepJsonData: string) =
   ## Apply a replay step to the replay.
   let replayStep = fromJson(replayStepJsonData, ReplayStep)
+  if replayStep.tutorial_overlay_phases.len > 0:
+    replay.tutorialOverlayPhases = replayStep.tutorial_overlay_phases
+    replay.tutorialOverlayPhase = replay.tutorialOverlayPhase.clamp(0, replay.tutorialOverlayPhases.len - 1)
+    replay.tutorialOverlay = replay.tutorialOverlayPhases[replay.tutorialOverlayPhase]
+  elif replayStep.tutorial_overlay.len > 0:
+    replay.tutorialOverlayPhases = @[replayStep.tutorial_overlay]
+    replay.tutorialOverlayPhase = 0
+    replay.tutorialOverlay = replayStep.tutorial_overlay
   replay.apply(replayStep.step, replayStep.objects)

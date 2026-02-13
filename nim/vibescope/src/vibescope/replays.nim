@@ -1,4 +1,4 @@
-import std/[json, tables, strutils],
+import std/[json, os, tables, strutils],
   boxy,
   zippy, vmath, jsony,
   ./validation
@@ -792,10 +792,12 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
 
   # Check for validation issues and log them to console
   let issues = validateReplay(jsonObj)
-  if issues.len > 0:
-    issues.prettyPrint()
-  else:
-    echo "No validation issues found"
+  let showValidation = getEnv("VIBESCOPE_SHOW_VALIDATION", "").toLowerAscii() in ["1", "true", "yes"]
+  if showValidation:
+    if issues.len > 0:
+      issues.prettyPrint()
+    else:
+      echo "No validation issues found"
 
   # Safe access to required fields with defaults.
   let version = getInt(jsonObj, "version", 3)

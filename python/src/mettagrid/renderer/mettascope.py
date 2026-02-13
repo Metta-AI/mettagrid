@@ -92,6 +92,7 @@ class MettascopeRenderer(Renderer):
             ignore_types = ["wall"]
 
         all_policy_infos = self._sim._context.get("policy_infos", {})
+        tutorial_overlay_phases = _extract_tutorial_overlay_phases(all_policy_infos)
 
         for grid_object in self._sim.grid_objects(ignore_types=ignore_types).values():
             formatted = format_grid_object(
@@ -130,6 +131,8 @@ class MettascopeRenderer(Renderer):
             "collective_inventory": collective_inventory,
             "episode_stats": self._sim._c_sim.get_episode_stats(),
         }
+        if tutorial_overlay_phases:
+            step_replay["tutorial_overlay_phases"] = tutorial_overlay_phases
 
         # Render and get user input
         try:
@@ -172,6 +175,21 @@ class MettascopeRenderer(Renderer):
                     available_actions = [a for a in self._sim.action_ids.keys() if "change_vibe" in a]
                     logger.error("Available change_vibe actions: %s", available_actions)
                     continue
+
+
+def _extract_tutorial_overlay_phases(all_policy_infos: dict[int, dict]) -> list[str]:
+    for infos in all_policy_infos.values():
+        if not isinstance(infos, dict):
+            continue
+        if "tutorial_overlay_phases" not in infos:
+            continue
+        value = infos["tutorial_overlay_phases"]
+        if not isinstance(value, list):
+            continue
+        phases = [phase.strip() for phase in value if isinstance(phase, str) and phase.strip()]
+        if phases:
+            return phases
+    return []
 
 
 # Find the Nim bindings. Two possible locations:
