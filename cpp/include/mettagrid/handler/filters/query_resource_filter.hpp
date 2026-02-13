@@ -24,7 +24,7 @@ public:
   }
 
   bool passes(const HandlerContext& ctx) const override {
-    assert(ctx.query_system != nullptr && "QueryResourceFilter requires query_system");
+    assert(ctx.query_system && "QueryResourceFilter requires query_system in HandlerContext");
 
     auto results = _config.query->evaluate(*ctx.query_system);
 

@@ -1,6 +1,12 @@
 #include "core/query_system.hpp"
 
 #include <algorithm>
+#include <cassert>
+#include <limits>
+#include <queue>
+#include <random>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "core/grid.hpp"
@@ -112,6 +118,63 @@ std::vector<GridObject*> TagQueryConfig::evaluate(const QuerySystem& system) con
     }
   }
   return system.apply_limits(std::move(result), max_items, order_by);
+}
+
+// ClosureQueryConfig::evaluate - BFS from source through edge_filter
+std::vector<GridObject*> ClosureQueryConfig::evaluate(const QuerySystem& system) const {
+  assert(source && "ClosureQueryConfig requires a non-null source query");
+
+  auto roots = source->evaluate(system);
+
+  int max_distance = (radius == 0) ? std::numeric_limits<int>::max() : static_cast<int>(radius);
+  std::unordered_map<GridObject*, int> distances;
+  std::queue<GridObject*> frontier;
+
+  for (auto* obj : roots) {
+    if (distances.find(obj) == distances.end()) {
+      distances[obj] = 0;
+      frontier.push(obj);
+    }
+  }
+
+  Grid* grid = system.grid();
+
+  while (!frontier.empty()) {
+    GridObject* current = frontier.front();
+    frontier.pop();
+    int current_dist = distances[current];
+
+    if (current_dist >= max_distance) continue;
+
+    // Check only immediate 8-connected neighbors
+    for (int dr = -1; dr <= 1; ++dr) {
+      for (int dc = -1; dc <= 1; ++dc) {
+        if (dr == 0 && dc == 0) continue;
+
+        int nr = static_cast<int>(current->location.r) + dr;
+        int nc = static_cast<int>(current->location.c) + dc;
+
+        if (nr < 0 || nr >= grid->height || nc < 0 || nc >= grid->width) continue;
+
+        GridObject* neighbor = grid->object_at(GridLocation(static_cast<GridCoord>(nr), static_cast<GridCoord>(nc)));
+        if (!neighbor || distances.count(neighbor)) continue;
+
+        // Empty edge_filter means no expansion (only roots get the tag)
+        if (!edge_filter.empty() && system.matches_filters(neighbor, edge_filter)) {
+          distances[neighbor] = current_dist + 1;
+          frontier.push(neighbor);
+        }
+      }
+    }
+  }
+
+  std::vector<GridObject*> visited;
+  visited.reserve(distances.size());
+  for (const auto& [obj, _] : distances) {
+    visited.push_back(obj);
+  }
+
+  return system.apply_limits(std::move(visited), max_items, order_by);
 }
 
 }  // namespace mettagrid

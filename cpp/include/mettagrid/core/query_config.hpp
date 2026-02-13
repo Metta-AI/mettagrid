@@ -38,6 +38,14 @@ struct TagQueryConfig : public QueryConfig {
   std::vector<GridObject*> evaluate(const QuerySystem& system) const override;
 };
 
+// ClosureQueryConfig: BFS from source through edge_filter-filtered neighbors.
+struct ClosureQueryConfig : public QueryConfig {
+  std::shared_ptr<QueryConfig> source;
+  std::vector<FilterConfig> edge_filter;
+  unsigned int radius = 0;  // Chebyshev expansion distance (0 = unlimited)
+  std::vector<GridObject*> evaluate(const QuerySystem& system) const override;
+};
+
 // Query Tag Config - Tags computed by queries
 struct QueryTagConfig {
   int tag_id = -1;
