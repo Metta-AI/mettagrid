@@ -34,6 +34,7 @@ bool QuerySystem::matches_filters(GridObject* obj, const std::vector<FilterConfi
   ctx.target = obj;
   ctx.tag_index = _tag_index;
   ctx.grid = _grid;
+  ctx.query_system = const_cast<QuerySystem*>(this);
 
   for (const auto& filter_cfg : filter_configs) {
     auto f = create_filter(filter_cfg, _tag_index);

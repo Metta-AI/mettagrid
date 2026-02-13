@@ -4,6 +4,7 @@
 
 #include "handler/filters/alignment_filter.hpp"
 #include "handler/filters/game_value_filter.hpp"
+#include "handler/filters/max_distance_filter.hpp"
 #include "handler/filters/near_filter.hpp"
 #include "handler/filters/neg_filter.hpp"
 #include "handler/filters/or_filter.hpp"
@@ -50,6 +51,8 @@ std::unique_ptr<Filter> create_filter(const FilterConfig& config, TagIndex* tag_
             }
           }
           return std::make_unique<NegFilter>(std::move(inner_filters));
+        } else if constexpr (std::is_same_v<T, MaxDistanceFilterConfig>) {
+          return std::make_unique<MaxDistanceFilter>(cfg);
         } else if constexpr (std::is_same_v<T, OrFilterConfig>) {
           // OrFilter: passes if ANY inner filter passes
           std::vector<std::unique_ptr<Filter>> inner_filters;
