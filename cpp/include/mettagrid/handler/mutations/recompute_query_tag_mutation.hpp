@@ -18,7 +18,7 @@ public:
   explicit RecomputeQueryTagMutation(const RecomputeQueryTagMutationConfig& config) : _config(config) {}
 
   void apply(HandlerContext& ctx) override {
-    assert(ctx.query_system != nullptr && "RecomputeQueryTagMutation requires query_system");
+    assert(ctx.query_system && "RecomputeQueryTagMutation requires query_system in HandlerContext");
     ctx.query_system->recompute(_config.tag_id);
   }
 
