@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from mettagrid.config.filter.game_value_filter import GameValueFilter
     from mettagrid.config.filter.near_filter import NearFilter
     from mettagrid.config.filter.resource_filter import ResourceFilter
+    from mettagrid.config.filter.shared_tag_prefix_filter import SharedTagPrefixFilter
     from mettagrid.config.filter.tag_filter import TagFilter
     from mettagrid.config.filter.vibe_filter import VibeFilter
 
@@ -84,6 +85,7 @@ AnyFilter = Annotated[
         Annotated["ResourceFilter", Tag("resource")],
         Annotated["AlignmentFilter", Tag("alignment")],
         Annotated["TagFilter", Tag("tag")],
+        Annotated["SharedTagPrefixFilter", Tag("shared_tag_prefix")],
         Annotated["NearFilter", Tag("near")],
         Annotated["GameValueFilter", Tag("game_value")],
         Annotated["NotFilter", Tag("not")],

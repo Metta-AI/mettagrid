@@ -10,7 +10,7 @@ from mettagrid.runner.policy_server.manager import (
 )
 
 
-def _fake_create_policy_venv(mettagrid_source: str) -> Path:
+def _fake_create_policy_venv() -> Path:
     policy_dir = Path(tempfile.mkdtemp(prefix="policy-test-"))
     bin_dir = policy_dir / ".venv" / "bin"
     bin_dir.mkdir(parents=True)

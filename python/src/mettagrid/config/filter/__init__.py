@@ -27,6 +27,10 @@ from mettagrid.config.filter.resource_filter import (
     targetHas,
     targetHasAnyOf,
 )
+from mettagrid.config.filter.shared_tag_prefix_filter import (
+    SharedTagPrefixFilter,
+    sharedTagPrefix,
+)
 from mettagrid.config.filter.tag_filter import TagFilter, hasTag, isA
 from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVibe
 from mettagrid.config.tag import Tag, typeTag
@@ -37,6 +41,7 @@ _filter_namespace = {
     "ResourceFilter": ResourceFilter,
     "AlignmentFilter": AlignmentFilter,
     "TagFilter": TagFilter,
+    "SharedTagPrefixFilter": SharedTagPrefixFilter,
     "NearFilter": NearFilter,
     "GameValueFilter": GameValueFilter,
     "NotFilter": NotFilter,
@@ -59,6 +64,7 @@ __all__ = [
     "ResourceFilter",
     "AlignmentFilter",
     "TagFilter",
+    "SharedTagPrefixFilter",
     "NearFilter",
     "GameValueFilter",
     "AnyFilter",
@@ -84,6 +90,7 @@ __all__ = [
     "targetHasAnyOf",
     "actorVibe",
     "targetVibe",
+    "sharedTagPrefix",
     # Tag utilities
     "Tag",
 ]

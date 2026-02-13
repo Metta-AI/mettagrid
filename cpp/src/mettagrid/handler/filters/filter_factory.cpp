@@ -8,6 +8,7 @@
 #include "handler/filters/neg_filter.hpp"
 #include "handler/filters/or_filter.hpp"
 #include "handler/filters/resource_filter.hpp"
+#include "handler/filters/shared_tag_filter.hpp"
 #include "handler/filters/tag_filter.hpp"
 #include "handler/filters/vibe_filter.hpp"
 
@@ -25,6 +26,8 @@ std::unique_ptr<Filter> create_filter(const FilterConfig& config, TagIndex* tag_
           return std::make_unique<AlignmentFilter>(cfg);
         } else if constexpr (std::is_same_v<T, TagFilterConfig>) {
           return std::make_unique<TagFilter>(cfg);
+        } else if constexpr (std::is_same_v<T, SharedTagPrefixFilterConfig>) {
+          return std::make_unique<SharedTagPrefixFilter>(cfg);
         } else if constexpr (std::is_same_v<T, NearFilterConfig>) {
           std::vector<std::unique_ptr<Filter>> filters;
           for (const auto& filter_cfg : cfg.filters) {

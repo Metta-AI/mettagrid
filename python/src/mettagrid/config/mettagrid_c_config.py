@@ -42,6 +42,9 @@ from mettagrid.mettagrid_c import ResourceDelta as CppResourceDelta
 from mettagrid.mettagrid_c import ResourceFilterConfig as CppResourceFilterConfig
 from mettagrid.mettagrid_c import RewardConfig as CppRewardConfig
 from mettagrid.mettagrid_c import RewardEntry as CppRewardEntry
+from mettagrid.mettagrid_c import (
+    SharedTagPrefixFilterConfig as CppSharedTagPrefixFilterConfig,  # pyright: ignore[reportAttributeAccessIssue]
+)
 from mettagrid.mettagrid_c import TagFilterConfig as CppTagFilterConfig
 from mettagrid.mettagrid_c import VibeFilterConfig as CppVibeFilterConfig
 from mettagrid.mettagrid_c import WallConfig as CppWallConfig
@@ -237,6 +240,10 @@ def _convert_filters(
                 )
                 _add_filter_to_target(cpp_filter, cpp_target, "tag")
 
+        elif filter_type == "shared_tag_prefix":
+            cpp_filter = _convert_shared_tag_prefix_filter(filter_config, tag_name_to_id)
+            _add_filter_to_target(cpp_filter, cpp_target, "shared_tag_prefix")
+
         elif filter_type == "near":
             # NearFilter requires a tag for efficient spatial lookup
             tag_id = _resolve_near_tag_id(filter_config, tag_name_to_id, context or "handler filters")
@@ -279,6 +286,22 @@ def _convert_filters(
                 filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id, collective_name_to_id
             )
             cpp_target.add_or_filter(cpp_or)
+
+
+def _convert_shared_tag_prefix_filter(filter_config, tag_name_to_id: dict) -> CppSharedTagPrefixFilterConfig:
+    """Convert a SharedTagPrefixFilter to C++ SharedTagPrefixFilterConfig.
+
+    Resolves the tag_prefix to a list of tag IDs by finding all tags
+    that start with the prefix followed by a colon.
+    """
+    prefix = filter_config.tag_prefix + ":"
+    tag_ids = [tid for name, tid in tag_name_to_id.items() if name.startswith(prefix)]
+    if not tag_ids:
+        raise ValueError(
+            f"SharedTagPrefixFilter prefix '{filter_config.tag_prefix}' matched no tags. "
+            f"Available tags: {sorted(tag_name_to_id.keys())}"
+        )
+    return CppSharedTagPrefixFilterConfig(tag_ids=tag_ids)
 
 
 def _convert_not_filter(
@@ -344,6 +367,10 @@ def _convert_not_filter(
                 tag_id=tag_name_to_id[inner.tag],
             )
             cpp_neg.set_inner_tag_filter(cpp_filter)
+
+    elif inner_type == "shared_tag_prefix":
+        cpp_filter = _convert_shared_tag_prefix_filter(inner, tag_name_to_id)
+        cpp_neg.set_inner_shared_tag_prefix_filter(cpp_filter)  # pyright: ignore[reportAttributeAccessIssue]
 
     elif inner_type == "near":
         tag_id = _resolve_near_tag_id(inner, tag_name_to_id, "not filter inner near")
@@ -464,6 +491,10 @@ def _convert_or_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag_
                     tag_id=tag_name_to_id[inner.tag],
                 )
                 cpp_or.add_inner_tag_filter(cpp_filter)
+
+        elif inner_type == "shared_tag_prefix":
+            cpp_filter = _convert_shared_tag_prefix_filter(inner, tag_name_to_id)
+            cpp_or.add_inner_shared_tag_prefix_filter(cpp_filter)  # pyright: ignore[reportAttributeAccessIssue]
 
         elif inner_type == "near":
             tag_id = _resolve_near_tag_id(inner, tag_name_to_id, "or filter inner near")

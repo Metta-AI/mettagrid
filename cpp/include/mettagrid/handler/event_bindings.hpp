@@ -38,6 +38,10 @@ inline void bind_event_config(py::module& m) {
           [](EventConfig& self, const TagFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
+          "add_shared_tag_prefix_filter",
+          [](EventConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
           "add_near_filter",
           [](EventConfig& self, const NearFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
