@@ -2,7 +2,7 @@ import gc
 import logging
 import time
 from contextlib import contextmanager
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Sequence
 
 from mettagrid.config.mettagrid_config import MettaGridConfig
 from mettagrid.envs.stats_tracker import StatsTracker
@@ -43,6 +43,7 @@ class Rollout:
         self,
         config: MettaGridConfig,
         policies: list[AgentPolicy],
+        policy_names: Optional[Sequence[str]] = None,
         max_action_time_ms: int | None = 10000,
         render_mode: Optional[RenderMode] = None,
         seed: int = 0,
@@ -78,6 +79,10 @@ class Rollout:
         for policy in self._policies:
             policy.reset()
 
+        self._policy_names = (
+            list(policy_names) if policy_names is not None else [type(policy).__name__ for policy in self._policies]
+        )
+
         self._policy_infos: dict[int, dict] = {}
         self._step_count = 0
 
@@ -99,8 +104,12 @@ class Rollout:
                 span.set(timed_out=timed_out)
             self._agents[i].set_action(action)
             infos = self._policies[i].infos
-            if infos:
-                self._policy_infos[i] = dict(infos)
+            merged_infos = dict(infos) if infos else {}
+            if i < len(self._policy_names):
+                merged_infos.setdefault("policy_name", self._policy_names[i])
+
+            if merged_infos:
+                self._policy_infos[i] = merged_infos
             else:
                 self._policy_infos.pop(i, None)
 
