@@ -1,5 +1,5 @@
 import
-  std/[algorithm, math, os, tables, random, json, sets],
+  std/[algorithm, math, os, tables, random, json, sets, options],
   chroma, vmath, windy, silky,
   common, actions, replays,
   pathfinding, tilemap, pixelator, shaderquad, starfield,
@@ -906,6 +906,54 @@ proc drawSelection*() {.measure.} =
       selection.location.at.xy.ivec2 * TILE_SIZE,
     )
 
+proc drawPolicyTarget*() {.measure.} =
+  ## Draw the policy target highlight and a path from the selected agent to that target.
+  if not isSome(policyTarget):
+    return
+  if selection.isNil or not selection.isAgent:
+    return
+
+  let
+    targetPos = get(policyTarget)
+    agentPos = selection.location.at(step).xy.ivec2
+    greenTint = rgbx(100, 255, 100, 200)
+    dx = abs(targetPos.x - agentPos.x)
+    dy = abs(targetPos.y - agentPos.y)
+    sx = if agentPos.x < targetPos.x: 1.int32 else: -1.int32
+    sy = if agentPos.y < targetPos.y: 1.int32 else: -1.int32
+
+  var
+    err = dx - dy
+    x = agentPos.x
+    y = agentPos.y
+    first = true
+
+  while true:
+    if not first and (x != targetPos.x or y != targetPos.y):
+      px.drawSprite(
+        "agents/path",
+        ivec2(x, y) * TILE_SIZE,
+        greenTint
+      )
+    first = false
+
+    if x == targetPos.x and y == targetPos.y:
+      break
+
+    let e2 = 2 * err
+    if e2 > -dy:
+      err -= dy
+      x += sx
+    if e2 < dx:
+      err += dx
+      y += sy
+
+  px.drawSprite(
+    "objects/selection",
+    targetPos * TILE_SIZE,
+    greenTint
+  )
+
 proc applyOrientationOffset*(x: int, y: int, orientation: int): (int, int) =
   case orientation
   of 0:
@@ -1034,6 +1082,7 @@ proc drawWorldMain*() {.measure.} =
 
   drawObjects()
   drawSelection()
+  drawPolicyTarget()
 
   drawAgentDecorations()
   drawPlannedPath()
