@@ -102,4 +102,16 @@ void QuerySystem::recompute(int tag_id) {
   _computing = false;
 }
 
+// TagQueryConfig::evaluate - find objects with tag, apply filters and limits
+std::vector<GridObject*> TagQueryConfig::evaluate(const QuerySystem& system) const {
+  std::vector<GridObject*> result;
+  const auto& candidates = system.tag_index()->get_objects_with_tag(tag_id);
+  for (auto* obj : candidates) {
+    if (system.matches_filters(obj, filters)) {
+      result.push_back(obj);
+    }
+  }
+  return system.apply_limits(std::move(result), max_items, order_by);
+}
+
 }  // namespace mettagrid
