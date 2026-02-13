@@ -23,6 +23,7 @@
 #include "config/mettagrid_config.hpp"
 #include "core/aoe_tracker.hpp"
 #include "core/grid_object.hpp"
+#include "core/query_system.hpp"
 #include "core/tag_index.hpp"
 #include "core/types.hpp"
 #include "objects/collective.hpp"
@@ -190,6 +191,7 @@ private:
   // Global systems
   std::unique_ptr<mettagrid::AOETracker> _aoe_tracker;
   std::unique_ptr<mettagrid::EventScheduler> _event_scheduler;
+  std::unique_ptr<mettagrid::QuerySystem> _query_system;
 
   // Collective objects - owned by MettaGrid
   std::vector<std::unique_ptr<Collective>> _collectives;

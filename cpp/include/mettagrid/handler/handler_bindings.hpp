@@ -5,6 +5,7 @@
 #include <pybind11/stl.h>
 
 #include "core/game_value_config.hpp"
+#include "core/query_config.hpp"
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/multi_handler.hpp"
@@ -108,16 +109,6 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("condition", &AlignmentFilterConfig::condition)
       .def_readwrite("collective_id", &AlignmentFilterConfig::collective_id);
 
-  py::class_<SharedTagPrefixFilterConfig>(m, "SharedTagPrefixFilterConfig")
-      .def(py::init<>())
-      .def(py::init([](std::vector<int> tag_ids) {
-             SharedTagPrefixFilterConfig cfg;
-             cfg.tag_ids = tag_ids;
-             return cfg;
-           }),
-           py::arg("tag_ids") = std::vector<int>())
-      .def_readwrite("tag_ids", &SharedTagPrefixFilterConfig::tag_ids);
-
   py::class_<TagFilterConfig>(m, "TagFilterConfig")
       .def(py::init<>())
       .def(py::init([](EntityRef entity, int tag_id) {
@@ -130,6 +121,25 @@ inline void bind_handler_config(py::module& m) {
            py::arg("tag_id") = 0)
       .def_readwrite("entity", &TagFilterConfig::entity)
       .def_readwrite("tag_id", &TagFilterConfig::tag_id);
+
+  // SharedTagPrefixFilter - checks if objects share tags with a common prefix
+  py::class_<SharedTagPrefixFilterConfig>(m, "SharedTagPrefixFilterConfig")
+      .def(py::init<>())
+      .def(py::init([](std::vector<int> tag_ids) {
+             SharedTagPrefixFilterConfig cfg;
+             cfg.tag_ids = tag_ids;
+             return cfg;
+           }),
+           py::arg("tag_ids") = std::vector<int>())
+      .def_readwrite("tag_ids", &SharedTagPrefixFilterConfig::tag_ids);
+
+  py::class_<QueryResourceFilterConfig>(m, "QueryResourceFilterConfig")
+      .def(py::init<>())
+      .def_readwrite("requirements", &QueryResourceFilterConfig::requirements)
+      .def(
+          "set_query",
+          [](QueryResourceFilterConfig& self, const QueryConfigHolder& q) { self.query = q.config; },
+          py::arg("query"));
 
   py::class_<GameValueFilterConfig>(m, "GameValueFilterConfig")
       .def(py::init<>())
@@ -180,16 +190,16 @@ inline void bind_handler_config(py::module& m) {
           [](NearFilterConfig& self, const TagFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_shared_tag_prefix_filter",
-          [](NearFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
           "add_neg_filter",
           [](NearFilterConfig& self, const NegFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_or_filter",
           [](NearFilterConfig& self, const OrFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_shared_tag_prefix_filter",
+          [](NearFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"));
 
   py::class_<NegFilterConfig>(m, "NegFilterConfig")
@@ -225,13 +235,6 @@ inline void bind_handler_config(py::module& m) {
           },
           py::arg("filter"))
       .def(
-          "set_inner_shared_tag_prefix_filter",
-          [](NegFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) {
-            self.inner.clear();
-            self.inner.push_back(cfg);
-          },
-          py::arg("filter"))
-      .def(
           "set_inner_near_filter",
           [](NegFilterConfig& self, const NearFilterConfig& cfg) {
             self.inner.clear();
@@ -241,6 +244,13 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "set_inner_game_value_filter",
           [](NegFilterConfig& self, const GameValueFilterConfig& cfg) {
+            self.inner.clear();
+            self.inner.push_back(cfg);
+          },
+          py::arg("filter"))
+      .def(
+          "set_inner_shared_tag_prefix_filter",
+          [](NegFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) {
             self.inner.clear();
             self.inner.push_back(cfg);
           },
@@ -263,10 +273,6 @@ inline void bind_handler_config(py::module& m) {
           [](NegFilterConfig& self, const TagFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_shared_tag_prefix_filter",
-          [](NegFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
-          py::arg("filter"))
-      .def(
           "add_inner_near_filter",
           [](NegFilterConfig& self, const NearFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
@@ -275,8 +281,20 @@ inline void bind_handler_config(py::module& m) {
           [](NegFilterConfig& self, const GameValueFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
+          "add_inner_shared_tag_prefix_filter",
+          [](NegFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
           "add_inner_neg_filter",
           [](NegFilterConfig& self, const NegFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_max_distance_filter",
+          [](NegFilterConfig& self, const MaxDistanceFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_query_resource_filter",
+          [](NegFilterConfig& self, const QueryResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"));
 
   py::class_<OrFilterConfig>(m, "OrFilterConfig")
@@ -299,10 +317,6 @@ inline void bind_handler_config(py::module& m) {
           [](OrFilterConfig& self, const TagFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_shared_tag_prefix_filter",
-          [](OrFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
-          py::arg("filter"))
-      .def(
           "add_inner_near_filter",
           [](OrFilterConfig& self, const NearFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
@@ -311,12 +325,24 @@ inline void bind_handler_config(py::module& m) {
           [](OrFilterConfig& self, const GameValueFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
+          "add_inner_shared_tag_prefix_filter",
+          [](OrFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
           "add_inner_neg_filter",
           [](OrFilterConfig& self, const NegFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_inner_or_filter",
           [](OrFilterConfig& self, const OrFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_max_distance_filter",
+          [](OrFilterConfig& self, const MaxDistanceFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_query_resource_filter",
+          [](OrFilterConfig& self, const QueryResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"));
 
   // Mutation configs
@@ -479,6 +505,16 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("target", &GameValueMutationConfig::target)
       .def_readwrite("source", &GameValueMutationConfig::source);
 
+  py::class_<QueryInventoryMutationConfig>(m, "QueryInventoryMutationConfig")
+      .def(py::init<>())
+      .def_readwrite("deltas", &QueryInventoryMutationConfig::deltas)
+      .def_readwrite("source", &QueryInventoryMutationConfig::source)
+      .def_readwrite("has_source", &QueryInventoryMutationConfig::has_source)
+      .def(
+          "set_query",
+          [](QueryInventoryMutationConfig& self, const QueryConfigHolder& q) { self.query = q.config; },
+          py::arg("query"));
+
   // HandlerConfig with methods to add filters and mutations
   py::class_<HandlerConfig, std::shared_ptr<HandlerConfig>>(m, "HandlerConfig")
       .def(py::init<>())
@@ -521,6 +557,14 @@ inline void bind_handler_config(py::module& m) {
           "add_or_filter",
           [](HandlerConfig& self, const OrFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
+      .def(
+          "add_max_distance_filter",
+          [](HandlerConfig& self, const MaxDistanceFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_query_resource_filter",
+          [](HandlerConfig& self, const QueryResourceFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
       // Add mutation methods - each type wraps into the variant
       .def(
           "add_resource_delta_mutation",
@@ -561,6 +605,14 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_game_value_mutation",
           [](HandlerConfig& self, const GameValueMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_recompute_query_tag_mutation",
+          [](HandlerConfig& self, const RecomputeQueryTagMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_query_inventory_mutation",
+          [](HandlerConfig& self, const QueryInventoryMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"));
 
   // ResourceDelta for presence_deltas

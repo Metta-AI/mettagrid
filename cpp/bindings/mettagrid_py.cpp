@@ -364,6 +364,7 @@ PYBIND11_MODULE(mettagrid_c, m) {
   bind_move_action_config(m);
   bind_obs_value_config(m);
   bind_global_obs_config(m);
+  bind_query_config(m);
   bind_game_config(m);
 
   // Handler bindings
