@@ -94,6 +94,10 @@ struct GameValueMutationConfig {
   GameValueConfig source;  // Source of the delta (CONST for static, or any GameValue for dynamic)
 };
 
+struct RecomputeQueryTagMutationConfig {
+  int tag_id = -1;
+};
+
 // Variant type for all mutation configs
 using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     ResourceTransferMutationConfig,
@@ -104,7 +108,8 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     StatsMutationConfig,
                                     AddTagMutationConfig,
                                     RemoveTagMutationConfig,
-                                    GameValueMutationConfig>;
+                                    GameValueMutationConfig,
+                                    RecomputeQueryTagMutationConfig>;
 
 }  // namespace mettagrid
 

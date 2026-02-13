@@ -18,6 +18,8 @@ class Agent;
 
 namespace mettagrid {
 
+class QuerySystem;
+
 /**
  * HandlerContext holds references to all entities involved in a handler execution
  * and provides entity resolution for filters and mutations.
@@ -35,6 +37,7 @@ public:
   TagIndex* tag_index = nullptr;       // Tag index for NearFilter lookups
   Grid* grid = nullptr;                // Grid for removing objects from cells
   const std::vector<std::unique_ptr<Collective>>* collectives = nullptr;  // Collectives indexed by ID (for events)
+  QuerySystem* query_system = nullptr;                                    // For RecomputeQueryTagMutation
   bool skip_on_update_trigger = false;  // Skip triggering on_update handlers (prevent recursion)
 
   HandlerContext() = default;
