@@ -14,10 +14,12 @@ proc buildSilkyAtlas*(imagePath, jsonPath: string) =
   builder.addDir(dataDir / "vibe/", dataDir & "/")
   builder.addDir(dataDir / "resources/", dataDir & "/")
   builder.addDir(dataDir / "icons/", dataDir & "/")
+  builder.addDir(dataDir / "profiles/", dataDir & "/")
   builder.addDir(dataDir / "icons/agents/", dataDir & "/")
   builder.addDir(dataDir / "icons/objects/", dataDir & "/")
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "H1", 32.0)
-  builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "Default", 18.0)
+  builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "Default", 18.0, subpixelSteps = 10)
+  builder.addFont(dataDir / "fonts/pf_tempesta_five_compressed.ttf", "pixelated", 32.0)
   builder.write(imagePath, jsonPath)
 
 proc buildPixelAtlas*() =

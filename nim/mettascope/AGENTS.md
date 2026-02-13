@@ -84,13 +84,9 @@ fancy characters. Write in a simple, clear, and direct way. Bullet lists or tabl
 Use 2 spaces for indentation. Never use double lines even between types, procs or sections. If breaking a large function
 call break it into a line per argument.
 
-```nim
-func(
-  arg1,
-  arg2,
-  arg3
-)
-```
+If the line is over 80 characters, One-argument-per-line (also called vertical argument layout) is required.
+
+Break up comments if the are over 80 characters.
 
 If body of a if or loop is too large, break it into a line per statement, but then indent the body by 4 spaces.
 
@@ -113,6 +109,16 @@ of value2:
   statement2
 else:
   statement4
+```
+
+Avoid inline ifs on one line. Space them out like this:
+
+```nim
+var v =
+  if condition:
+    value1
+  else:
+    value2
 ```
 
 ## Comments
