@@ -18,6 +18,13 @@ from mettagrid.util.tracer import Tracer
 logger = logging.getLogger(__name__)
 
 
+def _policy_display_name(policy: MultiAgentPolicy, fallback: str) -> str:
+    name = getattr(policy, "_policy_name", None)
+    if isinstance(name, str) and name:
+        return name
+    return fallback
+
+
 def single_episode_rollout(
     policies: Sequence[MultiAgentPolicy],
     assignments: Sequence[int],
@@ -28,6 +35,7 @@ def single_episode_rollout(
     render_mode: RenderMode,
     autostart: bool,
     capture_replay: bool,
+    policy_names: Optional[Sequence[str]] = None,
     trace_path: Optional[Path] = None,
 ) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
     """Run a single episode in-process using already-instantiated policy objects.
@@ -40,6 +48,18 @@ def single_episode_rollout(
     agent_policies: list[AgentPolicy] = [
         policies[assignment].agent_policy(agent_id) for agent_id, assignment in enumerate(assignments)
     ]
+    if policy_names is not None:
+        if len(policy_names) != len(policies):
+            raise ValueError("policy_names must have the same length as policies")
+        agent_policy_names = [policy_names[assignment] for assignment in assignments]
+    else:
+        agent_policy_names = [
+            _policy_display_name(
+                policies[assignment],
+                fallback=f"policy_{assignment}",
+            )
+            for assignment in assignments
+        ]
     replay_writer: Optional[InMemoryReplayWriter] = None
     if capture_replay:
         replay_writer = InMemoryReplayWriter()
@@ -51,6 +71,7 @@ def single_episode_rollout(
     rollout = Rollout(
         env,
         agent_policies,
+        policy_names=agent_policy_names,
         max_action_time_ms=max_action_time_ms,
         render_mode=render_mode,
         autostart=autostart,
@@ -110,6 +131,7 @@ def run_episode_local(
 
     env_interface = PolicyEnvInterface.from_mg_cfg(env)
     policies = [initialize_or_load_policy(env_interface, spec, device_override=device) for spec in policy_specs]
+    policy_names = [policy_spec.name for policy_spec in policy_specs]
 
     results, replay = single_episode_rollout(
         policies,
@@ -120,6 +142,7 @@ def run_episode_local(
         render_mode=render_mode or "none",
         autostart=autostart,
         capture_replay=replay_path is not None,
+        policy_names=policy_names,
         trace_path=trace_path,
     )
 
