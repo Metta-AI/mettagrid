@@ -8,6 +8,7 @@
 #include "handler/filters/near_filter.hpp"
 #include "handler/filters/neg_filter.hpp"
 #include "handler/filters/or_filter.hpp"
+#include "handler/filters/query_resource_filter.hpp"
 #include "handler/filters/resource_filter.hpp"
 #include "handler/filters/shared_tag_filter.hpp"
 #include "handler/filters/tag_filter.hpp"
@@ -53,6 +54,8 @@ std::unique_ptr<Filter> create_filter(const FilterConfig& config, TagIndex* tag_
           return std::make_unique<NegFilter>(std::move(inner_filters));
         } else if constexpr (std::is_same_v<T, MaxDistanceFilterConfig>) {
           return std::make_unique<MaxDistanceFilter>(cfg);
+        } else if constexpr (std::is_same_v<T, QueryResourceFilterConfig>) {
+          return std::make_unique<QueryResourceFilter>(cfg);
         } else if constexpr (std::is_same_v<T, OrFilterConfig>) {
           // OrFilter: passes if ANY inner filter passes
           std::vector<std::unique_ptr<Filter>> inner_filters;
