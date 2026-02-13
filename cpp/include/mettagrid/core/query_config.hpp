@@ -2,7 +2,7 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_QUERY_CONFIG_HPP_
 
 #include <memory>
-#include <unordered_set>
+#include <vector>
 
 class GridObject;
 
@@ -21,7 +21,7 @@ struct QueryConfig {
   int max_items = 0;  // 0 = unlimited
   QueryOrderBy order_by = QueryOrderBy::none;
   virtual ~QueryConfig() = default;
-  virtual std::unordered_set<GridObject*> evaluate(const QuerySystem& system) const = 0;
+  virtual std::vector<GridObject*> evaluate(const QuerySystem& system) const = 0;
 };
 
 // Query Tag Config - Tags computed by queries

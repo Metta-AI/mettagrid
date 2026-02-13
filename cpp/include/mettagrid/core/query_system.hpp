@@ -3,7 +3,6 @@
 
 #include <memory>
 #include <random>
-#include <unordered_set>
 #include <vector>
 
 #include "core/filter_config.hpp"
@@ -42,9 +41,7 @@ public:
   }
 
   // Apply max_items / order_by post-processing
-  std::unordered_set<GridObject*> apply_limits(std::unordered_set<GridObject*> results,
-                                               int max_items,
-                                               QueryOrderBy order_by) const;
+  std::vector<GridObject*> apply_limits(std::vector<GridObject*> results, int max_items, QueryOrderBy order_by) const;
 
   // Check if an object passes all filter configs
   bool matches_filters(GridObject* obj, const std::vector<FilterConfig>& filter_configs) const;

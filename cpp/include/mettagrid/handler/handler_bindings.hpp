@@ -108,6 +108,16 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("condition", &AlignmentFilterConfig::condition)
       .def_readwrite("collective_id", &AlignmentFilterConfig::collective_id);
 
+  py::class_<SharedTagPrefixFilterConfig>(m, "SharedTagPrefixFilterConfig")
+      .def(py::init<>())
+      .def(py::init([](std::vector<int> tag_ids) {
+             SharedTagPrefixFilterConfig cfg;
+             cfg.tag_ids = tag_ids;
+             return cfg;
+           }),
+           py::arg("tag_ids") = std::vector<int>())
+      .def_readwrite("tag_ids", &SharedTagPrefixFilterConfig::tag_ids);
+
   py::class_<TagFilterConfig>(m, "TagFilterConfig")
       .def(py::init<>())
       .def(py::init([](EntityRef entity, int tag_id) {
@@ -170,6 +180,10 @@ inline void bind_handler_config(py::module& m) {
           [](NearFilterConfig& self, const TagFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
+          "add_shared_tag_prefix_filter",
+          [](NearFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
           "add_neg_filter",
           [](NearFilterConfig& self, const NegFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
@@ -211,6 +225,13 @@ inline void bind_handler_config(py::module& m) {
           },
           py::arg("filter"))
       .def(
+          "set_inner_shared_tag_prefix_filter",
+          [](NegFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) {
+            self.inner.clear();
+            self.inner.push_back(cfg);
+          },
+          py::arg("filter"))
+      .def(
           "set_inner_near_filter",
           [](NegFilterConfig& self, const NearFilterConfig& cfg) {
             self.inner.clear();
@@ -240,6 +261,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_inner_tag_filter",
           [](NegFilterConfig& self, const TagFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_shared_tag_prefix_filter",
+          [](NegFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_inner_near_filter",
@@ -272,6 +297,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_inner_tag_filter",
           [](OrFilterConfig& self, const TagFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_shared_tag_prefix_filter",
+          [](OrFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_inner_near_filter",
@@ -471,6 +500,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_tag_filter",
           [](HandlerConfig& self, const TagFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_shared_tag_prefix_filter",
+          [](HandlerConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_near_filter",

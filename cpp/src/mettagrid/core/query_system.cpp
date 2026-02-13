@@ -1,7 +1,6 @@
 #include "core/query_system.hpp"
 
 #include <algorithm>
-#include <unordered_set>
 #include <vector>
 
 #include "core/grid.hpp"
@@ -45,25 +44,18 @@ bool QuerySystem::matches_filters(GridObject* obj, const std::vector<FilterConfi
   return true;
 }
 
-std::unordered_set<GridObject*> QuerySystem::apply_limits(std::unordered_set<GridObject*> results,
-                                                          int max_items,
-                                                          QueryOrderBy order_by) const {
-  if (max_items <= 0 && order_by == QueryOrderBy::none) {
-    return results;
-  }
-
-  // Convert to vector for ordering/limiting
-  std::vector<GridObject*> vec(results.begin(), results.end());
-
+std::vector<GridObject*> QuerySystem::apply_limits(std::vector<GridObject*> results,
+                                                   int max_items,
+                                                   QueryOrderBy order_by) const {
   if (order_by == QueryOrderBy::random && _rng != nullptr) {
-    std::shuffle(vec.begin(), vec.end(), *_rng);
+    std::shuffle(results.begin(), results.end(), *_rng);
   }
 
-  if (max_items > 0 && static_cast<int>(vec.size()) > max_items) {
-    vec.resize(max_items);
+  if (max_items > 0 && static_cast<int>(results.size()) > max_items) {
+    results.resize(max_items);
   }
 
-  return std::unordered_set<GridObject*>(vec.begin(), vec.end());
+  return results;
 }
 
 void QuerySystem::compute_all() {

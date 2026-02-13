@@ -51,6 +51,10 @@ struct TagFilterConfig {
   int tag_id = 0;  // Single tag ID that must be present on the object
 };
 
+struct SharedTagPrefixFilterConfig {
+  std::vector<int> tag_ids;  // All tag IDs sharing the prefix (resolved at config time)
+};
+
 struct GameValueFilterConfig {
   GameValueConfig value;
   float threshold = 0.0f;
@@ -67,6 +71,7 @@ using FilterConfig = std::variant<VibeFilterConfig,
                                   ResourceFilterConfig,
                                   AlignmentFilterConfig,
                                   TagFilterConfig,
+                                  SharedTagPrefixFilterConfig,
                                   NearFilterConfig,
                                   GameValueFilterConfig,
                                   NegFilterConfig,
