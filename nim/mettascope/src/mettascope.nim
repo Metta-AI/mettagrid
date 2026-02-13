@@ -243,6 +243,7 @@ proc onFrame() =
     ## Game mode UI.
     drawGameWorld()
 
+  drawTutorialOverlay()
   drawWarningPopup()
   sk.endUi()
   window.swapBuffers()

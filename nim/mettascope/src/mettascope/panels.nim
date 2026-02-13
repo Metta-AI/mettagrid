@@ -1,6 +1,7 @@
 # This example shows a draggable panel UI like in a large editor like VS Code or Blender.
 
 import
+  std/[strutils],
   bumpy, chroma, windy, silky,
   ./[common, configs]
 
@@ -559,3 +560,91 @@ proc drawWarningPopup*() =
     maxHeight = textHeight,
     wordWrap = true
   )
+
+proc drawTutorialOverlay*() =
+  ## Draw in-game tutorial guidance if present on the current replay.
+  if replay.isNil:
+    return
+
+  let phaseCount = replay.tutorialOverlayPhases.len
+  if phaseCount > 0:
+    replay.tutorialOverlayPhase = replay.tutorialOverlayPhase.clamp(0, phaseCount - 1)
+    replay.tutorialOverlay = replay.tutorialOverlayPhases[replay.tutorialOverlayPhase]
+
+  var overlayText = replay.tutorialOverlay
+  if overlayText.len == 0:
+    return
+
+  let
+    overlayWidth = min(1196.0f, sk.size.x - 48.0f)
+    overlayHeight = min(435.0f, sk.size.y - 96.0f)
+    overlayPos = vec2((sk.size.x - overlayWidth) / 2.0f, 48.0f)
+    bodyPos = overlayPos + vec2(18.0f, 88.0f)
+    bodyWidth = overlayWidth - 36.0f
+    bodyHeight = overlayHeight - 150.0f
+    nextButtonSize = vec2(240.0f, 42.0f)
+    nextButtonPos = overlayPos + vec2(overlayWidth - nextButtonSize.x - 16.0f, overlayHeight - nextButtonSize.y - 14.0f)
+    nextButtonRect = rect(nextButtonPos.x, nextButtonPos.y, nextButtonSize.x, nextButtonSize.y)
+    nextButtonHovered = window.mousePos.vec2.overlaps(nextButtonRect)
+  var canAdvance = phaseCount > 0 and replay.tutorialOverlayPhase < phaseCount - 1
+
+  if canAdvance and (window.buttonPressed[KeyEnter] or (nextButtonHovered and window.buttonPressed[MouseLeft])):
+    replay.tutorialOverlayPhase = min(replay.tutorialOverlayPhase + 1, phaseCount - 1)
+    replay.tutorialOverlay = replay.tutorialOverlayPhases[replay.tutorialOverlayPhase]
+    overlayText = replay.tutorialOverlay
+    canAdvance = replay.tutorialOverlayPhase < phaseCount - 1
+
+  var
+    titleText = overlayText
+    bodyText = ""
+  let lineBreak = overlayText.find('\n')
+  if lineBreak >= 0:
+    titleText = overlayText[0 ..< lineBreak]
+    bodyText = overlayText[lineBreak + 1 .. ^1]
+
+  sk.draw9Patch("header.9patch", 4, overlayPos, vec2(overlayWidth, overlayHeight), rgbx(45, 80, 45, 230))
+
+  sk.at = overlayPos + vec2(18.0f, 8.0f)
+  h1text("Tutorial")
+  sk.at = overlayPos + vec2(18.0f, 38.0f)
+  h1text(titleText)
+  if bodyText.len > 0:
+    discard sk.drawText(
+      "H1",
+      bodyText,
+      bodyPos,
+      rgbx(255, 255, 255, 255),
+      maxWidth = bodyWidth,
+      maxHeight = bodyHeight,
+      wordWrap = true
+    )
+
+  if phaseCount > 0:
+    let phaseLabel = "Phase " & $(replay.tutorialOverlayPhase + 1) & "/" & $phaseCount
+    discard sk.drawText(
+      "H1",
+      phaseLabel,
+      overlayPos + vec2(overlayWidth - 190.0f, 12.0f),
+      rgbx(218, 235, 218, 255)
+    )
+
+  let buttonText = if canAdvance: "Next (Enter)" else: "Final Phase"
+  let nextButtonPatch =
+    if not canAdvance: "panel.tab.9patch"
+    elif nextButtonHovered: "panel.tab.hover.9patch"
+    else: "panel.tab.selected.9patch"
+  sk.draw9Patch(nextButtonPatch, 3, nextButtonPos, nextButtonSize, rgbx(255, 255, 255, 255))
+  discard sk.drawText(
+    "H1",
+    buttonText,
+    nextButtonPos + vec2(24.0f, 10.0f),
+    rgbx(245, 245, 245, 255)
+  )
+
+  if canAdvance:
+    discard sk.drawText(
+      "H1",
+      "Press Enter or click Next to continue",
+      overlayPos + vec2(18.0f, overlayHeight - 46.0f),
+      rgbx(218, 235, 218, 255)
+    )
