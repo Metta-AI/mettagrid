@@ -1,4 +1,4 @@
-## Replay format specification (versions 4)
+# Replay Format Specification
 
 MettaScope uses a custom replay format to store the replay data. The replay is a zlib compressed json file with
 `.json.z` extension.
@@ -15,15 +15,28 @@ json_data = json.loads(decompressed_data)
 
 In JavaScript it's a bit more complicated, but you can use the `decompressStream` with a streaming API.
 
-The first key in the format is `version`, which is a number that contains the version of the replay format. Valid values
-are `1`, `2`, `3`, `4`. This document describes versions 4.
+## Version Management
+
+The first key in the format is `version`, which is a number that contains the version of the replay format.
 
 ```json
 {
-  "version": 4,
+  "version": 5,
   ...
 }
 ```
+
+Mettascope can only support a single version of the replay format at a time. If it encounters a replay with a different
+version, it will show a dialog with a button to open the previous build in a browser with that URL.
+
+Builds are stored at:
+
+`https://softmax-public.s3.amazonaws.com/mettascope/$version`
+
+So if the replay format is `5`, but he app only supports `6` the app will redirect to
+`https://softmax-public.s3.amazonaws.com/mettascope/5/mettascope.html?replay=...`.
+
+## The Top-Level Keys
 
 These are the constants that are stored at the top of the replay.
 
