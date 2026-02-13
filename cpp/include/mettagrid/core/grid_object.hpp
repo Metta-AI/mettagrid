@@ -1,9 +1,9 @@
 #ifndef PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GRID_OBJECT_HPP_
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GRID_OBJECT_HPP_
 
+#include <bitset>
 #include <cstdint>
 #include <memory>
-#include <set>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -105,7 +105,7 @@ public:
   TypeId type_id{};
   std::string type_name;  // Class type (e.g., "hub")
   std::string name;       // Instance name (e.g., "carbon_extractor"), defaults to type_name
-  std::set<int> tag_ids;
+  std::bitset<kMaxTags> tag_bits;
 
   // Constructor with optional inventory config (defaults to empty)
   explicit GridObject(const InventoryConfig& inv_config = InventoryConfig());

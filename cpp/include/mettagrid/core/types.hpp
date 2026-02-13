@@ -61,4 +61,6 @@ using GridObjectId = uint32_t;  // this sets the maximum tracked objects
 
 using GroupVibe = uint64_t;
 
+constexpr size_t kMaxTags = 256;
+
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_TYPES_HPP_

@@ -367,7 +367,7 @@ void test_tag_filter_neg() {
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
-  target.tag_ids.insert(42);
+  target.add_tag(42);
 
   HandlerContext ctx(&actor, &target);
 
@@ -404,8 +404,8 @@ void test_tag_filter_matches() {
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
-  target.tag_ids.insert(42);
-  target.tag_ids.insert(100);
+  target.add_tag(42);
+  target.add_tag(100);
 
   HandlerContext ctx(&actor, &target);
 
@@ -424,8 +424,8 @@ void test_tag_filter_no_match() {
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
-  target.tag_ids.insert(1);
-  target.tag_ids.insert(2);
+  target.add_tag(1);
+  target.add_tag(2);
 
   HandlerContext ctx(&actor, &target);
 
@@ -444,7 +444,7 @@ void test_tag_filter_on_actor() {
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
-  actor.tag_ids.insert(99);
+  actor.add_tag(99);
 
   HandlerContext ctx(&actor, &target);
 
@@ -1122,7 +1122,7 @@ void test_resource_transfer_remove_source_when_empty() {
   target->location.r = 1;
   target->location.c = 1;
   target->inventory.update(2, 10);  // 10 gold
-  target->tag_ids.insert(42);
+  target->add_tag(42);
   grid.add_object(target);
   tag_index.register_object(target);
 

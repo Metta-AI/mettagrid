@@ -27,7 +27,11 @@ void GridObject::init(TypeId object_type_id,
   this->type_name = object_type_name;
   this->name = object_name.empty() ? object_type_name : object_name;
   this->location = object_location;
-  this->tag_ids = std::set<int>(tags.begin(), tags.end());
+  this->tag_bits.reset();
+  for (int tag : tags) {
+    if (tag < 0 || static_cast<size_t>(tag) >= kMaxTags) continue;
+    this->tag_bits.set(tag);
+  }
   this->vibe = object_vibe;
 }
 
@@ -57,26 +61,33 @@ bool GridObject::onUse(Agent& actor, ActionArg /*arg*/) {
 }
 
 bool GridObject::has_tag(int tag_id) const {
-  return tag_ids.find(tag_id) != tag_ids.end();
+  if (tag_id < 0 || static_cast<size_t>(tag_id) >= kMaxTags) return false;
+  return tag_bits.test(tag_id);
 }
 
 void GridObject::add_tag(int tag_id) {
-  bool added = tag_ids.insert(tag_id).second;
-  if (added && _tag_index != nullptr) {
-    _tag_index->on_tag_added(this, tag_id);
+  if (tag_id < 0 || static_cast<size_t>(tag_id) >= kMaxTags) return;
+  if (!tag_bits.test(tag_id)) {
+    tag_bits.set(tag_id);
+    if (_tag_index != nullptr) {
+      _tag_index->on_tag_added(this, tag_id);
+    }
   }
 }
 
 void GridObject::remove_tag(int tag_id) {
-  size_t removed = tag_ids.erase(tag_id);
-  if (removed > 0 && _tag_index != nullptr) {
-    _tag_index->on_tag_removed(this, tag_id);
+  if (tag_id < 0 || static_cast<size_t>(tag_id) >= kMaxTags) return;
+  if (tag_bits.test(tag_id)) {
+    tag_bits.reset(tag_id);
+    if (_tag_index != nullptr) {
+      _tag_index->on_tag_removed(this, tag_id);
+    }
   }
 }
 
 std::vector<PartialObservationToken> GridObject::obs_features() const {
   std::vector<PartialObservationToken> features;
-  features.reserve(tag_ids.size() + 3 +
+  features.reserve(tag_bits.count() + 3 +
                    (obs_encoder ? inventory.get().size() * obs_encoder->get_num_inventory_tokens() : 0));
 
   // Emit collective ID if this object belongs to a collective and the feature is configured
@@ -86,8 +97,10 @@ std::vector<PartialObservationToken> GridObject::obs_features() const {
   }
 
   // Emit tag features
-  for (int tag_id : tag_ids) {
-    features.push_back({ObservationFeature::Tag, static_cast<ObservationType>(tag_id)});
+  for (size_t i = 0; i < kMaxTags; ++i) {
+    if (tag_bits.test(i)) {
+      features.push_back({ObservationFeature::Tag, static_cast<ObservationType>(i)});
+    }
   }
 
   // Emit vibe if non-zero
@@ -123,9 +136,10 @@ size_t GridObject::write_obs_features(PartialObservationToken* out, size_t max_t
   }
 
   // Emit tag features
-  for (int tag_id : tag_ids) {
-    if (written >= max_tokens) break;
-    out[written++] = {ObservationFeature::Tag, static_cast<ObservationType>(tag_id)};
+  for (size_t i = 0; i < kMaxTags && written < max_tokens; ++i) {
+    if (tag_bits.test(i)) {
+      out[written++] = {ObservationFeature::Tag, static_cast<ObservationType>(i)};
+    }
   }
 
   // Emit vibe if non-zero
