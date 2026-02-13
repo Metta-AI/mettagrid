@@ -18,7 +18,7 @@
 #include "objects/inventory_config.hpp"
 #include "objects/usable.hpp"
 
-// Forward declaration
+// Forward declarations
 class ObservationEncoder;
 
 using TypeId = ObservationType;

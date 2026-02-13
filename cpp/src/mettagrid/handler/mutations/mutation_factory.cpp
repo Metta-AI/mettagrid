@@ -6,6 +6,7 @@
 #include "handler/mutations/attack_mutation.hpp"
 #include "handler/mutations/freeze_mutation.hpp"
 #include "handler/mutations/game_value_mutation.hpp"
+#include "handler/mutations/recompute_query_tag_mutation.hpp"
 #include "handler/mutations/resource_mutation.hpp"
 #include "handler/mutations/stats_mutation.hpp"
 #include "handler/mutations/tag_mutation.hpp"
@@ -36,6 +37,8 @@ std::unique_ptr<Mutation> create_mutation(const MutationConfig& config) {
           return std::make_unique<RemoveTagMutation>(cfg);
         } else if constexpr (std::is_same_v<T, GameValueMutationConfig>) {
           return std::make_unique<GameValueMutation>(cfg);
+        } else if constexpr (std::is_same_v<T, RecomputeQueryTagMutationConfig>) {
+          return std::make_unique<RecomputeQueryTagMutation>(cfg);
         } else {
           return nullptr;
         }
