@@ -70,6 +70,7 @@ struct NearFilterConfig;
 struct NegFilterConfig;
 struct OrFilterConfig;
 struct MaxDistanceFilterConfig;
+struct QueryResourceFilterConfig;
 
 // Variant type for all filter configs (defined early so NearFilterConfig/NegFilterConfig can reference it)
 using FilterConfig = std::variant<VibeFilterConfig,
@@ -81,7 +82,8 @@ using FilterConfig = std::variant<VibeFilterConfig,
                                   GameValueFilterConfig,
                                   NegFilterConfig,
                                   OrFilterConfig,
-                                  MaxDistanceFilterConfig>;
+                                  MaxDistanceFilterConfig,
+                                  QueryResourceFilterConfig>;
 
 struct NearFilterConfig {
   EntityRef entity = EntityRef::target;
@@ -110,6 +112,12 @@ struct MaxDistanceFilterConfig {
   EntityRef entity = EntityRef::target;  // Entity to check distance from (handler context)
   std::shared_ptr<QueryConfig> source;   // Source query to check distance from
   unsigned int radius = 0;               // Max Chebyshev distance (0 = unlimited)
+};
+
+// QueryResourceFilterConfig: Checks if objects found by query have minimum total resources.
+struct QueryResourceFilterConfig {
+  std::shared_ptr<QueryConfig> query;
+  std::vector<std::pair<InventoryItem, InventoryQuantity>> requirements;
 };
 
 }  // namespace mettagrid
