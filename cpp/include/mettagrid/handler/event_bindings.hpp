@@ -42,6 +42,10 @@ inline void bind_event_config(py::module& m) {
           [](EventConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
+          "add_game_value_filter",
+          [](EventConfig& self, const GameValueFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
           "add_near_filter",
           [](EventConfig& self, const NearFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))

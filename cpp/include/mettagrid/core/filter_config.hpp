@@ -1,6 +1,7 @@
 #ifndef PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_FILTER_CONFIG_HPP_
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_FILTER_CONFIG_HPP_
 
+#include <memory>
 #include <variant>
 #include <vector>
 
@@ -8,6 +9,9 @@
 #include "core/types.hpp"
 
 namespace mettagrid {
+
+// Forward declaration for filter configs that reference queries
+struct QueryConfig;
 
 // Entity reference for resolving actor/target in filters and mutations
 enum class EntityRef {
@@ -65,6 +69,7 @@ struct GameValueFilterConfig {
 struct NearFilterConfig;
 struct NegFilterConfig;
 struct OrFilterConfig;
+struct MaxDistanceFilterConfig;
 
 // Variant type for all filter configs (defined early so NearFilterConfig/NegFilterConfig can reference it)
 using FilterConfig = std::variant<VibeFilterConfig,
@@ -75,7 +80,8 @@ using FilterConfig = std::variant<VibeFilterConfig,
                                   NearFilterConfig,
                                   GameValueFilterConfig,
                                   NegFilterConfig,
-                                  OrFilterConfig>;
+                                  OrFilterConfig,
+                                  MaxDistanceFilterConfig>;
 
 struct NearFilterConfig {
   EntityRef entity = EntityRef::target;
@@ -96,6 +102,14 @@ struct NegFilterConfig {
 // Passes if ANY of the inner filters pass.
 struct OrFilterConfig {
   std::vector<FilterConfig> inner;  // Filters to OR together
+};
+
+// MaxDistanceFilterConfig: Checks if entity is within radius of any source query result.
+// Works in both handler context (using entity ref) and query context (actor=target=candidate).
+struct MaxDistanceFilterConfig {
+  EntityRef entity = EntityRef::target;  // Entity to check distance from (handler context)
+  std::shared_ptr<QueryConfig> source;   // Source query to check distance from
+  unsigned int radius = 0;               // Max Chebyshev distance (0 = unlimited)
 };
 
 }  // namespace mettagrid
