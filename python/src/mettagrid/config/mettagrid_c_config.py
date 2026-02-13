@@ -692,8 +692,41 @@ def _convert_aoe_configs(
     return cpp_aoe_configs
 
 
-def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
-    """Convert a GameConfig to a CppGameConfig."""
+def rename_map_agents(map_grid: list[list[str]], rename_map: dict[str, list[str]]) -> list[list[str]]:
+    """Rename collective agent cells to per-agent cell names.
+
+    Scans the map in row-major order and replaces each occurrence of a
+    collective cell name with the next per-agent name from the list.
+    """
+    counters: dict[str, int] = {name: 0 for name in rename_map}
+    result = []
+    for row in map_grid:
+        new_row = []
+        for cell in row:
+            if cell in rename_map:
+                idx = counters[cell]
+                per_agent_names = rename_map[cell]
+                if idx >= len(per_agent_names):
+                    raise ValueError(
+                        f"Map has more '{cell}' cells ({idx + 1}) than agents "
+                        f"in the collective ({len(per_agent_names)})"
+                    )
+                new_row.append(per_agent_names[idx])
+                counters[cell] = idx + 1
+            else:
+                new_row.append(cell)
+        result.append(new_row)
+    return result
+
+
+def convert_to_cpp_game_config(
+    mettagrid_config: dict | GameConfig,
+) -> tuple[CppGameConfig, dict[str, list[str]]]:
+    """Convert a GameConfig to a CppGameConfig.
+
+    Returns (cpp_game_config, agent_renames) where agent_renames maps
+    collective cell names to per-agent cell names for map rewriting.
+    """
     if isinstance(mettagrid_config, GameConfig):
         # If it's already a GameConfig instance, use it directly
         game_config = mettagrid_config
@@ -796,24 +829,9 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             collective_groups[group_key] = []
         collective_groups[group_key].append((agent_idx, agent_config))
 
-    # Create a group for each collective
-    collective_to_id = {name: idx for idx, name in enumerate(collective_groups.keys())}
-    for collective, collective_agents in collective_groups.items():
-        # Use the first agent in the collective as the template for the group
-        _, first_agent = collective_agents[0]
-        agent_props = first_agent.model_dump()
-
-        # Validate that all agents in the collective have identical tags
-        # Currently tags are applied per-collective, not per-agent
-        first_agent_tags = set(first_agent.tags)
-        for agent_idx, agent_config in collective_agents[1:]:
-            if set(agent_config.tags) != first_agent_tags:
-                raise ValueError(
-                    f"All agents in collective {collective} must have identical tags. "
-                    f"Agent 0 has tags {sorted(first_agent_tags)}, "
-                    f"but agent {agent_idx} has tags {sorted(agent_config.tags)}. "
-                    f"Tags are currently applied per-collective, not per-agent."
-                )
+    # Helper to build a CppAgentConfig from a single agent
+    def _build_one_agent_config(agent_cfg, group_id: int, group_name: str) -> CppAgentConfig:
+        agent_props = agent_cfg.model_dump()
 
         # Convert rewards to RewardEntry list for C++ v2 pipeline
         mappings = {
@@ -821,7 +839,7 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             "tag_name_to_id": tag_name_to_id,
         }
         reward_entries = []
-        for reward_name, agent_reward in first_agent.rewards.items():
+        for reward_name, agent_reward in agent_cfg.rewards.items():
             entry = CppRewardEntry()
             if len(agent_reward.nums) != 1:
                 raise ValueError(
@@ -842,17 +860,8 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         # Process potential initial inventory
         initial_inventory = {resource_name_to_id[k]: v for k, v in inv_config.get("initial", {}).items()}
 
-        # Use collective name as group name, or legacy team name for int keys (team_id fallback)
-        group_id = collective_to_id[collective]
-        team_names = {0: "red", 1: "blue", 2: "green", 3: "yellow", 4: "purple", 5: "orange"}
-        if isinstance(collective, str):
-            group_name = collective
-        elif isinstance(collective, int) and collective in team_names:
-            group_name = team_names[collective]
-        else:
-            group_name = f"group_{group_id}"
-        # Convert tag names to IDs for first agent in collective (include auto-generated type tag)
-        agent_tags = list(first_agent.tags) + [typeTag(first_agent.name)]
+        # Convert tag names to IDs for agent (include auto-generated type tag)
+        agent_tags = list(agent_cfg.tags) + [typeTag(agent_cfg.name)]
         tag_ids = [tag_name_to_id[tag] for tag in agent_tags]
 
         # Build inventory config with support for grouped limits and modifiers
@@ -887,8 +896,8 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         reward_config.entries = reward_entries
 
         cpp_agent_config = CppAgentConfig(
-            type_id=type_id_by_type_name[first_agent.name],
-            type_name=first_agent.name,
+            type_id=type_id_by_type_name[agent_cfg.name],
+            type_name=agent_cfg.name,
             group_id=group_id,
             group_name=group_name,
             freeze_duration=agent_props["freeze_duration"],
@@ -900,13 +909,13 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         cpp_agent_config.tag_ids = tag_ids
 
         # Set collective_id if agent belongs to a collective
-        if first_agent.collective and first_agent.collective in collective_name_to_id:
-            cpp_agent_config.collective_id = collective_name_to_id[first_agent.collective]
+        if agent_cfg.collective and agent_cfg.collective in collective_name_to_id:
+            cpp_agent_config.collective_id = collective_name_to_id[agent_cfg.collective]
 
         # Convert agent aoes (dict[str, AOEConfig]) to C++ AOEConfig list
-        if first_agent.aoes:
+        if agent_cfg.aoes:
             cpp_agent_config.aoe_configs = _convert_aoe_configs(
-                first_agent.aoes,
+                agent_cfg.aoes,
                 resource_name_to_id,
                 limit_name_to_resource_ids,
                 vibe_name_to_id,
@@ -915,35 +924,74 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
             )
 
         # Convert agent on_tick (dict[str, Handler]) to C++ HandlerConfig list
-        if first_agent.on_tick:
+        if agent_cfg.on_tick:
             cpp_agent_config.on_tick = _convert_handlers(
-                first_agent.on_tick,
+                agent_cfg.on_tick,
                 resource_name_to_id,
                 limit_name_to_resource_ids,
                 vibe_name_to_id,
                 tag_name_to_id,
             )
 
-        objects_cpp_params["agent." + group_name] = cpp_agent_config
+        return cpp_agent_config
 
-        # Register team_X naming convention for maps that use it
-        objects_cpp_params[f"agent.team_{group_id}"] = cpp_agent_config
+    # Create a group for each collective
+    agent_renames: dict[str, list[str]] = {}
+    collective_to_id = {name: idx for idx, name in enumerate(collective_groups.keys())}
+    for collective, collective_agents in collective_groups.items():
+        _, first_agent = collective_agents[0]
 
-        # When using team_id fallback, also register agent.team_{team_id} if different from group_id
+        # Validate that all agents in the collective have identical tags
+        # Currently tags are applied per-collective, not per-agent
+        first_agent_tags = set(first_agent.tags)
+        for agent_idx, agent_config in collective_agents[1:]:
+            if set(agent_config.tags) != first_agent_tags:
+                raise ValueError(
+                    f"All agents in collective {collective} must have identical tags. "
+                    f"Agent 0 has tags {sorted(first_agent_tags)}, "
+                    f"but agent {agent_idx} has tags {sorted(agent_config.tags)}. "
+                    f"Tags are currently applied per-collective, not per-agent."
+                )
+
+        # Use collective name as group name, or legacy team name for int keys (team_id fallback)
+        group_id = collective_to_id[collective]
+        team_names = {0: "red", 1: "blue", 2: "green", 3: "yellow", 4: "purple", 5: "orange"}
+        if isinstance(collective, str):
+            group_name = collective
+        elif isinstance(collective, int) and collective in team_names:
+            group_name = team_names[collective]
+        else:
+            group_name = f"group_{group_id}"
+
+        canonical_cell = "agent." + group_name
+
+        # Create per-agent configs with unique cell names
+        per_agent_cells: list[str] = []
+        for idx, (_, agent_cfg) in enumerate(collective_agents):
+            cell_name = f"agent.{group_name}.{idx}"
+            per_agent_cells.append(cell_name)
+            objects_cpp_params[cell_name] = _build_one_agent_config(agent_cfg, group_id, group_name)
+        # Canonical name points to agent 0
+        objects_cpp_params[canonical_cell] = objects_cpp_params[per_agent_cells[0]]
+        # Only need map renaming when there are multiple agents
+        if len(collective_agents) > 1:
+            agent_renames[canonical_cell] = per_agent_cells
+
+        # Register all aliases pointing to canonical + rename map
+        alias_cells = [f"agent.team_{group_id}"]
         if isinstance(collective, int) and collective != group_id:
-            objects_cpp_params[f"agent.team_{collective}"] = cpp_agent_config
-
-        # Register legacy color-based team names for backward compatibility
+            alias_cells.append(f"agent.team_{collective}")
         team_names = {0: "red", 1: "blue", 2: "green", 3: "yellow", 4: "purple", 5: "orange"}
         if group_id in team_names:
-            objects_cpp_params[f"agent.{team_names[group_id]}"] = cpp_agent_config
+            alias_cells.append(f"agent.{team_names[group_id]}")
         if isinstance(collective, int) and collective in team_names and collective != group_id:
-            objects_cpp_params[f"agent.{team_names[collective]}"] = cpp_agent_config
-
-        # Also register aliases for group 0 for backward compatibility
+            alias_cells.append(f"agent.{team_names[collective]}")
         if group_id == 0:
-            objects_cpp_params["agent.default"] = cpp_agent_config
-            objects_cpp_params["agent.agent"] = cpp_agent_config
+            alias_cells.extend(["agent.default", "agent.agent"])
+        for alias in alias_cells:
+            objects_cpp_params[alias] = objects_cpp_params[canonical_cell]
+            if canonical_cell in agent_renames:
+                agent_renames[alias] = agent_renames[canonical_cell]
 
     # Convert other objects
     for object_type, object_config in game_config.objects.items():
@@ -1217,4 +1265,4 @@ def convert_to_cpp_game_config(mettagrid_config: dict | GameConfig):
         )
         game_cpp_params["events"] = events_cpp
 
-    return CppGameConfig(**game_cpp_params)
+    return CppGameConfig(**game_cpp_params), agent_renames

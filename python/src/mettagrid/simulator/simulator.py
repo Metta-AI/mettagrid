@@ -72,11 +72,14 @@ class Simulation:
 
         # Create C++ config
         try:
-            c_cfg = mettagrid_c_config.convert_to_cpp_game_config(self._config.game)
+            c_cfg, agent_renames = mettagrid_c_config.convert_to_cpp_game_config(self._config.game)
         except Exception:
             logger.exception("Error creating C++ config")
             logger.error("Game config: %s", self._config.game)
             raise
+
+        if agent_renames:
+            map_grid = mettagrid_c_config.rename_map_agents(map_grid, agent_renames)
 
         # Create C++ environment
         with self._timer("sim.init.create_c_sim"):

@@ -68,7 +68,7 @@ class TestCollectiveConversion:
             },
         )
 
-        cpp_config = convert_to_cpp_game_config(game_config)
+        cpp_config, _ = convert_to_cpp_game_config(game_config)
 
         # Check that collective was converted
         assert "vault" in cpp_config.collectives
@@ -148,7 +148,7 @@ class TestCollectiveIntegration:
             },
         )
 
-        cpp_config = convert_to_cpp_game_config(game_config)
+        cpp_config, _ = convert_to_cpp_game_config(game_config)
 
         assert len(cpp_config.collectives) == 2
         assert "team_red_vault" in cpp_config.collectives
@@ -173,7 +173,7 @@ class TestCollectiveIdMapping:
         assert game_config.objects["wall"].collective == "vault"
 
         # C++ conversion should succeed (actual collective_id assignment is tested via AOE tests)
-        cpp_config = convert_to_cpp_game_config(game_config)
+        cpp_config, _ = convert_to_cpp_game_config(game_config)
         assert cpp_config is not None
 
     def test_multiple_objects_same_collective(self):
@@ -193,7 +193,7 @@ class TestCollectiveIdMapping:
         assert game_config.objects["wall2"].collective == "shared"
 
         # C++ conversion should succeed
-        cpp_config = convert_to_cpp_game_config(game_config)
+        cpp_config, _ = convert_to_cpp_game_config(game_config)
         assert cpp_config is not None
 
 

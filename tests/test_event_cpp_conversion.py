@@ -75,7 +75,7 @@ class TestEventCppConversion:
         }
 
         game_config = self._create_game_config_with_events(events)
-        cpp_config = convert_to_cpp_game_config(game_config)
+        cpp_config, _ = convert_to_cpp_game_config(game_config)
 
         assert "test_event" in cpp_config.events
         cpp_event = cpp_config.events["test_event"]
@@ -95,7 +95,7 @@ class TestEventCppConversion:
         }
 
         game_config = self._create_game_config_with_events(events)
-        cpp_config = convert_to_cpp_game_config(game_config)
+        cpp_config, _ = convert_to_cpp_game_config(game_config)
 
         cpp_event = cpp_config.events["unlimited_event"]
         assert cpp_event.max_targets == 0, f"max_targets=None should convert to 0, got {cpp_event.max_targets}"
@@ -113,7 +113,7 @@ class TestEventCppConversion:
         }
 
         game_config = self._create_game_config_with_events(events)
-        cpp_config = convert_to_cpp_game_config(game_config)
+        cpp_config, _ = convert_to_cpp_game_config(game_config)
 
         cpp_event = cpp_config.events["test_event"]
         assert list(cpp_event.timesteps) == [10, 20, 30]
@@ -164,7 +164,7 @@ class TestEventFilterConversion:
         game_config = self._create_game_config_with_events(events)
 
         # This should not raise - the conversion should succeed
-        cpp_config = convert_to_cpp_game_config(game_config)
+        cpp_config, _ = convert_to_cpp_game_config(game_config)
         assert "test_event" in cpp_config.events
 
     def test_alignment_filter_conversion(self):
@@ -184,7 +184,7 @@ class TestEventFilterConversion:
         }
 
         game_config = self._create_game_config_with_events(events)
-        cpp_config = convert_to_cpp_game_config(game_config)
+        cpp_config, _ = convert_to_cpp_game_config(game_config)
         assert "test_event" in cpp_config.events
 
     def test_alignment_filter_with_collective_conversion(self):
@@ -203,7 +203,7 @@ class TestEventFilterConversion:
         }
 
         game_config = self._create_game_config_with_events(events)
-        cpp_config = convert_to_cpp_game_config(game_config)
+        cpp_config, _ = convert_to_cpp_game_config(game_config)
         assert "test_event" in cpp_config.events
 
     def test_multiple_filters_all_converted(self):
@@ -230,7 +230,7 @@ class TestEventFilterConversion:
         assert len(events["multi_filter_event"].filters) == 2
 
         # Convert to C++ and verify it succeeds
-        cpp_config = convert_to_cpp_game_config(game_config)
+        cpp_config, _ = convert_to_cpp_game_config(game_config)
         assert "multi_filter_event" in cpp_config.events
 
 
@@ -280,7 +280,7 @@ class TestConvertEventsFunction:
         }
 
         game_config = self._create_game_config_with_events(events)
-        cpp_config = convert_to_cpp_game_config(game_config)
+        cpp_config, _ = convert_to_cpp_game_config(game_config)
 
         assert cpp_config.events["event1"].max_targets == 1
         assert cpp_config.events["event2"].max_targets == 10

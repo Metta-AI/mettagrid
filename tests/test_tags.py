@@ -420,7 +420,7 @@ def test_tag_id_bounds():
     ]
 
     # Convert and verify tag IDs start at 0
-    cpp_config = convert_to_cpp_game_config(game_config)
+    cpp_config, _ = convert_to_cpp_game_config(game_config)
 
     # Tag IDs from explicit agents: alpha, beta, gamma, delta, epsilon + type:agent (auto-generated)
     tag_id_map = cpp_config.tag_id_map
@@ -490,7 +490,7 @@ def test_team_tag_consistency_success():
     ]
 
     # Should succeed
-    cpp_config = convert_to_cpp_game_config(game_config)
+    cpp_config, _ = convert_to_cpp_game_config(game_config)
 
     # Verify tag mapping is correct - tags from explicit agents list + type:agent (auto-generated)
     tag_id_map = cpp_config.tag_id_map
@@ -515,7 +515,7 @@ def test_empty_tags_allowed():
     ]
 
     # Should succeed
-    cpp_config = convert_to_cpp_game_config(game_config)
+    cpp_config, _ = convert_to_cpp_game_config(game_config)
 
     # Verify type:agent tag is in mapping (from validator default + C++ auto-generated, deduplicated)
     tag_id_map = cpp_config.tag_id_map
@@ -584,7 +584,7 @@ def test_default_agent_tags_in_cpp_config():
     game_config.num_agents = 3  # Will create 3 default agents
 
     # Convert to cpp config
-    cpp_config = convert_to_cpp_game_config(game_config)
+    cpp_config, _ = convert_to_cpp_game_config(game_config)
 
     # Verify tag mapping includes the default agent tags
     tag_id_map = cpp_config.tag_id_map
