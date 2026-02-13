@@ -8,18 +8,24 @@ const std::vector<GridObject*> TagIndex::_empty{};
 
 void TagIndex::register_object(GridObject* obj) {
   if (obj == nullptr) return;
-  for (int tag_id : obj->tag_ids) {
-    _objects_by_tag[tag_id].push_back(obj);
-    _counts_by_tag[tag_id] = static_cast<float>(_objects_by_tag[tag_id].size());
+  for (size_t i = 0; i < kMaxTags; ++i) {
+    if (obj->tag_bits.test(i)) {
+      int tag_id = static_cast<int>(i);
+      _objects_by_tag[tag_id].push_back(obj);
+      _counts_by_tag[tag_id] = static_cast<float>(_objects_by_tag[tag_id].size());
+    }
   }
 }
 
 void TagIndex::unregister_object(GridObject* obj) {
   if (obj == nullptr) return;
-  for (int tag_id : obj->tag_ids) {
-    auto& vec = _objects_by_tag[tag_id];
-    vec.erase(std::remove(vec.begin(), vec.end(), obj), vec.end());
-    _counts_by_tag[tag_id] = static_cast<float>(vec.size());
+  for (size_t i = 0; i < kMaxTags; ++i) {
+    if (obj->tag_bits.test(i)) {
+      int tag_id = static_cast<int>(i);
+      auto& vec = _objects_by_tag[tag_id];
+      vec.erase(std::remove(vec.begin(), vec.end(), obj), vec.end());
+      _counts_by_tag[tag_id] = static_cast<float>(vec.size());
+    }
   }
 }
 
