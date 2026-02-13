@@ -98,7 +98,7 @@ def test_cpp_conversion_obs():
             )
         )
     )
-    cpp_config = convert_to_cpp_game_config(config)
+    cpp_config, _ = convert_to_cpp_game_config(config)
 
     assert len(cpp_config.global_obs.obs) == 2
 

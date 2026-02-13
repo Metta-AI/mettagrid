@@ -29,7 +29,7 @@ from .game_value import (
     StatValue,
     TagCountValue,
 )
-from .mettagrid_c_config import convert_to_cpp_game_config
+from .mettagrid_c_config import convert_to_cpp_game_config, rename_map_agents
 from .mettagrid_config import (
     AgentConfig,
     GameConfig,
@@ -86,6 +86,7 @@ __all__ = [
     "NumObjectsValue",
     "numObjectsReward",
     "numTaggedReward",
+    "rename_map_agents",
     "reward",
     "Scope",
     "stat",
