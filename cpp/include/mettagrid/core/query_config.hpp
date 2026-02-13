@@ -4,6 +4,8 @@
 #include <memory>
 #include <vector>
 
+#include "core/filter_config.hpp"
+
 class GridObject;
 
 namespace mettagrid {
@@ -22,6 +24,18 @@ struct QueryConfig {
   QueryOrderBy order_by = QueryOrderBy::none;
   virtual ~QueryConfig() = default;
   virtual std::vector<GridObject*> evaluate(const QuerySystem& system) const = 0;
+};
+
+// Opaque holder for QueryConfig - wraps shared_ptr<QueryConfig> for pybind11 interop.
+struct QueryConfigHolder {
+  std::shared_ptr<QueryConfig> config;
+};
+
+// TagQueryConfig: Find objects with a specific tag, optionally filtered.
+struct TagQueryConfig : public QueryConfig {
+  int tag_id = -1;
+  std::vector<FilterConfig> filters;
+  std::vector<GridObject*> evaluate(const QuerySystem& system) const override;
 };
 
 // Query Tag Config - Tags computed by queries
