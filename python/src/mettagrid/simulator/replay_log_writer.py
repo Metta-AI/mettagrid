@@ -136,8 +136,12 @@ class EpisodeReplay:
                     resource_id = sim.resource_names.index(resource_name)
                     self._resource_to_capacity_id[resource_id] = cap_id
 
+        # If you update this, also update FormatVersion in
+        # mettagrid/nim/mettascope/src/mettascope/replays.nim
+        REPLAY_FORMAT_VERSION = 4
+
         self.replay_data = {
-            "version": 4,
+            "version": REPLAY_FORMAT_VERSION,
             "action_names": sim.action_names,
             "item_names": sim.resource_names,
             "type_names": sim.object_type_names,

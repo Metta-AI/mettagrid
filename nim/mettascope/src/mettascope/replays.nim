@@ -1,7 +1,10 @@
 import std/[algorithm, json, tables, strutils],
-  chroma, silky,
-  zippy, vmath, jsony,
+  chroma, zippy, vmath, jsony, silky,
   ./validation, ./colors
+
+# If you update this, also update REPLAY_FORMAT_VERSION in
+# mettagrid/python/src/mettagrid/simulator/replay_log_writer.py
+const FormatVersion* = 4
 
 type
 
@@ -253,7 +256,7 @@ type
 ## Empty replays is used before a real replay is loaded,
 ## so that we don't need to check for nil everywhere.
 let EmptyReplay* = Replay(
-  version: 2,
+  version: FormatVersion,
   numAgents: 0,
   maxSteps: 0,
   mapSize: (0, 0),
@@ -816,8 +819,8 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
   measurePop()
 
   let fileVersion = getInt(jsonObj, "version")
-  if fileVersion != 4:
-    raise newException(ValueError, "Unsupported replay version. This app supports version 4, but the file is version " & $fileVersion & ". Please update the app to load this replay.")
+  if fileVersion != FormatVersion:
+    raise newException(ValueError, "Unsupported replay version. This app supports version " & $FormatVersion & ", but the file is version " & $fileVersion & ". Please update the app to load this replay.")
 
   measurePush("loadReplayString.validate")
   # Check for validation issues and log them to console.
@@ -830,7 +833,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
 
   measurePush("loadReplayString.parseMetadata")
   # Safe access to required fields with defaults.
-  let version = getInt(jsonObj, "version", 4)
+  let version = getInt(jsonObj, "version", FormatVersion)
   let actionNamesArr = getArray(jsonObj, "action_names")
   let actionNames = if actionNamesArr != nil: actionNamesArr.to(seq[string]) else: @[]
   let itemNamesArr = getArray(jsonObj, "item_names")
