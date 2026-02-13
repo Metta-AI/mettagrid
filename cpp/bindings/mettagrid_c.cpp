@@ -140,6 +140,11 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   _init_grid(game_config, map, _collectives_by_id);
 
+  // Initialize QuerySystem — always created so inline queries in filters/mutations work
+  _query_system = std::make_unique<mettagrid::QuerySystem>(
+      _grid.get(), &_tag_index, &_rng, game_config.query_tags);
+  _query_system->compute_all();
+
   // Initialize EventScheduler from config
   if (!game_config.events.empty()) {
     _event_scheduler = std::make_unique<mettagrid::EventScheduler>(game_config.events, &_rng, &_tag_index);
@@ -861,6 +866,7 @@ void MettaGrid::_step() {
     ctx.tag_index = &_tag_index;
     ctx.grid = _grid.get();
     ctx.collectives = &_collectives;
+    ctx.query_system = _query_system.get();
     agent->apply_on_tick(ctx);
   }
   if (_profiling_enabled) {
@@ -1022,6 +1028,7 @@ size_t MettaGrid::_emit_obs_value_tokens(size_t agent_idx,
   ctx.game_stats = _stats.get();
   ctx.tag_index = &_tag_index;
   ctx.collectives = &_collectives;
+  ctx.query_system = _query_system.get();
 
   size_t total_written = 0;
 

@@ -12,6 +12,7 @@
 
 #include "config/observation_features.hpp"
 #include "core/game_value_config.hpp"
+#include "core/query_config.hpp"
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
 #include "objects/collective_config.hpp"
@@ -66,6 +67,9 @@ struct GameConfig {
 
   // Events - timestep-triggered effects that apply mutations to filtered objects
   std::map<std::string, mettagrid::EventConfig> events;
+
+  // Query tags - computed tag membership from spatial queries
+  std::vector<mettagrid::QueryTagConfig> query_tags;
 };
 
 namespace py = pybind11;
@@ -95,6 +99,116 @@ inline void bind_global_obs_config(py::module& m) {
       .def_readwrite("obs", &GlobalObsConfig::obs);
 }
 
+inline void bind_query_config(py::module& m) {
+  using namespace mettagrid;
+
+  py::enum_<QueryOrderBy>(m, "QueryOrderBy").value("none", QueryOrderBy::none).value("random", QueryOrderBy::random);
+
+  py::class_<TagQueryConfig>(m, "TagQueryConfig")
+      .def(py::init<>())
+      .def_readwrite("tag_id", &TagQueryConfig::tag_id)
+      .def_readwrite("max_items", &TagQueryConfig::max_items)
+      .def_readwrite("order_by", &TagQueryConfig::order_by)
+      .def(
+          "add_tag_filter",
+          [](TagQueryConfig& self, const TagFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_vibe_filter",
+          [](TagQueryConfig& self, const VibeFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_resource_filter",
+          [](TagQueryConfig& self, const ResourceFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_max_distance_filter",
+          [](TagQueryConfig& self, const MaxDistanceFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_neg_filter",
+          [](TagQueryConfig& self, const NegFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_or_filter",
+          [](TagQueryConfig& self, const OrFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_game_value_filter",
+          [](TagQueryConfig& self, const GameValueFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_shared_tag_prefix_filter",
+          [](TagQueryConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"));
+
+  py::class_<ClosureQueryConfig>(m, "ClosureQueryConfig")
+      .def(py::init<>())
+      .def_readwrite("radius", &ClosureQueryConfig::radius)
+      .def_readwrite("max_items", &ClosureQueryConfig::max_items)
+      .def_readwrite("order_by", &ClosureQueryConfig::order_by)
+      .def(
+          "set_source",
+          [](ClosureQueryConfig& self, const QueryConfigHolder& src) { self.source = src.config; },
+          py::arg("source"))
+      .def(
+          "add_tag_filter",
+          [](ClosureQueryConfig& self, const TagFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_shared_tag_prefix_filter",
+          [](ClosureQueryConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_neg_filter",
+          [](ClosureQueryConfig& self, const NegFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_or_filter",
+          [](ClosureQueryConfig& self, const OrFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_max_distance_filter",
+          [](ClosureQueryConfig& self, const MaxDistanceFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_resource_filter",
+          [](ClosureQueryConfig& self, const ResourceFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_game_value_filter",
+          [](ClosureQueryConfig& self, const GameValueFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          py::arg("filter"));
+
+  py::class_<MaxDistanceFilterConfig>(m, "MaxDistanceFilterConfig")
+      .def(py::init<>())
+      .def_readwrite("entity", &MaxDistanceFilterConfig::entity)
+      .def_readwrite("radius", &MaxDistanceFilterConfig::radius)
+      .def(
+          "set_source",
+          [](MaxDistanceFilterConfig& self, const QueryConfigHolder& src) { self.source = src.config; },
+          py::arg("source"));
+
+  py::class_<QueryConfigHolder>(m, "QueryConfigHolder").def(py::init<>());
+
+  m.def("make_query_config",
+        [](const TagQueryConfig& q) { return QueryConfigHolder{std::make_shared<TagQueryConfig>(q)}; });
+  m.def("make_query_config",
+        [](const ClosureQueryConfig& q) { return QueryConfigHolder{std::make_shared<ClosureQueryConfig>(q)}; });
+
+  py::class_<QueryTagConfig>(m, "QueryTagConfig")
+      .def(py::init<>())
+      .def_readwrite("tag_id", &QueryTagConfig::tag_id)
+      .def(
+          "set_query",
+          [](QueryTagConfig& self, const QueryConfigHolder& q) { self.query = q.config; },
+          py::arg("query"));
+
+  py::class_<RecomputeQueryTagMutationConfig>(m, "RecomputeQueryTagMutationConfig")
+      .def(py::init<>())
+      .def_readwrite("tag_id", &RecomputeQueryTagMutationConfig::tag_id);
+}
+
 inline void bind_game_config(py::module& m) {
   py::class_<GameConfig>(m, "GameConfig")
       .def(py::init<unsigned int,
@@ -122,7 +236,10 @@ inline void bind_game_config(py::module& m) {
                     unsigned int,
 
                     // Events
-                    const std::map<std::string, mettagrid::EventConfig>&>(),
+                    const std::map<std::string, mettagrid::EventConfig>&,
+
+                    // Query tags
+                    const std::vector<mettagrid::QueryTagConfig>&>(),
            py::arg("num_agents"),
            py::arg("max_steps"),
            py::arg("episode_truncates"),
@@ -148,7 +265,10 @@ inline void bind_game_config(py::module& m) {
            py::arg("token_value_base") = 256,
 
            // Events
-           py::arg("events") = std::map<std::string, mettagrid::EventConfig>())
+           py::arg("events") = std::map<std::string, mettagrid::EventConfig>(),
+
+           // Query tags
+           py::arg("query_tags") = std::vector<mettagrid::QueryTagConfig>())
       .def_readwrite("num_agents", &GameConfig::num_agents)
       .def_readwrite("max_steps", &GameConfig::max_steps)
       .def_readwrite("episode_truncates", &GameConfig::episode_truncates)
@@ -179,7 +299,10 @@ inline void bind_game_config(py::module& m) {
       .def_readwrite("token_value_base", &GameConfig::token_value_base)
 
       // Events
-      .def_readwrite("events", &GameConfig::events);
+      .def_readwrite("events", &GameConfig::events)
+
+      // Query tags
+      .def_readwrite("query_tags", &GameConfig::query_tags);
 }
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CONFIG_METTAGRID_CONFIG_HPP_
