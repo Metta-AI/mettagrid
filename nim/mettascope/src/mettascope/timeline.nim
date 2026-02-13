@@ -1,7 +1,7 @@
 import
   std/[times, math],
   chroma, vmath, windy, silky,
-  common, actions, gameplayer
+  common, actions, gameplayer, timelineslider
 
 const
   ScrubberColor = parseHtmlColor("#1D1D1D").rgbx
@@ -68,6 +68,6 @@ proc drawTimeline*(pos, size: Vec2) =
   ribbon(pos, size, ScrubberColor):
     let prevStepFloat = stepFloat
     sk.at.y -= 12
-    scrubber("timeline", stepFloat, 0, replay.maxSteps.float32 - 1, $int(stepFloat + 0.5))
+    drawTimelineSlider("timeline", stepFloat, 0, replay.maxSteps.float32 - 1, $int(stepFloat + 0.5))
     if prevStepFloat != stepFloat:
       step = stepFloat.round.int
