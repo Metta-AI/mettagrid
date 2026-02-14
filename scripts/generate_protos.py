@@ -20,7 +20,7 @@ import typer
 def _find_repo_root() -> Path:
     current = Path.cwd().resolve()
     for parent in [current, *current.parents]:
-        if (parent / ".git").exists():
+        if (parent / ".repo-root").exists():
             return parent
     raise SystemExit("Repository root not found")
 
