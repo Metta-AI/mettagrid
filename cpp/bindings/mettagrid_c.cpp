@@ -23,10 +23,10 @@
 #include "actions/move_config.hpp"
 #include "config/observation_features.hpp"
 #include "core/grid.hpp"
-#include "handler/handler_context.hpp"
 #include "core/grid_object_factory.hpp"
 #include "core/types.hpp"
 #include "handler/handler_bindings.hpp"
+#include "handler/handler_context.hpp"
 #include "objects/agent.hpp"
 #include "objects/alignable.hpp"
 #include "objects/collective.hpp"
@@ -141,8 +141,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   _init_grid(game_config, map, _collectives_by_id);
 
   // Initialize QuerySystem — always created so inline queries in filters/mutations work
-  _query_system = std::make_unique<mettagrid::QuerySystem>(
-      _grid.get(), &_tag_index, &_rng, game_config.query_tags);
+  _query_system = std::make_unique<mettagrid::QuerySystem>(_grid.get(), &_tag_index, &_rng, game_config.query_tags);
   _query_system->compute_all();
 
   // Initialize EventScheduler from config
@@ -175,8 +174,8 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   }
 
   if (_validation_enabled) {
-    std::cerr << "[METTAGRID OBS_VALIDATION] ENABLED, primary="
-              << (_use_optimized_primary ? "optimized" : "original") << std::endl;
+    std::cerr << "[METTAGRID OBS_VALIDATION] ENABLED, primary=" << (_use_optimized_primary ? "optimized" : "original")
+              << std::endl;
   }
 
   // Create buffers
@@ -185,8 +184,8 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
 MettaGrid::~MettaGrid() = default;
 
-
-void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map,
+void MettaGrid::_init_grid(const GameConfig& game_config,
+                           const py::list& map,
                            const std::vector<Collective*>& collectives_by_id) {
   GridCoord height = static_cast<GridCoord>(py::len(map));
   GridCoord width = static_cast<GridCoord>(py::len(map[0]));
@@ -226,9 +225,16 @@ void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map,
       const GridObjectConfig* object_cfg = game_config.objects.at(cell).get();
 
       // Create object from config using the factory
-      GridObject* created_object = mettagrid::create_object_from_config(
-          r, c, object_cfg, _stats.get(), &resource_names, _grid.get(), _obs_encoder.get(), &current_step,
-          &_tag_index, &collectives_by_id);
+      GridObject* created_object = mettagrid::create_object_from_config(r,
+                                                                        c,
+                                                                        object_cfg,
+                                                                        _stats.get(),
+                                                                        &resource_names,
+                                                                        _grid.get(),
+                                                                        _obs_encoder.get(),
+                                                                        &current_step,
+                                                                        &_tag_index,
+                                                                        &collectives_by_id);
 
       // Add to grid and track stats
       _grid->add_object(created_object);
@@ -252,7 +258,6 @@ void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map,
         agent->agent_id = static_cast<decltype(agent->agent_id)>(_agents.size());
         add_agent(agent);
       }
-
     }
   }
 }
@@ -329,8 +334,7 @@ void MettaGrid::_compute_agent_goal_obs_tokens(size_t agent_idx) {
     if (added_resources.find(resource_name) != added_resources.end()) return;  // already added
     for (size_t i = 0; i < resource_names.size(); i++) {
       if (resource_names[i] == resource_name) {
-        ObservationType inventory_feature_id =
-            _obs_encoder->get_inventory_feature_id(static_cast<InventoryItem>(i));
+        ObservationType inventory_feature_id = _obs_encoder->get_inventory_feature_id(static_cast<InventoryItem>(i));
         goal_tokens.push_back({ObservationFeature::Goal, inventory_feature_id});
         added_resources.insert(resource_name);
         break;
@@ -366,13 +370,15 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
   if (_use_optimized_primary) {
     if (_validation_enabled) {
       auto start = std::chrono::steady_clock::now();
-      _compute_observation_optimized(observer_row, observer_col, observable_width, observable_height, agent_idx, action);
+      _compute_observation_optimized(
+          observer_row, observer_col, observable_width, observable_height, agent_idx, action);
       auto end = std::chrono::steady_clock::now();
       double elapsed_ns = std::chrono::duration<double, std::nano>(end - start).count();
-      _shadow_validate_observation(observer_row, observer_col, observable_width, observable_height,
-                                   agent_idx, action, elapsed_ns, true);
+      _shadow_validate_observation(
+          observer_row, observer_col, observable_width, observable_height, agent_idx, action, elapsed_ns, true);
     } else {
-      _compute_observation_optimized(observer_row, observer_col, observable_width, observable_height, agent_idx, action);
+      _compute_observation_optimized(
+          observer_row, observer_col, observable_width, observable_height, agent_idx, action);
     }
   } else {
     if (_validation_enabled) {
@@ -380,8 +386,8 @@ void MettaGrid::_compute_observation(GridCoord observer_row,
       _compute_observation_original(observer_row, observer_col, observable_width, observable_height, agent_idx, action);
       auto end = std::chrono::steady_clock::now();
       double elapsed_ns = std::chrono::duration<double, std::nano>(end - start).count();
-      _shadow_validate_observation(observer_row, observer_col, observable_width, observable_height,
-                                   agent_idx, action, elapsed_ns, false);
+      _shadow_validate_observation(
+          observer_row, observer_col, observable_width, observable_height, agent_idx, action, elapsed_ns, false);
     } else {
       _compute_observation_original(observer_row, observer_col, observable_width, observable_height, agent_idx, action);
     }
@@ -445,8 +451,8 @@ void MettaGrid::_shadow_validate_observation(GridCoord observer_row,
       size_t token_idx = first_mismatch_idx / token_size;
       size_t component = first_mismatch_idx % token_size;
       const char* component_names[] = {"location", "feature_id", "value"};
-      std::cerr << "[METTAGRID OBS_VALIDATION] Mismatch at agent " << agent_idx
-                << " token " << token_idx << " " << component_names[component]
+      std::cerr << "[METTAGRID OBS_VALIDATION] Mismatch at agent " << agent_idx << " token " << token_idx << " "
+                << component_names[component]
                 << ": primary=" << static_cast<int>(_shadow_obs_buffer[first_mismatch_idx])
                 << " secondary=" << static_cast<int>(primary_obs[first_mismatch_idx]) << std::endl;
     }
@@ -466,8 +472,8 @@ void MettaGrid::_shadow_validate_observation(GridCoord observer_row,
   auto count = _obs_validation_stats.comparison_count;
   if (count == 1000 || count == 10000 || (count >= 100000 && count % 100000 == 0)) {
     double ratio = _obs_validation_stats.original_time_ns / std::max(_obs_validation_stats.optimized_time_ns, 1.0);
-    std::cerr << "[METTAGRID OBS_VALIDATION] " << _obs_validation_stats.comparison_count
-              << " comparisons, " << _obs_validation_stats.mismatch_count << " mismatches, "
+    std::cerr << "[METTAGRID OBS_VALIDATION] " << _obs_validation_stats.comparison_count << " comparisons, "
+              << _obs_validation_stats.mismatch_count << " mismatches, "
               << "timing ratio=" << std::fixed << std::setprecision(2) << ratio << "x" << std::endl;
   }
 
@@ -543,18 +549,14 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
     int dc = static_cast<int>(agent.location.c) - static_cast<int>(agent.spawn_location.c);
     int dr = static_cast<int>(agent.spawn_location.r) - static_cast<int>(agent.location.r);
     if (dc > 0) {
-      global_tokens.push_back(
-          {ObservationFeature::LpEast, static_cast<ObservationType>(std::min(dc, 255))});
+      global_tokens.push_back({ObservationFeature::LpEast, static_cast<ObservationType>(std::min(dc, 255))});
     } else if (dc < 0) {
-      global_tokens.push_back(
-          {ObservationFeature::LpWest, static_cast<ObservationType>(std::min(-dc, 255))});
+      global_tokens.push_back({ObservationFeature::LpWest, static_cast<ObservationType>(std::min(-dc, 255))});
     }
     if (dr > 0) {
-      global_tokens.push_back(
-          {ObservationFeature::LpNorth, static_cast<ObservationType>(std::min(dr, 255))});
+      global_tokens.push_back({ObservationFeature::LpNorth, static_cast<ObservationType>(std::min(dr, 255))});
     } else if (dr < 0) {
-      global_tokens.push_back(
-          {ObservationFeature::LpSouth, static_cast<ObservationType>(std::min(-dr, 255))});
+      global_tokens.push_back({ObservationFeature::LpSouth, static_cast<ObservationType>(std::min(-dr, 255))});
     }
   }
 
@@ -566,8 +568,7 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
   tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
 
   // Emit obs tokens - resolve each GameValueConfig inline
-  attempted_tokens_written +=
-      _emit_obs_value_tokens(agent_idx, tokens_written, global_location);
+  attempted_tokens_written += _emit_obs_value_tokens(agent_idx, tokens_written, global_location);
   tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
 
   // Process locations in increasing manhattan distance order
@@ -684,18 +685,14 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
     int dc = static_cast<int>(agent.location.c) - static_cast<int>(agent.spawn_location.c);
     int dr = static_cast<int>(agent.spawn_location.r) - static_cast<int>(agent.location.r);
     if (dc > 0) {
-      global_tokens.push_back(
-          {ObservationFeature::LpEast, static_cast<ObservationType>(std::min(dc, 255))});
+      global_tokens.push_back({ObservationFeature::LpEast, static_cast<ObservationType>(std::min(dc, 255))});
     } else if (dc < 0) {
-      global_tokens.push_back(
-          {ObservationFeature::LpWest, static_cast<ObservationType>(std::min(-dc, 255))});
+      global_tokens.push_back({ObservationFeature::LpWest, static_cast<ObservationType>(std::min(-dc, 255))});
     }
     if (dr > 0) {
-      global_tokens.push_back(
-          {ObservationFeature::LpNorth, static_cast<ObservationType>(std::min(dr, 255))});
+      global_tokens.push_back({ObservationFeature::LpNorth, static_cast<ObservationType>(std::min(dr, 255))});
     } else if (dr < 0) {
-      global_tokens.push_back(
-          {ObservationFeature::LpSouth, static_cast<ObservationType>(std::min(-dr, 255))});
+      global_tokens.push_back({ObservationFeature::LpSouth, static_cast<ObservationType>(std::min(-dr, 255))});
     }
   }
 
@@ -707,8 +704,7 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
   tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
 
   // Emit obs tokens - resolve each GameValueConfig inline
-  attempted_tokens_written +=
-      _emit_obs_value_tokens(agent_idx, tokens_written, global_location);
+  attempted_tokens_written += _emit_obs_value_tokens(agent_idx, tokens_written, global_location);
   tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
 
   // Process locations in increasing manhattan distance order (using pre-computed offsets)
@@ -739,8 +735,7 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
     // Alternative: count objects only (cheaper, but tokens_dropped becomes objects_dropped).
     size_t buffer_capacity = static_cast<size_t>(observation_view.shape(1));
     if (tokens_written >= buffer_capacity) {
-      attempted_tokens_written += obj->write_obs_features(
-          _obs_features_scratch.data(), _obs_features_scratch.size());
+      attempted_tokens_written += obj->write_obs_features(_obs_features_scratch.data(), _obs_features_scratch.size());
       continue;
     }
 
@@ -1015,9 +1010,7 @@ void MettaGrid::step() {
   _step();
 }
 
-size_t MettaGrid::_emit_obs_value_tokens(size_t agent_idx,
-                                          size_t tokens_written,
-                                          ObservationType global_location) {
+size_t MettaGrid::_emit_obs_value_tokens(size_t agent_idx, size_t tokens_written, ObservationType global_location) {
   auto observation_view = _observations.mutable_unchecked<3>();
   auto* agent = _agents[agent_idx];
 
@@ -1049,8 +1042,7 @@ size_t MettaGrid::_emit_obs_value_tokens(size_t agent_idx,
         if (gv.type == GameValueType::INVENTORY) {
           raw_value = static_cast<float>(collective->inventory.amount(gv.id));
         } else if (gv.type == GameValueType::STAT) {
-          raw_value = !gv.stat_name.empty() ? collective->stats.get(gv.stat_name)
-                                            : *collective->stats.get_ptr(gv.id);
+          raw_value = !gv.stat_name.empty() ? collective->stats.get(gv.stat_name) : *collective->stats.get_ptr(gv.id);
         }
       }
     } else {
@@ -1060,8 +1052,7 @@ size_t MettaGrid::_emit_obs_value_tokens(size_t agent_idx,
     auto tokens = _token_encoder->encode(obs_cfg.feature_id, static_cast<uint32_t>(raw_value));
     ObservationToken* ptr = reinterpret_cast<ObservationToken*>(
         observation_view.mutable_data(agent_idx, tokens_written + total_written, 0));
-    ObservationTokens obs_tokens(
-        ptr, static_cast<size_t>(observation_view.shape(1)) - tokens_written - total_written);
+    ObservationTokens obs_tokens(ptr, static_cast<size_t>(observation_view.shape(1)) - tokens_written - total_written);
     total_written += _obs_encoder->append_tokens_if_room_available(obs_tokens, tokens, global_location);
   }
 

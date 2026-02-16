@@ -1,18 +1,18 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
-#include "handler/event_bindings.hpp"
 #include "actions/attack.hpp"
 #include "actions/change_vibe.hpp"
 #include "actions/move_config.hpp"
 #include "bindings/mettagrid_c.hpp"
 #include "core/grid.hpp"
 #include "core/tag_index.hpp"
+#include "handler/event_bindings.hpp"
 #include "handler/handler_bindings.hpp"
 #include "objects/agent.hpp"
-#include "objects/reward_config.hpp"
 #include "objects/collective.hpp"
 #include "objects/protocol.hpp"
+#include "objects/reward_config.hpp"
 #include "objects/wall.hpp"
 #include "systems/packed_coordinate.hpp"
 #include "systems/reward.hpp"
@@ -201,8 +201,7 @@ std::optional<float> MettaGrid::get_agent_stat(uint32_t agent_id, const std::str
   return agent->stats.get_if_present(key);
 }
 
-std::optional<float> MettaGrid::get_collective_stat(
-    const std::string& collective_name, const std::string& key) const {
+std::optional<float> MettaGrid::get_collective_stat(const std::string& collective_name, const std::string& key) const {
   auto it = _collectives_by_name.find(collective_name);
   if (it == _collectives_by_name.end() || it->second == nullptr) {
     return std::nullopt;
@@ -279,49 +278,50 @@ PYBIND11_MODULE(mettagrid_c, m) {
   bind_protocol(m);
 
   // MettaGrid class bindings
-  auto mettagrid_cls = py::class_<MettaGrid>(m, "MettaGrid")
-      .def(py::init<const GameConfig&, const py::list&, unsigned int>())
-      .def("step", &MettaGrid::step)
-      .def("set_buffers",
-           &MettaGrid::set_buffers,
-           py::arg("observations").noconvert(),
-           py::arg("terminals").noconvert(),
-           py::arg("truncations").noconvert(),
-           py::arg("rewards").noconvert(),
-           py::arg("actions").noconvert())
-      .def(
-          "grid_objects",
-          [](MettaGrid& self, int min_row, int max_row, int min_col, int max_col, const py::list& ignore_types) {
-            return self.grid_objects(py::cast(&self), min_row, max_row, min_col, max_col, ignore_types);
-          },
-          py::arg("min_row") = -1,
-          py::arg("max_row") = -1,
-          py::arg("min_col") = -1,
-          py::arg("max_col") = -1,
-          py::arg("ignore_types") = py::list())
-      .def("observations", &MettaGrid::observations)
-      .def("terminals", &MettaGrid::terminals)
-      .def("truncations", &MettaGrid::truncations)
-      .def("rewards", &MettaGrid::rewards)
-      .def("masks", &MettaGrid::masks)
-      .def("actions", &MettaGrid::actions)
-      .def_property_readonly("map_width", &MettaGrid::map_width)
-      .def_property_readonly("map_height", &MettaGrid::map_height)
-      .def("get_episode_rewards", &MettaGrid::get_episode_rewards)
-      .def("get_episode_stats", &MettaGrid::get_episode_stats)
-      .def("get_game_stat", &MettaGrid::get_game_stat)
-      .def("get_agent_stat", &MettaGrid::get_agent_stat)
-      .def("get_collective_stat", &MettaGrid::get_collective_stat)
-      .def("action_success", &MettaGrid::action_success_py)
-      .def_readonly("obs_width", &MettaGrid::obs_width)
-      .def_readonly("obs_height", &MettaGrid::obs_height)
-      .def_readonly("max_steps", &MettaGrid::max_steps)
-      .def_readonly("current_step", &MettaGrid::current_step)
-      .def_readonly("object_type_names", &MettaGrid::object_type_names)
-      .def_readonly("resource_names", &MettaGrid::resource_names)
-      .def("set_inventory", &MettaGrid::set_inventory, py::arg("agent_id"), py::arg("inventory"))
-      .def("get_collective_inventories", &MettaGrid::get_collective_inventories)
-      .def("tag_index", &MettaGrid::tag_index, py::return_value_policy::reference_internal);
+  auto mettagrid_cls =
+      py::class_<MettaGrid>(m, "MettaGrid")
+          .def(py::init<const GameConfig&, const py::list&, unsigned int>())
+          .def("step", &MettaGrid::step)
+          .def("set_buffers",
+               &MettaGrid::set_buffers,
+               py::arg("observations").noconvert(),
+               py::arg("terminals").noconvert(),
+               py::arg("truncations").noconvert(),
+               py::arg("rewards").noconvert(),
+               py::arg("actions").noconvert())
+          .def(
+              "grid_objects",
+              [](MettaGrid& self, int min_row, int max_row, int min_col, int max_col, const py::list& ignore_types) {
+                return self.grid_objects(py::cast(&self), min_row, max_row, min_col, max_col, ignore_types);
+              },
+              py::arg("min_row") = -1,
+              py::arg("max_row") = -1,
+              py::arg("min_col") = -1,
+              py::arg("max_col") = -1,
+              py::arg("ignore_types") = py::list())
+          .def("observations", &MettaGrid::observations)
+          .def("terminals", &MettaGrid::terminals)
+          .def("truncations", &MettaGrid::truncations)
+          .def("rewards", &MettaGrid::rewards)
+          .def("masks", &MettaGrid::masks)
+          .def("actions", &MettaGrid::actions)
+          .def_property_readonly("map_width", &MettaGrid::map_width)
+          .def_property_readonly("map_height", &MettaGrid::map_height)
+          .def("get_episode_rewards", &MettaGrid::get_episode_rewards)
+          .def("get_episode_stats", &MettaGrid::get_episode_stats)
+          .def("get_game_stat", &MettaGrid::get_game_stat)
+          .def("get_agent_stat", &MettaGrid::get_agent_stat)
+          .def("get_collective_stat", &MettaGrid::get_collective_stat)
+          .def("action_success", &MettaGrid::action_success_py)
+          .def_readonly("obs_width", &MettaGrid::obs_width)
+          .def_readonly("obs_height", &MettaGrid::obs_height)
+          .def_readonly("max_steps", &MettaGrid::max_steps)
+          .def_readonly("current_step", &MettaGrid::current_step)
+          .def_readonly("object_type_names", &MettaGrid::object_type_names)
+          .def_readonly("resource_names", &MettaGrid::resource_names)
+          .def("set_inventory", &MettaGrid::set_inventory, py::arg("agent_id"), py::arg("inventory"))
+          .def("get_collective_inventories", &MettaGrid::get_collective_inventories)
+          .def("tag_index", &MettaGrid::tag_index, py::return_value_policy::reference_internal);
 
   // Profiling bindings (defined in profiling_py.cpp)
   bind_profiling_properties(mettagrid_cls);
