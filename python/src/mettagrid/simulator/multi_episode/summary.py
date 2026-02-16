@@ -26,8 +26,10 @@ class MultiEpisodeRolloutSummary(BaseModel):
     episodes: int
     # Summaries for each policy for this mission
     policy_summaries: list[MultiEpisodeRolloutPolicySummary]
-    # Averaged game stats across all episodes for this mission
+    # Averaged game stats across all episodes for this mission (end-of-episode snapshots)
     avg_game_stats: dict[str, float]
+    # Time-averaged game stats across all episodes (mean over all timesteps, not just episode end)
+    avg_time_averaged_game_stats: dict[str, float] = {}
     # per_episode_per_policy_avg_rewards[episode_idx][policy_idx] = \
     #     average reward per policy for this episode (or None if the policy had no agents in this episode)
     per_episode_per_policy_avg_rewards: dict[int, list[float | None]]
@@ -46,12 +48,15 @@ def build_multi_episode_rollout_summaries(
         policy_counts = np.bincount(mission_result.episodes[0].assignments, minlength=num_policies)
 
         summed_game_stats: defaultdict[str, float] = defaultdict(float)
+        summed_time_averaged_game_stats: defaultdict[str, float] = defaultdict(float)
         summed_policy_stats: list[defaultdict[str, float]] = [defaultdict(float) for _ in range(num_policies)]
 
         for e in mission_result.episodes:
             game_stats = e.stats.get("game", {})
             for key, value in game_stats.items():
                 summed_game_stats[key] += float(value)
+            for key, value in e.time_averaged_game_stats.items():
+                summed_time_averaged_game_stats[key] += float(value)
 
             agent_stats_list = e.stats.get("agent", [])
             for agent_id, agent_stats in enumerate(agent_stats_list):
@@ -64,8 +69,12 @@ def build_multi_episode_rollout_summaries(
         transpired_episodes = len(mission_result.episodes)
         if transpired_episodes:
             avg_game_stats = {key: value / transpired_episodes for key, value in summed_game_stats.items()}
+            avg_time_averaged_game_stats = {
+                key: value / transpired_episodes for key, value in summed_time_averaged_game_stats.items()
+            }
         else:
             avg_game_stats = {}
+            avg_time_averaged_game_stats = {}
 
         materialized_policy_stats = [dict(stats) for stats in summed_policy_stats]
 
@@ -113,6 +122,7 @@ def build_multi_episode_rollout_summaries(
                 episodes=transpired_episodes,
                 policy_summaries=policy_summaries,
                 avg_game_stats=avg_game_stats,
+                avg_time_averaged_game_stats=avg_time_averaged_game_stats,
                 per_episode_per_policy_avg_rewards=per_episode_per_policy_avg_rewards,
             )
         )

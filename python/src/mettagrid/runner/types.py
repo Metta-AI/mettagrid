@@ -57,6 +57,7 @@ class PureSingleEpisodeResult(BaseModel):
     action_timeouts: list[int]
     stats: EpisodeStats
     steps: int
+    time_averaged_game_stats: dict[str, float] = Field(default_factory=dict)
 
 
 class RuntimeInfo(BaseModel):

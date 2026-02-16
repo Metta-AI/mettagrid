@@ -12,6 +12,7 @@ from mettagrid.runner.types import PureSingleEpisodeResult
 from mettagrid.simulator.multi_episode.rollout import EpisodeRolloutResult, MultiEpisodeRolloutResult
 from mettagrid.simulator.replay_log_writer import EpisodeReplay, InMemoryReplayWriter
 from mettagrid.simulator.rollout import Rollout
+from mettagrid.simulator.time_averaged_stats import TimeAveragedStatsHandler
 from mettagrid.util.file import write_data
 from mettagrid.util.tracer import Tracer
 
@@ -68,6 +69,11 @@ def single_episode_rollout(
     if trace_path:
         tracer = Tracer(trace_path)
 
+    stats_handler = TimeAveragedStatsHandler()
+    event_handlers: list = [stats_handler]
+    if replay_writer is not None:
+        event_handlers.append(replay_writer)
+
     rollout = Rollout(
         env,
         agent_policies,
@@ -76,7 +82,7 @@ def single_episode_rollout(
         render_mode=render_mode,
         autostart=autostart,
         seed=seed,
-        event_handlers=[replay_writer] if replay_writer is not None else None,
+        event_handlers=event_handlers,
         tracer=tracer,
     )
     rollout.run_until_done()
@@ -89,6 +95,7 @@ def single_episode_rollout(
         action_timeouts=list(rollout.timeout_counts),
         stats=rollout._sim.episode_stats,
         steps=rollout._sim.current_step,
+        time_averaged_game_stats=stats_handler.time_averaged_game_stats,
     )
     replay: Optional[EpisodeReplay] = None
     if replay_writer is not None:
@@ -205,6 +212,7 @@ def run_multi_episode_rollout(
             replay_path=str(replay_path) if replay_path else None,
             steps=ep_results.steps,
             max_steps=env_cfg.game.max_steps,
+            time_averaged_game_stats=ep_results.time_averaged_game_stats,
         )
         episode_results.append(result)
         if on_progress:
