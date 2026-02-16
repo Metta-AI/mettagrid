@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
 #include <limits>
 #include <queue>
 #include <random>
@@ -159,7 +160,9 @@ std::vector<GridObject*> ClosureQueryConfig::evaluate(const QuerySystem& system)
         GridObject* neighbor = grid->object_at(GridLocation(static_cast<GridCoord>(nr), static_cast<GridCoord>(nc)));
         if (!neighbor || distances.count(neighbor)) continue;
 
-        // Empty edge_filter means no expansion (only roots get the tag)
+        // Empty edge_filter means no expansion (only roots get the tag);
+        // otherwise matches_filters would return true for all neighbors and
+        // incorrectly include agents/other objects.
         if (!edge_filter.empty() && system.matches_filters(neighbor, edge_filter)) {
           distances[neighbor] = current_dist + 1;
           frontier.push(neighbor);
@@ -172,6 +175,17 @@ std::vector<GridObject*> ClosureQueryConfig::evaluate(const QuerySystem& system)
   visited.reserve(distances.size());
   for (const auto& [obj, _] : distances) {
     visited.push_back(obj);
+  }
+
+  // Optionally restrict result to objects that pass result_filters (e.g. junction-only)
+  if (!result_filters.empty()) {
+    std::vector<GridObject*> filtered;
+    for (auto* obj : visited) {
+      if (system.matches_filters(obj, result_filters)) {
+        filtered.push_back(obj);
+      }
+    }
+    visited = std::move(filtered);
   }
 
   return system.apply_limits(std::move(visited), max_items, order_by);
