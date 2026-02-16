@@ -7,11 +7,13 @@ import
   panels/objectpanel
 
 const
-  TILE_SIZE = 128
-  TS = 1.0 / TILE_SIZE.float32 # Tile scale.
-  MINI_TILE_SIZE = 16
-  MTS = 1.0 / MINI_TILE_SIZE.float32 # Mini tile scale for minimap.
-  MINI_VIEW_ZOOM_THRESHOLD = 4.25f # Show mini/pip overlays at a less zoomed-out level.
+  TileSize = 128
+  Ts = 1.0 / TileSize.float32 # Tile scale.
+  MiniTileSize = 16
+  Mts = 1.0 / MiniTileSize.float32 # Mini tile scale for minimap.
+  MiniViewZoomThreshold = 4.25f # Show mini/pip overlays at a less zoomed-out level.
+  FollowMarginScreenFraction = 0.2f # Keep selected agent within 1/5 of screen edges.
+  FollowMarginMaxWorldTiles = 5.0f # Cap edge margin to 5 world tiles when zoomed out.
 
 proc centerAt*(zoomInfo: ZoomInfo, entity: Entity)
 
@@ -652,7 +654,7 @@ proc drawObjects*() {.measure.} =
 
       px.drawSprite(
         agentImage,
-        pos * TILE_SIZE + SpriteOffset
+        pos * TileSize + SpriteOffset
       )
     else:
       let spriteName =
@@ -666,7 +668,7 @@ proc drawObjects*() {.measure.} =
           "objects/unknown"
       px.drawSprite(
         spriteName,
-        pos * TILE_SIZE + SpriteOffset
+        pos * TileSize + SpriteOffset
       )
 
 proc drawVisualRanges*(alpha = 0.5) {.measure.} =
@@ -744,7 +746,7 @@ proc drawTrajectory*() {.measure.} =
           # Draw centered at the tile with rotation. Use a slightly larger scale on diagonals.
           px.drawSprite(
             image,
-            ivec2(cx0.int32, cy0.int32) * TILE_SIZE
+            ivec2(cx0.int32, cy0.int32) * TileSize
           )
         prevDirection = thisDirection
 
@@ -807,7 +809,7 @@ proc drawAgentDecorations*() {.measure.} =
   for agent in replay.agents:
     if not agent.alive.at:
       continue
-    let pos = agent.location.at.xy.ivec2 * TILE_SIZE
+    let pos = agent.location.at.xy.ivec2 * TileSize
     let tint = getCollectiveColor(agent.collectiveId.at(step))
     # HP bar - large pips, colored by collective
     let hp = getInventoryItem(agent, "hp")
@@ -864,7 +866,7 @@ proc drawPlannedPath*() {.measure.} =
 
       px.drawSprite(
         "agents/path",
-        pos0.ivec2 * TILE_SIZE
+        pos0.ivec2 * TileSize
       )
       currentPos = action.pos
 
@@ -876,7 +878,7 @@ proc drawPlannedPath*() {.measure.} =
         if objective.kind in {Move, Bump}:
           px.drawSprite(
             "objects/selection",
-            objective.pos.ivec2 * TILE_SIZE
+            objective.pos.ivec2 * TileSize
           )
 
       # Draw approach arrows for bump objectives.
@@ -895,7 +897,7 @@ proc drawPlannedPath*() {.measure.} =
             rotation = Pi
           px.drawSprite(
             "agents/arrow",
-            approachPos.ivec2 * TILE_SIZE + offset.ivec2
+            approachPos.ivec2 * TileSize + offset.ivec2
           )
 
 proc drawSelection*() {.measure.} =
@@ -903,7 +905,7 @@ proc drawSelection*() {.measure.} =
   if selection != nil:
     px.drawSprite(
       "objects/selection",
-      selection.location.at.xy.ivec2 * TILE_SIZE,
+      selection.location.at.xy.ivec2 * TileSize,
     )
 
 proc drawPolicyTarget*() {.measure.} =
@@ -932,7 +934,7 @@ proc drawPolicyTarget*() {.measure.} =
     if not first and (x != targetPos.x or y != targetPos.y):
       px.drawSprite(
         "agents/path",
-        ivec2(x, y) * TILE_SIZE,
+        ivec2(x, y) * TileSize,
         greenTint
       )
     first = false
@@ -950,7 +952,7 @@ proc drawPolicyTarget*() {.measure.} =
 
   px.drawSprite(
     "objects/selection",
-    targetPos * TILE_SIZE,
+    targetPos * TileSize,
     greenTint
   )
 
@@ -1006,7 +1008,7 @@ proc drawObjectPips*() {.measure.} =
       WhiteTint
     pxMini.drawSprite(
       pipName,
-      loc.ivec2 * MINI_TILE_SIZE,
+      loc.ivec2 * MiniTileSize,
       pipTint
     )
 
@@ -1039,7 +1041,7 @@ proc drawWorldMini*() {.measure.} =
 
   drawObjectPips()
 
-  pxMini.flush(getProjectionView() * scale(vec3(MTS, MTS, 1.0f)))
+  pxMini.flush(getProjectionView() * scale(vec3(Mts, Mts, 1.0f)))
 
 proc centerAt*(zoomInfo: ZoomInfo, entity: Entity) =
   ## Center the map on the given entity.
@@ -1053,6 +1055,50 @@ proc centerAt*(zoomInfo: ZoomInfo, entity: Entity) =
   let z = zoomInfo.zoom * zoomInfo.zoom
   zoomInfo.pos.x = rectW / 2.0f - location.x.float32 * z
   zoomInfo.pos.y = rectH / 2.0f - location.y.float32 * z
+
+proc keepSelectedAgentInView*(zoomInfo: ZoomInfo) =
+  ## Keep selected agent inside a zoom-aware safe margin.
+  if selection.isNil or not selection.isAgent:
+    return
+
+  let
+    rectW = zoomInfo.rect.w.float32
+    rectH = zoomInfo.rect.h.float32
+    z = zoomInfo.zoom * zoomInfo.zoom
+  if rectW <= 0 or rectH <= 0 or z <= 0:
+    return
+
+  let
+    agentPos = selection.location.at(step).xy.vec2
+    maxMarginPx = FollowMarginMaxWorldTiles * z
+    marginX = min(rectW * FollowMarginScreenFraction, maxMarginPx)
+    marginY = min(rectH * FollowMarginScreenFraction, maxMarginPx)
+    minX = marginX
+    maxX = rectW - marginX
+    minY = marginY
+    maxY = rectH - marginY
+
+  var
+    agentScreenX = agentPos.x * z + zoomInfo.pos.x
+    agentScreenY = agentPos.y * z + zoomInfo.pos.y
+    moved = false
+
+  if agentScreenX < minX:
+    zoomInfo.pos.x = minX - agentPos.x * z
+    moved = true
+  elif agentScreenX > maxX:
+    zoomInfo.pos.x = maxX - agentPos.x * z
+    moved = true
+
+  if agentScreenY < minY:
+    zoomInfo.pos.y = minY - agentPos.y * z
+    moved = true
+  elif agentScreenY > maxY:
+    zoomInfo.pos.y = maxY - agentPos.y * z
+    moved = true
+
+  if moved:
+    clampMapPan(zoomInfo)
 
 proc drawWorldMain*() {.measure.} =
   ## Draw the world map.
@@ -1087,7 +1133,7 @@ proc drawWorldMain*() {.measure.} =
   drawAgentDecorations()
   drawPlannedPath()
 
-  px.flush(getProjectionView() * scale(vec3(TS, TS, 1.0f)))
+  px.flush(getProjectionView() * scale(vec3(Ts, Ts, 1.0f)))
 
   if settings.showVisualRange:
     drawVisualRanges()
@@ -1216,6 +1262,8 @@ proc drawWorldMap*(zoomInfo: ZoomInfo) {.measure.} =
   if settings.lockFocus:
     centerAt(zoomInfo, selection)
 
+  keepSelectedAgentInView(zoomInfo)
+
   zoomInfo.beginPanAndZoom()
 
   if zoomInfo.hasMouse:
@@ -1223,7 +1271,7 @@ proc drawWorldMap*(zoomInfo: ZoomInfo) {.measure.} =
 
   agentControls()
 
-  if zoomInfo.zoom < MINI_VIEW_ZOOM_THRESHOLD:
+  if zoomInfo.zoom < MiniViewZoomThreshold:
     drawWorldMini()
   else:
     drawWorldMain()
