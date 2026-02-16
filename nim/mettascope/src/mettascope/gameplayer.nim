@@ -98,25 +98,6 @@ proc computeJunctionCount(): int =
       junctionCount += 1
   return junctionCount
 
-proc globalResource(name: string): int =
-  ## Count the total amount of a named resource across all agents
-  ## in the active collective.
-  if replay.isNil:
-    return 0
-  let cid = activeCollective
-  var itemId = -1
-  for i, n in replay.itemNames:
-    if n == name:
-      itemId = i
-      break
-  if itemId < 0:
-    return 0
-  for obj in replay.objects:
-    if obj.isAgent and obj.collectiveId.at(step) == cid:
-      for item in obj.inventory.at:
-        if item.itemId == itemId:
-          result += item.count
-
 proc drawIconScaled(
   name: string,
   pos: Vec2,
@@ -229,12 +210,12 @@ proc drawGameWorld*() =
   if not replay.isNil:
     const
       IconSize = 48.0f
+      IconSpacing = 8.0f
       TextSize = 32.0f
-      Spacing = 16.0f
+      Spacing = 32.0f
       YPad = 42.0f
-      XPad = 42.0f
+      XPad = 52.0f
     let resources = [
-      ("resources/heart", "heart"),
       ("resources/carbon", "carbon"),
       ("resources/oxygen", "oxygen"),
       ("resources/germanium", "germanium"),
@@ -244,9 +225,9 @@ proc drawGameWorld*() =
     let y = trPos.y + YPad
     for i, (icon, name) in resources:
       drawIconScaled(icon, vec2(x, y), IconSize)
-      x += IconSize + 4
+      x += IconSize + IconSpacing
       let
-        count = globalResource(name)
+        count = getCollectiveResourceCount(activeCollective, name)
         countText = &"{count:03d}"
       discard sk.drawText(
         "pixelated",

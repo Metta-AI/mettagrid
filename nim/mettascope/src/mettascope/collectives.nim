@@ -46,6 +46,24 @@ proc getAgentRigName*(agent: Entity): string =
       return itemName
   return "agent"
 
+proc getCollectiveResourceCount*(collectiveId: int, itemName: string): int =
+  ## Get resource count for a collective at current step.
+  ## Uses step-expanded canonical collective_inventory only.
+  ## If no value exists at the current step, returns 0.
+  if replay.isNil:
+    return 0
+  if collectiveId < 0 or collectiveId >= replay.collectives.len:
+    return 0
+
+  if collectiveId < replay.collectiveInventory.len and
+      step >= 0 and step < replay.collectiveInventory[collectiveId].len:
+    let inventory = replay.collectiveInventory[collectiveId][step]
+    if inventory.hasKey(itemName):
+      return inventory[itemName]
+    return 0
+
+  return 0
+
 proc getCollectiveStats*(): seq[CollectiveStats] =
   ## Collect statistics for all collectives from the replay.
   result = @[]
@@ -66,6 +84,12 @@ proc getCollectiveStats*(): seq[CollectiveStats] =
       agentsByRig: initTable[string, int]()
     )
     result.add(stats)
+
+  # Load step-expanded canonical collective inventory when available.
+  for cid in 0 ..< numCollectives:
+    if cid < replay.collectiveInventory.len and
+        step >= 0 and step < replay.collectiveInventory[cid].len:
+      result[cid].inventory = replay.collectiveInventory[cid][step]
 
   # Iterate all objects and aggregate stats by collective.
   for obj in replay.objects:
