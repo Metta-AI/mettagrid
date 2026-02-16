@@ -15,10 +15,12 @@ class GridObject;
 namespace mettagrid {
 
 class TagIndex;
+class Filter;
 
 /**
  * QuerySystem - Computes query tags from QueryConfig definitions.
  *
+ * Supports TagQuery and ClosureQuery (with MaxDistance filters).
  * Recomputation is explicit via recompute(tag_id), triggered by
  * RecomputeQueryTagMutation.
  */

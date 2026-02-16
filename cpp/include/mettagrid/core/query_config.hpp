@@ -6,10 +6,13 @@
 
 #include "core/filter_config.hpp"
 
+// Forward declarations for query evaluate()
+class Grid;
 class GridObject;
 
 namespace mettagrid {
 
+// Forward declaration for QuerySystem (used by QueryConfig::evaluate)
 class QuerySystem;
 
 // Order-by for query results
@@ -31,6 +34,10 @@ struct QueryConfigHolder {
   std::shared_ptr<QueryConfig> config;
 };
 
+// ============================================================================
+// Concrete Query Configs
+// ============================================================================
+
 // TagQueryConfig: Find objects with a specific tag, optionally filtered.
 struct TagQueryConfig : public QueryConfig {
   int tag_id = -1;
@@ -40,13 +47,17 @@ struct TagQueryConfig : public QueryConfig {
 
 // ClosureQueryConfig: BFS from source through edge_filter-filtered neighbors.
 struct ClosureQueryConfig : public QueryConfig {
-  std::shared_ptr<QueryConfig> source;
-  std::vector<FilterConfig> edge_filter;
-  unsigned int radius = 0;  // Chebyshev expansion distance (0 = unlimited)
+  std::shared_ptr<QueryConfig> source;       // root query
+  std::vector<FilterConfig> edge_filter;     // filters applied to neighbors for BFS expansion
+  std::vector<FilterConfig> result_filters;  // filters applied to result set (e.g. junction-only)
+  unsigned int radius = 0;                   // Chebyshev expansion distance (0 = unlimited)
   std::vector<GridObject*> evaluate(const QuerySystem& system) const override;
 };
 
+// ============================================================================
 // Query Tag Config - Tags computed by queries
+// ============================================================================
+
 struct QueryTagConfig {
   int tag_id = -1;
   std::shared_ptr<QueryConfig> query;
