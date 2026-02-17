@@ -68,19 +68,25 @@ std::vector<GridObject*> QuerySystem::apply_limits(std::vector<GridObject*> resu
 
 void QuerySystem::compute_all() {
   _computing = true;
+  // Build a context for tag operations (skip handlers during query computation)
+  HandlerContext ctx;
+  ctx.tag_index = _tag_index;
+  ctx.grid = _grid;
+  ctx.query_system = this;
+  ctx.skip_on_update_trigger = true;
 
   for (const auto& def : _query_tags) {
     // Remove existing tag from all objects that have it
     auto tagged_objects = _tag_index->get_objects_with_tag(def.tag_id);
     for (auto* obj : tagged_objects) {
-      obj->remove_tag(def.tag_id);
+      obj->remove_tag(def.tag_id, ctx);
     }
 
     // Evaluate query and apply tag
     if (def.query) {
       auto result = def.query->evaluate(*this);
       for (auto* obj : result) {
-        obj->add_tag(def.tag_id);
+        obj->add_tag(def.tag_id, ctx);
       }
     }
   }
@@ -89,24 +95,52 @@ void QuerySystem::compute_all() {
 
 void QuerySystem::recompute(int tag_id) {
   _computing = true;
+  HandlerContext ctx;
+  ctx.tag_index = _tag_index;
+  ctx.grid = _grid;
+  ctx.query_system = this;
+  ctx.skip_on_update_trigger = true;
+
+  std::vector<GridObject*> objects_that_lost_tag;
+  std::unordered_set<GridObject*> objects_that_keep_tag;
 
   for (const auto& def : _query_tags) {
     if (def.tag_id == tag_id) {
+      // Remove existing tag from all objects that have it (skip on_tag_remove during recompute)
       auto tagged_objects = _tag_index->get_objects_with_tag(def.tag_id);
+      objects_that_lost_tag.assign(tagged_objects.begin(), tagged_objects.end());
       for (auto* obj : tagged_objects) {
-        obj->remove_tag(def.tag_id);
+        obj->remove_tag(def.tag_id, ctx);
       }
 
+      // Evaluate query and apply tag
       if (def.query) {
         auto result = def.query->evaluate(*this);
         for (auto* obj : result) {
-          obj->add_tag(def.tag_id);
+          objects_that_keep_tag.insert(obj);
+          obj->add_tag(def.tag_id, ctx);
         }
       }
       break;
     }
   }
   _computing = false;
+
+  // Fire on_tag_remove for objects that lost the tag and did NOT get it back
+  ctx.skip_on_update_trigger = false;
+  std::unordered_set<GridObject*> original_set(objects_that_lost_tag.begin(), objects_that_lost_tag.end());
+  for (auto* obj : objects_that_lost_tag) {
+    if (objects_that_keep_tag.count(obj) == 0) {
+      obj->apply_on_tag_remove_handlers(tag_id, ctx);
+    }
+  }
+
+  // Fire on_tag_add for objects that newly gained the tag
+  for (auto* obj : objects_that_keep_tag) {
+    if (original_set.count(obj) == 0) {
+      obj->apply_on_tag_add_handlers(tag_id, ctx);
+    }
+  }
 }
 
 // TagQueryConfig::evaluate - find objects with tag, apply filters and limits

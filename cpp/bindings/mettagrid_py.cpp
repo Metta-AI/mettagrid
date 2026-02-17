@@ -341,7 +341,21 @@ PYBIND11_MODULE(mettagrid_c, m) {
       .def_readwrite("on_use_handler", &GridObjectConfig::on_use_handler)
       .def_readwrite("aoe_configs", &GridObjectConfig::aoe_configs)
       .def_readwrite("initial_inventory", &GridObjectConfig::initial_inventory)
-      .def_readwrite("inventory_config", &GridObjectConfig::inventory_config);
+      .def_readwrite("inventory_config", &GridObjectConfig::inventory_config)
+      .def(
+          "add_on_tag_add_handler",
+          [](GridObjectConfig& self, int tag_id, const mettagrid::HandlerConfig& hc) {
+            self.on_tag_add[tag_id].push_back(hc);
+          },
+          py::arg("tag_id"),
+          py::arg("handler"))
+      .def(
+          "add_on_tag_remove_handler",
+          [](GridObjectConfig& self, int tag_id, const mettagrid::HandlerConfig& hc) {
+            self.on_tag_remove[tag_id].push_back(hc);
+          },
+          py::arg("tag_id"),
+          py::arg("handler"));
 
   bind_wall_config(m);
 
