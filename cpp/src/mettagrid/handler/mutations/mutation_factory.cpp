@@ -42,6 +42,8 @@ std::unique_ptr<Mutation> create_mutation(const MutationConfig& config) {
           return std::make_unique<RecomputeQueryTagMutation>(cfg);
         } else if constexpr (std::is_same_v<T, QueryInventoryMutationConfig>) {
           return std::make_unique<QueryInventoryMutation>(cfg);
+        } else if constexpr (std::is_same_v<T, RemoveTagsWithPrefixMutationConfig>) {
+          return std::make_unique<RemoveTagsWithPrefixMutation>(cfg);
         } else {
           return nullptr;
         }
