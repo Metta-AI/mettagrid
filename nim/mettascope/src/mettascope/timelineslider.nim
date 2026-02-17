@@ -24,8 +24,9 @@ proc drawTimelineSlider*(id: string, value: var float32, minVal: float32, maxVal
     maxF = maxVal
     range = maxF - minF
 
-  value = clamp(value, minF, maxF)
-  let sliderState = getTimelineSliderState(id)
+  let
+    clampedValue = clamp(value, minF, maxF)
+    sliderState = getTimelineSliderState(id)
 
   let
     baseHandleSize = sk.getImageSize("scrubber.handle")
@@ -55,7 +56,7 @@ proc drawTimelineSlider*(id: string, value: var float32, minVal: float32, maxVal
     controlRect.wh
   )
 
-  let norm = if range == 0: 0f else: clamp((value - minF) / range, 0f, 1f)
+  let norm = if range == 0: 0f else: clamp((clampedValue - minF) / range, 0f, 1f)
   let
     handlePos = vec2(trackStart + norm * travel - handleSize.x * 0.5, controlRect.y + (height - handleSize.y) * 0.5)
     handleRect = bumpy.rect(handlePos, handleSize)
@@ -72,7 +73,8 @@ proc drawTimelineSlider*(id: string, value: var float32, minVal: float32, maxVal
       let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
       value = minF + t * range
 
-  let norm2 = if range == 0: 0f else: clamp((value - minF) / range, 0f, 1f)
+  let displayValue = clamp(value, minF, maxF)
+  let norm2 = if range == 0: 0f else: clamp((displayValue - minF) / range, 0f, 1f)
   let handlePos2 = vec2(trackStart + norm2 * travel - handleSize.x * 0.5, controlRect.y + (height - handleSize.y) * 0.5)
 
   if label.len > 0:
