@@ -194,6 +194,26 @@ proc drawVibeButton(
 
   drawIconScaled(icon, pos, iconSize)
 
+proc drawToggleIconButton(pos: Vec2, icon: string, isActive: bool): bool =
+  ## Draw an icon-only toggle button and return true on click.
+  let
+    iconSize = 48.0f
+    btnSize = vec2(iconSize, iconSize)
+    btnRect = rect(pos, btnSize)
+    hover = window.mousePos.vec2.overlaps(btnRect)
+    pressed = hover and window.buttonReleased[MouseLeft]
+
+  if isActive:
+    sk.drawImage("ui/button_main.down", pos - vec2(16, 16))
+  elif hover:
+    sk.drawImage("ui/button_main.hover", pos - vec2(16, 16))
+
+  if hover:
+    sk.hover = true
+
+  drawIconScaled(icon, pos, iconSize)
+  return pressed
+
 proc topLeftPanel() =
   ## Draw top-left panel with score and junction count.
   sk.drawImage("ui/panel_topleft", vec2(0, 0))
@@ -253,8 +273,10 @@ proc bottomBarStretch(winW: float32, winH: float32) =
 
 proc bottomLeftPanel(winH: float32) =
   ## Draw bottom-left panel and transport controls.
-  let blSize = sk.getImageSize("ui/panel_bottomleft")
-  sk.drawImage("ui/panel_bottomleft", vec2(0, winH - blSize.y))
+  let
+    blSize = sk.getImageSize("ui/panel_bottomleft")
+    bottomLeftPanelPos = vec2(0, winH - blSize.y)
+  sk.drawImage("ui/panel_bottomleft", bottomLeftPanelPos)
 
   block:
     const BtnStride = 48.0f
@@ -321,11 +343,31 @@ proc bottomLeftPanel(winH: float32) =
       stepFloat = step.float32
       saveUIState()
 
+  # Minimap panel visibility toggles.
+  block:
+    const
+      ToggleStart = vec2(392, 94)
+      ToggleSpacing = 20.0f
+      ToggleIconSize = 48.0f
+      ToggleStride = ToggleIconSize + ToggleSpacing
+
+    let toggleBasePos = bottomLeftPanelPos + ToggleStart
+
+    if drawToggleIconButton(toggleBasePos + vec2(0, ToggleStride * 0), "ui/grid", settings.showGrid):
+      settings.showGrid = not settings.showGrid
+      saveUIState()
+    if drawToggleIconButton(toggleBasePos + vec2(0, ToggleStride * 1), "ui/eye", settings.showVisualRange):
+      settings.showVisualRange = not settings.showVisualRange
+      saveUIState()
+    if drawToggleIconButton(toggleBasePos + vec2(0, ToggleStride * 2), "ui/cloud", settings.showFogOfWar):
+      settings.showFogOfWar = not settings.showFogOfWar
+      saveUIState()
+
 proc bottomRightPanel(winW: float32, winH: float32) =
   ## Draw bottom-right panel and vibe controls.
   let
     brSize = sk.getImageSize("ui/panel_bottomright")
-    brPos = vec2(winW - brSize.x, winH - brSize.y)
+  let brPos = vec2(winW - brSize.x, winH - brSize.y)
   sk.drawImage("ui/panel_bottomright", brPos)
 
   if not replay.isNil:

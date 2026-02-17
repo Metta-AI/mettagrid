@@ -21,8 +21,10 @@ var
   terrainMap*: TileMap
   visibilityMapStep*: int = -1
   visibilityMapSelectionId*: int = -1
-  visibilityMapLockFocus*: bool = false
   visibilityMap*: TileMap
+  explorationFogMapStep*: int = -1
+  explorationFogMapSelectionId*: int = -1
+  explorationFogMap*: TileMap
 
   # AoE tilemap system - one map per collective + one for neutral (dynamic)
   aoeMaps*: seq[TileMap]
@@ -159,8 +161,8 @@ proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
       fogOfWarMap[y * width + x] = true
 
   # Walk the agents and clear the visibility map.
-  # If lockFocus is on with an agent selected, only show that agent's vision.
-  let agentsToProcess = if settings.lockFocus and selection != nil and selection.isAgent:
+  # If an agent is selected, only show that agent's vision. Otherwise show all agents.
+  let agentsToProcess = if selection != nil and selection.isAgent:
     @[selection]
   else:
     replay.agents
@@ -225,6 +227,91 @@ proc updateVisibilityMap*(visibilityMap: TileMap) =
   ## Update the visibility map.
   visibilityMap.rebuildVisibilityMap()
   visibilityMap.updateGPU()
+
+proc rebuildExplorationFogMap*(explorationFogMap: TileMap) {.measure.} =
+  ## Rebuild persistent exploration fog map up to current step.
+  let
+    width = explorationFogMap.width
+    height = explorationFogMap.height
+
+  var fogOfWarMap: seq[bool] = newSeq[bool](width * height)
+  for y in 0 ..< replay.mapSize[1]:
+    for x in 0 ..< replay.mapSize[0]:
+      fogOfWarMap[y * width + x] = true
+
+  # Selection-aware source:
+  # - one selected agent => only that agent's historical exploration
+  # - no selected agent => all agents
+  let agentsToProcess = if selection != nil and selection.isAgent:
+    @[selection]
+  else:
+    replay.agents
+
+  # NOTE: We intentionally recompute exploration from history each update.
+  # In practice this has been fast enough for current replay sizes, and it keeps
+  # memory bounded. Caching explored fog per step/per agent would significantly
+  # increase memory use (potentially map-size data across many timesteps).
+  for obj in agentsToProcess:
+    let center = ivec2(int32(obj.visionSize div 2), int32(obj.visionSize div 2))
+    for historyStep in 0 .. step:
+      let pos = obj.location.at(historyStep)
+      for i in 0 ..< obj.visionSize:
+        for j in 0 ..< obj.visionSize:
+          let gridPos = pos.xy + ivec2(int32(i), int32(j)) - center
+          if gridPos.x >= 0 and gridPos.x < width and
+            gridPos.y >= 0 and gridPos.y < height:
+            fogOfWarMap[gridPos.y * width + gridPos.x] = false
+
+  # Generate tile edges.
+  for i in 0 ..< explorationFogMap.indexData.len:
+    let x = i mod width
+    let y = i div width
+
+    proc get(map: seq[bool], x: int, y: int): int =
+      if x < 0 or y < 0 or x >= width or y >= height:
+        return 0
+      if map[y * width + x]:
+        return 1
+      return 0
+
+    var tile: uint8 = 0
+    if fogOfWarMap[y * width + x]:
+      tile = 49
+    else:
+      let
+        pattern = (
+          1 * fogOfWarMap.get(x-1, y-1) + # NW
+          2 * fogOfWarMap.get(x, y-1) + # N
+          4 * fogOfWarMap.get(x+1, y-1) + # NE
+          8 * fogOfWarMap.get(x+1, y) + # E
+          16 * fogOfWarMap.get(x+1, y+1) + # SE
+          32 * fogOfWarMap.get(x, y+1) + # S
+          64 * fogOfWarMap.get(x-1, y+1) + # SW
+          128 * fogOfWarMap.get(x-1, y) # W
+        )
+      tile = patternToTile[pattern].uint8
+    explorationFogMap.indexData[i] = tile
+
+proc generateExplorationFogMap(): TileMap {.measure.} =
+  ## Generate persistent exploration fog tilemap.
+  let
+    width = ceil(replay.mapSize[0].float32 / 32.0f).int * 32
+    height = ceil(replay.mapSize[1].float32 / 32.0f).int * 32
+
+  var explorationFogMap = newTileMap(
+    width = width,
+    height = height,
+    tileSize = 64,
+    atlasPath = dataDir / "fog7x8.png"
+  )
+  explorationFogMap.rebuildExplorationFogMap()
+  explorationFogMap.setupGPU()
+  return explorationFogMap
+
+proc updateExplorationFogMap*(explorationFogMap: TileMap) =
+  ## Update persistent exploration fog map.
+  explorationFogMap.rebuildExplorationFogMap()
+  explorationFogMap.updateGPU()
 
 proc getProjectionView*(): Mat4 {.measure.} =
   ## Get the projection and view matrix.
@@ -677,18 +764,15 @@ proc drawVisualRanges*(alpha = 0.5) {.measure.} =
   if visibilityMap == nil:
     visibilityMapStep = step
     visibilityMapSelectionId = if selection != nil: selection.id else: -1
-    visibilityMapLockFocus = settings.lockFocus
     visibilityMap = generateVisibilityMap()
 
   let
     currentSelectionId = if selection != nil: selection.id else: -1
-    needsRebuild = visibilityMapStep != step or visibilityMapLockFocus != settings.lockFocus or
-      (settings.lockFocus and visibilityMapSelectionId != currentSelectionId)
+    needsRebuild = visibilityMapStep != step or visibilityMapSelectionId != currentSelectionId
 
   if needsRebuild:
     visibilityMapStep = step
     visibilityMapSelectionId = currentSelectionId
-    visibilityMapLockFocus = settings.lockFocus
     visibilityMap.updateVisibilityMap()
 
   visibilityMap.draw(
@@ -699,8 +783,29 @@ proc drawVisualRanges*(alpha = 0.5) {.measure.} =
   )
 
 proc drawFogOfWar*() {.measure.} =
-  ## Draw the fog of war.
-  drawVisualRanges(alpha = 1.0)
+  ## Draw exploration fog of war plus current-step visual ranges.
+  if explorationFogMap == nil:
+    explorationFogMapStep = step
+    explorationFogMapSelectionId = if selection != nil: selection.id else: -1
+    explorationFogMap = generateExplorationFogMap()
+
+  let
+    currentSelectionId = if selection != nil: selection.id else: -1
+    needsRebuild = explorationFogMapStep != step or explorationFogMapSelectionId != currentSelectionId
+
+  if needsRebuild:
+    explorationFogMapStep = step
+    explorationFogMapSelectionId = currentSelectionId
+    explorationFogMap.updateExplorationFogMap()
+
+  # Show current visibility over explored world.
+  drawVisualRanges(alpha = 0.25)
+  explorationFogMap.draw(
+    getProjectionView(),
+    zoom = 2.0f,
+    zoomThreshold = 1.5f,
+    tint = color(0, 0, 0, 1.0)
+  )
 
 proc drawTrajectory*() {.measure.} =
   ## Draw the trajectory of the selected object, with footprints or a future arrow.
@@ -1033,15 +1138,15 @@ proc drawWorldMini*() {.measure.} =
         maxHeat
       )
 
-  # Overlays
-  if settings.showVisualRange:
-    drawVisualRanges()
-  elif settings.showFogOfWar:
-    drawFogOfWar()
-
   drawObjectPips()
 
   pxMini.flush(getProjectionView() * scale(vec3(Mts, Mts, 1.0f)))
+
+  # Overlays (drawn after minimap pips so fog/range can cover icons).
+  if settings.showFogOfWar:
+    drawFogOfWar()
+  elif settings.showVisualRange:
+    drawVisualRanges()
 
 proc centerAt*(zoomInfo: ZoomInfo, entity: Entity) =
   ## Center the map on the given entity.
