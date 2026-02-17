@@ -14,9 +14,6 @@
 
 namespace mettagrid {
 
-// Forward declarations
-class TagIndex;
-
 /**
  * Event processes timestep-based effects through configurable filter and mutation chains.
  *
@@ -34,7 +31,7 @@ class TagIndex;
  */
 class Event {
 public:
-  explicit Event(const EventConfig& config, TagIndex* tag_index = nullptr);
+  explicit Event(const EventConfig& config);
 
   // Get event name
   const std::string& name() const {
@@ -63,14 +60,14 @@ public:
 
   // Execute this event: find targets, apply mutations, return number of targets affected.
   // If no targets match and a fallback is set, executes the fallback instead.
-  int execute(TagIndex& tag_index, std::mt19937* rng);
+  int execute(std::mt19937* rng, const HandlerContext& ctx);
 
-  // Try to apply this event to the given target (no actor for events)
+  // Try to apply this event to the given target (events use actor == target)
   // Returns true if all filters passed and mutations were applied
-  bool try_apply(GridObject* target);
+  bool try_apply(GridObject* target, const HandlerContext& ctx);
 
   // Check if all filters pass without applying mutations
-  bool check_filters(GridObject* target) const;
+  bool check_filters(GridObject* target, const HandlerContext& ctx) const;
 
 private:
   std::string _name;
@@ -78,7 +75,6 @@ private:
   int _max_targets = 0;              // 0 = unlimited
   std::string _fallback_name;        // Fallback event name (for initialization)
   Event* _fallback_event = nullptr;  // Pointer to fallback event (resolved at init)
-  TagIndex* _tag_index = nullptr;    // Tag index for NearFilter lookups
   Grid* _grid = nullptr;             // Grid for removing objects from cells
   const std::vector<std::unique_ptr<Collective>>* _collectives = nullptr;  // Collectives for context lookup
   std::vector<std::unique_ptr<Filter>> _filters;

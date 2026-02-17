@@ -1,4 +1,4 @@
-"""Near filter configuration and helper functions."""
+"""Max distance filter configuration and helper functions."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pydantic import Field
 from mettagrid.config.filter.filter import AnyFilter, Filter, HandlerTarget
 
 
-class NearFilter(Filter):
+class MaxDistanceFilter(Filter):
     """Filter that checks if target is within radius of an object matching filters.
 
     This is useful for proximity-based mechanics. The filter passes if:
@@ -18,11 +18,13 @@ class NearFilter(Filter):
     The target_tag is required for efficient spatial lookup via TagIndex. Candidate
     objects are found by tag, then filters are applied to each candidate.
 
+    Converted to MaxDistanceFilterConfig + TagQueryConfig in the C++ layer.
+
     Examples:
-        isNear("junction", [isAlignedTo("clips")], radius=2)
+        isNear("junction", [hasTag(Tag("collective:clips"))], radius=2)
     """
 
-    filter_type: Literal["near"] = "near"
+    filter_type: Literal["max_distance"] = "max_distance"
     target: HandlerTarget = Field(
         default=HandlerTarget.TARGET,
         description="Entity to check the filter against",
@@ -38,7 +40,7 @@ class NearFilter(Filter):
 # ===== Helper Filter Functions =====
 
 
-def isNear(tag: str, filters: list[AnyFilter] | None = None, radius: int = 1) -> NearFilter:
+def isNear(tag: str, filters: list[AnyFilter] | None = None, radius: int = 1) -> MaxDistanceFilter:
     """Filter: target is within radius of an object with the given tag.
 
     This is useful for proximity-based mechanics. The filter passes if:
@@ -53,4 +55,4 @@ def isNear(tag: str, filters: list[AnyFilter] | None = None, radius: int = 1) ->
         isNear("type:junction", radius=3)  # Near junctions
         isNear("type:clips")  # Near clips objects
     """
-    return NearFilter(target=HandlerTarget.TARGET, target_tag=tag, filters=filters or [], radius=radius)
+    return MaxDistanceFilter(target=HandlerTarget.TARGET, target_tag=tag, filters=filters or [], radius=radius)

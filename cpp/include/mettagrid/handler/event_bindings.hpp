@@ -46,8 +46,8 @@ inline void bind_event_config(py::module& m) {
           [](EventConfig& self, const GameValueFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_near_filter",
-          [](EventConfig& self, const NearFilterConfig& cfg) { self.filters.push_back(cfg); },
+          "add_max_distance_filter",
+          [](EventConfig& self, const MaxDistanceFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_neg_filter",

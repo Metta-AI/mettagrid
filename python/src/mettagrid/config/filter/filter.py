@@ -12,7 +12,7 @@ from mettagrid.base_config import Config
 if TYPE_CHECKING:
     from mettagrid.config.filter.alignment_filter import AlignmentFilter
     from mettagrid.config.filter.game_value_filter import GameValueFilter
-    from mettagrid.config.filter.near_filter import NearFilter
+    from mettagrid.config.filter.max_distance_filter import MaxDistanceFilter
     from mettagrid.config.filter.resource_filter import ResourceFilter
     from mettagrid.config.filter.shared_tag_prefix_filter import SharedTagPrefixFilter
     from mettagrid.config.filter.tag_filter import TagFilter
@@ -86,7 +86,7 @@ AnyFilter = Annotated[
         Annotated["AlignmentFilter", Tag("alignment")],
         Annotated["TagFilter", Tag("tag")],
         Annotated["SharedTagPrefixFilter", Tag("shared_tag_prefix")],
-        Annotated["NearFilter", Tag("near")],
+        Annotated["MaxDistanceFilter", Tag("max_distance")],
         Annotated["GameValueFilter", Tag("game_value")],
         Annotated["NotFilter", Tag("not")],
         Annotated["OrFilter", Tag("or")],

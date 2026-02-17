@@ -2,6 +2,7 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_MUTATIONS_ATTACK_MUTATION_HPP_
 
 #include <algorithm>
+#include <cassert>
 
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
@@ -17,9 +18,8 @@ public:
   explicit AttackMutation(const AttackMutationConfig& config) : _config(config) {}
 
   void apply(HandlerContext& ctx) override {
-    if (ctx.actor == nullptr || ctx.target == nullptr) {
-      return;
-    }
+    assert(ctx.actor != nullptr && "AttackMutation requires HandlerContext.actor");
+    assert(ctx.target != nullptr && "AttackMutation requires HandlerContext.target");
 
     // Get weapon power from actor
     InventoryQuantity weapon = ctx.actor->inventory.amount(_config.weapon_resource);

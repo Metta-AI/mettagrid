@@ -1,6 +1,7 @@
 #include "handler/event.hpp"
 
 #include <algorithm>
+#include <cassert>
 
 #include "core/tag_index.hpp"
 #include "handler/filters/filter_factory.hpp"
@@ -8,15 +9,14 @@
 
 namespace mettagrid {
 
-Event::Event(const EventConfig& config, TagIndex* tag_index)
+Event::Event(const EventConfig& config)
     : _name(config.name),
       _target_tag_id(config.target_tag_id),
       _max_targets(config.max_targets),
-      _fallback_name(config.fallback),
-      _tag_index(tag_index) {
+      _fallback_name(config.fallback) {
   // Create filters from config using shared factory
   for (const auto& filter_config : config.filters) {
-    auto filter = create_filter(filter_config, tag_index);
+    auto filter = create_filter(filter_config);
     if (filter) {
       _filters.push_back(std::move(filter));
     }
@@ -31,10 +31,12 @@ Event::Event(const EventConfig& config, TagIndex* tag_index)
   }
 }
 
-int Event::execute(TagIndex& tag_index, std::mt19937* rng) {
+int Event::execute(std::mt19937* rng, const HandlerContext& ctx) {
+  assert(ctx.tag_index != nullptr && "Event::execute requires tag_index in HandlerContext");
+
   // Find targets by tag
   std::vector<GridObject*> targets;
-  const auto& objects = tag_index.get_objects_with_tag(_target_tag_id);
+  const auto& objects = ctx.tag_index->get_objects_with_tag(_target_tag_id);
   for (auto* obj : objects) {
     targets.push_back(obj);
   }
@@ -50,44 +52,46 @@ int Event::execute(TagIndex& tag_index, std::mt19937* rng) {
     if (_max_targets > 0 && targets_applied >= _max_targets) {
       break;
     }
-    if (try_apply(target)) {
+    if (try_apply(target, ctx)) {
       ++targets_applied;
     }
   }
 
   // If no targets matched and we have a fallback, execute it instead
   if (targets_applied == 0 && _fallback_event != nullptr) {
-    return _fallback_event->execute(tag_index, rng);
+    return _fallback_event->execute(rng, ctx);
   }
 
   return targets_applied;
 }
 
-bool Event::try_apply(GridObject* target) {
-  // For events, there's no actor - the target is the only entity
-  HandlerContext ctx(nullptr, target, nullptr, _tag_index);
-  ctx.collectives = _collectives;
-  ctx.grid = _grid;
+bool Event::try_apply(GridObject* target, const HandlerContext& ctx) {
+  HandlerContext target_ctx = ctx;
+  target_ctx.actor = target;
+  target_ctx.target = target;
+  target_ctx.collectives = _collectives;
+  target_ctx.grid = _grid;
 
-  if (!check_filters(target)) {
+  if (!check_filters(target, target_ctx)) {
     return false;
   }
 
   for (auto& mutation : _mutations) {
-    mutation->apply(ctx);
+    mutation->apply(target_ctx);
   }
 
   return true;
 }
 
-bool Event::check_filters(GridObject* target) const {
-  // For events, there's no actor - the target is the only entity
-  HandlerContext ctx(nullptr, target, nullptr, _tag_index);
-  ctx.collectives = _collectives;
-  ctx.grid = _grid;
+bool Event::check_filters(GridObject* target, const HandlerContext& ctx) const {
+  HandlerContext target_ctx = ctx;
+  target_ctx.actor = target;
+  target_ctx.target = target;
+  target_ctx.collectives = _collectives;
+  target_ctx.grid = _grid;
 
   for (const auto& filter : _filters) {
-    if (!filter->passes(ctx)) {
+    if (!filter->passes(target_ctx)) {
       return false;
     }
   }

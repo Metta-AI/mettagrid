@@ -10,10 +10,10 @@
 #include <utility>
 #include <vector>
 
-#include "core/tag_index.hpp"
 #include "handler/event.hpp"
 #include "handler/filters/filter.hpp"
 #include "handler/handler_config.hpp"
+#include "handler/handler_context.hpp"
 #include "objects/collective.hpp"
 
 // Forward declarations
@@ -32,21 +32,17 @@ namespace mettagrid {
  *
  * Usage:
  *   1. Create scheduler with map of EventConfigs
- *   2. Each timestep, call process_timestep() with a function to get targets
+ *   2. Each timestep, call process_timestep() with a HandlerContext
  *   3. Events are applied directly to matching targets
  */
 class EventScheduler {
 public:
-  // Constructor that takes events, RNG for random target selection, and optional tag index
-  EventScheduler(const std::map<std::string, EventConfig>& event_configs,
-                 std::mt19937* rng,
-                 TagIndex* tag_index = nullptr);
+  // Constructor that takes events and RNG for random target selection
+  EventScheduler(const std::map<std::string, EventConfig>& event_configs, std::mt19937* rng);
 
-  // Process all events scheduled for this timestep
-  // For each event that fires, uses TagIndex to efficiently get candidate targets,
-  // then applies the event to each target that passes its filters.
+  // Process all events scheduled for this timestep using the provided context.
   // Returns the number of events that fired.
-  int process_timestep(int timestep, TagIndex& tag_index);
+  int process_timestep(int timestep, const HandlerContext& ctx);
 
   // Get event by name (for stats logging, etc.)
   Event* get_event(const std::string& name);

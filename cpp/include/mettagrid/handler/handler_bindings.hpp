@@ -170,51 +170,6 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("threshold", &GameValueFilterConfig::threshold)
       .def_readwrite("entity", &GameValueFilterConfig::entity);
 
-  py::class_<NearFilterConfig>(m, "NearFilterConfig")
-      .def(py::init<>())
-      .def(py::init([](EntityRef entity, int radius, int target_tag) {
-             NearFilterConfig cfg;
-             cfg.entity = entity;
-             cfg.radius = radius;
-             cfg.target_tag = target_tag;
-             return cfg;
-           }),
-           py::arg("entity") = EntityRef::target,
-           py::arg("radius") = 1,
-           py::arg("target_tag") = -1)
-      .def_readwrite("entity", &NearFilterConfig::entity)
-      .def_readwrite("radius", &NearFilterConfig::radius)
-      .def_readwrite("target_tag", &NearFilterConfig::target_tag)
-      .def_readwrite("filters", &NearFilterConfig::filters)
-      .def(
-          "add_alignment_filter",
-          [](NearFilterConfig& self, const AlignmentFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
-          "add_vibe_filter",
-          [](NearFilterConfig& self, const VibeFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
-          "add_resource_filter",
-          [](NearFilterConfig& self, const ResourceFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
-          "add_neg_filter",
-          [](NearFilterConfig& self, const NegFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
-          "add_or_filter",
-          [](NearFilterConfig& self, const OrFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
-          "add_shared_tag_prefix_filter",
-          [](NearFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
-          "add_tag_prefix_filter",
-          [](NearFilterConfig& self, const TagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"));
-
   py::class_<NegFilterConfig>(m, "NegFilterConfig")
       .def(py::init<>())
       .def_readwrite("inner", &NegFilterConfig::inner)
@@ -241,8 +196,8 @@ inline void bind_handler_config(py::module& m) {
           },
           py::arg("filter"))
       .def(
-          "set_inner_near_filter",
-          [](NegFilterConfig& self, const NearFilterConfig& cfg) {
+          "set_inner_max_distance_filter",
+          [](NegFilterConfig& self, const MaxDistanceFilterConfig& cfg) {
             self.inner.clear();
             self.inner.push_back(cfg);
           },
@@ -280,10 +235,6 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_inner_resource_filter",
           [](NegFilterConfig& self, const ResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
-          py::arg("filter"))
-      .def(
-          "add_inner_near_filter",
-          [](NegFilterConfig& self, const NearFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_inner_game_value_filter",
@@ -324,10 +275,6 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_inner_resource_filter",
           [](OrFilterConfig& self, const ResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
-          py::arg("filter"))
-      .def(
-          "add_inner_near_filter",
-          [](OrFilterConfig& self, const NearFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_inner_game_value_filter",
@@ -566,10 +513,6 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_tag_prefix_filter",
           [](HandlerConfig& self, const TagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
-          "add_near_filter",
-          [](HandlerConfig& self, const NearFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_game_value_filter",

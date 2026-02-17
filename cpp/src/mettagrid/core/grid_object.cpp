@@ -110,16 +110,15 @@ static mettagrid::HandlerContext make_tag_handler_ctx(GridObject* obj, const met
 void GridObject::add_tag(int tag_id, const mettagrid::HandlerContext& ctx) {
   if (tag_id < 0 || static_cast<size_t>(tag_id) >= kMaxTags) return;
   if (tag_bits.test(tag_id)) return;  // already present
+  assert(ctx.tag_index != nullptr && "GridObject::add_tag requires HandlerContext.tag_index");
   tag_bits.set(tag_id);
-  if (ctx.tag_index != nullptr) {
-    ctx.tag_index->on_tag_added(this, tag_id);
-    if (!ctx.skip_on_update_trigger) {
-      auto it = _on_tag_add.find(tag_id);
-      if (it != _on_tag_add.end()) {
-        auto handler_ctx = make_tag_handler_ctx(this, ctx);
-        for (auto& handler : it->second) {
-          handler->try_apply(handler_ctx);
-        }
+  ctx.tag_index->on_tag_added(this, tag_id);
+  if (!ctx.skip_on_update_trigger) {
+    auto it = _on_tag_add.find(tag_id);
+    if (it != _on_tag_add.end()) {
+      auto handler_ctx = make_tag_handler_ctx(this, ctx);
+      for (auto& handler : it->second) {
+        handler->try_apply(handler_ctx);
       }
     }
   }
@@ -128,24 +127,24 @@ void GridObject::add_tag(int tag_id, const mettagrid::HandlerContext& ctx) {
 void GridObject::remove_tag(int tag_id, const mettagrid::HandlerContext& ctx) {
   if (tag_id < 0 || static_cast<size_t>(tag_id) >= kMaxTags) return;
   if (!tag_bits.test(tag_id)) return;  // not present
+  assert(ctx.tag_index != nullptr && "GridObject::remove_tag requires HandlerContext.tag_index");
   tag_bits.reset(tag_id);
-  if (ctx.tag_index != nullptr) {
-    ctx.tag_index->on_tag_removed(this, tag_id);
-    if (!ctx.skip_on_update_trigger) {
-      auto it = _on_tag_remove.find(tag_id);
-      if (it != _on_tag_remove.end()) {
-        auto handler_ctx = make_tag_handler_ctx(this, ctx);
-        for (auto& handler : it->second) {
-          handler->try_apply(handler_ctx);
-        }
+  ctx.tag_index->on_tag_removed(this, tag_id);
+  if (!ctx.skip_on_update_trigger) {
+    auto it = _on_tag_remove.find(tag_id);
+    if (it != _on_tag_remove.end()) {
+      auto handler_ctx = make_tag_handler_ctx(this, ctx);
+      for (auto& handler : it->second) {
+        handler->try_apply(handler_ctx);
       }
     }
   }
 }
 
 void GridObject::apply_on_tag_add_handlers(int tag_id, const mettagrid::HandlerContext& ctx) {
+  assert(ctx.tag_index != nullptr && "GridObject::apply_on_tag_add_handlers requires HandlerContext.tag_index");
   auto it = _on_tag_add.find(tag_id);
-  if (it != _on_tag_add.end() && ctx.tag_index != nullptr) {
+  if (it != _on_tag_add.end()) {
     auto handler_ctx = make_tag_handler_ctx(this, ctx);
     for (auto& handler : it->second) {
       handler->try_apply(handler_ctx);
@@ -154,8 +153,9 @@ void GridObject::apply_on_tag_add_handlers(int tag_id, const mettagrid::HandlerC
 }
 
 void GridObject::apply_on_tag_remove_handlers(int tag_id, const mettagrid::HandlerContext& ctx) {
+  assert(ctx.tag_index != nullptr && "GridObject::apply_on_tag_remove_handlers requires HandlerContext.tag_index");
   auto it = _on_tag_remove.find(tag_id);
-  if (it != _on_tag_remove.end() && ctx.tag_index != nullptr) {
+  if (it != _on_tag_remove.end()) {
     auto handler_ctx = make_tag_handler_ctx(this, ctx);
     for (auto& handler : it->second) {
       handler->try_apply(handler_ctx);

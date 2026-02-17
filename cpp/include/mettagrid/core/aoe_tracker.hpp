@@ -20,6 +20,7 @@ namespace mettagrid {
 // Forward declarations
 class Filter;
 class Mutation;
+struct HandlerContext;
 
 /**
  * AOESource holds a reference to an AOE source and its processed config.
@@ -30,12 +31,10 @@ struct AOESource {
   AOEConfig config;                                                       // The AOE configuration
   std::vector<std::unique_ptr<Filter>> filters;                           // Instantiated filters
   std::vector<std::unique_ptr<Mutation>> mutations;                       // Instantiated mutations
-  TagIndex* tag_index = nullptr;                                          // Tag index for NearFilter support
   const std::vector<std::unique_ptr<Collective>>* collectives = nullptr;  // Collectives for alignment filter lookups
 
   AOESource(GridObject* src,
             const AOEConfig& cfg,
-            TagIndex* tag_index = nullptr,
             const std::vector<std::unique_ptr<Collective>>* collectives = nullptr);
   ~AOESource();
 
@@ -47,10 +46,10 @@ struct AOESource {
 
   // Try to apply this AOE's mutations to a target (checks filters first)
   // game_stats is passed to HandlerContext for StatsMutation support
-  bool try_apply(GridObject* target, StatsTracker* game_stats = nullptr);
+  bool try_apply(GridObject* target, const mettagrid::HandlerContext& ctx);
 
   // Check if target passes filters (without applying mutations)
-  bool passes_filters(GridObject* target) const;
+  bool passes_filters(GridObject* target, const mettagrid::HandlerContext& ctx) const;
 
   // Check if this AOE has presence deltas
   bool has_presence_deltas() const {
@@ -98,6 +97,11 @@ public:
   // Set the collectives pointer for alignment filter lookups in AOE handlers
   void set_collectives(const std::vector<std::unique_ptr<Collective>>* collectives) {
     _collectives = collectives;
+  }
+
+  // Set query system pointer for query-backed filters (e.g. max_distance)
+  void set_query_system(QuerySystem* query_system) {
+    _query_system = query_system;
   }
 
   // Register an AOE source - routes to fixed or mobile based on config.is_static
@@ -150,8 +154,10 @@ private:
   GridCoord _height;
   GridCoord _width;
   StatsTracker* _game_stats = nullptr;  // Game-level stats tracker (for StatsMutation)
-  TagIndex* _tag_index = nullptr;       // Tag index (for NearFilter support)
+  TagIndex* _tag_index = nullptr;       // Tag index for tag lookups
   const std::vector<std::unique_ptr<Collective>>* _collectives = nullptr;  // Collectives for alignment filter lookups
+  // Query system for query-backed filters
+  QuerySystem* _query_system = nullptr;
 
   // Fixed AOE: 2D array from cell location to list of sources affecting that cell
   // Indexed as _cell_effects[row][col]

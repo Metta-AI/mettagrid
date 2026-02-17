@@ -19,7 +19,7 @@ from mettagrid.config.filter import (
     AnyFilter,
     Filter,
     HandlerTarget,
-    NearFilter,
+    MaxDistanceFilter,
     NotFilter,
     ResourceFilter,
     TagFilter,
@@ -148,7 +148,7 @@ __all__ = [
     "ResourceFilter",
     "AlignmentFilter",
     "TagFilter",
-    "NearFilter",
+    "MaxDistanceFilter",
     "NotFilter",
     "AnyFilter",
     # Mutation classes
