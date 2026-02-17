@@ -121,19 +121,6 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("condition", &AlignmentFilterConfig::condition)
       .def_readwrite("collective_id", &AlignmentFilterConfig::collective_id);
 
-  py::class_<TagFilterConfig>(m, "TagFilterConfig")
-      .def(py::init<>())
-      .def(py::init([](EntityRef entity, int tag_id) {
-             TagFilterConfig cfg;
-             cfg.entity = entity;
-             cfg.tag_id = tag_id;
-             return cfg;
-           }),
-           py::arg("entity") = EntityRef::target,
-           py::arg("tag_id") = 0)
-      .def_readwrite("entity", &TagFilterConfig::entity)
-      .def_readwrite("tag_id", &TagFilterConfig::tag_id);
-
   // SharedTagPrefixFilter - checks if objects share tags with a common prefix
   py::class_<SharedTagPrefixFilterConfig>(m, "SharedTagPrefixFilterConfig")
       .def(py::init<>())
@@ -144,6 +131,20 @@ inline void bind_handler_config(py::module& m) {
            }),
            py::arg("tag_ids") = std::vector<int>())
       .def_readwrite("tag_ids", &SharedTagPrefixFilterConfig::tag_ids);
+
+  // TagPrefixFilter - checks if a single entity has any tag from a prefix group
+  py::class_<TagPrefixFilterConfig>(m, "TagPrefixFilterConfig")
+      .def(py::init<>())
+      .def(py::init([](EntityRef entity, std::vector<int> tag_ids) {
+             TagPrefixFilterConfig cfg;
+             cfg.entity = entity;
+             cfg.tag_ids = tag_ids;
+             return cfg;
+           }),
+           py::arg("entity") = EntityRef::target,
+           py::arg("tag_ids") = std::vector<int>())
+      .def_readwrite("entity", &TagPrefixFilterConfig::entity)
+      .def_readwrite("tag_ids", &TagPrefixFilterConfig::tag_ids);
 
   py::class_<QueryResourceFilterConfig>(m, "QueryResourceFilterConfig")
       .def(py::init<>())
@@ -198,10 +199,6 @@ inline void bind_handler_config(py::module& m) {
           [](NearFilterConfig& self, const ResourceFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_tag_filter",
-          [](NearFilterConfig& self, const TagFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
           "add_neg_filter",
           [](NearFilterConfig& self, const NegFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
@@ -212,6 +209,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_shared_tag_prefix_filter",
           [](NearFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_tag_prefix_filter",
+          [](NearFilterConfig& self, const TagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"));
 
   py::class_<NegFilterConfig>(m, "NegFilterConfig")
@@ -240,13 +241,6 @@ inline void bind_handler_config(py::module& m) {
           },
           py::arg("filter"))
       .def(
-          "set_inner_tag_filter",
-          [](NegFilterConfig& self, const TagFilterConfig& cfg) {
-            self.inner.clear();
-            self.inner.push_back(cfg);
-          },
-          py::arg("filter"))
-      .def(
           "set_inner_near_filter",
           [](NegFilterConfig& self, const NearFilterConfig& cfg) {
             self.inner.clear();
@@ -267,6 +261,13 @@ inline void bind_handler_config(py::module& m) {
             self.inner.push_back(cfg);
           },
           py::arg("filter"))
+      .def(
+          "set_inner_tag_prefix_filter",
+          [](NegFilterConfig& self, const TagPrefixFilterConfig& cfg) {
+            self.inner.clear();
+            self.inner.push_back(cfg);
+          },
+          py::arg("filter"))
       // add_inner_* methods append filters (for multi-filter negation like NOT(A AND B))
       .def(
           "add_inner_alignment_filter",
@@ -281,10 +282,6 @@ inline void bind_handler_config(py::module& m) {
           [](NegFilterConfig& self, const ResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_tag_filter",
-          [](NegFilterConfig& self, const TagFilterConfig& cfg) { self.inner.push_back(cfg); },
-          py::arg("filter"))
-      .def(
           "add_inner_near_filter",
           [](NegFilterConfig& self, const NearFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
@@ -295,6 +292,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_inner_shared_tag_prefix_filter",
           [](NegFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_tag_prefix_filter",
+          [](NegFilterConfig& self, const TagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_inner_neg_filter",
@@ -325,10 +326,6 @@ inline void bind_handler_config(py::module& m) {
           [](OrFilterConfig& self, const ResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_tag_filter",
-          [](OrFilterConfig& self, const TagFilterConfig& cfg) { self.inner.push_back(cfg); },
-          py::arg("filter"))
-      .def(
           "add_inner_near_filter",
           [](OrFilterConfig& self, const NearFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
@@ -339,6 +336,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_inner_shared_tag_prefix_filter",
           [](OrFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_inner_tag_prefix_filter",
+          [](OrFilterConfig& self, const TagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_inner_neg_filter",
@@ -546,12 +547,12 @@ inline void bind_handler_config(py::module& m) {
           [](HandlerConfig& self, const AlignmentFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_tag_filter",
-          [](HandlerConfig& self, const TagFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
           "add_shared_tag_prefix_filter",
           [](HandlerConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_tag_prefix_filter",
+          [](HandlerConfig& self, const TagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_near_filter",

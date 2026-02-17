@@ -34,8 +34,8 @@ inline void bind_event_config(py::module& m) {
           [](EventConfig& self, const AlignmentFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_tag_filter",
-          [](EventConfig& self, const TagFilterConfig& cfg) { self.filters.push_back(cfg); },
+          "add_tag_prefix_filter",
+          [](EventConfig& self, const TagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_shared_tag_prefix_filter",

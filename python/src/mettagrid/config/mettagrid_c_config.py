@@ -45,7 +45,7 @@ from mettagrid.mettagrid_c import RewardEntry as CppRewardEntry
 from mettagrid.mettagrid_c import (
     SharedTagPrefixFilterConfig as CppSharedTagPrefixFilterConfig,  # pyright: ignore[reportAttributeAccessIssue]
 )
-from mettagrid.mettagrid_c import TagFilterConfig as CppTagFilterConfig
+from mettagrid.mettagrid_c import TagPrefixFilterConfig as CppTagPrefixFilterConfig
 from mettagrid.mettagrid_c import VibeFilterConfig as CppVibeFilterConfig
 from mettagrid.mettagrid_c import WallConfig as CppWallConfig
 
@@ -244,11 +244,11 @@ def _convert_filters(
 
         elif filter_type == "tag":
             if filter_config.tag in tag_name_to_id:
-                cpp_filter = CppTagFilterConfig(
+                cpp_filter = CppTagPrefixFilterConfig(
                     entity=convert_entity_ref(filter_config.target),
-                    tag_id=tag_name_to_id[filter_config.tag],
+                    tag_ids=[tag_name_to_id[filter_config.tag]],
                 )
-                _add_filter_to_target(cpp_filter, cpp_target, "tag")
+                _add_filter_to_target(cpp_filter, cpp_target, "tag_prefix")
 
         elif filter_type == "shared_tag_prefix":
             tag_ids = _resolve_tag_prefix(filter_config.tag_prefix, tag_name_to_id)
@@ -362,11 +362,11 @@ def _convert_not_filter(
 
     elif inner_type == "tag":
         if inner.tag in tag_name_to_id:
-            cpp_filter = CppTagFilterConfig(
+            cpp_filter = CppTagPrefixFilterConfig(
                 entity=convert_entity_ref(inner.target),
-                tag_id=tag_name_to_id[inner.tag],
+                tag_ids=[tag_name_to_id[inner.tag]],
             )
-            cpp_neg.set_inner_tag_filter(cpp_filter)
+            cpp_neg.set_inner_tag_prefix_filter(cpp_filter)
 
     elif inner_type == "shared_tag_prefix":
         tag_ids = _resolve_tag_prefix(inner.tag_prefix, tag_name_to_id)
@@ -492,11 +492,11 @@ def _convert_or_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag_
 
         elif inner_type == "tag":
             if inner.tag in tag_name_to_id:
-                cpp_filter = CppTagFilterConfig(
+                cpp_filter = CppTagPrefixFilterConfig(
                     entity=convert_entity_ref(inner.target),
-                    tag_id=tag_name_to_id[inner.tag],
+                    tag_ids=[tag_name_to_id[inner.tag]],
                 )
-                cpp_or.add_inner_tag_filter(cpp_filter)
+                cpp_or.add_inner_tag_prefix_filter(cpp_filter)
 
         elif inner_type == "shared_tag_prefix":
             tag_ids = _resolve_tag_prefix(inner.tag_prefix, tag_name_to_id)

@@ -110,8 +110,8 @@ inline void bind_query_config(py::module& m) {
       .def_readwrite("max_items", &TagQueryConfig::max_items)
       .def_readwrite("order_by", &TagQueryConfig::order_by)
       .def(
-          "add_tag_filter",
-          [](TagQueryConfig& self, const TagFilterConfig& cfg) { self.filters.push_back(cfg); },
+          "add_tag_prefix_filter",
+          [](TagQueryConfig& self, const TagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_vibe_filter",
@@ -153,8 +153,8 @@ inline void bind_query_config(py::module& m) {
           py::arg("source"))
       // Edge filters (for BFS expansion)
       .def(
-          "add_tag_filter",
-          [](ClosureQueryConfig& self, const TagFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          "add_tag_prefix_filter",
+          [](ClosureQueryConfig& self, const TagPrefixFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_shared_tag_prefix_filter",
@@ -182,8 +182,8 @@ inline void bind_query_config(py::module& m) {
           py::arg("filter"))
       // Result filters (applied to traversed objects to restrict final result set)
       .def(
-          "add_result_tag_filter",
-          [](ClosureQueryConfig& self, const TagFilterConfig& cfg) { self.result_filters.push_back(cfg); },
+          "add_result_tag_prefix_filter",
+          [](ClosureQueryConfig& self, const TagPrefixFilterConfig& cfg) { self.result_filters.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_result_shared_tag_prefix_filter",
