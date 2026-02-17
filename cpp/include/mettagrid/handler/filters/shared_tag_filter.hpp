@@ -37,6 +37,29 @@ private:
   std::bitset<kMaxTags> _mask;
 };
 
+/**
+ * TagPrefixFilter: passes when a single entity has at least one tag
+ * from a prefix group (e.g. entity has "team:red" or "team:blue").
+ */
+class TagPrefixFilter : public Filter {
+public:
+  explicit TagPrefixFilter(const TagPrefixFilterConfig& config) : _entity(config.entity) {
+    for (int tag_id : config.tag_ids) {
+      _mask.set(tag_id);
+    }
+  }
+
+  bool passes(const HandlerContext& ctx) const override {
+    GridObject* obj = dynamic_cast<GridObject*>(ctx.resolve(_entity));
+    if (obj == nullptr) return false;
+    return (obj->tag_bits & _mask).any();
+  }
+
+private:
+  EntityRef _entity;
+  std::bitset<kMaxTags> _mask;
+};
+
 }  // namespace mettagrid
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_FILTERS_SHARED_TAG_FILTER_HPP_

@@ -12,7 +12,7 @@
 #include "handler/filters/near_filter.hpp"
 #include "handler/filters/neg_filter.hpp"
 #include "handler/filters/resource_filter.hpp"
-#include "handler/filters/tag_filter.hpp"
+#include "handler/filters/shared_tag_filter.hpp"
 #include "handler/filters/vibe_filter.hpp"
 #include "handler/handler.hpp"
 #include "handler/handler_config.hpp"
@@ -363,7 +363,7 @@ void test_resource_filter_neg() {
 }
 
 void test_tag_filter_neg() {
-  std::cout << "Testing NegFilter with TagFilter..." << std::endl;
+  std::cout << "Testing NegFilter with TagPrefixFilter..." << std::endl;
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
@@ -372,35 +372,35 @@ void test_tag_filter_neg() {
   HandlerContext ctx(&actor, &target);
 
   // Filter for tag 42 (should pass)
-  TagFilterConfig config;
+  TagPrefixFilterConfig config;
   config.entity = EntityRef::target;
-  config.tag_id = 42;
+  config.tag_ids = {42};
 
-  TagFilter filter_no_neg(config);
+  TagPrefixFilter filter_no_neg(config);
   assert(filter_no_neg.passes(ctx) == true);
 
   // With NegFilter, should fail
-  auto inner_filter = std::make_unique<TagFilter>(config);
+  auto inner_filter = std::make_unique<TagPrefixFilter>(config);
   NegFilter neg_filter(std::move(inner_filter));
   assert(neg_filter.passes(ctx) == false);
 
   // Filter for tag 99 (should fail)
-  TagFilterConfig config_wrong;
+  TagPrefixFilterConfig config_wrong;
   config_wrong.entity = EntityRef::target;
-  config_wrong.tag_id = 99;
-  TagFilter filter_wrong_tag(config_wrong);
+  config_wrong.tag_ids = {99};
+  TagPrefixFilter filter_wrong_tag(config_wrong);
   assert(filter_wrong_tag.passes(ctx) == false);
 
   // With NegFilter, should pass
-  auto inner_filter_wrong = std::make_unique<TagFilter>(config_wrong);
+  auto inner_filter_wrong = std::make_unique<TagPrefixFilter>(config_wrong);
   NegFilter neg_filter_wrong(std::move(inner_filter_wrong));
   assert(neg_filter_wrong.passes(ctx) == true);
 
-  std::cout << "✓ NegFilter with TagFilter test passed" << std::endl;
+  std::cout << "✓ NegFilter with TagPrefixFilter test passed" << std::endl;
 }
 
 void test_tag_filter_matches() {
-  std::cout << "Testing TagFilter matches..." << std::endl;
+  std::cout << "Testing TagPrefixFilter matches..." << std::endl;
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
@@ -409,18 +409,18 @@ void test_tag_filter_matches() {
 
   HandlerContext ctx(&actor, &target);
 
-  TagFilterConfig config;
+  TagPrefixFilterConfig config;
   config.entity = EntityRef::target;
-  config.tag_id = 42;
+  config.tag_ids = {42};
 
-  TagFilter filter(config);
+  TagPrefixFilter filter(config);
   assert(filter.passes(ctx) == true);
 
-  std::cout << "✓ TagFilter matches test passed" << std::endl;
+  std::cout << "✓ TagPrefixFilter matches test passed" << std::endl;
 }
 
 void test_tag_filter_no_match() {
-  std::cout << "Testing TagFilter no match..." << std::endl;
+  std::cout << "Testing TagPrefixFilter no match..." << std::endl;
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
@@ -429,18 +429,18 @@ void test_tag_filter_no_match() {
 
   HandlerContext ctx(&actor, &target);
 
-  TagFilterConfig config;
+  TagPrefixFilterConfig config;
   config.entity = EntityRef::target;
-  config.tag_id = 42;  // Target doesn't have tag 42
+  config.tag_ids = {42};  // Target doesn't have tag 42
 
-  TagFilter filter(config);
+  TagPrefixFilter filter(config);
   assert(filter.passes(ctx) == false);
 
-  std::cout << "✓ TagFilter no match test passed" << std::endl;
+  std::cout << "✓ TagPrefixFilter no match test passed" << std::endl;
 }
 
 void test_tag_filter_on_actor() {
-  std::cout << "Testing TagFilter on actor..." << std::endl;
+  std::cout << "Testing TagPrefixFilter on actor..." << std::endl;
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
@@ -448,14 +448,14 @@ void test_tag_filter_on_actor() {
 
   HandlerContext ctx(&actor, &target);
 
-  TagFilterConfig config;
+  TagPrefixFilterConfig config;
   config.entity = EntityRef::actor;
-  config.tag_id = 99;
+  config.tag_ids = {99};
 
-  TagFilter filter(config);
+  TagPrefixFilter filter(config);
   assert(filter.passes(ctx) == true);
 
-  std::cout << "✓ TagFilter on actor test passed" << std::endl;
+  std::cout << "✓ TagPrefixFilter on actor test passed" << std::endl;
 }
 
 // ============================================================================

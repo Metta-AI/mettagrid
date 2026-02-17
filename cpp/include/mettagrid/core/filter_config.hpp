@@ -50,12 +50,12 @@ struct AlignmentFilterConfig {
   int collective_id = -1;  // If >= 0, check if entity belongs to this specific collective
 };
 
-struct TagFilterConfig {
-  EntityRef entity = EntityRef::target;
-  int tag_id = 0;  // Single tag ID that must be present on the object
+struct SharedTagPrefixFilterConfig {
+  std::vector<int> tag_ids;  // All tag IDs sharing the prefix (resolved at config time)
 };
 
-struct SharedTagPrefixFilterConfig {
+struct TagPrefixFilterConfig {
+  EntityRef entity = EntityRef::target;
   std::vector<int> tag_ids;  // All tag IDs sharing the prefix (resolved at config time)
 };
 
@@ -76,8 +76,8 @@ struct QueryResourceFilterConfig;
 using FilterConfig = std::variant<VibeFilterConfig,
                                   ResourceFilterConfig,
                                   AlignmentFilterConfig,
-                                  TagFilterConfig,
                                   SharedTagPrefixFilterConfig,
+                                  TagPrefixFilterConfig,
                                   NearFilterConfig,
                                   GameValueFilterConfig,
                                   NegFilterConfig,
