@@ -23,6 +23,7 @@ proc onReplayLoaded*() =
   # Reset global state for the new replay
   step = 0
   stepFloat = 0.0
+  stepFloatSmoothing = false
   previousStep = -1
   selection = nil
   requestPython = false

@@ -103,6 +103,7 @@ var
 
   step*: int = 0
   stepFloat*: float32 = 0
+  stepFloatSmoothing*: bool = false
   previousStep*: int = -1
   replay*: Replay
   play*: bool
