@@ -9,6 +9,11 @@ proc onReplayLoaded*() =
   # Clear cached maps that depend on the old replay
   terrainMap = nil
   visibilityMap = nil
+  visibilityMapStep = -1
+  visibilityMapSelectionId = -1
+  explorationFogMap = nil
+  explorationFogMapStep = -1
+  explorationFogMapSelectionId = -1
   worldHeatmap = nil
   # Clear AoE tilemaps so they get regenerated for the new replay
   aoeMaps = @[]
