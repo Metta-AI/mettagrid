@@ -15,7 +15,8 @@ const RequiredKeys = ["version", "num_agents", "max_steps", "map_size", "action_
 
 # Optional top-level keys for replay versions 3-4.
 const OptionalKeys = ["file_name", "group_names", "collective_names", "capacity_names",
-  "reward_sharing_matrix", "mg_config", "policy_env_interface", "infos", "collective_inventory"]
+  "reward_sharing_matrix", "mg_config", "policy_env_interface", "infos", "collective_inventory",
+  "tags"]
 
 proc requireFields*(obj: JsonNode, fields: openArray[string], objName: string, issues: var seq[ValidationIssue]) =
   ## Assert that all required fields are present.

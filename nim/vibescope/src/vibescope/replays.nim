@@ -109,6 +109,9 @@ type
     # Alignable fields.
     collectiveId*: seq[int]
 
+    # Tag fields.
+    tagIds*: seq[seq[int]]
+
     # Policy info (per-step arbitrary metadata from policy).
     policyInfos*: seq[JsonNode]
 
@@ -135,6 +138,7 @@ type
     itemNames*: seq[string]
     groupNames*: seq[string]
     collectiveNames*: seq[string]
+    tags*: Table[string, int]  ## Maps tag name to tag ID.
     typeImages*: Table[string, string]
     actionImages*: seq[string]
     actionAttackImages*: seq[string]
@@ -211,6 +215,9 @@ type
 
     # Alignable fields.
     collectiveId*: int = -1
+
+    # Tag fields.
+    tagIds*: seq[int]
 
     # Policy info (arbitrary metadata from policy).
     policyInfos*: JsonNode
@@ -839,6 +846,12 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
   if infos != nil:
     replay.infos = infos
 
+  # Parse tags (maps tag name to tag ID).
+  let tagsObj = getJsonNode(jsonObj, "tags")
+  if tagsObj != nil and tagsObj.kind == JObject:
+    for key, val in tagsObj:
+      replay.tags[key] = val.getInt
+
   let objectsArr = getArray(jsonObj, "objects", newJArray())
   for obj in objectsArr:
 
@@ -957,6 +970,11 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
       entity.collectiveId = expand[int](collectiveIdField, replay.maxSteps, -1)
     else:
       entity.collectiveId = @[-1]
+
+    # Parse tag_ids for tagged objects.
+    let tagIdsField = getJsonNode(obj, "tag_ids")
+    if tagIdsField != nil:
+      entity.tagIds = expand[seq[int]](tagIdsField, replay.maxSteps, @[])
 
     replay.objects.add(entity)
 
@@ -1135,6 +1153,7 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) =
     entity.allowPartialUsage = obj.allowPartialUsage
     entity.protocols = obj.protocols
     entity.collectiveId.add(obj.collectiveId)
+    entity.tagIds.add(obj.tagIds)
     if not obj.policyInfos.isNil:
       entity.policyInfos.add(obj.policyInfos)
     else:

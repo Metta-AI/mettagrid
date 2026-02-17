@@ -153,6 +153,9 @@ type
     # Alignable fields.
     collectiveId*: seq[int]
 
+    # Tag fields.
+    tagIds*: seq[seq[int]]
+
     # Policy info (per-step arbitrary metadata from policy).
     policyInfos*: seq[JsonNode]
 
@@ -171,6 +174,7 @@ type
     itemNames*: seq[string]
     groupNames*: seq[string]
     capacityNames*: seq[string]  ## Maps capacity_id to group name (e.g., "cargo", "gear").
+    tags*: Table[string, int]  ## Maps tag name to tag ID.
     collectives*: seq[CollectiveData]
     typeImages*: Table[string, string]
     actionImages*: seq[string]
@@ -249,6 +253,9 @@ type
 
     # Alignable fields.
     collectiveId*: int = -1
+
+    # Tag fields.
+    tagIds*: seq[int]
 
     # Policy info (arbitrary metadata from policy).
     policyInfos*: JsonNode
@@ -1099,6 +1106,12 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
   # Parse team/global inventory snapshots for collective panel resources.
   replay.loadCollectiveInventory(jsonObj)
 
+  # Parse tags (maps tag name to tag ID).
+  let tagsObj = getJsonNode(jsonObj, "tags")
+  if tagsObj != nil and tagsObj.kind == JObject:
+    for key, val in tagsObj:
+      replay.tags[key] = val.getInt
+
   measurePush("loadReplayString.parseObjects")
   let objectsArr = getArray(jsonObj, "objects", newJArray())
   for obj in objectsArr:
@@ -1160,6 +1173,10 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
     )
     entity.groupId = getInt(obj, "group_id", 0)
     entity.collectiveId = obj.getExpandedIntSeq("collective_id", replay.maxSteps, @[-1])
+
+    let tagIdsField = getJsonNode(obj, "tag_ids")
+    if tagIdsField != nil:
+      entity.tagIds = expand[seq[int]](tagIdsField, replay.maxSteps, @[])
 
     entity.isAgent = resolvedTypeName == "agent"
     if "agent_id" in obj:
@@ -1337,6 +1354,7 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
     entity.cooldownTime = obj.cooldownTime
 
     entity.alive.add(obj.alive)
+    entity.tagIds.add(obj.tagIds)
 
     entity.cooldownRemaining.add(obj.cooldownRemaining)
     entity.cooldownDuration = obj.cooldownDuration

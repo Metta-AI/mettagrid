@@ -48,12 +48,17 @@ class MettascopeRenderer(Renderer):
                 resource_id = self._sim.resource_names.index(resource_name)
                 self._resource_to_capacity_id[resource_id] = cap_id
 
+        # Build tag_name -> tag_id mapping from the canonical id_map source
+        id_map = game_config.id_map()
+        tag_name_to_id = {name: idx for idx, name in enumerate(id_map.tag_names())}
+
         initial_replay = {
             "version": 2,
             "action_names": list(self._sim.action_ids.keys()),
             "item_names": self._sim.resource_names,
             "type_names": self._sim.object_type_names,
             "capacity_names": self._capacity_names,
+            "tags": tag_name_to_id,
             "map_size": [
                 self._sim.map_width,
                 self._sim.map_height,

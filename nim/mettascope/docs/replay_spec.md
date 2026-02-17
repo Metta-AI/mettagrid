@@ -69,12 +69,17 @@ include a numeric `type_id`, but new data should rely on the string `type_name` 
   "item_names": ["hearts", "coconuts", ... ],
   "group_names": ["group1", "group2", ... ],
   "collective_names": ["clips", "cogs", ... ],
+  "tags": {"type:agent": 0, "type:hub": 1, "type:wall": 2, ... },
   ...
 }
 ```
 
 The `collective_names` array (added in version 4) maps collective IDs to names. The array index corresponds to the
 collective ID, matching the C++ implementation which assigns IDs based on sorted alphabetical order of names.
+
+The `tags` object maps tag names to tag IDs. Tags are assigned IDs based on sorted alphabetical order of all unique tag
+names collected from the game configuration (game-level tags, object tags, agent tags, and auto-generated `type:` tags).
+Each grid object includes a `tag_ids` field containing the list of tag IDs assigned to it.
 
 The `capacity_names` array maps capacity group IDs to names. Each index is a `capacity_id` used in per-object
 `inventory_capacities` time series. Built from the inventory limit group names in the agent config, sorted
@@ -178,6 +183,10 @@ Here are the keys supported for both agents and objects:
   has effective limit 10. As a time series: `[[0, [[0, 20], [2, 10]]], [50, [[0, 15], [2, 10]]]]` means at step 50,
   capacity group 0 decreased to 15.
 - `color` - The color of the object. Must be an integer between 0 and 255.
+- `tag_ids` - List of tag IDs assigned to this object. These reference the `tags` mapping in the top-level replay data.
+  Tags can change during gameplay (e.g., via tag mutations), so this is a time series field. Example: `[0, 2, 5]` means
+  the object has the tags at indices 0, 2, and 5 in the `tags` mapping.
+
 - `collective_id` - The collective (team/faction) this object belongs to. This is a time series value that can change
   during gameplay (e.g., when a junction is captured by a different team). Valid values:
   - `0` = Clips (red team)

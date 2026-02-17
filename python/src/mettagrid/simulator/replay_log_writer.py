@@ -136,6 +136,10 @@ class EpisodeReplay:
                     resource_id = sim.resource_names.index(resource_name)
                     self._resource_to_capacity_id[resource_id] = cap_id
 
+        # Build tag_name -> tag_id mapping from the canonical id_map source
+        id_map = sim.config.game.id_map()
+        self._tag_name_to_id: Dict[str, int] = {name: idx for idx, name in enumerate(id_map.tag_names())}
+
         # If you update this, also update FormatVersion in
         # mettagrid/nim/mettascope/src/mettascope/replays.nim
         REPLAY_FORMAT_VERSION = 4
@@ -147,6 +151,7 @@ class EpisodeReplay:
             "type_names": sim.object_type_names,
             "collective_names": self._collective_names,
             "capacity_names": self._capacity_names,
+            "tags": self._tag_name_to_id,
             "map_size": [sim.map_width, sim.map_height],
             "num_agents": sim.num_agents,
             "max_steps": sim.config.game.max_steps,
