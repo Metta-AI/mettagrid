@@ -28,7 +28,7 @@ static void _set_up_handlers(GridObject* obj, const GridObjectConfig* config, [[
     std::unordered_map<int, std::vector<std::shared_ptr<Handler>>> on_tag_add;
     for (const auto& [tag_id, handler_configs] : config->on_tag_add) {
       for (const auto& hc : handler_configs) {
-        on_tag_add[tag_id].push_back(std::make_shared<Handler>(hc, tag_index));
+        on_tag_add[tag_id].push_back(std::make_shared<Handler>(hc));
       }
     }
     obj->set_on_tag_add(std::move(on_tag_add));
@@ -39,7 +39,7 @@ static void _set_up_handlers(GridObject* obj, const GridObjectConfig* config, [[
     std::unordered_map<int, std::vector<std::shared_ptr<Handler>>> on_tag_remove;
     for (const auto& [tag_id, handler_configs] : config->on_tag_remove) {
       for (const auto& hc : handler_configs) {
-        on_tag_remove[tag_id].push_back(std::make_shared<Handler>(hc, tag_index));
+        on_tag_remove[tag_id].push_back(std::make_shared<Handler>(hc));
       }
     }
     obj->set_on_tag_remove(std::move(on_tag_remove));
@@ -53,7 +53,7 @@ static void _set_up_handlers(GridObject* obj, const GridObjectConfig* config, [[
         std::vector<std::shared_ptr<Handler>> on_tick;
         on_tick.reserve(agent_config->on_tick.size());
         for (const auto& handler_config : agent_config->on_tick) {
-          on_tick.push_back(std::make_shared<Handler>(handler_config, tag_index));
+          on_tick.push_back(std::make_shared<Handler>(handler_config));
         }
         agent->set_on_tick(std::move(on_tick));
       }

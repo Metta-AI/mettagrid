@@ -669,7 +669,7 @@ inline void bind_handler_config(py::module& m) {
 
   // Handler - single handler with filters and mutations
   py::class_<Handler, std::shared_ptr<Handler>>(m, "Handler")
-      .def(py::init<const HandlerConfig&, TagIndex*>(), py::arg("config"), py::arg("tag_index") = nullptr)
+      .def(py::init<const HandlerConfig&>(), py::arg("config"))
       .def("try_apply", py::overload_cast<HandlerContext&>(&Handler::try_apply))
       .def_property_readonly("name", &Handler::name);
 
