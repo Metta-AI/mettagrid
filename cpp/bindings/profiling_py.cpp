@@ -26,5 +26,6 @@ void bind_profiling_properties(py::class_<MettaGrid>& cls) {
 
   cls.def_property_readonly("last_obs_time_ns", &MettaGrid::last_obs_time_ns)
       .def_property_readonly("step_timing", &MettaGrid::step_timing, py::return_value_policy::reference_internal)
-      .def_property_readonly("obs_validation_stats", &MettaGrid::obs_validation_stats, py::return_value_policy::reference_internal);
+      .def_property_readonly(
+          "obs_validation_stats", &MettaGrid::obs_validation_stats, py::return_value_policy::reference_internal);
 }

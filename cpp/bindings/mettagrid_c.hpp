@@ -22,17 +22,16 @@
 
 #include "config/mettagrid_config.hpp"
 #include "core/aoe_tracker.hpp"
+#include "core/game_value_config.hpp"
 #include "core/grid_object.hpp"
 #include "core/query_system.hpp"
 #include "core/tag_index.hpp"
 #include "core/types.hpp"
-#include "objects/collective.hpp"
 #include "handler/event_scheduler.hpp"
-#include "core/aoe_tracker.hpp"
-#include "core/game_value_config.hpp"
+#include "objects/collective.hpp"
 #include "profiling.hpp"
-#include "systems/packed_coordinate.hpp"
 #include "systems/encoding_utils.hpp"
+#include "systems/packed_coordinate.hpp"
 
 // Forward declarations of existing C++ classes
 class Grid;
@@ -187,7 +186,6 @@ private:
   std::mt19937 _rng;
   unsigned int _seed;
 
-
   // Global systems
   std::unique_ptr<mettagrid::AOETracker> _aoe_tracker;
   std::unique_ptr<mettagrid::EventScheduler> _event_scheduler;
@@ -200,7 +198,6 @@ private:
 
   // Tag index for efficient tag-based object lookup
   mettagrid::TagIndex _tag_index;
-
 
   // Pre-computed goal_obs tokens per agent (when enabled)
   std::vector<std::vector<PartialObservationToken>> _agent_goal_obs_tokens;
@@ -221,11 +218,10 @@ private:
 
   void init_action_handlers();
   void _compute_agent_goal_obs_tokens(size_t agent_idx);
-  size_t _emit_obs_value_tokens(size_t agent_idx,
-                                size_t tokens_written,
-                                ObservationType global_location);
+  size_t _emit_obs_value_tokens(size_t agent_idx, size_t tokens_written, ObservationType global_location);
   void add_agent(Agent* agent);
-  void _init_grid(const GameConfig& game_config, const py::list& map,
+  void _init_grid(const GameConfig& game_config,
+                  const py::list& map,
                   const std::vector<Collective*>& collectives_by_id);
   void _make_buffers(unsigned int num_agents);
   void _init_buffers(unsigned int num_agents);
