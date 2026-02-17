@@ -79,6 +79,11 @@ struct GridObjectConfig {
   std::shared_ptr<mettagrid::Handler> on_use_handler;  // Handler created by Python
   std::vector<mettagrid::AOEConfig> aoe_configs;
 
+  // Tag lifecycle handlers: key = tag_id, value = handler configs to fire
+  // Fired with actor=target=this_object when a tag is added/removed
+  std::unordered_map<int, std::vector<mettagrid::HandlerConfig>> on_tag_add;
+  std::unordered_map<int, std::vector<mettagrid::HandlerConfig>> on_tag_remove;
+
   GridObjectConfig(TypeId type_id, const std::string& type_name, ObservationType initial_vibe = 0)
       : type_id(type_id),
         type_name(type_name),
@@ -95,6 +100,7 @@ struct GridObjectConfig {
 // Forward declaration for GridObject
 namespace mettagrid {
 class TagIndex;
+class HandlerContext;
 }  // namespace mettagrid
 
 class GridObject : public HasVibe, public Alignable, public HasInventory, public Usable {
@@ -122,6 +128,8 @@ public:
   // Set handler for on_use events (takes shared_ptr for Python interop)
   void set_on_use_handler(std::shared_ptr<mettagrid::Handler> handler);
   void set_aoe_configs(std::vector<mettagrid::AOEConfig> configs);
+  void set_on_tag_add(std::unordered_map<int, std::vector<std::shared_ptr<mettagrid::Handler>>> handlers);
+  void set_on_tag_remove(std::unordered_map<int, std::vector<std::shared_ptr<mettagrid::Handler>>> handlers);
 
   // Check if this object has an on_use handler
   bool has_on_use_handler() const;
@@ -136,6 +144,16 @@ public:
   bool has_tag(int tag_id) const;
   void add_tag(int tag_id);
   void remove_tag(int tag_id);
+
+  // Tag mutation with lifecycle handlers (fires on_tag_add/on_tag_remove handlers)
+  void add_tag(int tag_id, const mettagrid::HandlerContext& ctx);
+  void remove_tag(int tag_id, const mettagrid::HandlerContext& ctx);
+
+  /** Run on_tag_add handlers for a tag that was already added. Used after recompute. */
+  void apply_on_tag_add_handlers(int tag_id, const mettagrid::HandlerContext& ctx);
+
+  /** Run on_tag_remove handlers for a tag that was already removed. Used after recompute. */
+  void apply_on_tag_remove_handlers(int tag_id, const mettagrid::HandlerContext& ctx);
 
   // Set the tag index reference (called by MettaGrid)
   void set_tag_index(mettagrid::TagIndex* index) {
@@ -179,6 +197,8 @@ protected:
 
 private:
   mettagrid::TagIndex* _tag_index = nullptr;
+  std::unordered_map<int, std::vector<std::shared_ptr<mettagrid::Handler>>> _on_tag_add;
+  std::unordered_map<int, std::vector<std::shared_ptr<mettagrid::Handler>>> _on_tag_remove;
 };
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GRID_OBJECT_HPP_

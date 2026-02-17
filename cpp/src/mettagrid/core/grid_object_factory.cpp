@@ -23,6 +23,28 @@ static void _set_up_handlers(GridObject* obj, const GridObjectConfig* config, [[
   obj->set_on_use_handler(config->on_use_handler);
   obj->set_aoe_configs(config->aoe_configs);
 
+  // on_tag_add handlers
+  if (!config->on_tag_add.empty()) {
+    std::unordered_map<int, std::vector<std::shared_ptr<Handler>>> on_tag_add;
+    for (const auto& [tag_id, handler_configs] : config->on_tag_add) {
+      for (const auto& hc : handler_configs) {
+        on_tag_add[tag_id].push_back(std::make_shared<Handler>(hc, tag_index));
+      }
+    }
+    obj->set_on_tag_add(std::move(on_tag_add));
+  }
+
+  // on_tag_remove handlers
+  if (!config->on_tag_remove.empty()) {
+    std::unordered_map<int, std::vector<std::shared_ptr<Handler>>> on_tag_remove;
+    for (const auto& [tag_id, handler_configs] : config->on_tag_remove) {
+      for (const auto& hc : handler_configs) {
+        on_tag_remove[tag_id].push_back(std::make_shared<Handler>(hc, tag_index));
+      }
+    }
+    obj->set_on_tag_remove(std::move(on_tag_remove));
+  }
+
   // on_tick handlers (agent-only)
   if (const auto* agent_config = dynamic_cast<const AgentConfig*>(config)) {
     if (!agent_config->on_tick.empty()) {

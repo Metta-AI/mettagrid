@@ -18,7 +18,7 @@ public:
   void apply(HandlerContext& ctx) override {
     GridObject* obj = dynamic_cast<GridObject*>(ctx.resolve(_config.entity));
     if (obj != nullptr) {
-      obj->add_tag(_config.tag_id);
+      obj->add_tag(_config.tag_id, ctx);
     }
   }
 
@@ -36,7 +36,7 @@ public:
   void apply(HandlerContext& ctx) override {
     GridObject* obj = dynamic_cast<GridObject*>(ctx.resolve(_config.entity));
     if (obj != nullptr) {
-      obj->remove_tag(_config.tag_id);
+      obj->remove_tag(_config.tag_id, ctx);
     }
   }
 
