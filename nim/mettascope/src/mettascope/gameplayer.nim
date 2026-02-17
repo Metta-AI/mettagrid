@@ -3,7 +3,7 @@ import
   opengl,
   bumpy, vmath, windy, silky, silky/atlas, chroma,
   common, worldmap, panels, configs,
-  replays, collectives, colors, minimap, actions
+  replays, collectives, colors, minimap, actions, cognames
 
 var
   pendingCenter: Vec2
@@ -115,6 +115,24 @@ proc drawIconScaled(
     color
   )
 
+const
+  ResourceCellWidth = 88.0f
+  ResourceCellHeight = 48.0f
+
+proc resourceCell(pos: Vec2, icon: string, amount: int) =
+  ## Draw one fixed-size resource cell (icon + 3-digit amount).
+  const
+    IconSize = 48.0f
+    IconTextGap = 8.0f
+  drawIconScaled(icon, pos, IconSize)
+  discard sk.drawText(
+    "pixelated",
+    &"{amount:03d}",
+    pos + vec2(IconSize + IconTextGap, 0),
+    Yellow,
+    clip = false
+  )
+
 proc drawVibeButton(
   pos: Vec2,
   vibeName: string,
@@ -176,18 +194,10 @@ proc drawVibeButton(
 
   drawIconScaled(icon, pos, iconSize)
 
-proc drawGameWorld*() =
-  ## Renders the game world to fill the entire window (no panels).
-
-  # Draw UI panels on top of the world map.
-  let
-    winW = window.size.x.float32
-    winH = window.size.y.float32
-
-  # Top-left panel
+proc topLeftPanel() =
+  ## Draw top-left panel with score and junction count.
   sk.drawImage("ui/panel_topleft", vec2(0, 0))
 
-  # Draw score and junction count on the top-left panel in pixel font.
   let
     avgScore = computeScore()
     junctionCount = computeJunctionCount()
@@ -200,22 +210,19 @@ proc drawGameWorld*() =
     clip = false
   )
 
-  # Top-right panel
+proc topRightPanel(winW: float32) =
+  ## Draw top-right panel with resource counts.
   let
     trSize = sk.getImageSize("ui/panel_topright")
     trPos = vec2(winW - trSize.x, 0)
   sk.drawImage("ui/panel_topright", trPos)
 
-  # Draw resource icons and counts on the top-right panel.
   if not replay.isNil:
     const
-      IconSize = 48.0f
-      IconSpacing = 8.0f
-      TextSize = 32.0f
-      Spacing = 32.0f
+      CellSpacing = 32.0f
       YPad = 42.0f
       XPad = 52.0f
-    let resources = [
+    let globalResources = [
       ("resources/carbon", "carbon"),
       ("resources/oxygen", "oxygen"),
       ("resources/germanium", "germanium"),
@@ -223,30 +230,15 @@ proc drawGameWorld*() =
     ]
     var x = trPos.x + XPad
     let y = trPos.y + YPad
-    for i, (icon, name) in resources:
-      drawIconScaled(icon, vec2(x, y), IconSize)
-      x += IconSize + IconSpacing
-      let
-        count = getCollectiveResourceCount(activeCollective, name)
-        countText = &"{count:03d}"
-      discard sk.drawText(
-        "pixelated",
-        countText,
-        vec2(x, y),
-        Yellow,
-        clip = false
-      )
-      x += TextSize + Spacing
+    for i, (icon, name) in globalResources:
+      resourceCell(vec2(x, y), icon, getCollectiveResourceCount(activeCollective, name))
+      x += ResourceCellWidth + CellSpacing
 
-  # Get bottom panel sizes for bar stretch and panel positioning.
+proc bottomBarStretch(winW: float32, winH: float32) =
+  ## Draw the stretch bar between the two bottom panels.
   let
     blSize = sk.getImageSize("ui/panel_bottomleft")
     brSize = sk.getImageSize("ui/panel_bottomright")
-
-  # Bar stretch fills the gap between bottom-left and bottom-right
-  # panels along the bottom edge.
-  # Draw before bottom panels with 1px overlap so panels cover fuzzy edges.
-  let
     barSize = sk.getImageSize("ui/barstretch")
     barX = blSize.x - 1
     barW = (winW - brSize.x) - blSize.x + 2
@@ -259,15 +251,14 @@ proc drawGameWorld*() =
     rgbx(255, 255, 255, 255)
   )
 
-  # Bottom-left panel (drawn on top of bar stretch)
+proc bottomLeftPanel(winH: float32) =
+  ## Draw bottom-left panel and transport controls.
+  let blSize = sk.getImageSize("ui/panel_bottomleft")
   sk.drawImage("ui/panel_bottomleft", vec2(0, winH - blSize.y))
 
-  # Transport buttons on the bottom bar.
   block:
     const BtnStride = 48.0f
-    let
-      btnH = sk.getImageSize("ui/transportButton.up").y
-      startPos = vec2(59, winH - 60)
+    let startPos = vec2(59, winH - 60)
 
     proc transportButton(idx: int, icon: string, isDown: bool): bool =
       ## Draw a transport button, return true if clicked.
@@ -330,11 +321,13 @@ proc drawGameWorld*() =
       stepFloat = step.float32
       saveUIState()
 
-  # Bottom-right panel (drawn on top of bar stretch)
-  let brPos = vec2(winW - brSize.x, winH - brSize.y)
+proc bottomRightPanel(winW: float32, winH: float32) =
+  ## Draw bottom-right panel and vibe controls.
+  let
+    brSize = sk.getImageSize("ui/panel_bottomright")
+    brPos = vec2(winW - brSize.x, winH - brSize.y)
   sk.drawImage("ui/panel_bottomright", brPos)
 
-  # Vibe buttons in a 3x3 grid on the bottom-right panel.
   if not replay.isNil:
     const
       GridCols = 3
@@ -366,80 +359,202 @@ proc drawGameWorld*() =
       if idx >= vibes.len:
         break
 
-  # Bottom-center panel (only shown when something is selected)
-  if not selection.isNil:
-    let bcSize = sk.getImageSize("ui/panel_center")
-    let bcPos = vec2((winW - bcSize.x) / 2.0, winH - bcSize.y - 20)
-    sk.drawImage("ui/panel_center", bcPos)
+proc drawStatBar(panelPos: Vec2, label: string, value: int, maxValue: int, divisions: int, delta: int) =
+  ## Draw a labeled stat bar in the center panel.
+  const
+    LabelOffset = vec2(0, -17)
+    OuterOffset = vec2(39, 0)
+    OuterSize = vec2(260, 20)
+    BorderPx = 1
+    InnerGapPx = 1
+    SegmentGapPx = 1
 
-    # Draw agent info on the bottom-center panel.
-    if selection.isAgent:
-      # Profile image at 424,32 offset from bcPos.
-      let profilePos = bcPos + vec2(424, 32)
-      let rig = getAgentRigName(selection)
-      let profileName =
-        if rig == "agent":
-          "profiles/cog"
-        else:
-          "profiles/" & rig
-      sk.drawImage(profileName, profilePos)
+  let
+    outerPos = panelPos + OuterOffset
+    safeMax = max(maxValue, 1)
+    safeDivisions = max(divisions, 1)
+    totalFilled = clamp(value.float32 / safeMax.float32 * safeDivisions.float32, 0.0f, safeDivisions.float32)
+    previousValue = value - delta
+    previousFilled = clamp(previousValue.float32 / safeMax.float32 * safeDivisions.float32, 0.0f, safeDivisions.float32)
+    deltaStart = min(totalFilled, previousFilled)
+    deltaEnd = max(totalFilled, previousFilled)
 
-      # Name, health, energy at 64,60 offset from bcPos.
+  let
+    outerX = outerPos.x.int
+    outerY = outerPos.y.int
+    outerW = OuterSize.x.int
+    outerH = OuterSize.y.int
+    innerX = outerX + BorderPx + InnerGapPx
+    innerY = outerY + BorderPx + InnerGapPx
+    innerW = max(0, outerW - 2 * (BorderPx + InnerGapPx))
+    innerH = max(0, outerH - 2 * (BorderPx + InnerGapPx))
+
+  discard sk.drawText("pixelated", label, panelPos + LabelOffset, Yellow, clip = false)
+
+  # Stroke-only rectangle made from 4 filled rects.
+  sk.drawRect(vec2(outerX.float32, outerY.float32), vec2(outerW.float32, BorderPx.float32), Yellow)  # top
+  sk.drawRect(vec2(outerX.float32, (outerY + outerH - BorderPx).float32), vec2(outerW.float32, BorderPx.float32), Yellow)  # bottom
+  sk.drawRect(vec2(outerX.float32, outerY.float32), vec2(BorderPx.float32, outerH.float32), Yellow)  # left
+  sk.drawRect(vec2((outerX + outerW - BorderPx).float32, outerY.float32), vec2(BorderPx.float32, outerH.float32), Yellow)  # right
+
+  # Draw segmented fill with 1px gaps and integer pixel widths.
+  let
+    totalGap = SegmentGapPx * (safeDivisions - 1)
+    usableW = max(0, innerW - totalGap)
+    baseSegW = if safeDivisions > 0: usableW div safeDivisions else: 0
+    remainder = if safeDivisions > 0: usableW mod safeDivisions else: 0
+
+  var segmentX = innerX
+  for i in 0 ..< safeDivisions:
+    let segmentW = baseSegW + (if i < remainder: 1 else: 0)
+    if segmentW > 0:
+      let segmentFillRatio = clamp(totalFilled - i.float32, 0.0f, 1.0f)
+      let segmentFillW = clamp((segmentW.float32 * segmentFillRatio + 0.5f).int, 0, segmentW)
+      if segmentFillW > 0:
+        sk.drawRect(
+          vec2(segmentX.float32, innerY.float32),
+          vec2(segmentFillW.float32, innerH.float32),
+          Yellow
+        )
+
+      # Draw white delta segment at the changing edge (gain or loss).
       let
-        textPos = bcPos + vec2(74, 60)
-        collectiveName = getCollectiveName(selection.collectiveId.at(step))
-        agentName =
-          if collectiveName.len > 0:
-            collectiveName & " " & rig
-          else:
-            rig
+        segmentDeltaStart = clamp(deltaStart - i.float32, 0.0f, 1.0f)
+        segmentDeltaEnd = clamp(deltaEnd - i.float32, 0.0f, 1.0f)
+        segmentDeltaW = clamp((segmentW.float32 * (segmentDeltaEnd - segmentDeltaStart) + 0.5f).int, 0, segmentW)
+      if segmentDeltaW > 0:
+        let segmentDeltaX = segmentX + clamp((segmentW.float32 * segmentDeltaStart + 0.5f).int, 0, segmentW)
+        sk.drawRect(
+          vec2(segmentDeltaX.float32, innerY.float32),
+          vec2(segmentDeltaW.float32, innerH.float32),
+          rgbx(255, 255, 255, 255)
+        )
+    segmentX += segmentW + SegmentGapPx
 
-      var
-        health = 0
-        energy = 0
-      let inv = selection.inventory.at
-      for item in inv:
-        if item.itemId >= 0 and item.itemId < replay.itemNames.len:
-          if replay.itemNames[item.itemId] == "hp":
-            health = item.count
-          elif replay.itemNames[item.itemId] == "energy":
-            energy = item.count
+proc centerPanel(winW: float32, winH: float32) =
+  ## Draw bottom-center selected agent info panel.
+  if selection.isNil:
+    return
 
-      let infoLabel =
-        &"{agentName}\n" &
-        &"Team: {collectiveName}\n" &
-        &"Health: {health}\n" &
-        &"Energy: {energy}"
-      discard sk.drawText("pixelated", infoLabel, textPos, Yellow, clip = false)
+  let bcSize = sk.getImageSize("ui/panel_center")
+  let bcPos = vec2((winW - bcSize.x) / 2.0, winH - bcSize.y - 20)
+  sk.drawImage("ui/panel_center", bcPos)
 
-  # Draw the world map.
+  if selection.isAgent:
+    let profilePos = bcPos + vec2(424, 32)
+    let rig = getAgentRigName(selection)
+    let profileName =
+      if rig == "agent":
+        "profiles/cog"
+      else:
+        "profiles/" & rig
+    sk.drawImage(profileName, profilePos)
+
+    let
+      textPos = bcPos + vec2(69, 32)
+      collectiveName = getCollectiveName(selection.collectiveId.at(step))
+      cogName = getCogName(selection.agentId)
+      displayName =
+        if collectiveName.len > 0 and cogName.len > 0:
+          collectiveName & " " & cogName
+        elif collectiveName.len > 0:
+          collectiveName
+        elif cogName.len > 0:
+          cogName
+        else:
+          rig
+
+    var
+      health = 0
+      energy = 0
+    let prevStep = max(0, step - 1)
+    let inv = selection.inventory.at
+    for item in inv:
+      if item.itemId >= 0 and item.itemId < replay.itemNames.len:
+        if replay.itemNames[item.itemId] == "hp":
+          health = item.count
+        elif replay.itemNames[item.itemId] == "energy":
+          energy = item.count
+    let
+      prevHealth = getInventoryItem(selection, "hp", prevStep)
+      prevEnergy = getInventoryItem(selection, "energy", prevStep)
+      deltaHealth = health - prevHealth
+      deltaEnergy = energy - prevEnergy
+
+    discard sk.drawText("pixelated", displayName, textPos, Yellow, clip = false)
+    drawStatBar(bcPos + vec2(69, 84), "HP", health, 100, 10, deltaHealth)
+    drawStatBar(bcPos + vec2(69, 118), "E", energy, 20, 20, deltaEnergy)
+
+    let agentResources = [
+      ("resources/heart", "heart"),
+      ("resources/carbon", "carbon"),
+      ("resources/oxygen", "oxygen"),
+      ("resources/germanium", "germanium"),
+      ("resources/silicon", "silicon"),
+    ]
+    const
+      ResourceGridOrigin = vec2(59, 156)
+      ResourceColSpacing = 20.0f
+      ResourceRowSpacing = 12.0f
+      ResourceCols = 3
+    var visibleResourceCells = 0
+    for (icon, name) in agentResources:
+      let amount = getInventoryItem(selection, name)
+      if amount <= 0:
+        continue
+      let
+        row = visibleResourceCells div ResourceCols
+        col = visibleResourceCells mod ResourceCols
+        rowXOffset = if row == 0: 0.0f else: (ResourceCellWidth + ResourceColSpacing) / 2.0f
+        cellPos = bcPos + ResourceGridOrigin + vec2(
+          rowXOffset + col.float32 * (ResourceCellWidth + ResourceColSpacing),
+          row.float32 * (ResourceCellHeight + ResourceRowSpacing)
+        )
+      resourceCell(cellPos, icon, amount)
+      inc visibleResourceCells
+
+proc bottomLeftMinimap(winH: float32) =
+  ## Draw minimap inside the bottom-left panel.
+  const
+    MinimapSize = 300.0f
+    MinimapXOff = 30.0f
+    MinimapYOff = 90.0f  # offset from the bottom of the window
+  let minimapPos = vec2(MinimapXOff, winH - MinimapYOff - MinimapSize)
+
+  # TODO: Profile this?
+  glEnable(GL_SCISSOR_TEST)
+  glScissor(
+    minimapPos.x.GLint,
+    MinimapYOff.GLint,
+    MinimapSize.GLsizei,
+    MinimapSize.GLsizei
+  )
+  glClearColor(0.0f, 0.0f, 0.0f, 1.0f)
+  glClear(GL_COLOR_BUFFER_BIT)
+  glDisable(GL_SCISSOR_TEST)
+
+  let mmZoom = ZoomInfo()
+  mmZoom.rect = irect(minimapPos.x, minimapPos.y, MinimapSize, MinimapSize)
+  mmZoom.hasMouse = false
+
+  saveTransform()
+  translateTransform(minimapPos)
+  drawMinimap(mmZoom)
+  restoreTransform()
+
+proc drawGameWorld*() =
+  ## Renders the game world to fill the entire window (no panels).
+  let
+    winW = window.size.x.float32
+    winH = window.size.y.float32
+
+  topLeftPanel()
+  topRightPanel(winW)
+  bottomBarStretch(winW, winH)
+  bottomLeftPanel(winH)
+  bottomRightPanel(winW, winH)
+  centerPanel(winW, winH)
+
   drawWorldMap(worldMapZoomInfo)
 
-  # Minimap inside the bottom-left panel.
-  block:
-    const
-      MinimapSize = 300.0f
-      MinimapXOff = 30.0f
-      MinimapYOff = 90.0f  # offset from the bottom of the window
-    let minimapPos = vec2(MinimapXOff, winH - MinimapYOff - MinimapSize)
-
-    # TODO: Profile this?
-    glEnable(GL_SCISSOR_TEST)
-    glScissor(
-      minimapPos.x.GLint,
-      MinimapYOff.GLint,
-      MinimapSize.GLsizei,
-      MinimapSize.GLsizei
-    )
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f)
-    glClear(GL_COLOR_BUFFER_BIT)
-    glDisable(GL_SCISSOR_TEST)
-
-    let mmZoom = ZoomInfo()
-    mmZoom.rect = irect(minimapPos.x, minimapPos.y, MinimapSize, MinimapSize)
-    mmZoom.hasMouse = false
-
-    saveTransform()
-    translateTransform(minimapPos)
-    drawMinimap(mmZoom)
-    restoreTransform()
+  bottomLeftMinimap(winH)
