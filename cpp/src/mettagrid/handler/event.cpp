@@ -33,7 +33,7 @@ Event::Event(const EventConfig& config, TagIndex* tag_index)
 
 int Event::execute(TagIndex& tag_index, std::mt19937* rng) {
   // Find targets by tag
-  std::vector<HasInventory*> targets;
+  std::vector<GridObject*> targets;
   const auto& objects = tag_index.get_objects_with_tag(_target_tag_id);
   for (auto* obj : objects) {
     targets.push_back(obj);
@@ -63,10 +63,10 @@ int Event::execute(TagIndex& tag_index, std::mt19937* rng) {
   return targets_applied;
 }
 
-bool Event::try_apply(HasInventory* target) {
+bool Event::try_apply(GridObject* target) {
   // For events, there's no actor - the target is the only entity
-  // Pass collectives in context for runtime resolution
-  HandlerContext ctx(nullptr, target, nullptr, _tag_index, _collectives);
+  HandlerContext ctx(nullptr, target, nullptr, _tag_index);
+  ctx.collectives = _collectives;
   ctx.grid = _grid;
 
   if (!check_filters(target)) {
@@ -80,10 +80,10 @@ bool Event::try_apply(HasInventory* target) {
   return true;
 }
 
-bool Event::check_filters(HasInventory* target) const {
+bool Event::check_filters(GridObject* target) const {
   // For events, there's no actor - the target is the only entity
-  // Pass collectives in context for runtime resolution
-  HandlerContext ctx(nullptr, target, nullptr, _tag_index, _collectives);
+  HandlerContext ctx(nullptr, target, nullptr, _tag_index);
+  ctx.collectives = _collectives;
   ctx.grid = _grid;
 
   for (const auto& filter : _filters) {

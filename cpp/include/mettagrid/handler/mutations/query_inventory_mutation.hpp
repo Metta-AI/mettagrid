@@ -29,7 +29,7 @@ public:
     auto results = _config.query->evaluate(*ctx.query_system);
 
     if (_config.has_source) {
-      auto* source = ctx.resolve(_config.source);
+      auto* source = ctx.resolve_inventory(_config.source);
       assert(source && "QueryInventoryMutation source must resolve");
       for (GridObject* obj : results) {
         for (const auto& [resource_id, delta] : _config.deltas) {

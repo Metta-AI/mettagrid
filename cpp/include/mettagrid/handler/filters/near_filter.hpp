@@ -38,7 +38,7 @@ public:
     assert(_config.target_tag >= 0 && "NearFilter requires valid target_tag");
 
     // Get GridObject to check proximity
-    GridObject* grid_obj = dynamic_cast<GridObject*>(ctx.resolve(_config.entity));
+    GridObject* grid_obj = ctx.resolve(_config.entity);
     if (grid_obj == nullptr) {
       return false;
     }
@@ -53,9 +53,8 @@ public:
         }
 
         // Create context with candidate as target and check all filters
-        // Include collectives from outer context for alignment filter lookups
-        HandlerContext inner_ctx(
-            ctx.actor, candidate, ctx.game_stats, ctx.tag_index, ctx.collectives, ctx.skip_on_update_trigger);
+        HandlerContext inner_ctx(ctx.actor, candidate, ctx.game_stats, ctx.tag_index, ctx.skip_on_update_trigger);
+        inner_ctx.collectives = ctx.collectives;
         bool passes_all_filters = true;
         for (const auto& filter : _filters) {
           if (!filter->passes(inner_ctx)) {

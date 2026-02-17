@@ -44,13 +44,13 @@ public:
 
   // Try to apply this handler to the given actor and target
   // Returns true if all filters passed and mutations were applied
-  bool try_apply(HasInventory* actor, HasInventory* target);
+  bool try_apply(GridObject* actor, GridObject* target);
 
   // Check if all filters pass without applying mutations
   bool check_filters(const HandlerContext& ctx) const;
 
   // Check if all filters pass without applying mutations
-  bool check_filters(HasInventory* actor, HasInventory* target) const;
+  bool check_filters(GridObject* actor, GridObject* target) const;
 
 private:
   std::string _name;

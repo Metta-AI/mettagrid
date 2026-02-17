@@ -12,18 +12,17 @@ float HandlerContext::resolve_game_value(const GameValueConfig& cfg, EntityRef e
       [&](auto&& c) -> float {
         using T = std::decay_t<decltype(c)>;
         if constexpr (std::is_same_v<T, InventoryValueConfig>) {
-          EntityRef ref = entity_ref;
           if (c.scope == GameValueScope::COLLECTIVE) {
-            if (ref == EntityRef::actor)
-              ref = EntityRef::actor_collective;
-            else if (ref == EntityRef::target)
-              ref = EntityRef::target_collective;
+            GridObject* entity = resolve(entity_ref);
+            Collective* coll = get_collective(entity);
+            if (!coll) return 0.0f;
+            return static_cast<float>(coll->inventory.amount(c.id));
           }
-          HasInventory* entity = resolve(ref);
+          GridObject* entity = resolve(entity_ref);
           if (!entity) return 0.0f;
           return static_cast<float>(entity->inventory.amount(c.id));
         } else if constexpr (std::is_same_v<T, StatValueConfig>) {
-          HasInventory* entity = resolve(entity_ref);
+          GridObject* entity = resolve(entity_ref);
           StatsTracker* tracker = resolve_stats_tracker(c.scope, entity);
           if (!tracker) return 0.0f;
           if (!c.stat_name.empty()) return tracker->get(c.stat_name);
@@ -47,7 +46,7 @@ float HandlerContext::resolve_game_value(const GameValueConfig& cfg, EntityRef e
       cfg);
 }
 
-StatsTracker* HandlerContext::resolve_stats_tracker(GameValueScope scope, HasInventory* entity) const {
+StatsTracker* HandlerContext::resolve_stats_tracker(GameValueScope scope, GridObject* entity) const {
   switch (scope) {
     case GameValueScope::AGENT: {
       Agent* agent = dynamic_cast<Agent*>(entity);

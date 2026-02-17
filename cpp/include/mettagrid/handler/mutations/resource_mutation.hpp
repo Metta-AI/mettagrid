@@ -21,7 +21,7 @@ public:
   explicit ResourceDeltaMutation(const ResourceDeltaMutationConfig& config) : _config(config) {}
 
   void apply(HandlerContext& ctx) override {
-    HasInventory* entity = ctx.resolve(_config.entity);
+    HasInventory* entity = ctx.resolve_inventory(_config.entity);
     assert(entity && "ResourceDeltaMutation entity must resolve");
 
     entity->inventory.update(_config.resource_id, _config.delta);
@@ -39,8 +39,8 @@ public:
   explicit ResourceTransferMutation(const ResourceTransferMutationConfig& config) : _config(config) {}
 
   void apply(HandlerContext& ctx) override {
-    HasInventory* source = ctx.resolve(_config.source);
-    HasInventory* dest = ctx.resolve(_config.destination);
+    HasInventory* source = ctx.resolve_inventory(_config.source);
+    HasInventory* dest = ctx.resolve_inventory(_config.destination);
     assert(source && "ResourceTransferMutation source must resolve");
     assert(dest && "ResourceTransferMutation destination must resolve");
 
@@ -82,7 +82,7 @@ public:
   explicit ClearInventoryMutation(const ClearInventoryMutationConfig& config) : _config(config) {}
 
   void apply(HandlerContext& ctx) override {
-    HasInventory* entity = ctx.resolve(_config.entity);
+    HasInventory* entity = ctx.resolve_inventory(_config.entity);
     assert(entity && "ClearInventoryMutation entity must resolve");
 
     if (_config.resource_ids.empty()) {

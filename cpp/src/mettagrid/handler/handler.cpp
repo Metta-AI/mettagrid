@@ -19,25 +19,19 @@ bool debug_handlers_enabled() {
   return enabled;
 }
 
-void append_entity_debug_format(std::ostream& stream, HasInventory* entity) {
-  if (entity == nullptr) {
+void append_entity_debug_format(std::ostream& stream, const GridObject* object) {
+  if (object == nullptr) {
     stream << "none";
     return;
   }
 
-  GridObject* obj = dynamic_cast<GridObject*>(entity);
-  if (obj == nullptr) {
-    stream << "?";
-    return;
+  if (!object->type_name.empty()) {
+    stream << object->type_name << ':';
   }
-
-  if (!obj->type_name.empty()) {
-    stream << obj->type_name << ':';
+  if (!object->name.empty()) {
+    stream << object->name;
   }
-  if (!obj->name.empty()) {
-    stream << obj->name;
-  }
-  stream << '(' << obj->id << ')';
+  stream << '(' << object->id << ')';
 }
 
 void log_handler_result(const std::string& handler_name, const HandlerContext& ctx, bool succeeded) {
@@ -90,7 +84,7 @@ bool Handler::try_apply(HandlerContext& ctx) {
   return true;
 }
 
-bool Handler::try_apply(HasInventory* actor, HasInventory* target) {
+bool Handler::try_apply(GridObject* actor, GridObject* target) {
   HandlerContext ctx(actor, target);
   return try_apply(ctx);
 }
@@ -105,7 +99,7 @@ bool Handler::check_filters(const HandlerContext& ctx) const {
   return true;
 }
 
-bool Handler::check_filters(HasInventory* actor, HasInventory* target) const {
+bool Handler::check_filters(GridObject* actor, GridObject* target) const {
   HandlerContext ctx(actor, target);
   return check_filters(ctx);
 }

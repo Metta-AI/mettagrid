@@ -14,7 +14,7 @@ public:
   explicit ResourceFilter(const ResourceFilterConfig& config) : _config(config) {}
 
   bool passes(const HandlerContext& ctx) const override {
-    HasInventory* entity = ctx.resolve(_config.entity);
+    HasInventory* entity = ctx.resolve_inventory(_config.entity);
     if (entity == nullptr) {
       return false;
     }
