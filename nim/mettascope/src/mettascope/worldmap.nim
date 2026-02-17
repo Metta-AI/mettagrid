@@ -1,5 +1,5 @@
 import
-  std/[algorithm, math, os, tables, random, json, sets, options],
+  std/[algorithm, math, os, tables, random, json, sets, options, strutils],
   chroma, vmath, windy, silky,
   common, actions, replays,
   pathfinding, tilemap, pixelator, shaderquad, starfield,
@@ -769,6 +769,27 @@ proc drawObjects*() {.measure.} =
         (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
       )
 
+    elif normalizeTypeName(thing.typeName) == "junction":
+      let
+        collectiveName = getCollectiveName(thing.collectiveId.at(step)).toLowerAscii()
+        spriteName =
+          if collectiveName.contains("clip") and "objects/junction.clipped1" in px:
+            "objects/junction.clipped1"
+          elif collectiveName.contains("cog") and "objects/junction.working" in px:
+            "objects/junction.working"
+          elif "objects/" & thing.typeName in px:
+            "objects/" & thing.typeName
+          elif "objects/" & stripTeamPrefix(thing.typeName) in px:
+            "objects/" & stripTeamPrefix(thing.typeName)
+          elif "objects/" & stripTeamSuffix(thing.typeName) in px:
+            "objects/" & stripTeamSuffix(thing.typeName)
+          else:
+            "objects/unknown"
+      px.drawSprite(
+        spriteName,
+        (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
+      )
+
     else:
       let spriteName =
         if "objects/" & thing.typeName in px:
@@ -809,7 +830,7 @@ proc drawVisualRanges*(alpha = 0.5) {.measure.} =
   )
 
 proc drawFogOfWar*() {.measure.} =
-  ## Draw exploration fog of war plus current-step visual ranges.
+  ## Draw exploration fog of war.
   if explorationFogMap == nil:
     explorationFogMapStep = step
     explorationFogMapSelectionId = if selection != nil: selection.id else: -1
@@ -824,8 +845,6 @@ proc drawFogOfWar*() {.measure.} =
     explorationFogMapSelectionId = currentSelectionId
     explorationFogMap.updateExplorationFogMap()
 
-  # Show current visibility over explored world.
-  drawVisualRanges(alpha = 0.25)
   explorationFogMap.draw(
     getProjectionView(),
     zoom = 2.0f,
@@ -1171,7 +1190,7 @@ proc drawWorldMini*() {.measure.} =
   # Overlays (drawn after minimap pips so fog/range can cover icons).
   if settings.showFogOfWar:
     drawFogOfWar()
-  elif settings.showVisualRange:
+  if settings.showVisualRange:
     drawVisualRanges()
 
 proc centerAt*(zoomInfo: ZoomInfo, entity: Entity) =
