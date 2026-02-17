@@ -21,6 +21,7 @@ def format_grid_object_base(grid_object: dict) -> dict:
     # Always include collective_id (-1 = unaligned). jsony (Nim) defaults missing
     # ints to 0, which would incorrectly map to the first collective.
     update_object["collective_id"] = grid_object.get("collective_id", -1)
+    update_object["tag_ids"] = list(grid_object.get("tag_ids", []))
     return update_object
 
 

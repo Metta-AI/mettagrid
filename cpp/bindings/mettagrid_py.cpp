@@ -129,6 +129,17 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
       obj_dict["steps_without_motion"] = agent->steps_without_motion;
     }
 
+    // Export tag IDs as a list of integers for replay/streaming consumers.
+    {
+      py::list tag_id_list;
+      for (size_t i = 0; i < kMaxTags; ++i) {
+        if (obj->tag_bits.test(i)) {
+          tag_id_list.append(static_cast<int>(i));
+        }
+      }
+      obj_dict["tag_ids"] = tag_id_list;
+    }
+
     // Add tag mutation methods (capture obj pointer and self_ref to prevent use-after-free)
     // self_ref keeps the MettaGrid alive as long as these lambdas exist
     obj_dict["has_tag"] = py::cpp_function([obj, self_ref](int tag_id) { return obj->has_tag(tag_id); });
