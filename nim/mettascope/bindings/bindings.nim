@@ -1,5 +1,6 @@
 import
   os, genny, openGL, jsony, vmath, windy, silky,
+  std/[times, math],
   ../src/mettascope,
   ../src/mettascope/[replays, common, worldmap, timeline, replayloader, heatmap, configs],
   ../src/mettascope/panels/[envpanel, vibespanel]
@@ -12,6 +13,29 @@ type
   RenderResponse* = ref object
     shouldClose*: bool
     actions*: seq[ActionRequest]
+
+const
+  RealtimeSmoothMaxStepDelta = 1.5f
+
+var
+  realtimeTransitionActive = false
+  realtimeTransitionStart = 0.0f
+  realtimeTransitionTarget = 0.0f
+  realtimeTransitionStartTime = 0.0
+  realtimeTransitionDurationSeconds = 0.1
+
+proc updateStepFloat() =
+  ## Smoothly advance display step in realtime mode between Python updates.
+  if not realtimeTransitionActive:
+    return
+  let
+    elapsed = epochTime() - realtimeTransitionStartTime
+    t = clamp((elapsed / realtimeTransitionDurationSeconds).float32, 0.0f, 1.0f)
+  stepFloat = realtimeTransitionStart + (realtimeTransitionTarget - realtimeTransitionStart) * t
+  if t >= 1.0f:
+    stepFloat = realtimeTransitionTarget
+    realtimeTransitionActive = false
+    stepFloatSmoothing = false
 
 proc ctrlCHandler() {.noconv.} =
   ## Handle ctrl-c signal to exit cleanly.
@@ -57,8 +81,25 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
     common.replay.apply(replayStep)
     if worldHeatmap != nil:
       update(worldHeatmap, currentStep, replay)
+    let currentStepFloat = currentStep.float32
+    if playMode == Realtime:
+      let delta = abs(currentStepFloat - stepFloat)
+      if delta > 0.0'f32 and delta <= RealtimeSmoothMaxStepDelta:
+        realtimeTransitionStart = stepFloat
+        realtimeTransitionTarget = currentStepFloat
+        realtimeTransitionStartTime = epochTime()
+        realtimeTransitionDurationSeconds = 1.0 / max(playSpeed.float64, 0.001)
+        realtimeTransitionActive = true
+        stepFloatSmoothing = true
+      else:
+        realtimeTransitionActive = false
+        stepFloatSmoothing = false
+        stepFloat = currentStepFloat
+    else:
+      realtimeTransitionActive = false
+      stepFloatSmoothing = false
+      stepFloat = currentStepFloat
     step = currentStep
-    stepFloat = currentStep.float32
     previousStep = currentStep
     requestPython = false
 
@@ -73,6 +114,7 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
         window.close()
         result.shouldClose = true
         return
+      updateStepFloat()
       tickMettascope()
       if requestPython:
         onRequestPython()

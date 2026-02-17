@@ -68,7 +68,11 @@ proc drawTimeline*(pos, size: Vec2) =
   ribbon(pos, size, ScrubberColor):
     let
       prevStepFloat = stepFloat
-      maxStepFloat = replay.maxSteps.float32 - 1
+      maxStepFloat =
+        if playMode == Realtime and stepFloatSmoothing:
+          stepFloat
+        else:
+          replay.maxSteps.float32 - 1
       displayStep = $int(stepFloat + 0.5)
     sk.at.y -= 12
     drawTimelineSlider("timeline", stepFloat, 0, maxStepFloat, displayStep)

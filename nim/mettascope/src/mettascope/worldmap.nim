@@ -679,6 +679,31 @@ proc inferOrientation*(agent: Entity, step: int): Orientation =
 
 # stripTeamSuffix, stripTeamPrefix, normalizeTypeName are imported from common
 
+proc smoothPos*(entity: Entity): Vec2 =
+  ## Interpolate between floor(stepFloat) and the next step.
+  if entity.isNil:
+    return vec2(0, 0)
+  let
+    baseStep = floor(stepFloat).int
+    stepFrac = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
+    pos0 = entity.location.at(baseStep).xy.vec2
+    pos1 = entity.location.at(baseStep + 1).xy.vec2
+  pos0 + (pos1 - pos0) * stepFrac
+
+proc smoothOrientation*(agent: Entity): Orientation =
+  ## Switch orientation halfway through the interpolated move.
+  if agent.isNil:
+    return S
+  let
+    baseStep = floor(stepFloat).int
+    stepFrac = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
+    orientation0 = inferOrientation(agent, baseStep)
+    orientation1 = inferOrientation(agent, baseStep + 1)
+  if stepFrac >= 0.05f:
+    orientation1
+  else:
+    orientation0
+
 proc agentRigName(agent: Entity): string =
   ## Get the rig of the agent.
   # Look at the inventory show the rig for "scout", "miner", "aligner" and "scrambler"
@@ -714,8 +739,8 @@ proc drawObjects*() {.measure.} =
   # Sort for painter's algorithm draw order.
   objects.sort(proc(a, b: Entity): int =
     let
-      aY = a.location.at().y
-      bY = b.location.at().y
+      aY = a.smoothPos().y
+      bY = b.smoothPos().y
     # Primary: lower Y drawn first (behind).
     result = cmp(aY, bY)
     if result != 0: return
@@ -733,16 +758,17 @@ proc drawObjects*() {.measure.} =
   const SpriteOffset = ivec2(0, -32)
 
   for thing in objects:
-    let pos = thing.location.at().xy
+    let pos = thing.smoothPos()
     if thing.typeName == "agent":
       let agent = thing
       # Find last orientation action.
-      var agentImage = "agents/" & agentRigName(agent) & "." & inferOrientation(agent, step).char
+      var agentImage = "agents/" & agentRigName(agent) & "." & smoothOrientation(agent).char
 
       px.drawSprite(
         agentImage,
-        pos * TileSize + SpriteOffset
+        (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
       )
+
     else:
       let spriteName =
         if "objects/" & thing.typeName in px:
@@ -755,7 +781,7 @@ proc drawObjects*() {.measure.} =
           "objects/unknown"
       px.drawSprite(
         spriteName,
-        pos * TileSize + SpriteOffset
+        (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
       )
 
 proc drawVisualRanges*(alpha = 0.5) {.measure.} =
@@ -914,7 +940,7 @@ proc drawAgentDecorations*() {.measure.} =
   for agent in replay.agents:
     if not agent.alive.at:
       continue
-    let pos = agent.location.at.xy.ivec2 * TileSize
+    let pos = (agent.smoothPos * TileSize.float32).ivec2
     let tint = getCollectiveColor(agent.collectiveId.at(step))
     # HP bar - large pips, colored by collective
     let hp = getInventoryItem(agent, "hp")
@@ -1010,7 +1036,7 @@ proc drawSelection*() {.measure.} =
   if selection != nil:
     px.drawSprite(
       "objects/selection",
-      selection.location.at.xy.ivec2 * TileSize,
+      (selection.smoothPos * TileSize.float32).ivec2,
     )
 
 proc drawPolicyTarget*() {.measure.} =
@@ -1152,14 +1178,14 @@ proc centerAt*(zoomInfo: ZoomInfo, entity: Entity) =
   ## Center the map on the given entity.
   if entity.isNil:
     return
-  let location = entity.location.at(step).xy
+  let location = entity.smoothPos
   let rectW = zoomInfo.rect.w.float32
   let rectH = zoomInfo.rect.h.float32
   if rectW <= 0 or rectH <= 0:
     return
   let z = zoomInfo.zoom * zoomInfo.zoom
-  zoomInfo.pos.x = rectW / 2.0f - location.x.float32 * z
-  zoomInfo.pos.y = rectH / 2.0f - location.y.float32 * z
+  zoomInfo.pos.x = rectW / 2.0f - location.x * z
+  zoomInfo.pos.y = rectH / 2.0f - location.y * z
 
 proc keepSelectedAgentInView*(zoomInfo: ZoomInfo) =
   ## Keep selected agent inside a zoom-aware safe margin.
@@ -1174,7 +1200,7 @@ proc keepSelectedAgentInView*(zoomInfo: ZoomInfo) =
     return
 
   let
-    agentPos = selection.location.at(step).xy.vec2
+    agentPos = selection.smoothPos
     maxMarginPx = FollowMarginMaxWorldTiles * z
     marginX = min(rectW * FollowMarginScreenFraction, maxMarginPx)
     marginY = min(rectH * FollowMarginScreenFraction, maxMarginPx)

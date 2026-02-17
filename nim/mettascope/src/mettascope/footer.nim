@@ -11,6 +11,7 @@ proc drawFooter*(pos, size: Vec2) =
 
     let pos = sk.pos
     let size = sk.size
+    let canStepForward = (not stepFloatSmoothing) and step < replay.maxSteps - 1
 
     sk.at = pos + vec2(16, 16)
     group(vec2(0, 0), LeftToRight):
@@ -40,7 +41,7 @@ proc drawFooter*(pos, size: Vec2) =
           tooltip("Pause")
         else:
           tooltip("Play")
-      clickableIcon("ui/stepForward", step < replay.maxSteps - 1):
+      clickableIcon("ui/stepForward", canStepForward):
         step += 1
         if step > replay.maxSteps - 1:
           requestPython = true
@@ -49,7 +50,7 @@ proc drawFooter*(pos, size: Vec2) =
         saveUIState()
       if sk.shouldShowTooltip:
         tooltip("Step Forward")
-      clickableIcon("ui/rewindToEnd", step != replay.maxSteps - 1):
+      clickableIcon("ui/rewindToEnd", canStepForward):
         step = replay.maxSteps - 1
         stepFloat = step.float32
         saveUIState()
