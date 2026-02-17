@@ -29,11 +29,11 @@ public:
         [&](auto&& c) {
           using T = std::decay_t<decltype(c)>;
           if constexpr (std::is_same_v<T, InventoryValueConfig>) {
-            HasInventory* entity = ctx.resolve(_config.target);
+            HasInventory* entity = ctx.resolve_inventory(_config.target);
             if (!entity) return;
             entity->inventory.update(c.id, static_cast<InventoryDelta>(delta));
           } else if constexpr (std::is_same_v<T, StatValueConfig>) {
-            HasInventory* entity = ctx.resolve(_config.target);
+            GridObject* entity = ctx.resolve(_config.target);
             StatsTracker* tracker = ctx.resolve_stats_tracker(c.scope, entity);
             if (!tracker) return;
             if (!c.stat_name.empty()) {

@@ -67,10 +67,10 @@ public:
 
   // Try to apply this event to the given target (no actor for events)
   // Returns true if all filters passed and mutations were applied
-  bool try_apply(HasInventory* target);
+  bool try_apply(GridObject* target);
 
   // Check if all filters pass without applying mutations
-  bool check_filters(HasInventory* target) const;
+  bool check_filters(GridObject* target) const;
 
 private:
   std::string _name;

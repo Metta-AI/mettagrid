@@ -7,7 +7,6 @@
 #include "handler/filters/filter_factory.hpp"
 #include "handler/handler_context.hpp"
 #include "handler/mutations/mutation_factory.hpp"
-#include "objects/has_inventory.hpp"
 #include "systems/stats_tracker.hpp"
 
 namespace mettagrid {
@@ -60,9 +59,8 @@ AOESource& AOESource::operator=(AOESource&& other) noexcept {
 
 bool AOESource::try_apply(GridObject* target, StatsTracker* game_stats) {
   // Create context: actor=source, target=affected object
-  // Include game_stats for StatsMutation support, tag_index for NearFilter, and collectives for alignment filter
-  // lookups
-  HandlerContext ctx(source, target, game_stats, tag_index, collectives);
+  HandlerContext ctx(source, target, game_stats, tag_index);
+  ctx.collectives = collectives;
   ctx.grid = source->grid();
 
   // Check all filters
@@ -81,8 +79,8 @@ bool AOESource::try_apply(GridObject* target, StatsTracker* game_stats) {
 }
 
 bool AOESource::passes_filters(GridObject* target) const {
-  // Include tag_index for NearFilter and collectives for alignment filter lookups
-  HandlerContext ctx(source, target, nullptr, tag_index, collectives);
+  HandlerContext ctx(source, target, nullptr, tag_index);
+  ctx.collectives = collectives;
   ctx.grid = source->grid();
   for (const auto& filter : filters) {
     if (!filter->passes(ctx)) {
@@ -93,13 +91,8 @@ bool AOESource::passes_filters(GridObject* target) const {
 }
 
 void AOESource::apply_presence_deltas(GridObject* target, int multiplier) {
-  auto* has_inv = dynamic_cast<HasInventory*>(target);
-  if (!has_inv) {
-    return;
-  }
-
   for (const auto& delta : config.presence_deltas) {
-    has_inv->inventory.update(delta.resource_id, delta.delta * multiplier);
+    target->inventory.update(delta.resource_id, delta.delta * multiplier);
   }
 }
 
