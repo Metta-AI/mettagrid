@@ -15,28 +15,40 @@ namespace py = pybind11;
 inline void bind_handler_config(py::module& m) {
   using namespace mettagrid;
 
-  // GameValueType enum
-  py::enum_<GameValueType>(m, "GameValueType")
-      .value("INVENTORY", GameValueType::INVENTORY)
-      .value("STAT", GameValueType::STAT)
-      .value("TAG_COUNT", GameValueType::TAG_COUNT)
-      .value("CONST", GameValueType::CONST);
-
   // GameValueScope enum
   py::enum_<GameValueScope>(m, "GameValueScope")
       .value("AGENT", GameValueScope::AGENT)
-      .value("COLLECTIVE", GameValueScope::COLLECTIVE)
-      .value("GAME", GameValueScope::GAME);
+      .value("GAME", GameValueScope::GAME)
+      .value("COLLECTIVE", GameValueScope::COLLECTIVE);
 
-  // GameValueConfig struct
-  py::class_<GameValueConfig>(m, "GameValueConfig")
+  // Typed GameValue configs
+  py::class_<InventoryValueConfig>(m, "InventoryValueConfig")
       .def(py::init<>())
-      .def_readwrite("type", &GameValueConfig::type)
-      .def_readwrite("scope", &GameValueConfig::scope)
-      .def_readwrite("id", &GameValueConfig::id)
-      .def_readwrite("delta", &GameValueConfig::delta)
-      .def_readwrite("stat_name", &GameValueConfig::stat_name)
-      .def_readwrite("const_value", &GameValueConfig::const_value);
+      .def_readwrite("scope", &InventoryValueConfig::scope)
+      .def_readwrite("id", &InventoryValueConfig::id);
+
+  py::class_<StatValueConfig>(m, "StatValueConfig")
+      .def(py::init<>())
+      .def_readwrite("scope", &StatValueConfig::scope)
+      .def_readwrite("id", &StatValueConfig::id)
+      .def_readwrite("delta", &StatValueConfig::delta)
+      .def_readwrite("stat_name", &StatValueConfig::stat_name);
+
+  py::class_<TagCountValueConfig>(m, "TagCountValueConfig")
+      .def(py::init<>())
+      .def_readwrite("id", &TagCountValueConfig::id);
+
+  py::class_<ConstValueConfig>(m, "ConstValueConfig")
+      .def(py::init<>())
+      .def_readwrite("value", &ConstValueConfig::value);
+
+  py::class_<QueryInventoryValueConfig>(m, "QueryInventoryValueConfig")
+      .def(py::init<>())
+      .def_readwrite("id", &QueryInventoryValueConfig::id)
+      .def(
+          "set_query",
+          [](QueryInventoryValueConfig& self, const QueryConfigHolder& q) { self.query = q.config; },
+          py::arg("query"));
 
   // EntityRef enum
   py::enum_<EntityRef>(m, "EntityRef")
@@ -150,7 +162,7 @@ inline void bind_handler_config(py::module& m) {
              cfg.entity = entity;
              return cfg;
            }),
-           py::arg("value") = GameValueConfig(),
+           py::arg("value") = GameValueConfig{InventoryValueConfig{}},
            py::arg("threshold") = 0.0f,
            py::arg("entity") = EntityRef::target)
       .def_readwrite("value", &GameValueFilterConfig::value)
@@ -498,9 +510,9 @@ inline void bind_handler_config(py::module& m) {
              cfg.source = source;
              return cfg;
            }),
-           py::arg("value") = GameValueConfig(),
+           py::arg("value") = GameValueConfig{InventoryValueConfig{}},
            py::arg("target") = EntityRef::target,
-           py::arg("source") = GameValueConfig())
+           py::arg("source") = GameValueConfig{InventoryValueConfig{}})
       .def_readwrite("value", &GameValueMutationConfig::value)
       .def_readwrite("target", &GameValueMutationConfig::target)
       .def_readwrite("source", &GameValueMutationConfig::source);
