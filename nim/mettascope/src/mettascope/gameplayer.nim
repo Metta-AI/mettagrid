@@ -8,6 +8,9 @@ import
 var
   pendingCenter: Vec2
   hasPendingCenter = false
+  moveToggleActive = false
+  queueToggleActive = false
+  repeatToggleActive = false
 
 proc applyModeSwitchCenter*(zoomInfo: ZoomInfo) =
   ## Applies the stored world center after a mode switch once the rect is set.
@@ -347,7 +350,7 @@ proc bottomLeftPanel(winH: float32) =
   block:
     const
       ToggleStart = vec2(392, 94)
-      ToggleSpacing = 20.0f
+      ToggleSpacing = 40.0f
       ToggleIconSize = 48.0f
       ToggleStride = ToggleIconSize + ToggleSpacing
 
@@ -367,8 +370,27 @@ proc bottomRightPanel(winW: float32, winH: float32) =
   ## Draw bottom-right panel and vibe controls.
   let
     brSize = sk.getImageSize("ui/panel_bottomright")
-  let brPos = vec2(winW - brSize.x, winH - brSize.y)
+    brPos = vec2(winW - brSize.x, winH - brSize.y)
   sk.drawImage("ui/panel_bottomright", brPos)
+
+  # Action mode toggles.
+  block:
+    const
+      ToggleStart = vec2(174, 44)
+      ToggleSpacing = 40.0f
+      ToggleIconSize = 48.0f
+      ToggleStride = ToggleIconSize + ToggleSpacing
+    let toggleBasePos = brPos + ToggleStart
+
+    if drawToggleIconButton(toggleBasePos + vec2(0, ToggleStride * 0), "ui/move", moveToggleActive):
+      moveToggleActive = not moveToggleActive
+      echo "move toggle: ", moveToggleActive
+    if drawToggleIconButton(toggleBasePos + vec2(0, ToggleStride * 1), "ui/queue", queueToggleActive):
+      queueToggleActive = not queueToggleActive
+      echo "queue toggle: ", queueToggleActive
+    if drawToggleIconButton(toggleBasePos + vec2(0, ToggleStride * 2), "ui/repeat", repeatToggleActive):
+      repeatToggleActive = not repeatToggleActive
+      echo "repeat toggle: ", repeatToggleActive
 
   if not replay.isNil:
     const
