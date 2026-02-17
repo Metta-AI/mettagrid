@@ -17,7 +17,7 @@ from mettagrid.config.filter.alignment_filter import (
 )
 from mettagrid.config.filter.filter import AnyFilter, Filter, HandlerTarget, NotFilter, OrFilter, anyOf, isNot
 from mettagrid.config.filter.game_value_filter import GameValueFilter
-from mettagrid.config.filter.near_filter import NearFilter, isNear
+from mettagrid.config.filter.max_distance_filter import MaxDistanceFilter, isNear
 from mettagrid.config.filter.resource_filter import (
     ResourceFilter,
     actorCollectiveHas,
@@ -42,14 +42,14 @@ _filter_namespace = {
     "AlignmentFilter": AlignmentFilter,
     "TagFilter": TagFilter,
     "SharedTagPrefixFilter": SharedTagPrefixFilter,
-    "NearFilter": NearFilter,
+    "MaxDistanceFilter": MaxDistanceFilter,
     "GameValueFilter": GameValueFilter,
     "NotFilter": NotFilter,
     "OrFilter": OrFilter,
 }
 NotFilter.model_rebuild(_types_namespace=_filter_namespace)
 OrFilter.model_rebuild(_types_namespace=_filter_namespace)
-NearFilter.model_rebuild(_types_namespace=_filter_namespace)
+MaxDistanceFilter.model_rebuild(_types_namespace=_filter_namespace)
 GameValueFilter.model_rebuild(_types_namespace=_filter_namespace)
 
 __all__ = [
@@ -65,7 +65,7 @@ __all__ = [
     "AlignmentFilter",
     "TagFilter",
     "SharedTagPrefixFilter",
-    "NearFilter",
+    "MaxDistanceFilter",
     "GameValueFilter",
     "AnyFilter",
     # Filter helpers

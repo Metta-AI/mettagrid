@@ -1,11 +1,11 @@
 #include "handler/filters/filter_factory.hpp"
 
+#include <cassert>
 #include <type_traits>
 
 #include "handler/filters/alignment_filter.hpp"
 #include "handler/filters/game_value_filter.hpp"
 #include "handler/filters/max_distance_filter.hpp"
-#include "handler/filters/near_filter.hpp"
 #include "handler/filters/neg_filter.hpp"
 #include "handler/filters/or_filter.hpp"
 #include "handler/filters/query_resource_filter.hpp"
@@ -15,9 +15,9 @@
 
 namespace mettagrid {
 
-std::unique_ptr<Filter> create_filter(const FilterConfig& config, TagIndex* tag_index) {
+std::unique_ptr<Filter> create_filter(const FilterConfig& config) {
   return std::visit(
-      [tag_index](auto&& cfg) -> std::unique_ptr<Filter> {
+      [](auto&& cfg) -> std::unique_ptr<Filter> {
         using T = std::decay_t<decltype(cfg)>;
         if constexpr (std::is_same_v<T, VibeFilterConfig>) {
           return std::make_unique<VibeFilter>(cfg);
@@ -29,15 +29,6 @@ std::unique_ptr<Filter> create_filter(const FilterConfig& config, TagIndex* tag_
           return std::make_unique<SharedTagPrefixFilter>(cfg);
         } else if constexpr (std::is_same_v<T, TagPrefixFilterConfig>) {
           return std::make_unique<TagPrefixFilter>(cfg);
-        } else if constexpr (std::is_same_v<T, NearFilterConfig>) {
-          std::vector<std::unique_ptr<Filter>> filters;
-          for (const auto& filter_cfg : cfg.filters) {
-            auto filter = create_filter(filter_cfg, tag_index);
-            if (filter) {
-              filters.push_back(std::move(filter));
-            }
-          }
-          return std::make_unique<NearFilter>(cfg, std::move(filters));
         } else if constexpr (std::is_same_v<T, GameValueFilterConfig>) {
           return std::make_unique<GameValueFilter>(cfg);
         } else if constexpr (std::is_same_v<T, NegFilterConfig>) {
@@ -45,7 +36,7 @@ std::unique_ptr<Filter> create_filter(const FilterConfig& config, TagIndex* tag_
           // This correctly handles NOT(A AND B) semantics for multi-resource filters.
           std::vector<std::unique_ptr<Filter>> inner_filters;
           for (const auto& inner_cfg : cfg.inner) {
-            auto filter = create_filter(inner_cfg, tag_index);
+            auto filter = create_filter(inner_cfg);
             if (filter) {
               inner_filters.push_back(std::move(filter));
             }
@@ -59,7 +50,7 @@ std::unique_ptr<Filter> create_filter(const FilterConfig& config, TagIndex* tag_
           // OrFilter: passes if ANY inner filter passes
           std::vector<std::unique_ptr<Filter>> inner_filters;
           for (const auto& inner_cfg : cfg.inner) {
-            auto filter = create_filter(inner_cfg, tag_index);
+            auto filter = create_filter(inner_cfg);
             if (filter) {
               inner_filters.push_back(std::move(filter));
             }

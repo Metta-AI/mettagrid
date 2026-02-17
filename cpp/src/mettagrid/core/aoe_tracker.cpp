@@ -13,14 +13,11 @@ namespace mettagrid {
 
 // AOESource implementation
 
-AOESource::AOESource(GridObject* src,
-                     const AOEConfig& cfg,
-                     TagIndex* tag_idx,
-                     const std::vector<std::unique_ptr<Collective>>* colls)
-    : source(src), config(cfg), tag_index(tag_idx), collectives(colls) {
+AOESource::AOESource(GridObject* src, const AOEConfig& cfg, const std::vector<std::unique_ptr<Collective>>* colls)
+    : source(src), config(cfg), collectives(colls) {
   // Instantiate filters
   for (const auto& filter_cfg : config.filters) {
-    filters.push_back(create_filter(filter_cfg, tag_idx));
+    filters.push_back(create_filter(filter_cfg));
   }
   // Instantiate mutations
   for (const auto& mutation_cfg : config.mutations) {
@@ -35,10 +32,8 @@ AOESource::AOESource(AOESource&& other) noexcept
       config(std::move(other.config)),
       filters(std::move(other.filters)),
       mutations(std::move(other.mutations)),
-      tag_index(other.tag_index),
       collectives(other.collectives) {
   other.source = nullptr;
-  other.tag_index = nullptr;
   other.collectives = nullptr;
 }
 
@@ -48,42 +43,43 @@ AOESource& AOESource::operator=(AOESource&& other) noexcept {
     config = std::move(other.config);
     filters = std::move(other.filters);
     mutations = std::move(other.mutations);
-    tag_index = other.tag_index;
     collectives = other.collectives;
     other.source = nullptr;
-    other.tag_index = nullptr;
     other.collectives = nullptr;
   }
   return *this;
 }
 
-bool AOESource::try_apply(GridObject* target, StatsTracker* game_stats) {
-  // Create context: actor=source, target=affected object
-  HandlerContext ctx(source, target, game_stats, tag_index);
-  ctx.collectives = collectives;
-  ctx.grid = source->grid();
+bool AOESource::try_apply(GridObject* target, const HandlerContext& ctx) {
+  HandlerContext target_ctx = ctx;
+  target_ctx.actor = source;
+  target_ctx.target = target;
+  target_ctx.collectives = collectives;
+  target_ctx.grid = source->grid();
 
   // Check all filters
   for (const auto& filter : filters) {
-    if (!filter->passes(ctx)) {
+    if (!filter->passes(target_ctx)) {
       return false;
     }
   }
 
   // Apply all mutations
   for (const auto& mutation : mutations) {
-    mutation->apply(ctx);
+    mutation->apply(target_ctx);
   }
 
   return true;
 }
 
-bool AOESource::passes_filters(GridObject* target) const {
-  HandlerContext ctx(source, target, nullptr, tag_index);
-  ctx.collectives = collectives;
-  ctx.grid = source->grid();
+bool AOESource::passes_filters(GridObject* target, const HandlerContext& ctx) const {
+  HandlerContext target_ctx = ctx;
+  target_ctx.actor = source;
+  target_ctx.target = target;
+  target_ctx.collectives = collectives;
+  target_ctx.grid = source->grid();
   for (const auto& filter : filters) {
-    if (!filter->passes(ctx)) {
+    if (!filter->passes(target_ctx)) {
       return false;
     }
   }
@@ -119,7 +115,7 @@ void AOETracker::unregister_source(GridObject& source) {
 }
 
 void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
-  auto aoe_source = std::make_shared<AOESource>(&source, config, _tag_index, _collectives);
+  auto aoe_source = std::make_shared<AOESource>(&source, config, _collectives);
   _fixed_sources[&source].push_back(aoe_source);
 
   const GridLocation& source_loc = source.location;
@@ -142,7 +138,7 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
 }
 
 void AOETracker::register_mobile(GridObject& source, const AOEConfig& config) {
-  auto aoe_source = std::make_shared<AOESource>(&source, config, _tag_index, _collectives);
+  auto aoe_source = std::make_shared<AOESource>(&source, config, _collectives);
   _mobile_sources.push_back(aoe_source);
 }
 
@@ -218,6 +214,9 @@ void AOETracker::unregister_mobile(GridObject& source) {
 }
 
 void AOETracker::apply_fixed(GridObject& target) {
+  HandlerContext target_ctx(nullptr, &target, _game_stats, _tag_index);
+  target_ctx.query_system = _query_system;
+
   // Get the set of fixed AOEs the target was previously inside
   auto& prev_inside = _target_fixed_inside[&target];
 
@@ -251,7 +250,7 @@ void AOETracker::apply_fixed(GridObject& target) {
       continue;
     }
 
-    bool now_passes = aoe_source->passes_filters(&target);
+    bool now_passes = aoe_source->passes_filters(&target, target_ctx);
     bool was_in = prev_inside.contains(aoe_source.get());
 
     if (now_passes && !was_in) {
@@ -268,12 +267,15 @@ void AOETracker::apply_fixed(GridObject& target) {
 
     // Apply tick mutations if inside and has mutations
     if (now_passes && aoe_source->has_mutations()) {
-      aoe_source->try_apply(&target, _game_stats);
+      aoe_source->try_apply(&target, target_ctx);
     }
   }
 }
 
 void AOETracker::apply_mobile(const std::vector<Agent*>& agents) {
+  HandlerContext mobile_ctx(nullptr, nullptr, _game_stats, _tag_index);
+  mobile_ctx.query_system = _query_system;
+
   for (const auto& aoe_source : _mobile_sources) {
     const GridLocation& source_loc = aoe_source->source->location;
     int range = aoe_source->config.radius;
@@ -296,7 +298,7 @@ void AOETracker::apply_mobile(const std::vector<Agent*>& agents) {
       }
 
       // Agent is in range, check filters
-      bool now_passes = aoe_source->passes_filters(agent);
+      bool now_passes = aoe_source->passes_filters(agent, mobile_ctx);
       bool was_in = inside_set.contains(agent);
 
       if (now_passes) {
@@ -310,7 +312,7 @@ void AOETracker::apply_mobile(const std::vector<Agent*>& agents) {
 
         // Apply tick mutations
         if (aoe_source->has_mutations()) {
-          aoe_source->try_apply(agent, _game_stats);
+          aoe_source->try_apply(agent, mobile_ctx);
         }
       } else if (was_in) {
         // Was inside but filter no longer passes - exit

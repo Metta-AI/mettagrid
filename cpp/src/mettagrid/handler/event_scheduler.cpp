@@ -6,13 +6,10 @@
 
 namespace mettagrid {
 
-EventScheduler::EventScheduler(const std::map<std::string, EventConfig>& event_configs,
-                               std::mt19937* rng,
-                               TagIndex* tag_index)
-    : _rng(rng) {
+EventScheduler::EventScheduler(const std::map<std::string, EventConfig>& event_configs, std::mt19937* rng) : _rng(rng) {
   // Create events and build the schedule
   for (const auto& [name, config] : event_configs) {
-    auto event = std::make_unique<Event>(config, tag_index);
+    auto event = std::make_unique<Event>(config);
     Event* event_ptr = event.get();
 
     _events[name] = std::move(event);
@@ -36,7 +33,7 @@ EventScheduler::EventScheduler(const std::map<std::string, EventConfig>& event_c
   std::sort(_schedule.begin(), _schedule.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
 }
 
-int EventScheduler::process_timestep(int timestep, TagIndex& tag_index) {
+int EventScheduler::process_timestep(int timestep, const HandlerContext& ctx) {
   int events_fired = 0;
 
   // Process all events scheduled at or before the current timestep
@@ -44,7 +41,7 @@ int EventScheduler::process_timestep(int timestep, TagIndex& tag_index) {
     Event* event = _schedule[_next_idx].second;
 
     // Execute event (handles fallback internally if no targets match)
-    int targets_applied = event->execute(tag_index, _rng);
+    int targets_applied = event->execute(_rng, ctx);
     if (targets_applied > 0) {
       ++events_fired;
     }

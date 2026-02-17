@@ -143,11 +143,12 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   // Initialize QuerySystem — always created so inline queries in filters/mutations work
   _query_system = std::make_unique<mettagrid::QuerySystem>(_grid.get(), &_tag_index, &_rng, game_config.query_tags);
+  _aoe_tracker->set_query_system(_query_system.get());
   _query_system->compute_all();
 
   // Initialize EventScheduler from config
   if (!game_config.events.empty()) {
-    _event_scheduler = std::make_unique<mettagrid::EventScheduler>(game_config.events, &_rng, &_tag_index);
+    _event_scheduler = std::make_unique<mettagrid::EventScheduler>(game_config.events, &_rng);
     _event_scheduler->set_collectives(&_collectives);
     _event_scheduler->set_grid(_grid.get());
   }
@@ -807,7 +808,13 @@ void MettaGrid::_step() {
 
   // Process events at current timestep
   if (_event_scheduler) {
-    _event_scheduler->process_timestep(current_step, _tag_index);
+    mettagrid::HandlerContext event_ctx;
+    event_ctx.tag_index = &_tag_index;
+    event_ctx.grid = _grid.get();
+    event_ctx.game_stats = _stats.get();
+    event_ctx.collectives = &_collectives;
+    event_ctx.query_system = _query_system.get();
+    _event_scheduler->process_timestep(current_step, event_ctx);
   }
   if (_profiling_enabled) {
     phase_end = std::chrono::steady_clock::now();

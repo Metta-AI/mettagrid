@@ -44,7 +44,7 @@ bool QuerySystem::matches_filters(GridObject* obj, const std::vector<FilterConfi
   ctx.query_system = const_cast<QuerySystem*>(this);
 
   for (const auto& filter_cfg : filter_configs) {
-    auto f = create_filter(filter_cfg, _tag_index);
+    auto f = create_filter(filter_cfg);
     if (f && !f->passes(ctx)) {
       return false;
     }
@@ -79,6 +79,8 @@ void QuerySystem::compute_all() {
     // Remove existing tag from all objects that have it
     auto tagged_objects = _tag_index->get_objects_with_tag(def.tag_id);
     for (auto* obj : tagged_objects) {
+      ctx.actor = obj;
+      ctx.target = obj;
       obj->remove_tag(def.tag_id, ctx);
     }
 
@@ -86,6 +88,8 @@ void QuerySystem::compute_all() {
     if (def.query) {
       auto result = def.query->evaluate(*this);
       for (auto* obj : result) {
+        ctx.actor = obj;
+        ctx.target = obj;
         obj->add_tag(def.tag_id, ctx);
       }
     }
@@ -110,6 +114,8 @@ void QuerySystem::recompute(int tag_id) {
       auto tagged_objects = _tag_index->get_objects_with_tag(def.tag_id);
       objects_that_lost_tag.assign(tagged_objects.begin(), tagged_objects.end());
       for (auto* obj : tagged_objects) {
+        ctx.actor = obj;
+        ctx.target = obj;
         obj->remove_tag(def.tag_id, ctx);
       }
 
@@ -118,6 +124,8 @@ void QuerySystem::recompute(int tag_id) {
         auto result = def.query->evaluate(*this);
         for (auto* obj : result) {
           objects_that_keep_tag.insert(obj);
+          ctx.actor = obj;
+          ctx.target = obj;
           obj->add_tag(def.tag_id, ctx);
         }
       }
@@ -131,6 +139,8 @@ void QuerySystem::recompute(int tag_id) {
   std::unordered_set<GridObject*> original_set(objects_that_lost_tag.begin(), objects_that_lost_tag.end());
   for (auto* obj : objects_that_lost_tag) {
     if (objects_that_keep_tag.count(obj) == 0) {
+      ctx.actor = obj;
+      ctx.target = obj;
       obj->apply_on_tag_remove_handlers(tag_id, ctx);
     }
   }
@@ -138,6 +148,8 @@ void QuerySystem::recompute(int tag_id) {
   // Fire on_tag_add for objects that newly gained the tag
   for (auto* obj : objects_that_keep_tag) {
     if (original_set.count(obj) == 0) {
+      ctx.actor = obj;
+      ctx.target = obj;
       obj->apply_on_tag_add_handlers(tag_id, ctx);
     }
   }

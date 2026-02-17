@@ -7,7 +7,8 @@ These tests verify that:
 
 from mettagrid.config.filter import (
     AlignmentFilter,
-    NearFilter,
+    MaxDistanceFilter,
+    TagFilter,
     VibeFilter,
     anyOf,
     isNot,
@@ -32,6 +33,7 @@ from mettagrid.config.mutation import (
     EntityTarget,
     ResourceDeltaMutation,
 )
+from mettagrid.config.tag import Tag
 from mettagrid.simulator import Simulation
 
 
@@ -1418,15 +1420,14 @@ class TestCollectiveAlignmentFilter:
                 "default": AOEConfig(
                     radius=3,
                     filters=[
-                        NearFilter(
+                        MaxDistanceFilter(
                             target=HandlerTarget.TARGET,
                             radius=2,
                             target_tag="near_target",
                             filters=[
-                                AlignmentFilter(
+                                TagFilter(
                                     target=HandlerTarget.TARGET,
-                                    alignment=AlignmentCondition.ALIGNED,
-                                    collective="cogs",
+                                    tag=Tag("collective:cogs"),
                                 )
                             ],
                         )

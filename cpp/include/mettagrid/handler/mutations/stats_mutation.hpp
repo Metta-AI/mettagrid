@@ -1,6 +1,8 @@
 #ifndef PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_MUTATIONS_STATS_MUTATION_HPP_
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_MUTATIONS_STATS_MUTATION_HPP_
 
+#include <cassert>
+
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
 #include "handler/mutations/mutation.hpp"
@@ -24,9 +26,8 @@ public:
     switch (_config.target) {
       case StatsTarget::game: {
         // Log to game-level stats tracker
-        if (ctx.game_stats != nullptr) {
-          ctx.game_stats->add(_config.stat_name, _config.delta);
-        }
+        assert(ctx.game_stats != nullptr && "StatsMutation(game) requires HandlerContext.game_stats");
+        ctx.game_stats->add(_config.stat_name, _config.delta);
         break;
       }
       case StatsTarget::agent: {

@@ -16,6 +16,7 @@ import pytest
 
 from mettagrid.config.event_config import EventConfig, periodic
 from mettagrid.config.filter import (
+    hasTag,
     isA,
     isAlignedTo,
     isNear,
@@ -100,7 +101,7 @@ class TestClipScrambleEvents:
                         filters=[
                             isA("junction"),
                             isAlignedTo("clips"),
-                            isNear("type:agent", [isAlignedTo("cogs")], radius=1),
+                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=1),
                         ],
                         mutations=[removeAlignment()],
                     ),
@@ -170,7 +171,7 @@ class TestClipScrambleEvents:
                         filters=[
                             isA("junction"),
                             isAlignedTo("clips"),
-                            isNear("type:agent", [isAlignedTo("cogs")], radius=1),
+                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=1),
                         ],
                         mutations=[removeAlignment()],
                     ),
@@ -247,7 +248,7 @@ class TestClipAlignEvents:
                         filters=[
                             isA("junction"),
                             isAlignedTo(None),  # Only neutral objects
-                            isNear("type:agent", [isAlignedTo("cogs")], radius=1),
+                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=1),
                         ],
                         mutations=[alignTo("cogs")],
                     ),
@@ -328,7 +329,7 @@ class TestAggressiveClipTakeover:
                         filters=[
                             isA("junction"),
                             isAlignedTo("clips"),
-                            isNear("type:agent", [isAlignedTo("cogs")], radius=2),
+                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=2),
                         ],
                         mutations=[removeAlignment()],
                         max_targets=1,  # Aggressive but controlled
@@ -341,7 +342,7 @@ class TestAggressiveClipTakeover:
                         filters=[
                             isA("junction"),
                             isAlignedTo(None),  # Only neutral
-                            isNear("type:agent", [isAlignedTo("cogs")], radius=2),
+                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=2),
                         ],
                         mutations=[alignTo("cogs")],
                         max_targets=1,  # Aggressive but controlled
@@ -429,7 +430,7 @@ class TestAggressiveClipTakeover:
                         filters=[
                             isA("junction"),
                             isAlignedTo("clips"),
-                            isNear("type:agent", [isAlignedTo("cogs")], radius=2),
+                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=2),
                         ],
                         mutations=[removeAlignment()],
                         max_targets=None,  # Unlimited
@@ -442,7 +443,7 @@ class TestAggressiveClipTakeover:
                         filters=[
                             isA("junction"),
                             isAlignedTo(None),
-                            isNear("type:agent", [isAlignedTo("cogs")], radius=2),
+                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=2),
                         ],
                         mutations=[alignTo("cogs")],
                         max_targets=None,  # Unlimited
@@ -520,7 +521,7 @@ class TestNearFilterWithAlignment:
                         timesteps=[5],
                         filters=[
                             isA("junction"),
-                            isNear("type:agent", [isAlignedTo("cogs")], radius=1),
+                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=1),
                         ],
                         mutations=[removeAlignment()],
                     ),

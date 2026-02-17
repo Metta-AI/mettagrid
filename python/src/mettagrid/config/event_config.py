@@ -96,7 +96,8 @@ class EventConfig(Handler):
 
     Note:
         Filters target GridObjects, not agents. Use TagFilter to select
-        by tag (name:value), or NearFilter (via isNear helper) to select objects near those matching inner filters.
+        by tag (name:value), or MaxDistanceFilter (via isNear helper) to
+        select objects near those matching inner filters.
     """
 
     name: str = Field(description="Unique name for this event")

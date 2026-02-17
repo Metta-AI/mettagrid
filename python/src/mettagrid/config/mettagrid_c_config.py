@@ -32,9 +32,9 @@ from mettagrid.mettagrid_c import HandlerConfig as CppHandlerConfig
 from mettagrid.mettagrid_c import HandlerMode as CppHandlerMode
 from mettagrid.mettagrid_c import InventoryConfig as CppInventoryConfig
 from mettagrid.mettagrid_c import LimitDef as CppLimitDef
+from mettagrid.mettagrid_c import MaxDistanceFilterConfig as CppMaxDistanceFilterConfig
 from mettagrid.mettagrid_c import MoveActionConfig as CppMoveActionConfig
 from mettagrid.mettagrid_c import MultiHandler as CppMultiHandler
-from mettagrid.mettagrid_c import NearFilterConfig as CppNearFilterConfig
 from mettagrid.mettagrid_c import NegFilterConfig as CppNegFilterConfig
 from mettagrid.mettagrid_c import ObsValueConfig as CppObsValueConfig
 from mettagrid.mettagrid_c import OrFilterConfig as CppOrFilterConfig  # pyright: ignore[reportAttributeAccessIssue]
@@ -46,8 +46,10 @@ from mettagrid.mettagrid_c import (
     SharedTagPrefixFilterConfig as CppSharedTagPrefixFilterConfig,  # pyright: ignore[reportAttributeAccessIssue]
 )
 from mettagrid.mettagrid_c import TagPrefixFilterConfig as CppTagPrefixFilterConfig
+from mettagrid.mettagrid_c import TagQueryConfig as CppTagQueryConfig
 from mettagrid.mettagrid_c import VibeFilterConfig as CppVibeFilterConfig
 from mettagrid.mettagrid_c import WallConfig as CppWallConfig
+from mettagrid.mettagrid_c import make_query_config
 
 
 def _convert_alignment_condition(alignment) -> CppAlignmentCondition:
@@ -76,26 +78,44 @@ def _resolve_tag_prefix(prefix: str, tag_name_to_id: dict) -> list[int]:
     return [tag_id for tag_name, tag_id in tag_name_to_id.items() if tag_name.startswith(full_prefix)]
 
 
-def _resolve_near_tag_id(filter_config, tag_name_to_id: dict, context: str) -> int:
-    """Resolve the tag_id for a NearFilter's target_tag.
+def _convert_proximity_filter(
+    filter_config, resource_name_to_id, vibe_name_to_id, tag_name_to_id, context, collective_name_to_id=None
+) -> CppMaxDistanceFilterConfig:
+    """Convert a proximity filter to MaxDistanceFilterConfig with a TagQueryConfig source.
 
-    Args:
-        filter_config: NearFilter config with target_tag attribute
-        tag_name_to_id: Dict mapping tag names to IDs
-        context: Description for error messages
-
-    Returns:
-        The tag_id for the target_tag
-
-    Raises:
-        ValueError: If target_tag is not found in tag_name_to_id
+    Maps (target_tag, filters, radius) to MaxDistanceFilterConfig(entity, radius) with
+    source=TagQueryConfig(tag_id, filters).
     """
     target_tag = filter_config.target_tag
     if target_tag not in tag_name_to_id:
         raise ValueError(
-            f"NearFilter in {context} references unknown tag '{target_tag}'. Add it to GameConfig.tags or object tags."
+            f"Proximity filter in {context} references unknown tag '{target_tag}'. "
+            "Add it to GameConfig.tags or object tags."
         )
-    return tag_name_to_id[target_tag]
+    tag_id = tag_name_to_id[target_tag]
+
+    # Build TagQueryConfig as the spatial source
+    tag_query = CppTagQueryConfig()
+    tag_query.tag_id = tag_id
+
+    # Convert inner filters onto the TagQueryConfig
+    _convert_filters(
+        filter_config.filters,
+        tag_query,
+        resource_name_to_id,
+        vibe_name_to_id,
+        tag_name_to_id,
+        context=f"{context} max_distance source" if context else "max_distance source",
+        collective_name_to_id=collective_name_to_id,
+    )
+
+    # Build MaxDistanceFilterConfig
+    cpp_filter = CppMaxDistanceFilterConfig()
+    cpp_filter.entity = convert_entity_ref(filter_config.target)
+    cpp_filter.radius = filter_config.radius
+    cpp_filter.set_source(make_query_config(tag_query))
+
+    return cpp_filter
 
 
 def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource_ids, vibe_name_to_id, tag_name_to_id):
@@ -260,25 +280,16 @@ def _convert_filters(
             cpp_filter = CppSharedTagPrefixFilterConfig(tag_ids=tag_ids)
             _add_filter_to_target(cpp_filter, cpp_target, "shared_tag_prefix")
 
-        elif filter_type == "near":
-            # NearFilter requires a tag for efficient spatial lookup
-            tag_id = _resolve_near_tag_id(filter_config, tag_name_to_id, context or "handler filters")
-            cpp_filter = CppNearFilterConfig(
-                entity=convert_entity_ref(filter_config.target),
-                radius=filter_config.radius,
-                target_tag=tag_id,
-            )
-            # Convert and add filters (recursively using _convert_filters)
-            _convert_filters(
-                filter_config.filters,
-                cpp_filter,
+        elif filter_type == "max_distance":
+            cpp_filter = _convert_proximity_filter(
+                filter_config,
                 resource_name_to_id,
                 vibe_name_to_id,
                 tag_name_to_id,
-                context=f"{context} near filter" if context else "near filter",
-                collective_name_to_id=collective_name_to_id,
+                context or "handler filters",
+                collective_name_to_id,
             )
-            _add_filter_to_target(cpp_filter, cpp_target, "near")
+            _add_filter_to_target(cpp_filter, cpp_target, "max_distance")
 
         elif filter_type == "game_value":
             from mettagrid.config.mettagrid_c_value_config import resolve_game_value  # noqa: PLC0415
@@ -378,23 +389,16 @@ def _convert_not_filter(
         cpp_filter = CppSharedTagPrefixFilterConfig(tag_ids=tag_ids)
         cpp_neg.set_inner_shared_tag_prefix_filter(cpp_filter)  # pyright: ignore[reportAttributeAccessIssue]
 
-    elif inner_type == "near":
-        tag_id = _resolve_near_tag_id(inner, tag_name_to_id, "not filter inner near")
-        cpp_filter = CppNearFilterConfig(
-            entity=convert_entity_ref(inner.target),
-            radius=inner.radius,
-            target_tag=tag_id,
-        )
-        _convert_filters(
-            inner.filters,
-            cpp_filter,
+    elif inner_type == "max_distance":
+        cpp_filter = _convert_proximity_filter(
+            inner,
             resource_name_to_id,
             vibe_name_to_id,
             tag_name_to_id,
-            context="not filter inner near",
-            collective_name_to_id=collective_name_to_id,
+            "not filter inner proximity",
+            collective_name_to_id,
         )
-        cpp_neg.set_inner_near_filter(cpp_filter)
+        cpp_neg.set_inner_max_distance_filter(cpp_filter)
 
     elif inner_type == "game_value":
         from mettagrid.config.mettagrid_c_value_config import resolve_game_value  # noqa: PLC0415
@@ -508,23 +512,16 @@ def _convert_or_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag_
             cpp_filter = CppSharedTagPrefixFilterConfig(tag_ids=tag_ids)
             cpp_or.add_inner_shared_tag_prefix_filter(cpp_filter)  # pyright: ignore[reportAttributeAccessIssue]
 
-        elif inner_type == "near":
-            tag_id = _resolve_near_tag_id(inner, tag_name_to_id, "or filter inner near")
-            cpp_filter = CppNearFilterConfig(
-                entity=convert_entity_ref(inner.target),
-                radius=inner.radius,
-                target_tag=tag_id,
-            )
-            _convert_filters(
-                inner.filters,
-                cpp_filter,
+        elif inner_type == "max_distance":
+            cpp_filter = _convert_proximity_filter(
+                inner,
                 resource_name_to_id,
                 vibe_name_to_id,
                 tag_name_to_id,
-                context="or filter inner near",
-                collective_name_to_id=collective_name_to_id,
+                "or filter inner proximity",
+                collective_name_to_id,
             )
-            cpp_or.add_inner_near_filter(cpp_filter)
+            cpp_or.add_inner_max_distance_filter(cpp_filter)
 
         elif inner_type == "game_value":
             from mettagrid.config.mettagrid_c_value_config import resolve_game_value  # noqa: PLC0415

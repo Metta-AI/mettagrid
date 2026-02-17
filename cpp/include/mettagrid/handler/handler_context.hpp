@@ -26,7 +26,7 @@ class QuerySystem;
  * Context varies by handler type:
  *   - on_use: actor=agent performing action, target=object being used
  *   - aoe: actor=source object, target=affected object
- *   - event: actor=nullptr, target=object being affected
+ *   - event: actor=target=object being affected
  */
 class HandlerContext {
 public:

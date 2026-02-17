@@ -5,7 +5,7 @@
 from mettagrid.config.event_config import EventConfig, once, periodic
 from mettagrid.config.filter import (
     AlignmentFilter,
-    NearFilter,
+    MaxDistanceFilter,
     TagFilter,
     hasTag,
     isA,
@@ -103,13 +103,13 @@ class TestIsAlignedToHelper:
         assert data["collective"] == "clips"
 
 
-class TestNearFilter:
-    """Tests for NearFilter configuration."""
+class TestMaxDistanceFilter:
+    """Tests for MaxDistanceFilter configuration."""
 
-    def test_near_filter_creation(self):
-        """Test creating NearFilter directly."""
+    def test_max_distance_filter_creation(self):
+        """Test creating MaxDistanceFilter via isNear helper."""
         f = isNear("junction", [isAlignedTo("clips")], radius=2)
-        assert f.filter_type == "near"
+        assert f.filter_type == "max_distance"
         assert f.target_tag == "junction"
         assert len(f.filters) == 1
         assert f.radius == 2
@@ -117,23 +117,23 @@ class TestNearFilter:
     def test_is_near_helper(self):
         """Test isNear helper function."""
         f = isNear("hub", [isAlignedTo("cogs")], radius=3)
-        assert isinstance(f, NearFilter)
-        assert f.filter_type == "near"
+        assert isinstance(f, MaxDistanceFilter)
+        assert f.filter_type == "max_distance"
         assert f.target_tag == "hub"
         assert len(f.filters) == 1
         assert f.radius == 3
 
-    def test_near_filter_default_radius(self):
+    def test_max_distance_filter_default_radius(self):
         """Test isNear with default radius."""
         f = isNear("wall", [isAlignedTo("team_a")])
         assert f.radius == 1
         assert f.target_tag == "wall"
 
-    def test_near_filter_serialization(self):
-        """Test NearFilter serialization."""
+    def test_max_distance_filter_serialization(self):
+        """Test MaxDistanceFilter serialization."""
         f = isNear("chest", [isAlignedTo("team_a")], radius=2)
         data = f.model_dump()
-        assert data["filter_type"] == "near"
+        assert data["filter_type"] == "max_distance"
         assert data["target_tag"] == "chest"
         assert len(data["filters"]) == 1
         assert data["radius"] == 2
@@ -256,7 +256,7 @@ class TestEventConfig:
         assert data["timesteps"] == [50, 100]
         assert len(data["filters"]) == 2
         assert data["filters"][0]["filter_type"] == "tag"
-        assert data["filters"][1]["filter_type"] == "near"
+        assert data["filters"][1]["filter_type"] == "max_distance"
         assert len(data["mutations"]) == 1
         assert data["mutations"][0]["mutation_type"] == "stats"
 
@@ -363,7 +363,7 @@ class TestFilterPolymorphism:
         assert len(data["filters"]) == 3
         assert data["filters"][0]["filter_type"] == "tag"  # hasTag returns TagFilter
         assert data["filters"][1]["filter_type"] == "alignment"  # isAlignedTo returns AlignmentFilter
-        assert data["filters"][2]["filter_type"] == "near"
+        assert data["filters"][2]["filter_type"] == "max_distance"
 
     def test_mixed_filters_deserialization(self):
         """Test deserialization restores correct filter types."""
@@ -383,7 +383,7 @@ class TestFilterPolymorphism:
         assert len(restored.filters) == 3
         assert isinstance(restored.filters[0], TagFilter)  # hasTag returns TagFilter
         assert isinstance(restored.filters[1], AlignmentFilter)  # isAlignedTo returns AlignmentFilter
-        assert isinstance(restored.filters[2], NearFilter)
+        assert isinstance(restored.filters[2], MaxDistanceFilter)
 
 
 class TestMutationPolymorphism:
