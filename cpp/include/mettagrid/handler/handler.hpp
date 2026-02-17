@@ -6,7 +6,6 @@
 #include <variant>
 #include <vector>
 
-#include "core/tag_index.hpp"
 #include "handler/filters/filter.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
@@ -30,8 +29,12 @@ namespace mettagrid {
  */
 class Handler {
 public:
-  explicit Handler(const HandlerConfig& config, TagIndex* tag_index = nullptr);
+  explicit Handler(const HandlerConfig& config);
   virtual ~Handler() = default;
+  Handler(Handler&&) = default;
+  Handler& operator=(Handler&&) = default;
+  Handler(const Handler&) = delete;
+  Handler& operator=(const Handler&) = delete;
 
   // Get handler name
   const std::string& name() const {

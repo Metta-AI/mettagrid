@@ -1,5 +1,6 @@
 #include "handler/handler.hpp"
 
+#include <cassert>
 #include <cstdlib>
 #include <iostream>
 #include <string_view>
@@ -52,10 +53,12 @@ void log_handler_result(const std::string& handler_name, const HandlerContext& c
 
 }  // namespace
 
-Handler::Handler(const HandlerConfig& config, TagIndex* tag_index) : _name(config.name) {
+Handler::Handler(const HandlerConfig& config) : _name(config.name) {
+  assert(!_name.empty() && "Handler name must not be empty");
+
   // Create filters from config
   for (const auto& filter_config : config.filters) {
-    auto filter = create_filter(filter_config, tag_index);
+    auto filter = create_filter(filter_config);
     if (filter) {
       _filters.push_back(std::move(filter));
     }

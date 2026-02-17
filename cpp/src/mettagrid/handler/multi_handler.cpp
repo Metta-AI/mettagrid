@@ -3,7 +3,7 @@
 namespace mettagrid {
 
 MultiHandler::MultiHandler(std::vector<std::shared_ptr<Handler>> handlers, HandlerMode mode)
-    : Handler(HandlerConfig()), _handlers(std::move(handlers)), _mode(mode) {}
+    : Handler(HandlerConfig("multi_handler")), _handlers(std::move(handlers)), _mode(mode) {}
 
 bool MultiHandler::try_apply(HandlerContext& ctx) {
   bool any_applied = false;
