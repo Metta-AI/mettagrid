@@ -125,7 +125,7 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
       obj_dict["freeze_duration"] = agent->freeze_duration;
       obj_dict["vibe"] = agent->vibe;
       obj_dict["agent_id"] = agent->agent_id;
-      obj_dict["current_stat_reward"] = agent->reward_helper._current_reward;
+      obj_dict["current_stat_reward"] = agent->reward_helper.current_reward();
       obj_dict["steps_without_motion"] = agent->steps_without_motion;
     }
 

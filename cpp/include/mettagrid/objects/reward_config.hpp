@@ -19,6 +19,7 @@ struct RewardEntry {
   float weight = 1.0f;
   float max_value = std::numeric_limits<float>::max();
   bool has_max = false;
+  bool accumulate = false;  // Add value each step instead of tracking delta
 };
 
 // Configuration for reward computation using GameValueConfig entries
@@ -41,7 +42,8 @@ inline void bind_reward_config(py::module& m) {
       .def_readwrite("denominators", &RewardEntry::denominators)
       .def_readwrite("weight", &RewardEntry::weight)
       .def_readwrite("max_value", &RewardEntry::max_value)
-      .def_readwrite("has_max", &RewardEntry::has_max);
+      .def_readwrite("has_max", &RewardEntry::has_max)
+      .def_readwrite("accumulate", &RewardEntry::accumulate);
 
   py::class_<RewardConfig>(m, "RewardConfig").def(py::init<>()).def_readwrite("entries", &RewardConfig::entries);
 }

@@ -2,17 +2,20 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_RESOLVED_GAME_VALUE_HPP_
 
 #include <cassert>
+#include <functional>
 
 #include "core/game_value_config.hpp"
 #include "core/tag_index.hpp"
 
 struct ResolvedGameValue {
   bool delta = false;
-  bool mutable_ = true;  // false for tag counts (read-only)
+  bool mutable_ = true;  // false for tag counts and query values (read-only)
   float* value_ptr = nullptr;
   float prev_value = 0.0f;
+  std::function<float()> compute_fn;  // For dynamic values (e.g. QUERY_INVENTORY)
 
   float read() const {
+    if (compute_fn) return compute_fn();
     if (value_ptr == nullptr) return 0.0f;
     float current = *value_ptr;
     if (!delta) return current;
@@ -21,6 +24,7 @@ struct ResolvedGameValue {
 
   // Read and consume the delta (resets baseline to current value)
   float read_delta() {
+    if (compute_fn) return compute_fn();
     if (value_ptr == nullptr) return 0.0f;
     float current = *value_ptr;
     float d = current - prev_value;

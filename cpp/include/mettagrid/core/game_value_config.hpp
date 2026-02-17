@@ -2,27 +2,46 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GAME_VALUE_CONFIG_HPP_
 
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <variant>
 
-enum class GameValueType : uint8_t {
-  INVENTORY,
-  STAT,
-  TAG_COUNT,
-  CONST
-};
+namespace mettagrid {
+struct QueryConfig;
+}  // namespace mettagrid
+
 enum class GameValueScope : uint8_t {
   AGENT,
-  COLLECTIVE,
-  GAME
+  GAME,
+  COLLECTIVE
 };
 
-struct GameValueConfig {
-  GameValueType type = GameValueType::STAT;
+struct InventoryValueConfig {
   GameValueScope scope = GameValueScope::AGENT;
-  uint16_t id = 0;  // resource_id, stat_id, or tag_id
-  bool delta = false;
-  std::string stat_name;     // For STAT type: resolved to ID at C++ init time
-  float const_value = 0.0f;  // For CONST type: the constant value to return
+  uint16_t id = 0;  // resource_id
 };
+
+struct StatValueConfig {
+  GameValueScope scope = GameValueScope::AGENT;
+  uint16_t id = 0;  // stat_id
+  bool delta = false;
+  std::string stat_name;  // resolved to ID at C++ init time
+};
+
+struct TagCountValueConfig {
+  uint16_t id = 0;  // tag_id
+};
+
+struct ConstValueConfig {
+  float value = 0.0f;
+};
+
+struct QueryInventoryValueConfig {
+  uint16_t id = 0;  // resource_id
+  std::shared_ptr<mettagrid::QueryConfig> query;
+};
+
+using GameValueConfig = std::
+    variant<InventoryValueConfig, StatValueConfig, TagCountValueConfig, ConstValueConfig, QueryInventoryValueConfig>;
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GAME_VALUE_CONFIG_HPP_

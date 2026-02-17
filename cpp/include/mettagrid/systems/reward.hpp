@@ -2,9 +2,12 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_SYSTEMS_REWARD_HPP_
 
 #include <algorithm>
+#include <functional>
 #include <string>
+#include <type_traits>
 #include <vector>
 
+#include "core/query_system.hpp"
 #include "core/resolved_game_value.hpp"
 #include "core/tag_index.hpp"
 #include "core/types.hpp"
@@ -31,33 +34,50 @@ public:
     float weight = 1.0f;
     float max_value = 0.0f;
     bool has_max = false;
+    bool accumulate = false;
+    float prev_value = 0.0f;
   };
 
   std::vector<ResolvedEntry> _resolved_entries;
-  float _current_reward = 0.0f;
+
+  float current_reward() const {
+    float total = 0.0f;
+    for (const auto& entry : _resolved_entries) {
+      total += entry.prev_value;
+    }
+    return total;
+  }
 
   // Initialize resolved entries from config.entries
   void init_entries(StatsTracker* agent_stats_tracker,
-                    StatsTracker* game_stats_tracker,
                     StatsTracker* collective_stats_tracker,
+                    StatsTracker* game_stats_tracker,
                     mettagrid::TagIndex* tag_index,
+                    mettagrid::QuerySystem* query_system,
                     const std::vector<std::string>* resource_names) {
     _resolved_entries.clear();
     for (const auto& entry : config.entries) {
       ResolvedEntry re;
       re.numerator = resolve_game_value(entry.numerator,
                                         agent_stats_tracker,
-                                        game_stats_tracker,
                                         collective_stats_tracker,
+                                        game_stats_tracker,
                                         tag_index,
+                                        query_system,
                                         resource_names);
       for (const auto& denom : entry.denominators) {
-        re.denominators.push_back(resolve_game_value(
-            denom, agent_stats_tracker, game_stats_tracker, collective_stats_tracker, tag_index, resource_names));
+        re.denominators.push_back(resolve_game_value(denom,
+                                                     agent_stats_tracker,
+                                                     collective_stats_tracker,
+                                                     game_stats_tracker,
+                                                     tag_index,
+                                                     query_system,
+                                                     resource_names));
       }
       re.weight = entry.weight;
       re.max_value = entry.max_value;
       re.has_max = entry.has_max;
+      re.accumulate = entry.accumulate;
       _resolved_entries.push_back(std::move(re));
     }
   }
@@ -66,7 +86,7 @@ public:
   RewardType compute_entries() {
     if (_resolved_entries.empty()) return 0;
 
-    float new_reward = 0.0f;
+    float total_delta = 0.0f;
     for (auto& entry : _resolved_entries) {
       float val = entry.numerator.read() * entry.weight;
 
@@ -81,64 +101,92 @@ public:
         val = std::min(val, entry.max_value);
       }
 
-      new_reward += val;
+      if (entry.accumulate) {
+        total_delta += val;
+      } else {
+        total_delta += val - entry.prev_value;
+        entry.prev_value = val;
+      }
     }
 
-    float delta = new_reward - _current_reward;
-    if (delta != 0.0f && reward_ptr != nullptr) {
-      *reward_ptr += delta;
-      _current_reward = new_reward;
+    if (total_delta != 0.0f && reward_ptr != nullptr) {
+      *reward_ptr += total_delta;
     }
-    return delta;
+    return total_delta;
   }
 
 private:
+  StatsTracker* resolve_tracker(GameValueScope scope,
+                                StatsTracker* agent_stats,
+                                StatsTracker* collective_stats,
+                                StatsTracker* game_stats) {
+    switch (scope) {
+      case GameValueScope::AGENT:
+        return agent_stats;
+      case GameValueScope::COLLECTIVE:
+        return collective_stats;
+      case GameValueScope::GAME:
+        return game_stats;
+    }
+    return nullptr;
+  }
+
   ResolvedGameValue resolve_game_value(const GameValueConfig& gvc,
                                        StatsTracker* agent_stats,
-                                       StatsTracker* game_stats,
                                        StatsTracker* collective_stats,
+                                       StatsTracker* game_stats,
                                        mettagrid::TagIndex* tag_index,
+                                       mettagrid::QuerySystem* query_system,
                                        const std::vector<std::string>* resource_names) {
-    ResolvedGameValue rgv;
-    rgv.delta = gvc.delta;
+    return std::visit(
+        [&](auto&& c) -> ResolvedGameValue {
+          using T = std::decay_t<decltype(c)>;
+          ResolvedGameValue rgv;
 
-    if (gvc.type == GameValueType::TAG_COUNT) {
-      rgv.mutable_ = false;
-      if (tag_index) {
-        rgv.value_ptr = tag_index->get_count_ptr(gvc.id);
-      }
-      return rgv;
-    }
-
-    StatsTracker* tracker = nullptr;
-    switch (gvc.scope) {
-      case GameValueScope::AGENT:
-        tracker = agent_stats;
-        break;
-      case GameValueScope::COLLECTIVE:
-        tracker = collective_stats;
-        break;
-      case GameValueScope::GAME:
-        tracker = game_stats;
-        break;
-    }
-
-    if (tracker == nullptr) return rgv;
-
-    if (gvc.type == GameValueType::INVENTORY && resource_names != nullptr && gvc.id < resource_names->size()) {
-      std::string stat_name = (*resource_names)[gvc.id] + ".amount";
-      uint16_t sid = tracker->get_or_create_id(stat_name);
-      rgv.value_ptr = tracker->get_ptr(sid);
-    } else if (gvc.type == GameValueType::STAT) {
-      if (!gvc.stat_name.empty()) {
-        uint16_t sid = tracker->get_or_create_id(gvc.stat_name);
-        rgv.value_ptr = tracker->get_ptr(sid);
-      } else {
-        rgv.value_ptr = tracker->get_ptr(gvc.id);
-      }
-    }
-
-    return rgv;
+          if constexpr (std::is_same_v<T, TagCountValueConfig>) {
+            rgv.mutable_ = false;
+            if (tag_index) {
+              rgv.value_ptr = tag_index->get_count_ptr(c.id);
+            }
+          } else if constexpr (std::is_same_v<T, QueryInventoryValueConfig>) {
+            rgv.mutable_ = false;
+            auto query = c.query;
+            auto resource_id = c.id;
+            rgv.compute_fn = [query, resource_id, query_system]() -> float {
+              if (!query || !query_system) return 0.0f;
+              auto results = query->evaluate(*query_system);
+              float total = 0.0f;
+              for (auto* obj : results) {
+                total += static_cast<float>(obj->inventory.amount(resource_id));
+              }
+              return total;
+            };
+          } else if constexpr (std::is_same_v<T, ConstValueConfig>) {
+            rgv.mutable_ = false;
+            float val = c.value;
+            rgv.compute_fn = [val]() -> float { return val; };
+          } else if constexpr (std::is_same_v<T, InventoryValueConfig>) {
+            StatsTracker* tracker = resolve_tracker(c.scope, agent_stats, collective_stats, game_stats);
+            if (tracker != nullptr && resource_names != nullptr && c.id < resource_names->size()) {
+              std::string stat_name = (*resource_names)[c.id] + ".amount";
+              uint16_t sid = tracker->get_or_create_id(stat_name);
+              rgv.value_ptr = tracker->get_ptr(sid);
+            }
+          } else if constexpr (std::is_same_v<T, StatValueConfig>) {
+            rgv.delta = c.delta;
+            StatsTracker* tracker = resolve_tracker(c.scope, agent_stats, collective_stats, game_stats);
+            if (tracker != nullptr) {
+              if (!c.stat_name.empty()) {
+                uint16_t sid = tracker->get_or_create_id(c.stat_name);
+                rgv.value_ptr = tracker->get_ptr(sid);
+              } else {
+                rgv.value_ptr = tracker->get_ptr(c.id);
+              }
+            }
+          }
+          return rgv;
+        },
+        gvc);
   }
 };
 

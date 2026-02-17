@@ -28,12 +28,12 @@ void Agent::init(RewardType* reward_ptr) {
   this->reward_helper.init(reward_ptr);
 }
 
-void Agent::init_reward(StatsTracker* game_stats,
+void Agent::init_reward(StatsTracker* collective_stats,
+                        StatsTracker* game_stats,
                         mettagrid::TagIndex* tag_index,
+                        mettagrid::QuerySystem* query_system,
                         const std::vector<std::string>* resource_names) {
-  Collective* collective = this->getCollective();
-  StatsTracker* collective_stats = collective ? &collective->stats : nullptr;
-  this->reward_helper.init_entries(&this->stats, game_stats, collective_stats, tag_index, resource_names);
+  this->reward_helper.init_entries(&this->stats, collective_stats, game_stats, tag_index, query_system, resource_names);
 }
 
 void Agent::set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers) {

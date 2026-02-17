@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, NotRequired, Optional, TypeAlias, TypedDict
+from typing import Any, NotRequired, Optional, TypeAlias, TypedDict, Union
 
 import numpy as np
 
@@ -8,29 +8,41 @@ StatsDict: TypeAlias = dict[str, float]
 
 # GameValue enums and config
 
-class GameValueType(Enum):
-    """Type of game value."""
-
-    INVENTORY = ...
-    STAT = ...
-    TAG_COUNT = ...
-    CONST = ...
-
 class GameValueScope(Enum):
     """Scope of game value."""
 
     AGENT = ...
-    COLLECTIVE = ...
     GAME = ...
+    COLLECTIVE = ...
 
-class GameValueConfig:
+class InventoryValueConfig:
     def __init__(self) -> None: ...
-    type: GameValueType
+    scope: GameValueScope
+    id: int
+
+class StatValueConfig:
+    def __init__(self) -> None: ...
     scope: GameValueScope
     id: int
     delta: bool
     stat_name: str
-    const_value: float
+
+class TagCountValueConfig:
+    def __init__(self) -> None: ...
+    id: int
+
+class ConstValueConfig:
+    def __init__(self) -> None: ...
+    value: float
+
+class QueryInventoryValueConfig:
+    def __init__(self) -> None: ...
+    id: int
+    def set_query(self, query: Any) -> None: ...
+
+GameValueConfig: TypeAlias = Union[
+    InventoryValueConfig, StatValueConfig, TagCountValueConfig, ConstValueConfig, QueryInventoryValueConfig
+]
 
 # Handler enums from handler_config.hpp
 
@@ -447,6 +459,7 @@ class RewardEntry:
     weight: float
     max_value: float
     has_max: bool
+    accumulate: bool
 
 class RewardConfig:
     def __init__(self) -> None: ...

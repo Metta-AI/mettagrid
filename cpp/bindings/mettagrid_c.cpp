@@ -13,6 +13,7 @@
 #include <numeric>
 #include <random>
 #include <string>
+#include <type_traits>
 #include <unordered_set>
 #include <vector>
 
@@ -161,7 +162,9 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   // Initialize reward entries (resolve stat names to IDs, get pointers)
   for (auto* agent : _agents) {
-    agent->init_reward(_stats.get(), &_tag_index, &resource_names);
+    Collective* coll = agent->getCollective();
+    StatsTracker* collective_stats = coll ? &coll->stats : nullptr;
+    agent->init_reward(collective_stats, _stats.get(), &_tag_index, _query_system.get(), &resource_names);
   }
 
   // Validation configuration from environment variables
@@ -344,17 +347,16 @@ void MettaGrid::_compute_agent_goal_obs_tokens(size_t agent_idx) {
 
   // Extract resource info from reward entries for goal observation tokens
   for (const auto& entry : agent->reward_helper.config.entries) {
-    const auto& num = entry.numerator;
-    if (num.type == GameValueType::INVENTORY && num.id < resource_names.size()) {
-      add_resource_goal(resource_names[num.id]);
-    } else if (num.type == GameValueType::STAT) {
-      // Extract resource name from stat_name (e.g., "carbon.gained" -> "carbon")
-      const std::string& sn = num.stat_name;
-      size_t dot_pos = sn.find('.');
-      if (dot_pos != std::string::npos) {
-        add_resource_goal(sn.substr(0, dot_pos));
-      }
-    }
+    std::visit(
+        [&](auto&& c) {
+          using T = std::decay_t<decltype(c)>;
+          if constexpr (std::is_same_v<T, InventoryValueConfig>) {
+            if (c.id < resource_names.size()) {
+              add_resource_goal(resource_names[c.id]);
+            }
+          }
+        },
+        entry.numerator);
   }
 
   _agent_goal_obs_tokens[agent_idx] = std::move(goal_tokens);
@@ -1030,24 +1032,8 @@ size_t MettaGrid::_emit_obs_value_tokens(size_t agent_idx, size_t tokens_written
       break;
     }
 
-    float raw_value = 0.0f;
     const auto& gv = obs_cfg.value;
-
-    // For COLLECTIVE scope, resolve from the agent's collective directly,
-    // since HandlerContext::resolve_game_value routes via entity_ref which
-    // doesn't handle collective-as-entity for stats resolution.
-    if (gv.scope == GameValueScope::COLLECTIVE) {
-      auto* collective = agent->getCollective();
-      if (collective != nullptr) {
-        if (gv.type == GameValueType::INVENTORY) {
-          raw_value = static_cast<float>(collective->inventory.amount(gv.id));
-        } else if (gv.type == GameValueType::STAT) {
-          raw_value = !gv.stat_name.empty() ? collective->stats.get(gv.stat_name) : *collective->stats.get_ptr(gv.id);
-        }
-      }
-    } else {
-      raw_value = ctx.resolve_game_value(gv, mettagrid::EntityRef::actor);
-    }
+    float raw_value = ctx.resolve_game_value(gv, mettagrid::EntityRef::actor);
 
     auto tokens = _token_encoder->encode(obs_cfg.feature_id, static_cast<uint32_t>(raw_value));
     ObservationToken* ptr = reinterpret_cast<ObservationToken*>(
