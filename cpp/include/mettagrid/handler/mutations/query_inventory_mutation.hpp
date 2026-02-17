@@ -1,7 +1,6 @@
 #ifndef PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_MUTATIONS_QUERY_INVENTORY_MUTATION_HPP_
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_MUTATIONS_QUERY_INVENTORY_MUTATION_HPP_
 
-#include <algorithm>
 #include <cassert>
 
 #include "core/grid_object.hpp"
@@ -9,14 +8,14 @@
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
 #include "handler/mutations/mutation.hpp"
+#include "objects/has_inventory.hpp"
 
 namespace mettagrid {
 
 /**
  * QueryInventoryMutation: Apply inventory deltas to objects found by query.
  *
- * Evaluates the query via QuerySystem,
- * then applies deltas to each result's inventory.
+ * Evaluates the query via QuerySystem, then applies deltas to each result's inventory.
  * If has_source is true, transfers resources between source entity and query results.
  */
 class QueryInventoryMutation : public Mutation {
@@ -44,7 +43,6 @@ public:
         }
       }
     } else {
-      // Non-transfer mode: just apply deltas directly
       for (GridObject* obj : results) {
         for (const auto& [resource_id, delta] : _config.deltas) {
           obj->inventory.update(resource_id, delta);

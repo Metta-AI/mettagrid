@@ -110,6 +110,11 @@ struct QueryInventoryMutationConfig {
   bool has_source = false;              // Transfer mode
 };
 
+struct RemoveTagsWithPrefixMutationConfig {
+  EntityRef entity = EntityRef::target;
+  std::vector<int> tag_ids;  // All tag IDs sharing the prefix (resolved at config time)
+};
+
 // Variant type for all mutation configs
 using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     ResourceTransferMutationConfig,
@@ -122,7 +127,8 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     RemoveTagMutationConfig,
                                     GameValueMutationConfig,
                                     RecomputeQueryTagMutationConfig,
-                                    QueryInventoryMutationConfig>;
+                                    QueryInventoryMutationConfig,
+                                    RemoveTagsWithPrefixMutationConfig>;
 
 }  // namespace mettagrid
 

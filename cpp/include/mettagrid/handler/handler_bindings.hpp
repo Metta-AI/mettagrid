@@ -502,6 +502,19 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("entity", &RemoveTagMutationConfig::entity)
       .def_readwrite("tag_id", &RemoveTagMutationConfig::tag_id);
 
+  py::class_<RemoveTagsWithPrefixMutationConfig>(m, "RemoveTagsWithPrefixMutationConfig")
+      .def(py::init<>())
+      .def(py::init([](EntityRef entity, std::vector<int> tag_ids) {
+             RemoveTagsWithPrefixMutationConfig cfg;
+             cfg.entity = entity;
+             cfg.tag_ids = tag_ids;
+             return cfg;
+           }),
+           py::arg("entity") = EntityRef::target,
+           py::arg("tag_ids") = std::vector<int>())
+      .def_readwrite("entity", &RemoveTagsWithPrefixMutationConfig::entity)
+      .def_readwrite("tag_ids", &RemoveTagsWithPrefixMutationConfig::tag_ids);
+
   py::class_<GameValueMutationConfig>(m, "GameValueMutationConfig")
       .def(py::init<>())
       .def(py::init([](GameValueConfig value, EntityRef target, GameValueConfig source) {
@@ -626,6 +639,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_query_inventory_mutation",
           [](HandlerConfig& self, const QueryInventoryMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_remove_tags_with_prefix_mutation",
+          [](HandlerConfig& self, const RemoveTagsWithPrefixMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"));
 
   // ResourceDelta for presence_deltas
