@@ -236,7 +236,23 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
       let textSize = sk.drawText(sk.textStyle, labelText, sk.at, collectiveColor)
       sk.advance(textSize)
 
-    # Show AoE fields if this object type has them
+    # Show tags for this object at the current step.
+    let currentTagIds = cur.tagIds.at
+    if currentTagIds.len > 0:
+      var tagNames: seq[string] = @[]
+      for tagId in currentTagIds:
+        var found = false
+        for name, id in replay.tags:
+          if id == tagId:
+            tagNames.add(name)
+            found = true
+            break
+        if not found:
+          tagNames.add("tag#" & $tagId)
+      tagNames.sort()
+      text("  Tags: " & tagNames.join(", "))
+
+    # Show AoE fields if this object type has them.
     if not replay.mgConfig.isNil and "game" in replay.mgConfig:
       let game = replay.mgConfig["game"]
       if "objects" in game and cur.typeName in game["objects"]:
