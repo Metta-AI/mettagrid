@@ -173,91 +173,44 @@ inline void bind_handler_config(py::module& m) {
   py::class_<NegFilterConfig>(m, "NegFilterConfig")
       .def(py::init<>())
       .def_readwrite("inner", &NegFilterConfig::inner)
-      // set_inner_* methods clear and set a single filter (backward compat)
       .def(
-          "set_inner_alignment_filter",
-          [](NegFilterConfig& self, const AlignmentFilterConfig& cfg) {
-            self.inner.clear();
-            self.inner.push_back(cfg);
-          },
-          py::arg("filter"))
-      .def(
-          "set_inner_vibe_filter",
-          [](NegFilterConfig& self, const VibeFilterConfig& cfg) {
-            self.inner.clear();
-            self.inner.push_back(cfg);
-          },
-          py::arg("filter"))
-      .def(
-          "set_inner_resource_filter",
-          [](NegFilterConfig& self, const ResourceFilterConfig& cfg) {
-            self.inner.clear();
-            self.inner.push_back(cfg);
-          },
-          py::arg("filter"))
-      .def(
-          "set_inner_max_distance_filter",
-          [](NegFilterConfig& self, const MaxDistanceFilterConfig& cfg) {
-            self.inner.clear();
-            self.inner.push_back(cfg);
-          },
-          py::arg("filter"))
-      .def(
-          "set_inner_game_value_filter",
-          [](NegFilterConfig& self, const GameValueFilterConfig& cfg) {
-            self.inner.clear();
-            self.inner.push_back(cfg);
-          },
-          py::arg("filter"))
-      .def(
-          "set_inner_shared_tag_prefix_filter",
-          [](NegFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) {
-            self.inner.clear();
-            self.inner.push_back(cfg);
-          },
-          py::arg("filter"))
-      .def(
-          "set_inner_tag_prefix_filter",
-          [](NegFilterConfig& self, const TagPrefixFilterConfig& cfg) {
-            self.inner.clear();
-            self.inner.push_back(cfg);
-          },
-          py::arg("filter"))
-      // add_inner_* methods append filters (for multi-filter negation like NOT(A AND B))
-      .def(
-          "add_inner_alignment_filter",
+          "add_alignment_filter",
           [](NegFilterConfig& self, const AlignmentFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_vibe_filter",
+          "add_vibe_filter",
           [](NegFilterConfig& self, const VibeFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_resource_filter",
+          "add_resource_filter",
           [](NegFilterConfig& self, const ResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_game_value_filter",
+          "add_game_value_filter",
           [](NegFilterConfig& self, const GameValueFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_shared_tag_prefix_filter",
+          "add_shared_tag_prefix_filter",
           [](NegFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_tag_prefix_filter",
+          "add_tag_prefix_filter",
           [](NegFilterConfig& self, const TagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_neg_filter",
+          "add_neg_filter",
           [](NegFilterConfig& self, const NegFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_max_distance_filter",
+          "add_or_filter",
+          [](NegFilterConfig& self, const OrFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_max_distance_filter",
           [](NegFilterConfig& self, const MaxDistanceFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_query_resource_filter",
+          "add_query_resource_filter",
           [](NegFilterConfig& self, const QueryResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"));
 
@@ -265,43 +218,43 @@ inline void bind_handler_config(py::module& m) {
       .def(py::init<>())
       .def_readwrite("inner", &OrFilterConfig::inner)
       .def(
-          "add_inner_alignment_filter",
+          "add_alignment_filter",
           [](OrFilterConfig& self, const AlignmentFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_vibe_filter",
+          "add_vibe_filter",
           [](OrFilterConfig& self, const VibeFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_resource_filter",
+          "add_resource_filter",
           [](OrFilterConfig& self, const ResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_game_value_filter",
+          "add_game_value_filter",
           [](OrFilterConfig& self, const GameValueFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_shared_tag_prefix_filter",
+          "add_shared_tag_prefix_filter",
           [](OrFilterConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_tag_prefix_filter",
+          "add_tag_prefix_filter",
           [](OrFilterConfig& self, const TagPrefixFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_neg_filter",
+          "add_neg_filter",
           [](OrFilterConfig& self, const NegFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_or_filter",
+          "add_or_filter",
           [](OrFilterConfig& self, const OrFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_max_distance_filter",
+          "add_max_distance_filter",
           [](OrFilterConfig& self, const MaxDistanceFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_inner_query_resource_filter",
+          "add_query_resource_filter",
           [](OrFilterConfig& self, const QueryResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"));
 
