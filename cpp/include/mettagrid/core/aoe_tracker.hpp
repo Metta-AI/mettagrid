@@ -121,6 +121,16 @@ public:
   // Get number of fixed effect sources at a location (for testing/debugging)
   size_t fixed_effect_count_at(const GridLocation& loc) const;
 
+  // Compute a per-tile AOE mask for observation.
+  // Bit 0: at least one fixed AOE would affect the observer from a same-collective source.
+  // Bit 1: at least one fixed AOE would affect the observer from a different-collective source.
+  // Returns 0 when no relevant AOE would affect the observer at loc.
+  ObservationType fixed_aoe_mask_at(const GridLocation& loc, GridObject& observer) const;
+
+  // Compute a per-tile territory map for observation, using only fixed AOEs with config.territory_mode=true.
+  // Returns: 0 = neutral, 1 = positive (friendly), 2 = negative (enemy).
+  ObservationType fixed_territory_at(const GridLocation& loc, GridObject& observer) const;
+
   // Get number of mobile sources (for testing/debugging)
   size_t mobile_source_count() const {
     return _mobile_sources.size();
@@ -137,7 +147,7 @@ public:
 
 private:
   // Check if target is within Chebyshev distance of source
-  static bool in_range(const GridLocation& source_loc, const GridLocation& target_loc, int range);
+  static bool in_range(const GridLocation& source_loc, const GridLocation& target_loc, int range, bool is_round);
 
   // Register a fixed AOE (pre-compute affected cells)
   void register_fixed(GridObject& source, const AOEConfig& config);

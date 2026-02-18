@@ -608,6 +608,8 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("radius", &AOEConfig::radius)
       .def_readwrite("is_static", &AOEConfig::is_static)
       .def_readwrite("effect_self", &AOEConfig::effect_self)
+      .def_readwrite("is_round", &AOEConfig::is_round)
+      .def_readwrite("territory_mode", &AOEConfig::territory_mode)
       .def_readwrite("presence_deltas", &AOEConfig::presence_deltas);
 
   // Handler - single handler with filters and mutations

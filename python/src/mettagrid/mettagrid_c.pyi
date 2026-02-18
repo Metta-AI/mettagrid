@@ -355,6 +355,8 @@ class AOEConfig(HandlerConfig):
     radius: int
     is_static: bool
     effect_self: bool
+    is_round: bool
+    territory_mode: bool
     presence_deltas: list[ResourceDelta]
 
 class EventConfig(HandlerConfig):
@@ -606,6 +608,7 @@ class GlobalObsConfig:
         self,
         episode_completion_pct: bool = True,
         last_action: bool = True,
+        last_action_move: bool = False,
         last_reward: bool = True,
         goal_obs: bool = False,
         local_position: bool = False,
@@ -613,6 +616,7 @@ class GlobalObsConfig:
     ) -> None: ...
     episode_completion_pct: bool
     last_action: bool
+    last_action_move: bool
     last_reward: bool
     goal_obs: bool
     local_position: bool

@@ -10,6 +10,7 @@ ObservationType Frozen;
 ObservationType EpisodeCompletionPct;
 ObservationType LastAction;
 ObservationType LastReward;
+ObservationType LastActionMove;
 ObservationType Vibe;
 ObservationType Tag;
 ObservationType CooldownRemaining;
@@ -21,6 +22,8 @@ ObservationType LpWest;
 ObservationType LpNorth;
 ObservationType LpSouth;
 ObservationType AgentId;
+ObservationType AoeMask;
+ObservationType Territory;
 
 void Initialize(const std::unordered_map<std::string, ObservationType>& feature_ids) {
   _instance = std::make_shared<ObservationFeaturesImpl>(feature_ids);
@@ -31,6 +34,7 @@ void Initialize(const std::unordered_map<std::string, ObservationType>& feature_
   EpisodeCompletionPct = _instance->EpisodeCompletionPct;
   LastAction = _instance->LastAction;
   LastReward = _instance->LastReward;
+  LastActionMove = _instance->LastActionMove;
   Vibe = _instance->Vibe;
   Tag = _instance->Tag;
   CooldownRemaining = _instance->CooldownRemaining;
@@ -42,5 +46,7 @@ void Initialize(const std::unordered_map<std::string, ObservationType>& feature_
   LpNorth = _instance->LpNorth;
   LpSouth = _instance->LpSouth;
   AgentId = _instance->AgentId;
+  AoeMask = _instance->AoeMask;
+  Territory = _instance->Territory;
 }
 }  // namespace ObservationFeature

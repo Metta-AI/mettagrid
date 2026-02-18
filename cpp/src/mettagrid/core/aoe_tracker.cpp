@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 #include "core/grid_object.hpp"
 #include "handler/filters/filter_factory.hpp"
@@ -10,6 +11,17 @@
 #include "systems/stats_tracker.hpp"
 
 namespace mettagrid {
+namespace {
+int distance_key(const AOEConfig& cfg, const GridLocation& a, const GridLocation& b) {
+  int dr = std::abs(static_cast<int>(a.r) - static_cast<int>(b.r));
+  int dc = std::abs(static_cast<int>(a.c) - static_cast<int>(b.c));
+  if (cfg.is_round) {
+    return dr * dr + dc * dc;
+  }
+  int d = std::max(dr, dc);
+  return d * d;
+}
+}  // namespace
 
 // AOESource implementation
 
@@ -121,7 +133,8 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
   const GridLocation& source_loc = source.location;
   int range = config.radius;
 
-  // Register at all cells within L-infinity (Chebyshev) distance
+  // Register at all cells within range. Default is Chebyshev (square); optionally Euclidean (circle).
+  int range_sq = range * range;
   for (int dr = -range; dr <= range; ++dr) {
     int cell_r = static_cast<int>(source_loc.r) + dr;
     if (cell_r < 0 || cell_r >= static_cast<int>(_height)) {
@@ -131,6 +144,12 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
       int cell_c = static_cast<int>(source_loc.c) + dc;
       if (cell_c < 0 || cell_c >= static_cast<int>(_width)) {
         continue;
+      }
+      if (config.is_round) {
+        int dist_sq = dr * dr + dc * dc;
+        if (dist_sq > range_sq) {
+          continue;
+        }
       }
       _cell_effects[cell_r][cell_c].push_back(aoe_source);
     }
@@ -217,6 +236,10 @@ void AOETracker::apply_fixed(GridObject& target) {
   HandlerContext target_ctx(nullptr, &target, _game_stats, _tag_index);
   target_ctx.query_system = _query_system;
 
+  Collective* target_collective = target.getCollective();
+  int target_collective_id = target_collective != nullptr ? target_collective->id : -1;
+  bool territory_collapse_enabled = (target_collective_id >= 0);
+
   // Get the set of fixed AOEs the target was previously inside
   auto& prev_inside = _target_fixed_inside[&target];
 
@@ -243,32 +266,129 @@ void AOETracker::apply_fixed(GridObject& target) {
     }
   }
 
-  // Process AOEs at current cell
+  // Territory selection: for territory-mode AOEs, collapse to a single effective source per tile/target.
+  AOESource* territory_friendly_best = nullptr;
+  AOESource* territory_enemy_best = nullptr;
+  int territory_friendly_best_key = std::numeric_limits<int>::max();
+  int territory_enemy_best_key = std::numeric_limits<int>::max();
+  GridObjectId territory_friendly_best_id = std::numeric_limits<GridObjectId>::max();
+  GridObjectId territory_enemy_best_id = std::numeric_limits<GridObjectId>::max();
+
+  if (territory_collapse_enabled) {
+    for (const auto& aoe_source : cell_effects) {
+      if (!aoe_source->config.territory_mode || aoe_source->source == nullptr) {
+        continue;
+      }
+      if (!aoe_source->has_mutations() && !aoe_source->has_presence_deltas()) {
+        continue;
+      }
+
+      Collective* source_collective = aoe_source->source->getCollective();
+      if (source_collective == nullptr) {
+        continue;
+      }
+
+      bool skip_self = (!aoe_source->config.effect_self && aoe_source->source == &target);
+      if (skip_self || !aoe_source->passes_filters(&target, target_ctx)) {
+        continue;
+      }
+
+      int key = distance_key(aoe_source->config, aoe_source->source->location, target.location);
+      GridObjectId src_id = aoe_source->source->id;
+
+      if (source_collective->id == target_collective_id) {
+        if (key < territory_friendly_best_key ||
+            (key == territory_friendly_best_key && src_id < territory_friendly_best_id)) {
+          territory_friendly_best_key = key;
+          territory_friendly_best_id = src_id;
+          territory_friendly_best = aoe_source.get();
+        }
+      } else {
+        if (key < territory_enemy_best_key || (key == territory_enemy_best_key && src_id < territory_enemy_best_id)) {
+          territory_enemy_best_key = key;
+          territory_enemy_best_id = src_id;
+          territory_enemy_best = aoe_source.get();
+        }
+      }
+    }
+  }
+
+  const AOESource* territory_selected = nullptr;
+  if (territory_collapse_enabled) {
+    if (territory_friendly_best != nullptr && territory_enemy_best != nullptr) {
+      if (territory_friendly_best_key < territory_enemy_best_key) {
+        territory_selected = territory_friendly_best;
+      } else if (territory_enemy_best_key < territory_friendly_best_key) {
+        territory_selected = territory_enemy_best;
+      } else {
+        territory_selected = nullptr;  // Midpoint: neutral.
+      }
+    } else if (territory_friendly_best != nullptr) {
+      territory_selected = territory_friendly_best;
+    } else if (territory_enemy_best != nullptr) {
+      territory_selected = territory_enemy_best;
+    }
+  }
+
+  std::vector<std::shared_ptr<AOESource>> enemy_sources;
+  std::vector<std::shared_ptr<AOESource>> friendly_sources;
+  std::vector<std::shared_ptr<AOESource>> other_sources;
+  enemy_sources.reserve(cell_effects.size());
+  friendly_sources.reserve(cell_effects.size());
+  other_sources.reserve(cell_effects.size());
+
   for (const auto& aoe_source : cell_effects) {
-    // Skip if target is the source and effect_self is false
-    if (!aoe_source->config.effect_self && aoe_source->source == &target) {
-      continue;
+    if (target_collective_id >= 0 && aoe_source->source != nullptr) {
+      Collective* source_collective = aoe_source->source->getCollective();
+      if (source_collective != nullptr) {
+        if (source_collective->id == target_collective_id) {
+          friendly_sources.push_back(aoe_source);
+        } else {
+          enemy_sources.push_back(aoe_source);
+        }
+        continue;
+      }
+    }
+    other_sources.push_back(aoe_source);
+  }
+
+  auto process_source = [&](const std::shared_ptr<AOESource>& aoe_source) {
+    bool skip_self = (!aoe_source->config.effect_self && aoe_source->source == &target);
+    bool now_passes = (!skip_self && aoe_source->passes_filters(&target, target_ctx));
+    bool effective_passes = now_passes;
+
+    if (territory_collapse_enabled && aoe_source->config.territory_mode && aoe_source->source != nullptr &&
+        aoe_source->source->getCollective() != nullptr) {
+      effective_passes = (territory_selected != nullptr && aoe_source.get() == territory_selected && now_passes);
     }
 
-    bool now_passes = aoe_source->passes_filters(&target, target_ctx);
-    bool was_in = prev_inside.contains(aoe_source.get());
-
-    if (now_passes && !was_in) {
-      // Enter event
+    bool was_inside = prev_inside.contains(aoe_source.get());
+    if (effective_passes && !was_inside) {
       _inside[aoe_source.get()].insert(&target);
       aoe_source->apply_presence_deltas(&target, +1);
       prev_inside.insert(aoe_source.get());
-    } else if (!now_passes && was_in) {
-      // Exit event (filter no longer passes)
+    } else if (!effective_passes && was_inside) {
+      // Exit event (filter no longer passes, or lost a territory "fight")
       _inside[aoe_source.get()].erase(&target);
       aoe_source->apply_presence_deltas(&target, -1);
       prev_inside.erase(aoe_source.get());
     }
 
-    // Apply tick mutations if inside and has mutations
-    if (now_passes && aoe_source->has_mutations()) {
+    if (effective_passes && aoe_source->has_mutations()) {
       aoe_source->try_apply(&target, target_ctx);
     }
+  };
+
+  // Enemy first, then other, then friendly.
+  // This avoids "heal gets clamped to max HP, then enemy damage reduces HP" ordering artifacts.
+  for (const auto& aoe_source : enemy_sources) {
+    process_source(aoe_source);
+  }
+  for (const auto& aoe_source : other_sources) {
+    process_source(aoe_source);
+  }
+  for (const auto& aoe_source : friendly_sources) {
+    process_source(aoe_source);
   }
 }
 
@@ -279,6 +399,7 @@ void AOETracker::apply_mobile(const std::vector<Agent*>& agents) {
   for (const auto& aoe_source : _mobile_sources) {
     const GridLocation& source_loc = aoe_source->source->location;
     int range = aoe_source->config.radius;
+    bool is_round = aoe_source->config.is_round;
 
     // Get current inside set for this AOE
     auto& inside_set = _inside[aoe_source.get()];
@@ -293,7 +414,7 @@ void AOETracker::apply_mobile(const std::vector<Agent*>& agents) {
       }
 
       // Check if agent is in range
-      if (!in_range(source_loc, agent->location, range)) {
+      if (!in_range(source_loc, agent->location, range, is_round)) {
         continue;
       }
 
@@ -334,9 +455,12 @@ void AOETracker::apply_mobile(const std::vector<Agent*>& agents) {
   }
 }
 
-bool AOETracker::in_range(const GridLocation& source_loc, const GridLocation& target_loc, int range) {
+bool AOETracker::in_range(const GridLocation& source_loc, const GridLocation& target_loc, int range, bool is_round) {
   int dr = std::abs(static_cast<int>(source_loc.r) - static_cast<int>(target_loc.r));
   int dc = std::abs(static_cast<int>(source_loc.c) - static_cast<int>(target_loc.c));
+  if (is_round) {
+    return (dr * dr + dc * dc) <= (range * range);
+  }
   return std::max(dr, dc) <= range;
 }
 
@@ -345,6 +469,133 @@ size_t AOETracker::fixed_effect_count_at(const GridLocation& loc) const {
     return 0;
   }
   return _cell_effects[loc.r][loc.c].size();
+}
+
+ObservationType AOETracker::fixed_aoe_mask_at(const GridLocation& loc, GridObject& observer) const {
+  if (loc.r >= _height || loc.c >= _width) {
+    return 0;
+  }
+
+  Collective* observer_collective = observer.getCollective();
+  if (observer_collective == nullptr) {
+    return 0;
+  }
+
+  const auto& cell_effects = _cell_effects[loc.r][loc.c];
+  if (cell_effects.empty()) {
+    return 0;
+  }
+
+  HandlerContext ctx(nullptr, &observer, _game_stats, _tag_index);
+  ctx.query_system = _query_system;
+
+  ObservationType mask = 0;
+  for (const auto& aoe_source : cell_effects) {
+    GridObject* source = aoe_source->source;
+    if (source == nullptr) {
+      continue;
+    }
+
+    Collective* source_collective = source->getCollective();
+    if (source_collective == nullptr) {
+      continue;
+    }
+
+    if (!aoe_source->passes_filters(&observer, ctx)) {
+      continue;
+    }
+
+    if (source_collective->id == observer_collective->id) {
+      mask |= 0x01;
+    } else {
+      mask |= 0x02;
+    }
+
+    if (mask == 0x03) {
+      break;
+    }
+  }
+
+  return mask;
+}
+
+ObservationType AOETracker::fixed_territory_at(const GridLocation& loc, GridObject& observer) const {
+  if (loc.r >= _height || loc.c >= _width) {
+    return 0;
+  }
+
+  Collective* observer_collective = observer.getCollective();
+  if (observer_collective == nullptr) {
+    return 0;
+  }
+
+  const auto& cell_effects = _cell_effects[loc.r][loc.c];
+  if (cell_effects.empty()) {
+    return 0;
+  }
+
+  HandlerContext ctx(nullptr, &observer, _game_stats, _tag_index);
+  ctx.query_system = _query_system;
+
+  bool friendly_present = false;
+  bool enemy_present = false;
+  int friendly_best_key = std::numeric_limits<int>::max();
+  int enemy_best_key = std::numeric_limits<int>::max();
+  GridObjectId friendly_best_id = std::numeric_limits<GridObjectId>::max();
+  GridObjectId enemy_best_id = std::numeric_limits<GridObjectId>::max();
+  for (const auto& aoe_source : cell_effects) {
+    if (!aoe_source->config.territory_mode) {
+      continue;
+    }
+
+    GridObject* source = aoe_source->source;
+    if (source == nullptr) {
+      continue;
+    }
+
+    Collective* source_collective = source->getCollective();
+    if (source_collective == nullptr) {
+      continue;
+    }
+
+    if (!aoe_source->passes_filters(&observer, ctx)) {
+      continue;
+    }
+
+    int key = distance_key(aoe_source->config, source->location, loc);
+    GridObjectId src_id = source->id;
+
+    if (source_collective->id == observer_collective->id) {
+      friendly_present = true;
+      if (key < friendly_best_key || (key == friendly_best_key && src_id < friendly_best_id)) {
+        friendly_best_key = key;
+        friendly_best_id = src_id;
+      }
+    } else {
+      enemy_present = true;
+      if (key < enemy_best_key || (key == enemy_best_key && src_id < enemy_best_id)) {
+        enemy_best_key = key;
+        enemy_best_id = src_id;
+      }
+    }
+  }
+
+  if (friendly_present && enemy_present) {
+    if (friendly_best_key < enemy_best_key) {
+      return 1;
+    }
+    if (enemy_best_key < friendly_best_key) {
+      return 2;
+    }
+    return 0;
+  }
+  if (friendly_present) {
+    return 1;
+  }
+  if (enemy_present) {
+    return 2;
+  }
+  return 0;
 }
 
 }  // namespace mettagrid
