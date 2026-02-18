@@ -12,14 +12,10 @@
 
 namespace mettagrid {
 namespace {
-int distance_key(const AOEConfig& cfg, const GridLocation& a, const GridLocation& b) {
+int distance_sq(const GridLocation& a, const GridLocation& b) {
   int dr = std::abs(static_cast<int>(a.r) - static_cast<int>(b.r));
   int dc = std::abs(static_cast<int>(a.c) - static_cast<int>(b.c));
-  if (cfg.is_round) {
-    return dr * dr + dc * dc;
-  }
-  int d = std::max(dr, dc);
-  return d * d;
+  return dr * dr + dc * dc;
 }
 }  // namespace
 
@@ -133,7 +129,7 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
   const GridLocation& source_loc = source.location;
   int range = config.radius;
 
-  // Register at all cells within range. Default is Chebyshev (square); optionally Euclidean (circle).
+  // Register at all cells within Euclidean radius.
   int range_sq = range * range;
   for (int dr = -range; dr <= range; ++dr) {
     int cell_r = static_cast<int>(source_loc.r) + dr;
@@ -145,11 +141,9 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
       if (cell_c < 0 || cell_c >= static_cast<int>(_width)) {
         continue;
       }
-      if (config.is_round) {
-        int dist_sq = dr * dr + dc * dc;
-        if (dist_sq > range_sq) {
-          continue;
-        }
+      int dist_sq = dr * dr + dc * dc;
+      if (dist_sq > range_sq) {
+        continue;
       }
       _cell_effects[cell_r][cell_c].push_back(aoe_source);
     }
@@ -246,17 +240,40 @@ void AOETracker::apply_fixed(GridObject& target) {
   // Get AOEs at current cell
   const auto& cell_effects = _cell_effects[target.location.r][target.location.c];
 
-  // Build set of AOEs at current cell for O(1) lookup
-  std::unordered_set<AOESource*> current_cell_set;
-  for (const auto& aoe : cell_effects) {
-    current_cell_set.insert(aoe.get());
+  // Build set of AOEs at current cell for O(1) lookup, and partition sources by team.
+  // Reuse scratch containers to avoid allocations in the per-agent hot path.
+  _scratch_current_cell_set.clear();
+  _scratch_enemy_sources.clear();
+  _scratch_friendly_sources.clear();
+  _scratch_other_sources.clear();
+  _scratch_current_cell_set.reserve(cell_effects.size());
+  _scratch_enemy_sources.reserve(cell_effects.size());
+  _scratch_friendly_sources.reserve(cell_effects.size());
+  _scratch_other_sources.reserve(cell_effects.size());
+
+  for (const auto& aoe_sp : cell_effects) {
+    AOESource* aoe_source = aoe_sp.get();
+    _scratch_current_cell_set.insert(aoe_source);
+
+    if (target_collective_id >= 0 && aoe_source->source != nullptr) {
+      Collective* source_collective = aoe_source->source->getCollective();
+      if (source_collective != nullptr) {
+        if (source_collective->id == target_collective_id) {
+          _scratch_friendly_sources.push_back(aoe_source);
+        } else {
+          _scratch_enemy_sources.push_back(aoe_source);
+        }
+        continue;
+      }
+    }
+    _scratch_other_sources.push_back(aoe_source);
   }
 
   // Process exits for AOEs that were inside but are not at current cell
   // (target moved out of range)
   for (auto it = prev_inside.begin(); it != prev_inside.end();) {
     AOESource* aoe_source = *it;
-    if (current_cell_set.find(aoe_source) == current_cell_set.end()) {
+    if (_scratch_current_cell_set.find(aoe_source) == _scratch_current_cell_set.end()) {
       // AOE was inside but is not at current cell - target moved out of range
       _inside[aoe_source].erase(&target);
       aoe_source->apply_presence_deltas(&target, -1);
@@ -275,41 +292,48 @@ void AOETracker::apply_fixed(GridObject& target) {
   GridObjectId territory_enemy_best_id = std::numeric_limits<GridObjectId>::max();
 
   if (territory_collapse_enabled) {
-    for (const auto& aoe_source : cell_effects) {
+    auto consider_territory = [&](AOESource* aoe_source, bool is_friendly) {
       if (!aoe_source->config.territory_mode || aoe_source->source == nullptr) {
-        continue;
+        return;
       }
       if (!aoe_source->has_mutations() && !aoe_source->has_presence_deltas()) {
-        continue;
+        return;
       }
 
       Collective* source_collective = aoe_source->source->getCollective();
       if (source_collective == nullptr) {
-        continue;
+        return;
       }
 
       bool skip_self = (!aoe_source->config.effect_self && aoe_source->source == &target);
       if (skip_self || !aoe_source->passes_filters(&target, target_ctx)) {
-        continue;
+        return;
       }
 
-      int key = distance_key(aoe_source->config, aoe_source->source->location, target.location);
+      int key = distance_sq(aoe_source->source->location, target.location);
       GridObjectId src_id = aoe_source->source->id;
 
-      if (source_collective->id == target_collective_id) {
+      if (is_friendly) {
         if (key < territory_friendly_best_key ||
             (key == territory_friendly_best_key && src_id < territory_friendly_best_id)) {
           territory_friendly_best_key = key;
           territory_friendly_best_id = src_id;
-          territory_friendly_best = aoe_source.get();
+          territory_friendly_best = aoe_source;
         }
       } else {
         if (key < territory_enemy_best_key || (key == territory_enemy_best_key && src_id < territory_enemy_best_id)) {
           territory_enemy_best_key = key;
           territory_enemy_best_id = src_id;
-          territory_enemy_best = aoe_source.get();
+          territory_enemy_best = aoe_source;
         }
       }
+    };
+
+    for (AOESource* aoe_source : _scratch_friendly_sources) {
+      consider_territory(aoe_source, true);
+    }
+    for (AOESource* aoe_source : _scratch_enemy_sources) {
+      consider_territory(aoe_source, false);
     }
   }
 
@@ -330,48 +354,30 @@ void AOETracker::apply_fixed(GridObject& target) {
     }
   }
 
-  std::vector<std::shared_ptr<AOESource>> enemy_sources;
-  std::vector<std::shared_ptr<AOESource>> friendly_sources;
-  std::vector<std::shared_ptr<AOESource>> other_sources;
-  enemy_sources.reserve(cell_effects.size());
-  friendly_sources.reserve(cell_effects.size());
-  other_sources.reserve(cell_effects.size());
-
-  for (const auto& aoe_source : cell_effects) {
-    if (target_collective_id >= 0 && aoe_source->source != nullptr) {
-      Collective* source_collective = aoe_source->source->getCollective();
-      if (source_collective != nullptr) {
-        if (source_collective->id == target_collective_id) {
-          friendly_sources.push_back(aoe_source);
-        } else {
-          enemy_sources.push_back(aoe_source);
-        }
-        continue;
-      }
+  auto process_source = [&](AOESource* aoe_source) {
+    if (!aoe_source->has_mutations() && !aoe_source->has_presence_deltas()) {
+      return;
     }
-    other_sources.push_back(aoe_source);
-  }
 
-  auto process_source = [&](const std::shared_ptr<AOESource>& aoe_source) {
     bool skip_self = (!aoe_source->config.effect_self && aoe_source->source == &target);
     bool now_passes = (!skip_self && aoe_source->passes_filters(&target, target_ctx));
     bool effective_passes = now_passes;
 
     if (territory_collapse_enabled && aoe_source->config.territory_mode && aoe_source->source != nullptr &&
         aoe_source->source->getCollective() != nullptr) {
-      effective_passes = (territory_selected != nullptr && aoe_source.get() == territory_selected && now_passes);
+      effective_passes = (territory_selected != nullptr && aoe_source == territory_selected && now_passes);
     }
 
-    bool was_inside = prev_inside.contains(aoe_source.get());
+    bool was_inside = prev_inside.contains(aoe_source);
     if (effective_passes && !was_inside) {
-      _inside[aoe_source.get()].insert(&target);
+      _inside[aoe_source].insert(&target);
       aoe_source->apply_presence_deltas(&target, +1);
-      prev_inside.insert(aoe_source.get());
+      prev_inside.insert(aoe_source);
     } else if (!effective_passes && was_inside) {
       // Exit event (filter no longer passes, or lost a territory "fight")
-      _inside[aoe_source.get()].erase(&target);
+      _inside[aoe_source].erase(&target);
       aoe_source->apply_presence_deltas(&target, -1);
-      prev_inside.erase(aoe_source.get());
+      prev_inside.erase(aoe_source);
     }
 
     if (effective_passes && aoe_source->has_mutations()) {
@@ -381,13 +387,13 @@ void AOETracker::apply_fixed(GridObject& target) {
 
   // Enemy first, then other, then friendly.
   // This avoids "heal gets clamped to max HP, then enemy damage reduces HP" ordering artifacts.
-  for (const auto& aoe_source : enemy_sources) {
+  for (AOESource* aoe_source : _scratch_enemy_sources) {
     process_source(aoe_source);
   }
-  for (const auto& aoe_source : other_sources) {
+  for (AOESource* aoe_source : _scratch_other_sources) {
     process_source(aoe_source);
   }
-  for (const auto& aoe_source : friendly_sources) {
+  for (AOESource* aoe_source : _scratch_friendly_sources) {
     process_source(aoe_source);
   }
 }
@@ -399,13 +405,9 @@ void AOETracker::apply_mobile(const std::vector<Agent*>& agents) {
   for (const auto& aoe_source : _mobile_sources) {
     const GridLocation& source_loc = aoe_source->source->location;
     int range = aoe_source->config.radius;
-    bool is_round = aoe_source->config.is_round;
 
     // Get current inside set for this AOE
     auto& inside_set = _inside[aoe_source.get()];
-
-    // Track which targets we've seen this tick (to detect exits)
-    std::unordered_set<GridObject*> seen_this_tick;
 
     for (auto* agent : agents) {
       // Skip if target is the source and effect_self is false
@@ -413,18 +415,22 @@ void AOETracker::apply_mobile(const std::vector<Agent*>& agents) {
         continue;
       }
 
+      bool was_in = inside_set.contains(agent);
+
       // Check if agent is in range
-      if (!in_range(source_loc, agent->location, range, is_round)) {
+      if (!in_range(source_loc, agent->location, range)) {
+        if (was_in) {
+          // Moved out of range.
+          inside_set.erase(agent);
+          aoe_source->apply_presence_deltas(agent, -1);
+        }
         continue;
       }
 
       // Agent is in range, check filters
       bool now_passes = aoe_source->passes_filters(agent, mobile_ctx);
-      bool was_in = inside_set.contains(agent);
 
       if (now_passes) {
-        seen_this_tick.insert(agent);
-
         if (!was_in) {
           // Enter event
           inside_set.insert(agent);
@@ -441,27 +447,13 @@ void AOETracker::apply_mobile(const std::vector<Agent*>& agents) {
         aoe_source->apply_presence_deltas(agent, -1);
       }
     }
-
-    // Process exits for targets that moved out of range
-    for (auto it = inside_set.begin(); it != inside_set.end();) {
-      if (seen_this_tick.find(*it) == seen_this_tick.end()) {
-        // Target was inside but not seen this tick - moved out of range
-        aoe_source->apply_presence_deltas(*it, -1);
-        it = inside_set.erase(it);
-      } else {
-        ++it;
-      }
-    }
   }
 }
 
-bool AOETracker::in_range(const GridLocation& source_loc, const GridLocation& target_loc, int range, bool is_round) {
+bool AOETracker::in_range(const GridLocation& source_loc, const GridLocation& target_loc, int range) {
   int dr = std::abs(static_cast<int>(source_loc.r) - static_cast<int>(target_loc.r));
   int dc = std::abs(static_cast<int>(source_loc.c) - static_cast<int>(target_loc.c));
-  if (is_round) {
-    return (dr * dr + dc * dc) <= (range * range);
-  }
-  return std::max(dr, dc) <= range;
+  return (dr * dr + dc * dc) <= (range * range);
 }
 
 size_t AOETracker::fixed_effect_count_at(const GridLocation& loc) const {
@@ -471,83 +463,43 @@ size_t AOETracker::fixed_effect_count_at(const GridLocation& loc) const {
   return _cell_effects[loc.r][loc.c].size();
 }
 
-ObservationType AOETracker::fixed_aoe_mask_at(const GridLocation& loc, GridObject& observer) const {
-  if (loc.r >= _height || loc.c >= _width) {
-    return 0;
+void AOETracker::fixed_observability_at(const GridLocation& loc,
+                                        GridObject& observer,
+                                        ObservationType* out_aoe_mask,
+                                        ObservationType* out_territory) const {
+  if (out_aoe_mask != nullptr) {
+    *out_aoe_mask = 0;
+  }
+  if (out_territory != nullptr) {
+    *out_territory = 0;
+  }
+
+  if ((out_aoe_mask == nullptr && out_territory == nullptr) || loc.r >= _height || loc.c >= _width) {
+    return;
   }
 
   Collective* observer_collective = observer.getCollective();
   if (observer_collective == nullptr) {
-    return 0;
+    return;
   }
 
   const auto& cell_effects = _cell_effects[loc.r][loc.c];
   if (cell_effects.empty()) {
-    return 0;
+    return;
   }
 
   HandlerContext ctx(nullptr, &observer, _game_stats, _tag_index);
   ctx.query_system = _query_system;
 
   ObservationType mask = 0;
-  for (const auto& aoe_source : cell_effects) {
-    GridObject* source = aoe_source->source;
-    if (source == nullptr) {
-      continue;
-    }
-
-    Collective* source_collective = source->getCollective();
-    if (source_collective == nullptr) {
-      continue;
-    }
-
-    if (!aoe_source->passes_filters(&observer, ctx)) {
-      continue;
-    }
-
-    if (source_collective->id == observer_collective->id) {
-      mask |= 0x01;
-    } else {
-      mask |= 0x02;
-    }
-
-    if (mask == 0x03) {
-      break;
-    }
-  }
-
-  return mask;
-}
-
-ObservationType AOETracker::fixed_territory_at(const GridLocation& loc, GridObject& observer) const {
-  if (loc.r >= _height || loc.c >= _width) {
-    return 0;
-  }
-
-  Collective* observer_collective = observer.getCollective();
-  if (observer_collective == nullptr) {
-    return 0;
-  }
-
-  const auto& cell_effects = _cell_effects[loc.r][loc.c];
-  if (cell_effects.empty()) {
-    return 0;
-  }
-
-  HandlerContext ctx(nullptr, &observer, _game_stats, _tag_index);
-  ctx.query_system = _query_system;
-
   bool friendly_present = false;
   bool enemy_present = false;
   int friendly_best_key = std::numeric_limits<int>::max();
   int enemy_best_key = std::numeric_limits<int>::max();
   GridObjectId friendly_best_id = std::numeric_limits<GridObjectId>::max();
   GridObjectId enemy_best_id = std::numeric_limits<GridObjectId>::max();
-  for (const auto& aoe_source : cell_effects) {
-    if (!aoe_source->config.territory_mode) {
-      continue;
-    }
 
+  for (const auto& aoe_source : cell_effects) {
     GridObject* source = aoe_source->source;
     if (source == nullptr) {
       continue;
@@ -562,40 +514,53 @@ ObservationType AOETracker::fixed_territory_at(const GridLocation& loc, GridObje
       continue;
     }
 
-    int key = distance_key(aoe_source->config, source->location, loc);
-    GridObjectId src_id = source->id;
+    bool is_friendly = (source_collective->id == observer_collective->id);
+    if (out_aoe_mask != nullptr) {
+      mask |= is_friendly ? 0x01 : 0x02;
+    }
 
-    if (source_collective->id == observer_collective->id) {
-      friendly_present = true;
-      if (key < friendly_best_key || (key == friendly_best_key && src_id < friendly_best_id)) {
-        friendly_best_key = key;
-        friendly_best_id = src_id;
+    if (out_territory != nullptr && aoe_source->config.territory_mode) {
+      int key = distance_sq(source->location, loc);
+      GridObjectId src_id = source->id;
+      if (is_friendly) {
+        friendly_present = true;
+        if (key < friendly_best_key || (key == friendly_best_key && src_id < friendly_best_id)) {
+          friendly_best_key = key;
+          friendly_best_id = src_id;
+        }
+      } else {
+        enemy_present = true;
+        if (key < enemy_best_key || (key == enemy_best_key && src_id < enemy_best_id)) {
+          enemy_best_key = key;
+          enemy_best_id = src_id;
+        }
       }
-    } else {
-      enemy_present = true;
-      if (key < enemy_best_key || (key == enemy_best_key && src_id < enemy_best_id)) {
-        enemy_best_key = key;
-        enemy_best_id = src_id;
-      }
+    }
+
+    if (out_aoe_mask != nullptr && out_territory == nullptr && mask == 0x03) {
+      break;
     }
   }
 
-  if (friendly_present && enemy_present) {
-    if (friendly_best_key < enemy_best_key) {
-      return 1;
+  if (out_aoe_mask != nullptr) {
+    *out_aoe_mask = mask;
+  }
+
+  if (out_territory != nullptr) {
+    if (friendly_present && enemy_present) {
+      if (friendly_best_key < enemy_best_key) {
+        *out_territory = 1;
+      } else if (enemy_best_key < friendly_best_key) {
+        *out_territory = 2;
+      } else {
+        *out_territory = 0;
+      }
+    } else if (friendly_present) {
+      *out_territory = 1;
+    } else if (enemy_present) {
+      *out_territory = 2;
     }
-    if (enemy_best_key < friendly_best_key) {
-      return 2;
-    }
-    return 0;
   }
-  if (friendly_present) {
-    return 1;
-  }
-  if (enemy_present) {
-    return 2;
-  }
-  return 0;
 }
 
 }  // namespace mettagrid

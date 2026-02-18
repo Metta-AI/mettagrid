@@ -68,8 +68,18 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
         == 0x03
     )
 
-    # Bottom-right corner is only in range of the friendly source at (3,2).
+    # (4,4) is outside Euclidean radius 2 from (3,2): no token.
     assert (
-        ObservationHelper.find_token_values(obs, location=Location(4, 4), feature_id=aoe_feature_id, is_global=False)
+        len(
+            ObservationHelper.find_token_values(
+                obs, location=Location(4, 4), feature_id=aoe_feature_id, is_global=False
+            )
+        )
+        == 0
+    )
+
+    # (4,3) is in range of the friendly source at (3,2) but out of range of the enemy at (1,2).
+    assert (
+        ObservationHelper.find_token_values(obs, location=Location(4, 3), feature_id=aoe_feature_id, is_global=False)
         == 0x01
     )

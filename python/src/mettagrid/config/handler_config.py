@@ -116,7 +116,7 @@ class AOEConfig(Handler):
       On enter: apply +delta, on exit: apply -delta.
     """
 
-    radius: int = Field(default=1, ge=0, description="Radius of effect (L-infinity/Chebyshev distance)")
+    radius: int = Field(default=1, ge=0, description="Radius of effect (Euclidean distance)")
     is_static: bool = Field(
         default=True,
         description="If True (default), pre-compute affected cells at registration (for static sources). "
@@ -130,11 +130,6 @@ class AOEConfig(Handler):
         default_factory=dict,
         description="One-time resource changes when target enters/exits AOE. "
         "On enter: apply +delta, on exit: apply -delta. Keys are resource names.",
-    )
-    is_round: bool = Field(
-        default=False,
-        description="If True, AOE radius uses Euclidean distance (a circle on the grid). "
-        "If False (default), uses Chebyshev distance (a square on the grid).",
     )
     territory_mode: bool = Field(
         default=False,

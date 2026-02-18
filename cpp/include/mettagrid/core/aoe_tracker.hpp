@@ -121,15 +121,20 @@ public:
   // Get number of fixed effect sources at a location (for testing/debugging)
   size_t fixed_effect_count_at(const GridLocation& loc) const;
 
-  // Compute a per-tile AOE mask for observation.
-  // Bit 0: at least one fixed AOE would affect the observer from a same-collective source.
-  // Bit 1: at least one fixed AOE would affect the observer from a different-collective source.
-  // Returns 0 when no relevant AOE would affect the observer at loc.
-  ObservationType fixed_aoe_mask_at(const GridLocation& loc, GridObject& observer) const;
-
-  // Compute a per-tile territory map for observation, using only fixed AOEs with config.territory_mode=true.
-  // Returns: 0 = neutral, 1 = positive (friendly), 2 = negative (enemy).
-  ObservationType fixed_territory_at(const GridLocation& loc, GridObject& observer) const;
+  // Compute observability signals for empty tiles.
+  //
+  // out_aoe_mask (optional): per-tile AOE mask.
+  // - Bit 0: at least one fixed AOE would affect the observer from a same-collective source.
+  // - Bit 1: at least one fixed AOE would affect the observer from a different-collective source.
+  //
+  // out_territory (optional): per-tile territory field using only fixed AOEs with config.territory_mode=true.
+  // - 0 = neutral, 1 = positive (friendly), 2 = negative (enemy).
+  //
+  // Writes 0 for any requested output that has no signal at loc.
+  void fixed_observability_at(const GridLocation& loc,
+                              GridObject& observer,
+                              ObservationType* out_aoe_mask,
+                              ObservationType* out_territory) const;
 
   // Get number of mobile sources (for testing/debugging)
   size_t mobile_source_count() const {
@@ -146,8 +151,8 @@ public:
   }
 
 private:
-  // Check if target is within Chebyshev distance of source
-  static bool in_range(const GridLocation& source_loc, const GridLocation& target_loc, int range, bool is_round);
+  // Check if target is within Euclidean distance of source
+  static bool in_range(const GridLocation& source_loc, const GridLocation& target_loc, int range);
 
   // Register a fixed AOE (pre-compute affected cells)
   void register_fixed(GridObject& source, const AOEConfig& config);
@@ -185,6 +190,12 @@ private:
 
   // Reverse lookup: which fixed AOEs is each target inside (for efficient exit detection)
   std::unordered_map<GridObject*, std::unordered_set<AOESource*>> _target_fixed_inside;
+
+  // Scratch buffers reused across apply_fixed to avoid per-target allocations.
+  std::unordered_set<AOESource*> _scratch_current_cell_set;
+  std::vector<AOESource*> _scratch_enemy_sources;
+  std::vector<AOESource*> _scratch_friendly_sources;
+  std::vector<AOESource*> _scratch_other_sources;
 };
 
 }  // namespace mettagrid

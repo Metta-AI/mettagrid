@@ -86,11 +86,17 @@ def test_territory_map_observation_tokens_emitted_for_empty_cells() -> None:
     # (3,3) is in range of both sources but closer to the friendly source at (3,2).
     assert territory_at(3, 3) == 1
 
-    # Bottom-right corner is only in range of the friendly source.
-    assert territory_at(4, 4) == 1
+    # (4,4) is outside Euclidean radius 2 from (3,2): no token.
+    assert territory_at(4, 4) is None
 
-    # Top-left corner is only in range of the enemy source.
-    assert territory_at(0, 0) == 2
+    # (4,3) is only in range of the friendly source.
+    assert territory_at(4, 3) == 1
+
+    # (0,0) is outside Euclidean radius 2 from (1,2): no token.
+    assert territory_at(0, 0) is None
+
+    # (0,1) is only in range of the enemy source.
+    assert territory_at(0, 1) == 2
 
 
 def test_territory_mode_collapses_overlapping_sources() -> None:
