@@ -645,9 +645,12 @@ proc drawAOEOverlay*() =
     let aoeRange = getAoeRange(obj.typeName)
     if aoeRange <= 0:
       return
+    let aoeRange2 = aoeRange * aoeRange
     let pos = obj.location.at(step).xy
     for dx in -aoeRange .. aoeRange:
       for dy in -aoeRange .. aoeRange:
+        if dx * dx + dy * dy > aoeRange2:
+          continue
         drawTileIfNew(pos.x + dx.int32, pos.y + dy.int32, obj.collectiveId.at(step))
   # Always draw for selected object if it has AOE.
   if selection != nil and getAoeRange(selection.typeName) > 0:
