@@ -17,6 +17,7 @@
 #include <optional>
 #include <random>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -205,19 +206,32 @@ private:
   // Pre-computed observation pattern offsets (Manhattan distance order)
   std::vector<std::pair<int, int>> _observation_offsets;
 
-  // Reusable buffer for global observation tokens (avoids allocation per agent per step)
-  std::vector<PartialObservationToken> _global_tokens_buffer;
+  // Per-thread buffers for observation computation (at least 1, used by serial path too)
+  struct ObsComputeBuffers {
+    std::vector<PartialObservationToken> global_tokens;
+    std::vector<PartialObservationToken> obs_features_scratch;
+    size_t tokens_written = 0;
+    size_t tokens_dropped = 0;
+    size_t tokens_free_space = 0;
+    void reset_stats() { tokens_written = tokens_dropped = tokens_free_space = 0; }
+  };
+  std::vector<ObsComputeBuffers> _obs_thread_buffers;
 
   // Previous agent locations (captured at the start of each step) for last_action_move tokens.
   std::vector<GridLocation> _prev_agent_locations;
-
-  // Scratch buffer for object observation features (avoids allocation per object per step)
-  std::vector<PartialObservationToken> _obs_features_scratch;
 
   // Pre-resolved stat IDs for hot-path stats (avoids string hashing per agent per step)
   uint16_t _stat_tokens_written = 0;
   uint16_t _stat_tokens_dropped = 0;
   uint16_t _stat_tokens_free_space = 0;
+
+  // Parallel observation worker pool (declared last so workers are destroyed first)
+  unsigned int _obs_thread_count = 1;
+  // Per-worker atomic flags: main sets to 1 to start, worker resets to 0 when done
+  std::vector<std::unique_ptr<std::atomic<int>>> _obs_worker_flags;
+  const std::vector<ActionType>* _obs_current_actions = nullptr;
+  std::atomic<bool> _obs_workers_stop{false};
+  std::vector<std::thread> _obs_workers;  // must be last: destroyed first → joins before deps
 
   void init_action_handlers();
   void _compute_agent_goal_obs_tokens(size_t agent_idx);
@@ -258,6 +272,15 @@ private:
                                       ObservationCoord obs_height,
                                       size_t agent_idx,
                                       ActionType action);
+
+  // Optimized path with explicit buffer (thread-safe, used by parallel dispatch)
+  void _compute_observation_optimized(GridCoord observer_r,
+                                      GridCoord observer_c,
+                                      ObservationCoord obs_width,
+                                      ObservationCoord obs_height,
+                                      size_t agent_idx,
+                                      ActionType action,
+                                      ObsComputeBuffers& buffers);
 
   // Shadow validation helper: runs secondary path, compares, logs mismatches
   void _shadow_validate_observation(GridCoord observer_r,

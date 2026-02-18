@@ -13,6 +13,7 @@
 #include <numeric>
 #include <random>
 #include <string>
+#include <thread>
 #include <type_traits>
 #include <unordered_set>
 #include <vector>
@@ -76,17 +77,41 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
     _observation_offsets.push_back(offset);
   }
 
-  // Reserve capacity for global tokens buffer (reused per agent to avoid allocation).
-  // Breakdown: episode_completion(1) + last_action(1) + last_reward(1) + goal_tokens(N) +
-  // local_position(up to 2) + obs_value_tokens(varies). 32 covers typical configs with margin.
-  _global_tokens_buffer.reserve(32);
+  // Parallel observation dispatch is opt-in until validated on production
+  // EPYC hardware. Set METTAGRID_OBS_THREADS to enable:
+  //   "auto" → heuristic clamp(num_agents / 4, 1, 6)
+  //   "N"    → explicit thread count
+  // Default (unset) → serial (1 thread).
+  //
+  // After EPYC validation: remove this if-block and let the heuristic
+  // run unconditionally (i.e., just keep the clamp line below).
+  //
+  // Heuristic notes (M2 Pro benchmarks, 8-100 agents):
+  // 4 threads optimal; 8 threads regresses due to shared L2 contention.
+  // Cap of 6 is conservative; EPYC 7R13 (private 512KB L2 per core) may
+  // justify a higher cap.
+  _obs_thread_count = 1;
+  if (const char* val = std::getenv("METTAGRID_OBS_THREADS")) {
+    std::string s(val);
+    if (s == "auto") {
+      _obs_thread_count = std::clamp(num_agents / 4u, 1u, 6u);
+    } else {
+      unsigned int n = static_cast<unsigned int>(std::stoul(s));
+      if (n > 0) _obs_thread_count = n;
+    }
+  }
 
-  // Compute max scratch buffer size from config
+  // Allocate per-thread observation buffers
   {
     size_t max_tags = game_config.tag_id_map.size();
     size_t num_resources = resource_names.size();
     size_t tokens_per_item = ObservationEncoder::compute_num_tokens(65535, game_config.token_value_base);
-    _obs_features_scratch.resize(Agent::max_obs_features(max_tags, num_resources, tokens_per_item));
+    _obs_thread_buffers.resize(_obs_thread_count);
+    for (auto& buf : _obs_thread_buffers) {
+      buf.global_tokens.reserve(32);
+      buf.obs_features_scratch.resize(
+          Agent::max_obs_features(max_tags, num_resources, tokens_per_item));
+    }
   }
 
   GridCoord height = static_cast<GridCoord>(py::len(map));
@@ -191,7 +216,12 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   _make_buffers(num_agents);
 }
 
-MettaGrid::~MettaGrid() = default;
+MettaGrid::~MettaGrid() {
+  // Signal all workers to stop and wake them so they can exit
+  _obs_workers_stop.store(true, std::memory_order_release);
+  for (auto& f : _obs_worker_flags) f->store(1, std::memory_order_release);
+  for (auto& w : _obs_workers) w.join();
+}
 
 void MettaGrid::_init_grid(const GameConfig& game_config,
                            const py::list& map,
@@ -560,8 +590,8 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
   ObservationTokens agent_obs_tokens(
       agent_obs_ptr, static_cast<size_t>(observation_view.shape(1)) - static_cast<size_t>(tokens_written));
 
-  auto& global_tokens = _global_tokens_buffer;
-  global_tokens.clear();
+  _obs_thread_buffers[0].global_tokens.clear();
+  auto& global_tokens = _obs_thread_buffers[0].global_tokens;
 
   if (_global_obs_config.episode_completion_pct) {
     ObservationType episode_completion_pct = 0;
@@ -656,11 +686,15 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
       continue;
     }
 
-    // Track cell staleness for exploration (cell.visited stat)
-    if (obj->visited < current_step) {
-      unsigned int staleness = current_step - obj->visited;
-      obj->visited = current_step;
-      _agents[agent_idx]->stats.add("cell.visited", static_cast<float>(staleness));
+    // Track cell staleness for exploration (cell.visited stat).
+    // CAS ensures only one thread wins per object per step, matching serial semantics.
+    unsigned int prev_visited = obj->visited.load(std::memory_order_relaxed);
+    while (prev_visited < current_step) {
+      if (obj->visited.compare_exchange_weak(prev_visited, current_step, std::memory_order_relaxed)) {
+        unsigned int staleness = current_step - prev_visited;
+        _agents[agent_idx]->stats.add("cell.visited", static_cast<float>(staleness));
+        break;
+      }
     }
 
     // Encode location and add tokens
@@ -674,13 +708,30 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
   _stats->add("tokens_free_space", static_cast<size_t>(observation_view.shape(1)) - tokens_written);
 }
 
-// Optimized path: pre-computed offsets, buffer reuse, direct encoding
+// Optimized path: thin wrapper using thread-local buffer 0
 void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
                                                GridCoord observer_col,
                                                ObservationCoord observable_width,
                                                ObservationCoord observable_height,
                                                size_t agent_idx,
                                                ActionType action) {
+  auto& buf = _obs_thread_buffers[0];
+  buf.reset_stats();
+  _compute_observation_optimized(observer_row, observer_col, observable_width, observable_height,
+                                 agent_idx, action, buf);
+  *_stats->get_ptr(_stat_tokens_written) += buf.tokens_written;
+  *_stats->get_ptr(_stat_tokens_dropped) += buf.tokens_dropped;
+  *_stats->get_ptr(_stat_tokens_free_space) += buf.tokens_free_space;
+}
+
+// Optimized path with explicit buffer (thread-safe, used by parallel dispatch)
+void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
+                                               GridCoord observer_col,
+                                               ObservationCoord observable_width,
+                                               ObservationCoord observable_height,
+                                               size_t agent_idx,
+                                               ActionType action,
+                                               ObsComputeBuffers& buffers) {
   // Calculate observation boundaries
   ObservationCoord obs_width_radius = observable_width >> 1;
   ObservationCoord obs_height_radius = observable_height >> 1;
@@ -706,8 +757,8 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
       agent_obs_ptr, static_cast<size_t>(observation_view.shape(1)) - static_cast<size_t>(tokens_written));
 
   // Build global tokens based on configuration (reusing pre-allocated buffer)
-  auto& global_tokens = _global_tokens_buffer;
-  global_tokens.clear();
+  buffers.global_tokens.clear();
+  auto& global_tokens = buffers.global_tokens;
 
   if (_global_obs_config.episode_completion_pct) {
     ObservationType episode_completion_pct = 0;
@@ -801,15 +852,20 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
       continue;
     }
 
-    // Track cell staleness for exploration (cell.visited stat)
-    if (obj->visited < current_step) {
-      unsigned int staleness = current_step - obj->visited;
-      obj->visited = current_step;
-      _agents[agent_idx]->stats.add("cell.visited", static_cast<float>(staleness));
+    // Track cell staleness for exploration (cell.visited stat).
+    // CAS ensures only one thread wins per object per step, matching serial semantics.
+    unsigned int prev_visited = obj->visited.load(std::memory_order_relaxed);
+    while (prev_visited < current_step) {
+      if (obj->visited.compare_exchange_weak(prev_visited, current_step, std::memory_order_relaxed)) {
+        unsigned int staleness = current_step - prev_visited;
+        _agents[agent_idx]->stats.add("cell.visited", static_cast<float>(staleness));
+        break;
+      }
     }
 
     if (tokens_written >= buffer_capacity) {
-      attempted_tokens_written += obj->write_obs_features(_obs_features_scratch.data(), _obs_features_scratch.size());
+      attempted_tokens_written += obj->write_obs_features(
+          buffers.obs_features_scratch.data(), buffers.obs_features_scratch.size());
       continue;
     }
 
@@ -818,20 +874,88 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
 
     // Encode location and add tokens (using allocation-free path with scratch buffer)
     attempted_tokens_written += _obs_encoder->encode_tokens_direct(
-        obj, obs_tokens, location, _obs_features_scratch.data(), _obs_features_scratch.size());
+        obj, obs_tokens, location, buffers.obs_features_scratch.data(), buffers.obs_features_scratch.size());
     tokens_written = std::min(attempted_tokens_written, buffer_capacity);
   }
 
-  *_stats->get_ptr(_stat_tokens_written) += tokens_written;
-  *_stats->get_ptr(_stat_tokens_dropped) += (attempted_tokens_written - tokens_written);
-  *_stats->get_ptr(_stat_tokens_free_space) += (static_cast<size_t>(observation_view.shape(1)) - tokens_written);
+  buffers.tokens_written += tokens_written;
+  buffers.tokens_dropped += (attempted_tokens_written - tokens_written);
+  buffers.tokens_free_space += (static_cast<size_t>(observation_view.shape(1)) - tokens_written);
 }
 
 void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_actions) {
+  if (_validation_enabled) {
+    // Serial — shadow validation not thread-safe
+    for (size_t idx = 0; idx < _agents.size(); idx++) {
+      _compute_observation(_agents[idx]->location.r, _agents[idx]->location.c,
+          obs_width, obs_height, idx, executed_actions[idx]);
+    }
+    return;
+  }
+
+  if (_obs_thread_count > 1 && _use_optimized_primary && _agents.size() > 1) {
+    // Lazy worker spawn: deferred from constructor for fork-safety (pytest-xdist)
+    if (_obs_workers.empty()) {
+      _obs_worker_flags.resize(_obs_thread_count);
+      _obs_workers.reserve(_obs_thread_count);
+      for (unsigned int t = 0; t < _obs_thread_count; t++) {
+        _obs_worker_flags[t] = std::make_unique<std::atomic<int>>(0);
+        auto* my_flag = _obs_worker_flags[t].get();
+        _obs_workers.emplace_back([this, t, my_flag]() {
+          while (true) {
+            // Spin-wait for start signal (flag set to 1 by main thread)
+            while (my_flag->load(std::memory_order_acquire) == 0) {
+              // Yield to avoid burning CPU while waiting
+              std::this_thread::yield();
+            }
+            if (_obs_workers_stop.load(std::memory_order_acquire)) return;
+
+            auto& buf = _obs_thread_buffers[t];
+            buf.reset_stats();
+            size_t chunk = (_agents.size() + _obs_thread_count - 1) / _obs_thread_count;
+            size_t start = t * chunk;
+            size_t end = std::min(start + chunk, _agents.size());
+
+            for (size_t idx = start; idx < end; idx++) {
+              _compute_observation_optimized(
+                  _agents[idx]->location.r, _agents[idx]->location.c,
+                  obs_width, obs_height, idx,
+                  (*_obs_current_actions)[idx], buf);
+            }
+
+            // Signal done by resetting flag to 0
+            my_flag->store(0, std::memory_order_release);
+          }
+        });
+      }
+    }
+
+    // Parallel dispatch: set all worker flags to 1
+    _obs_current_actions = &executed_actions;
+    for (unsigned int t = 0; t < _obs_thread_count; t++) {
+      _obs_worker_flags[t]->store(1, std::memory_order_release);
+    }
+
+    // Wait for all workers to finish (flag back to 0)
+    for (unsigned int t = 0; t < _obs_thread_count; t++) {
+      while (_obs_worker_flags[t]->load(std::memory_order_acquire) != 0) {
+        std::this_thread::yield();
+      }
+    }
+
+    // Merge per-thread stats
+    for (const auto& buf : _obs_thread_buffers) {
+      *_stats->get_ptr(_stat_tokens_written) += buf.tokens_written;
+      *_stats->get_ptr(_stat_tokens_dropped) += buf.tokens_dropped;
+      *_stats->get_ptr(_stat_tokens_free_space) += buf.tokens_free_space;
+    }
+    return;
+  }
+
+  // Serial fallback
   for (size_t idx = 0; idx < _agents.size(); idx++) {
-    auto& agent = _agents[idx];
-    ActionType action_idx = executed_actions[idx];
-    _compute_observation(agent->location.r, agent->location.c, obs_width, obs_height, idx, action_idx);
+    _compute_observation(_agents[idx]->location.r, _agents[idx]->location.c,
+        obs_width, obs_height, idx, executed_actions[idx]);
   }
 }
 

@@ -1,6 +1,7 @@
 #ifndef PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GRID_OBJECT_HPP_
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GRID_OBJECT_HPP_
 
+#include <atomic>
 #include <bitset>
 #include <cstdint>
 #include <memory>
@@ -107,7 +108,7 @@ class GridObject : public HasVibe, public Alignable, public HasInventory, public
 public:
   GridObjectId id{};
   GridLocation location{};
-  unsigned int visited = 0;
+  std::atomic<unsigned int> visited{0};
   TypeId type_id{};
   std::string type_name;  // Class type (e.g., "hub")
   std::string name;       // Instance name (e.g., "carbon_extractor"), defaults to type_name
