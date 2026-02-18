@@ -237,11 +237,17 @@ proc drawTransportButton(startPos: Vec2, idx: int, icon: string, isDown: bool): 
         "ui/transportButton.hover"
       else:
         "ui/transportButton.up"
+    alpha =
+      if isDown or pressed:
+        0.5f
+      else:
+        1f
   sk.drawImage(bg, btnPos)
   let iconSize = sk.getImageSize(icon)
   sk.drawImage(
     icon,
-    btnPos + vec2((bgSize.x - iconSize.x) / 2, (bgSize.y - iconSize.y) / 2)
+    btnPos + vec2((bgSize.x - iconSize.x) / 2, (bgSize.y - iconSize.y) / 2),
+    color = color(1, 1, 1, alpha).rgbx
   )
   if pressed:
     worldMapZoomInfo.hasMouse = false
@@ -391,7 +397,7 @@ proc bottomRightPanel(winW: float32, winH: float32) =
           "ui/rabbit"
         else:
           "ui/speed"
-      if drawTransportButton(speedStartPos, i, icon, playSpeed >= speed):
+      if drawTransportButton(speedStartPos, i, icon, playSpeed < speed):
         playSpeed = speed
         saveUIState()
 
