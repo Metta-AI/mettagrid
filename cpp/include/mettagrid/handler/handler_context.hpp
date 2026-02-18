@@ -3,6 +3,8 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "core/game_value_config.hpp"
@@ -38,6 +40,13 @@ public:
   const std::vector<std::unique_ptr<Collective>>* collectives = nullptr;  // Collectives indexed by ID (for events)
   QuerySystem* query_system = nullptr;                                    // For RecomputeQueryTagMutation
   bool skip_on_update_trigger = false;  // Skip triggering on_update handlers (prevent recursion)
+
+  // Optional accumulator for ResourceDeltaMutation on the target entity.
+  // Used to apply a single net resource delta after evaluating multiple effects (e.g., fixed AOEs),
+  // avoiding intermediate clamp artifacts.
+  std::unordered_map<InventoryItem, InventoryDelta>* deferred_target_resource_deltas = nullptr;
+  std::vector<InventoryItem>* deferred_target_resource_order = nullptr;
+  std::unordered_set<InventoryItem>* deferred_target_resource_seen = nullptr;
 
   HandlerContext() = default;
   HandlerContext(GridObject* act, GridObject* tgt, bool skip_update = false)
