@@ -8,7 +8,7 @@ from typing import Optional
 
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.runner.policy_server.websocket_transport import PolicyStepError, WebSocketPolicyServerClient
-from mettagrid.runner.rollout import single_episode_rollout
+from mettagrid.runner.rollout import resolve_env_for_seed, single_episode_rollout
 from mettagrid.runner.types import PureSingleEpisodeJob
 from mettagrid.util.file import write_data
 
@@ -28,7 +28,8 @@ def main() -> None:
         args = json.load(f)
     job = PureSingleEpisodeJob.model_validate(args["job"])
 
-    env_interface = PolicyEnvInterface.from_mg_cfg(job.env)
+    env_for_rollout = resolve_env_for_seed(job.env, job.seed)
+    env_interface = PolicyEnvInterface.from_mg_cfg(env_for_rollout)
     # TODO: spawn these in parallel since each will need to handle its own prepare step
     policies = [WebSocketPolicyServerClient(env_interface, url=uri) for uri in job.policy_uris]
     trace_path = _setup_trace_path(job.debug_dir)
@@ -37,7 +38,7 @@ def main() -> None:
         results, replay = single_episode_rollout(
             policies,
             job.assignments,
-            job.env,
+            env_for_rollout,
             seed=job.seed,
             max_action_time_ms=job.max_action_time_ms,
             render_mode="none",

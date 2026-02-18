@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable, Optional, Sequence
 
 from mettagrid import MettaGridConfig
+from mettagrid.map_builder.map_builder import HasSeed
 from mettagrid.policy.loader import AgentPolicy, PolicyEnvInterface, initialize_or_load_policy
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
 from mettagrid.renderer.renderer import RenderMode
@@ -24,6 +25,22 @@ def _policy_display_name(policy: MultiAgentPolicy, fallback: str) -> str:
     if isinstance(name, str) and name:
         return name
     return fallback
+
+
+def resolve_env_for_seed(env: MettaGridConfig, seed: int) -> MettaGridConfig:
+    """Tie map generation to rollout seed when the map builder seed is unset.
+
+    This keeps play/eval parity for seeded runs without mutating the caller's env config.
+    """
+    map_builder = env.game.map_builder
+    if not isinstance(map_builder, HasSeed) or map_builder.seed is not None:
+        return env
+
+    seeded_env = env.model_copy(deep=True)
+    seeded_map_builder = seeded_env.game.map_builder
+    assert isinstance(seeded_map_builder, HasSeed)
+    seeded_map_builder.seed = int(seed)
+    return seeded_env
 
 
 def single_episode_rollout(
@@ -46,6 +63,8 @@ def single_episode_rollout(
     (which loads policies itself) and the subprocess entry point in
     episode_subprocess (which receives policies over HTTP).
     """
+    env_for_rollout = resolve_env_for_seed(env, seed)
+
     agent_policies: list[AgentPolicy] = [
         policies[assignment].agent_policy(agent_id) for agent_id, assignment in enumerate(assignments)
     ]
@@ -75,7 +94,7 @@ def single_episode_rollout(
         event_handlers.append(replay_writer)
 
     rollout = Rollout(
-        env,
+        env_for_rollout,
         agent_policies,
         policy_names=agent_policy_names,
         max_action_time_ms=max_action_time_ms,
@@ -136,14 +155,15 @@ def run_episode_local(
         debug_dir.mkdir(parents=True, exist_ok=True)
         trace_path = debug_dir / "trace.json"
 
-    env_interface = PolicyEnvInterface.from_mg_cfg(env)
+    env_for_rollout = resolve_env_for_seed(env, seed)
+    env_interface = PolicyEnvInterface.from_mg_cfg(env_for_rollout)
     policies = [initialize_or_load_policy(env_interface, spec, device_override=device) for spec in policy_specs]
     policy_names = [policy_spec.name for policy_spec in policy_specs]
 
     results, replay = single_episode_rollout(
         policies,
         assignments,
-        env,
+        env_for_rollout,
         seed=seed,
         max_action_time_ms=max_action_time_ms,
         render_mode=render_mode or "none",
@@ -176,6 +196,7 @@ def run_multi_episode_rollout(
     rng: Optional[random.Random] = None,
     device: Optional[str] = None,
     on_progress: Optional[Callable[[int, EpisodeRolloutResult], None]] = None,
+    shuffle_assignments: bool = True,
 ) -> tuple[MultiEpisodeRolloutResult, list[str]]:
     if replay_dir is not None:
         if create_replay_dir:
@@ -189,7 +210,8 @@ def run_multi_episode_rollout(
     replay_paths: list[str] = []
 
     for episode_idx in range(episodes):
-        rng.shuffle(assignments_list)
+        if shuffle_assignments:
+            rng.shuffle(assignments_list)
         replay_path: Path | None = None
         if replay_dir is not None:
             replay_path = Path(replay_dir) / f"{uuid.uuid4()}.json.z"
