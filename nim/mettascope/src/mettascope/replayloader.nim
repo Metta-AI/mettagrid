@@ -44,4 +44,5 @@ proc onReplayLoaded*() =
     # Panel drawing will update rect/scrollArea, but we reset hasMouse
     worldMapZoomInfo.hasMouse = false
 
+  updateMinZoom(worldMapZoomInfo)
   echo "Replay loaded: ", replay.fileName
