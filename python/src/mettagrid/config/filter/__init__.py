@@ -4,6 +4,12 @@ This module defines filter types used to determine when handlers should trigger.
 Filters check conditions on actors, targets, or their collectives.
 """
 
+# AnyFilter defined here where all concrete types are real imports (no strings).
+from typing import Annotated, Union  # noqa: E402
+
+from pydantic import Discriminator  # noqa: E402
+from pydantic import Tag as PydanticTag  # noqa: E402
+
 from mettagrid.config.filter.alignment_filter import (
     AlignmentCondition,
     AlignmentFilter,
@@ -15,7 +21,7 @@ from mettagrid.config.filter.alignment_filter import (
     isNotAlignedToActor,
     isNotNeutral,
 )
-from mettagrid.config.filter.filter import AnyFilter, Filter, HandlerTarget, NotFilter, OrFilter, anyOf, isNot
+from mettagrid.config.filter.filter import Filter, HandlerTarget, NotFilter, OrFilter, anyOf, isNot
 from mettagrid.config.filter.game_value_filter import GameValueFilter
 from mettagrid.config.filter.max_distance_filter import MaxDistanceFilter, isNear
 from mettagrid.config.filter.resource_filter import (
@@ -33,24 +39,30 @@ from mettagrid.config.filter.shared_tag_prefix_filter import (
 )
 from mettagrid.config.filter.tag_filter import TagFilter, hasTag, isA
 from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVibe
+from mettagrid.config.query import Query, query
 from mettagrid.config.tag import Tag, typeTag
 
-# Rebuild models with forward references now that all filter classes are defined
-_filter_namespace = {
-    "VibeFilter": VibeFilter,
-    "ResourceFilter": ResourceFilter,
-    "AlignmentFilter": AlignmentFilter,
-    "TagFilter": TagFilter,
-    "SharedTagPrefixFilter": SharedTagPrefixFilter,
-    "MaxDistanceFilter": MaxDistanceFilter,
-    "GameValueFilter": GameValueFilter,
-    "NotFilter": NotFilter,
-    "OrFilter": OrFilter,
-}
-NotFilter.model_rebuild(_types_namespace=_filter_namespace)
-OrFilter.model_rebuild(_types_namespace=_filter_namespace)
-MaxDistanceFilter.model_rebuild(_types_namespace=_filter_namespace)
-GameValueFilter.model_rebuild(_types_namespace=_filter_namespace)
+AnyFilter = Annotated[
+    Union[
+        Annotated[VibeFilter, PydanticTag("vibe")],
+        Annotated[ResourceFilter, PydanticTag("resource")],
+        Annotated[AlignmentFilter, PydanticTag("alignment")],
+        Annotated[TagFilter, PydanticTag("tag")],
+        Annotated[SharedTagPrefixFilter, PydanticTag("shared_tag_prefix")],
+        Annotated[MaxDistanceFilter, PydanticTag("max_distance")],
+        Annotated[GameValueFilter, PydanticTag("game_value")],
+        Annotated[NotFilter, PydanticTag("not")],
+        Annotated[OrFilter, PydanticTag("or")],
+    ],
+    Discriminator("filter_type"),
+]
+
+# Rebuild models that reference "AnyFilter" as a string annotation.
+_rebuild_ns = {"AnyFilter": AnyFilter, "Query": Query}
+NotFilter.model_rebuild(_types_namespace=_rebuild_ns)
+OrFilter.model_rebuild(_types_namespace=_rebuild_ns)
+Query.model_rebuild(_types_namespace=_rebuild_ns)
+MaxDistanceFilter.model_rebuild(_types_namespace=_rebuild_ns)
 
 __all__ = [
     # Enums
@@ -93,4 +105,7 @@ __all__ = [
     "sharedTagPrefix",
     # Tag utilities
     "Tag",
+    # Query
+    "Query",
+    "query",
 ]

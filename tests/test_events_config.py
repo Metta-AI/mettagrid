@@ -11,6 +11,7 @@ from mettagrid.config.filter import (
     isA,
     isAlignedTo,
     isNear,
+    query,
 )
 from mettagrid.config.filter.filter import HandlerTarget
 from mettagrid.config.mettagrid_config import (
@@ -27,7 +28,7 @@ from mettagrid.config.mutation import (
     alignTo,
     logStat,
 )
-from mettagrid.config.tag import Tag
+from mettagrid.config.tag import tag
 
 
 class TestPeriodicHelper:
@@ -66,23 +67,23 @@ class TestTagFilter:
 
     def test_tag_filter_creation(self):
         """Test creating TagFilter directly."""
-        f = TagFilter(target=HandlerTarget.TARGET, tag=Tag("type:hub"))
+        f = TagFilter(target=HandlerTarget.TARGET, tag=tag("type:hub"))
         assert f.filter_type == "tag"
-        assert f.tag == Tag("type:hub")
+        assert f.tag == tag("type:hub")
 
     def test_has_tag_helper(self):
         """Test hasTag helper function."""
-        f = hasTag(Tag("type:junction"))
+        f = hasTag(tag("type:junction"))
         assert isinstance(f, TagFilter)
         assert f.filter_type == "tag"
-        assert f.tag == Tag("type:junction")
+        assert f.tag == tag("type:junction")
 
     def test_tag_filter_serialization(self):
         """Test TagFilter serialization."""
-        f = TagFilter(target=HandlerTarget.TARGET, tag=Tag("type:battery_station"))
+        f = TagFilter(target=HandlerTarget.TARGET, tag=tag("type:battery_station"))
         data = f.model_dump()
         assert data["filter_type"] == "tag"
-        assert data["tag"] == "type:battery_station"
+        assert data["tag"] == {"name": "type:battery_station"}
 
 
 class TestIsAlignedToHelper:
@@ -108,34 +109,34 @@ class TestMaxDistanceFilter:
 
     def test_max_distance_filter_creation(self):
         """Test creating MaxDistanceFilter via isNear helper."""
-        f = isNear("junction", [isAlignedTo("clips")], radius=2)
+        f = isNear(query("junction", [isAlignedTo("clips")]), radius=2)
         assert f.filter_type == "max_distance"
-        assert f.target_tag == "junction"
-        assert len(f.filters) == 1
+        assert f.query.tag == tag("junction")
+        assert len(f.query.filters) == 1
         assert f.radius == 2
 
     def test_is_near_helper(self):
         """Test isNear helper function."""
-        f = isNear("hub", [isAlignedTo("cogs")], radius=3)
+        f = isNear(query("hub", [isAlignedTo("cogs")]), radius=3)
         assert isinstance(f, MaxDistanceFilter)
         assert f.filter_type == "max_distance"
-        assert f.target_tag == "hub"
-        assert len(f.filters) == 1
+        assert f.query.tag == tag("hub")
+        assert len(f.query.filters) == 1
         assert f.radius == 3
 
     def test_max_distance_filter_default_radius(self):
         """Test isNear with default radius."""
-        f = isNear("wall", [isAlignedTo("team_a")])
+        f = isNear(query("wall", [isAlignedTo("team_a")]))
         assert f.radius == 1
-        assert f.target_tag == "wall"
+        assert f.query.tag == tag("wall")
 
     def test_max_distance_filter_serialization(self):
         """Test MaxDistanceFilter serialization."""
-        f = isNear("chest", [isAlignedTo("team_a")], radius=2)
+        f = isNear(query("chest", [isAlignedTo("team_a")]), radius=2)
         data = f.model_dump()
         assert data["filter_type"] == "max_distance"
-        assert data["target_tag"] == "chest"
-        assert len(data["filters"]) == 1
+        assert data["query"]["tag"] == {"name": "chest"}
+        assert len(data["query"]["filters"]) == 1
         assert data["radius"] == 2
 
 
@@ -210,9 +211,9 @@ class TestEventConfig:
         """Test creating EventConfig."""
         event = EventConfig(
             name="test_event",
-            target_tag="type:wall",
+            target_query=query("type:wall"),
             timesteps=[100, 200, 300],
-            filters=[hasTag(Tag("type:junction"))],
+            filters=[hasTag(tag("type:junction"))],
             mutations=[logStat("event.test")],
         )
         assert event.name == "test_event"
@@ -224,9 +225,9 @@ class TestEventConfig:
         """Test EventConfig with periodic timesteps."""
         event = EventConfig(
             name="periodic_event",
-            target_tag="type:wall",
+            target_query=query("type:wall"),
             timesteps=periodic(start=0, period=100, end=500),
-            filters=[hasTag(Tag("agent")), isAlignedTo("cogs")],
+            filters=[hasTag(tag("agent")), isAlignedTo("cogs")],
             mutations=[alignTo("clips")],
         )
         assert event.timesteps == [0, 100, 200, 300, 400, 500]
@@ -235,9 +236,9 @@ class TestEventConfig:
         """Test EventConfig with once timestep."""
         event = EventConfig(
             name="one_time_event",
-            target_tag="type:wall",
+            target_query=query("type:wall"),
             timesteps=once(1000),
-            filters=[hasTag(Tag("agent"))],
+            filters=[hasTag(tag("agent"))],
             mutations=[logStat("event.triggered")],
         )
         assert event.timesteps == [1000]
@@ -246,9 +247,9 @@ class TestEventConfig:
         """Test EventConfig serialization."""
         event = EventConfig(
             name="proximity_event",
-            target_tag="type:wall",
+            target_query=query("type:wall"),
             timesteps=[50, 100],
-            filters=[hasTag(Tag("agent")), isNear("agent", [isAlignedTo("cogs")], radius=2)],
+            filters=[hasTag(tag("agent")), isNear(query("agent", [isAlignedTo("cogs")]), radius=2)],
             mutations=[logStat(stat="proximity.touched")],
         )
         data = event.model_dump()
@@ -264,9 +265,9 @@ class TestEventConfig:
         """Test EventConfig deserialization."""
         event = EventConfig(
             name="test",
-            target_tag="type:wall",
+            target_query=query("type:wall"),
             timesteps=[100],
-            filters=[hasTag(Tag("type:agent")), isAlignedTo("team1")],
+            filters=[hasTag(tag("type:agent")), isAlignedTo("team1")],
             mutations=[logStat("test.stat")],
         )
         json_str = event.model_dump_json()
@@ -287,16 +288,16 @@ class TestEventsInGameConfig:
             events={
                 "periodic_stat": EventConfig(
                     name="periodic_stat",
-                    target_tag="type:wall",
+                    target_query=query("type:wall"),
                     timesteps=periodic(0, 100, 500),
-                    filters=[hasTag(Tag("agent"))],
+                    filters=[hasTag(tag("agent"))],
                     mutations=[logStat("tick.marker")],
                 ),
                 "proximity_check": EventConfig(
                     name="proximity_check",
-                    target_tag="type:wall",
+                    target_query=query("type:wall"),
                     timesteps=once(250),
-                    filters=[isA("hub"), isNear("hub", [isAlignedTo("team_a")], radius=2)],
+                    filters=[isA("hub"), isNear(query("hub", [isAlignedTo("team_a")]), radius=2)],
                     mutations=[alignTo(None)],  # None removes alignment
                 ),
             },
@@ -312,9 +313,9 @@ class TestEventsInGameConfig:
             events={
                 "test_event": EventConfig(
                     name="test_event",
-                    target_tag="type:wall",
+                    target_query=query("type:wall"),
                     timesteps=[100],
-                    filters=[hasTag(Tag("type:junction"))],
+                    filters=[hasTag(tag("type:junction"))],
                     mutations=[logStat("event.test")],
                 )
             },
@@ -330,9 +331,9 @@ class TestEventsInGameConfig:
         config.game.events = {
             "room_event": EventConfig(
                 name="room_event",
-                target_tag="type:wall",
+                target_query=query("type:wall"),
                 timesteps=once(500),
-                filters=[hasTag(Tag("agent"))],
+                filters=[hasTag(tag("agent"))],
                 mutations=[logStat("event.room")],
             )
         }
@@ -350,12 +351,12 @@ class TestFilterPolymorphism:
         """Test serialization of events with mixed filter types."""
         event = EventConfig(
             name="mixed_filters",
-            target_tag="type:wall",
+            target_query=query("type:wall"),
             timesteps=[100],
             filters=[
-                hasTag(Tag("type:junction")),
+                hasTag(tag("type:junction")),
                 isAlignedTo("cogs"),
-                isNear("junction", [isAlignedTo("team_b")], radius=2),
+                isNear(query("junction", [isAlignedTo("team_b")]), radius=2),
             ],
             mutations=[],
         )
@@ -369,12 +370,12 @@ class TestFilterPolymorphism:
         """Test deserialization restores correct filter types."""
         event = EventConfig(
             name="mixed_filters",
-            target_tag="type:wall",
+            target_query=query("type:wall"),
             timesteps=[100],
             filters=[
-                hasTag(Tag("type:junction")),
+                hasTag(tag("type:junction")),
                 isAlignedTo("cogs"),
-                isNear("junction", [isAlignedTo("team_a")], radius=1),
+                isNear(query("junction", [isAlignedTo("team_a")])),
             ],
             mutations=[],
         )
@@ -393,9 +394,9 @@ class TestMutationPolymorphism:
         """Test serialization of events with mixed mutation types."""
         event = EventConfig(
             name="mixed_mutations",
-            target_tag="type:wall",
+            target_query=query("type:wall"),
             timesteps=[100],
-            filters=[hasTag(Tag("agent"))],
+            filters=[hasTag(tag("agent"))],
             mutations=[
                 alignTo("team_a"),
                 logStat(stat="event.test", delta=5),
@@ -410,9 +411,9 @@ class TestMutationPolymorphism:
         """Test deserialization restores correct mutation types."""
         event = EventConfig(
             name="mixed_mutations",
-            target_tag="type:wall",
+            target_query=query("type:wall"),
             timesteps=[100],
-            filters=[hasTag(Tag("agent"))],
+            filters=[hasTag(tag("agent"))],
             mutations=[
                 alignTo("team_a"),
                 logStat(stat="event.test", delta=5),
@@ -447,7 +448,7 @@ class TestEventSchedulerIntegration:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 resource_names=[],
                 objects={
-                    "wall": WallConfig(collective="cogs", tags=[Tag("target_wall")]),
+                    "wall": WallConfig(collective="cogs", tags=["target_wall"]),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -457,9 +458,9 @@ class TestEventSchedulerIntegration:
                     # Event fires at timestep 10, but should only affect 1 wall due to max_targets
                     "wall_takeover": EventConfig(
                         name="wall_takeover",
-                        target_tag="type:wall",
+                        target_query=query("type:wall"),
                         timesteps=[10],
-                        filters=[hasTag(Tag("target_wall"))],
+                        filters=[hasTag(tag("target_wall"))],
                         mutations=[alignTo("clips")],
                         max_targets=1,  # Only affect 1 wall
                     ),
@@ -523,7 +524,7 @@ class TestEventSchedulerIntegration:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 resource_names=[],
                 objects={
-                    "wall": WallConfig(collective="cogs", tags=[Tag("target_wall")]),
+                    "wall": WallConfig(collective="cogs", tags=["target_wall"]),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -532,9 +533,9 @@ class TestEventSchedulerIntegration:
                 events={
                     "wall_takeover": EventConfig(
                         name="wall_takeover",
-                        target_tag="type:wall",
+                        target_query=query("type:wall"),
                         timesteps=[10],
-                        filters=[hasTag(Tag("target_wall"))],
+                        filters=[hasTag(tag("target_wall"))],
                         mutations=[alignTo("clips")],
                         max_targets=None,  # None means unlimited
                     ),
@@ -593,7 +594,7 @@ class TestEventSchedulerIntegration:
                 resource_names=[],
                 objects={
                     # Walls with special tag and collective assignment
-                    "wall": WallConfig(collective="cogs", tags=[Tag("target_wall")]),
+                    "wall": WallConfig(collective="cogs", tags=["target_wall"]),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -603,9 +604,9 @@ class TestEventSchedulerIntegration:
                     # Event fires at timestep 10 to align walls to clips
                     "wall_takeover": EventConfig(
                         name="wall_takeover",
-                        target_tag="type:wall",
+                        target_query=query("type:wall"),
                         timesteps=[10],  # Fire at timestep 10
-                        filters=[hasTag(Tag("target_wall"))],
+                        filters=[hasTag(tag("target_wall"))],
                         mutations=[alignTo("clips")],
                     ),
                 },
@@ -685,7 +686,7 @@ class TestEventSchedulerIntegration:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 resource_names=[],
                 objects={
-                    "wall": WallConfig(collective="team_a", tags=[Tag("target")]),
+                    "wall": WallConfig(collective="team_a", tags=["target"]),
                 },
                 collectives={
                     "team_a": CollectiveConfig(),
@@ -695,16 +696,16 @@ class TestEventSchedulerIntegration:
                     # Event fires every 5 steps, alternating alignment
                     "align_to_b": EventConfig(
                         name="align_to_b",
-                        target_tag="type:wall",
+                        target_query=query("type:wall"),
                         timesteps=periodic(start=5, period=10, end=25),  # [5, 15, 25]
-                        filters=[hasTag(Tag("target"))],
+                        filters=[hasTag(tag("target"))],
                         mutations=[alignTo("team_b")],
                     ),
                     "align_to_a": EventConfig(
                         name="align_to_a",
-                        target_tag="type:wall",
+                        target_query=query("type:wall"),
                         timesteps=periodic(start=10, period=10, end=20),  # [10, 20]
-                        filters=[hasTag(Tag("target"))],
+                        filters=[hasTag(tag("target"))],
                         mutations=[alignTo("team_a")],
                     ),
                 },

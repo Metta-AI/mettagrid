@@ -20,6 +20,7 @@ from mettagrid.config.filter import (
     isA,
     isAlignedTo,
     isNear,
+    query,
 )
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
@@ -32,7 +33,7 @@ from mettagrid.config.mettagrid_config import (
     WallConfig,
 )
 from mettagrid.config.mutation import alignTo, removeAlignment
-from mettagrid.config.tag import Tag
+from mettagrid.config.tag import tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Simulation
@@ -85,8 +86,8 @@ class TestClipScrambleEvents:
                 resource_names=[],
                 agent=AgentConfig(collective="cogs"),
                 objects={
-                    "wall": WallConfig(name="wall", tags=[Tag("type:wall")]),
-                    "junction": WallConfig(name="junction", tags=[Tag("type:junction")], collective="clips"),
+                    "wall": WallConfig(name="wall", tags=["type:wall"]),
+                    "junction": WallConfig(name="junction", tags=["type:junction"], collective="clips"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -96,12 +97,12 @@ class TestClipScrambleEvents:
                     # Scramble: remove alignment from clips-aligned junctions near cogs
                     "scramble_clips": EventConfig(
                         name="scramble_clips",
-                        target_tag="type:junction",
+                        target_query=query("type:junction"),
                         timesteps=[5],
                         filters=[
                             isA("junction"),
                             isAlignedTo("clips"),
-                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=1),
+                            isNear(query("type:agent", [hasTag(tag("collective:cogs"))])),
                         ],
                         mutations=[removeAlignment()],
                     ),
@@ -156,8 +157,8 @@ class TestClipScrambleEvents:
                 resource_names=[],
                 agent=AgentConfig(collective="cogs"),
                 objects={
-                    "wall": WallConfig(name="wall", tags=[Tag("type:wall")]),
-                    "junction": WallConfig(name="junction", tags=[Tag("type:junction")], collective="clips"),
+                    "wall": WallConfig(name="wall", tags=["type:wall"]),
+                    "junction": WallConfig(name="junction", tags=["type:junction"], collective="clips"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -166,12 +167,12 @@ class TestClipScrambleEvents:
                 events={
                     "scramble_clips": EventConfig(
                         name="scramble_clips",
-                        target_tag="type:junction",
+                        target_query=query("type:junction"),
                         timesteps=[5],
                         filters=[
                             isA("junction"),
                             isAlignedTo("clips"),
-                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=1),
+                            isNear(query("type:agent", [hasTag(tag("collective:cogs"))])),
                         ],
                         mutations=[removeAlignment()],
                     ),
@@ -232,8 +233,8 @@ class TestClipAlignEvents:
                 resource_names=[],
                 agent=AgentConfig(collective="cogs"),
                 objects={
-                    "wall": WallConfig(name="wall", tags=[Tag("type:wall")]),
-                    "junction": WallConfig(name="junction", tags=[Tag("type:junction")]),  # Starts unaligned
+                    "wall": WallConfig(name="wall", tags=["type:wall"]),
+                    "junction": WallConfig(name="junction", tags=["type:junction"]),  # Starts unaligned
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -243,12 +244,12 @@ class TestClipAlignEvents:
                     # Align: convert neutral junctions near cogs to cogs
                     "align_to_cogs": EventConfig(
                         name="align_to_cogs",
-                        target_tag="type:junction",
+                        target_query=query("type:junction"),
                         timesteps=[5],
                         filters=[
                             isA("junction"),
                             isAlignedTo(None),  # Only neutral objects
-                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=1),
+                            isNear(query("type:agent", [hasTag(tag("collective:cogs"))])),
                         ],
                         mutations=[alignTo("cogs")],
                     ),
@@ -313,8 +314,8 @@ class TestAggressiveClipTakeover:
                 resource_names=[],
                 agent=AgentConfig(collective="cogs"),
                 objects={
-                    "wall": WallConfig(name="wall", tags=[Tag("type:wall")]),
-                    "junction": WallConfig(name="junction", tags=[Tag("type:junction")], collective="clips"),
+                    "wall": WallConfig(name="wall", tags=["type:wall"]),
+                    "junction": WallConfig(name="junction", tags=["type:junction"], collective="clips"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -324,12 +325,12 @@ class TestAggressiveClipTakeover:
                     # Scramble clips: fires at 10, 20, 30...
                     "scramble_clips": EventConfig(
                         name="scramble_clips",
-                        target_tag="type:junction",
+                        target_query=query("type:junction"),
                         timesteps=periodic(start=10, period=10, end=100),
                         filters=[
                             isA("junction"),
                             isAlignedTo("clips"),
-                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=2),
+                            isNear(query("type:agent", [hasTag(tag("collective:cogs"))]), radius=2),
                         ],
                         mutations=[removeAlignment()],
                         max_targets=1,  # Aggressive but controlled
@@ -337,12 +338,12 @@ class TestAggressiveClipTakeover:
                     # Align to cogs: fires at 15, 25, 35...
                     "align_to_cogs": EventConfig(
                         name="align_to_cogs",
-                        target_tag="type:junction",
+                        target_query=query("type:junction"),
                         timesteps=periodic(start=15, period=10, end=100),
                         filters=[
                             isA("junction"),
                             isAlignedTo(None),  # Only neutral
-                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=2),
+                            isNear(query("type:agent", [hasTag(tag("collective:cogs"))]), radius=2),
                         ],
                         mutations=[alignTo("cogs")],
                         max_targets=1,  # Aggressive but controlled
@@ -414,8 +415,8 @@ class TestAggressiveClipTakeover:
                 resource_names=[],
                 agent=AgentConfig(collective="cogs"),
                 objects={
-                    "wall": WallConfig(name="wall", tags=[Tag("type:wall")]),
-                    "junction": WallConfig(name="junction", tags=[Tag("type:junction")], collective="clips"),
+                    "wall": WallConfig(name="wall", tags=["type:wall"]),
+                    "junction": WallConfig(name="junction", tags=["type:junction"], collective="clips"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -425,12 +426,12 @@ class TestAggressiveClipTakeover:
                     # Aggressive scramble: all at once
                     "scramble_all_clips": EventConfig(
                         name="scramble_all_clips",
-                        target_tag="type:junction",
+                        target_query=query("type:junction"),
                         timesteps=[5],
                         filters=[
                             isA("junction"),
                             isAlignedTo("clips"),
-                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=2),
+                            isNear(query("type:agent", [hasTag(tag("collective:cogs"))]), radius=2),
                         ],
                         mutations=[removeAlignment()],
                         max_targets=None,  # Unlimited
@@ -438,12 +439,12 @@ class TestAggressiveClipTakeover:
                     # Aggressive align: all at once
                     "align_all_neutral": EventConfig(
                         name="align_all_neutral",
-                        target_tag="type:junction",
+                        target_query=query("type:junction"),
                         timesteps=[10],
                         filters=[
                             isA("junction"),
                             isAlignedTo(None),
-                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=2),
+                            isNear(query("type:agent", [hasTag(tag("collective:cogs"))]), radius=2),
                         ],
                         mutations=[alignTo("cogs")],
                         max_targets=None,  # Unlimited
@@ -506,8 +507,8 @@ class TestNearFilterWithAlignment:
                 resource_names=[],
                 agent=AgentConfig(collective="cogs"),
                 objects={
-                    "wall": WallConfig(name="wall", tags=[Tag("type:wall")]),
-                    "junction": WallConfig(name="junction", tags=[Tag("type:junction")], collective="clips"),
+                    "wall": WallConfig(name="wall", tags=["type:wall"]),
+                    "junction": WallConfig(name="junction", tags=["type:junction"], collective="clips"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -517,11 +518,11 @@ class TestNearFilterWithAlignment:
                     # Only affect junctions near cogs-aligned entities
                     "near_cogs_test": EventConfig(
                         name="near_cogs_test",
-                        target_tag="type:junction",
+                        target_query=query("type:junction"),
                         timesteps=[5],
                         filters=[
                             isA("junction"),
-                            isNear("type:agent", [hasTag(Tag("collective:cogs"))], radius=1),
+                            isNear(query("type:agent", [hasTag(tag("collective:cogs"))])),
                         ],
                         mutations=[removeAlignment()],
                     ),

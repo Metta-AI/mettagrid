@@ -5,7 +5,6 @@ from mettagrid.config.handler_config import AlignmentCondition
 from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_mutations
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mettagrid_config import (
-    AgentConfig,
     GameConfig,
     GridObjectConfig,
     WallConfig,
@@ -84,16 +83,16 @@ def _convert_proximity_filter(
 ) -> CppMaxDistanceFilterConfig:
     """Convert a proximity filter to MaxDistanceFilterConfig with a TagQueryConfig source.
 
-    Maps (target_tag, filters, radius) to MaxDistanceFilterConfig(entity, radius) with
+    Maps query (tag + filters) to MaxDistanceFilterConfig(entity, radius) with
     source=TagQueryConfig(tag_id, filters).
     """
-    target_tag = filter_config.target_tag
-    if target_tag not in tag_name_to_id:
+    query_tag = filter_config.query.tag.name
+    if query_tag not in tag_name_to_id:
         raise ValueError(
-            f"Proximity filter in {context} references unknown tag '{target_tag}'. "
+            f"Proximity filter in {context} references unknown tag '{query_tag}'. "
             "Add it to GameConfig.tags or object tags."
         )
-    tag_id = tag_name_to_id[target_tag]
+    tag_id = tag_name_to_id[query_tag]
 
     # Build TagQueryConfig as the spatial source
     tag_query = CppTagQueryConfig()
@@ -101,7 +100,7 @@ def _convert_proximity_filter(
 
     # Convert inner filters onto the TagQueryConfig
     _convert_filters(
-        filter_config.filters,
+        filter_config.query.filters,
         tag_query,
         resource_name_to_id,
         vibe_name_to_id,
@@ -264,10 +263,10 @@ def _convert_filters(
                 _add_filter_to_target(cpp_filter, cpp_target, "vibe")
 
         elif filter_type == "tag":
-            if filter_config.tag in tag_name_to_id:
+            if filter_config.tag.name in tag_name_to_id:
                 cpp_filter = CppTagPrefixFilterConfig(
                     entity=convert_entity_ref(filter_config.target),
-                    tag_ids=[tag_name_to_id[filter_config.tag]],
+                    tag_ids=[tag_name_to_id[filter_config.tag.name]],
                 )
                 _add_filter_to_target(cpp_filter, cpp_target, "tag_prefix")
 
@@ -373,10 +372,10 @@ def _convert_not_filter(
                 cpp_neg.add_inner_resource_filter(cpp_filter)
 
     elif inner_type == "tag":
-        if inner.tag in tag_name_to_id:
+        if inner.tag.name in tag_name_to_id:
             cpp_filter = CppTagPrefixFilterConfig(
                 entity=convert_entity_ref(inner.target),
-                tag_ids=[tag_name_to_id[inner.tag]],
+                tag_ids=[tag_name_to_id[inner.tag.name]],
             )
             cpp_neg.set_inner_tag_prefix_filter(cpp_filter)
 
@@ -496,10 +495,10 @@ def _convert_or_filter(filter_config, resource_name_to_id, vibe_name_to_id, tag_
                 cpp_or.add_inner_neg_filter(outer_neg)
 
         elif inner_type == "tag":
-            if inner.tag in tag_name_to_id:
+            if inner.tag.name in tag_name_to_id:
                 cpp_filter = CppTagPrefixFilterConfig(
                     entity=convert_entity_ref(inner.target),
-                    tag_ids=[tag_name_to_id[inner.tag]],
+                    tag_ids=[tag_name_to_id[inner.tag.name]],
                 )
                 cpp_or.add_inner_tag_prefix_filter(cpp_filter)
 
@@ -588,12 +587,13 @@ def _convert_event_configs(
         cpp_event.fallback = event.fallback or ""
 
         # Set target_tag_id for efficient target lookup via TagIndex
-        if event.target_tag not in tag_name_to_id:
+        target_tag_name = event.target_query.tag.name
+        if target_tag_name not in tag_name_to_id:
             raise ValueError(
-                f"Event '{event_name}' has target_tag '{event.target_tag}' not found in tag mappings. "
+                f"Event '{event_name}' has target_query tag '{target_tag_name}' not found in tag mappings. "
                 f"Available tags: {sorted(tag_name_to_id.keys())}"
             )
-        cpp_event.target_tag_id = tag_name_to_id[event.target_tag]
+        cpp_event.target_tag_id = tag_name_to_id[target_tag_name]
 
         # Convert filters using unified filter conversion
         _convert_filters(
@@ -793,12 +793,10 @@ def convert_to_cpp_game_config(
 
     if not has_agents_list:
         # Create agents list from default agent config
-        base_agent_dict = game_config.agent.model_dump()
         game_config.agents = []
         for _ in range(game_config.num_agents):
-            agent_dict = base_agent_dict.copy()
-            agent_dict["team_id"] = 0  # All default agents are on team 0
-            game_config.agents.append(AgentConfig(**agent_dict))
+            agent = game_config.agent.model_copy(update={"team_id": 0})
+            game_config.agents.append(agent)
 
     # Set up resource mappings
     resource_names = list(game_config.resource_names)
@@ -839,27 +837,29 @@ def convert_to_cpp_game_config(
                 ]
                 limit_name_to_resource_ids[limit_name] = limit_resource_ids
 
-    # Build tag mappings - collect all unique tags from all objects
+    # Build tag mappings - collect all unique tag name strings from all objects
     # Note: This must happen AFTER default agents are created, so their tags are included
     # All tag references in handlers must refer to GameConfig.tags, obj.tags, or type:object_type
-    all_tags = set(game_config.tags)
+    all_tag_names: set[str] = {t.name for t in game_config.tags}
     for obj_name, obj_config in game_config.objects.items():
-        all_tags.update(obj_config.tags)
-        all_tags.add(typeTag(obj_name))
+        all_tag_names.update(obj_config.tags)
+        all_tag_names.add(typeTag(obj_name).name)
 
     # Collect tags from agents (created from default config if list was empty)
     for agent_config in game_config.agents:
-        all_tags.update(agent_config.tags)
-        all_tags.add(typeTag(agent_config.name))
+        all_tag_names.update(agent_config.tags)
+        all_tag_names.add(typeTag(agent_config.name).name)
 
     tag_id_offset = 0  # Start tag IDs at 0
-    sorted_tags = sorted(all_tags)
+    sorted_tag_names = sorted(all_tag_names)
 
     # Validate tag count doesn't exceed uint8 max (255)
-    if len(sorted_tags) > 256:
-        raise ValueError(f"Too many unique tags ({len(sorted_tags)}). Maximum supported is 256 due to uint8 limit.")
+    if len(sorted_tag_names) > 256:
+        raise ValueError(
+            f"Too many unique tags ({len(sorted_tag_names)}). Maximum supported is 256 due to uint8 limit."
+        )
 
-    tag_name_to_id: dict[str, int] = {str(tag): tag_id_offset + i for i, tag in enumerate(sorted_tags)}
+    tag_name_to_id: dict[str, int] = {name: tag_id_offset + i for i, name in enumerate(sorted_tag_names)}
     tag_id_to_name = {id: name for name, id in tag_name_to_id.items()}
 
     # Group agents by collective to create groups.
@@ -903,8 +903,8 @@ def convert_to_cpp_game_config(
         initial_inventory = {resource_name_to_id[k]: v for k, v in inv_config.get("initial", {}).items()}
 
         # Convert tag names to IDs for agent (include auto-generated type tag)
-        agent_tags = list(agent_cfg.tags) + [typeTag(agent_cfg.name)]
-        tag_ids = [tag_name_to_id[tag] for tag in agent_tags]
+        agent_tag_names = list(agent_cfg.tags) + [typeTag(agent_cfg.name).name]
+        tag_ids = [tag_name_to_id[name] for name in agent_tag_names]
 
         # Build inventory config with support for grouped limits and modifiers
         limit_defs = []
@@ -1052,8 +1052,8 @@ def convert_to_cpp_game_config(
 
         # Common GridObjectConfig fields - computed once (include auto-generated type tag)
         type_id = type_id_by_type_name[object_type]
-        object_tags = list(object_config.tags) + [typeTag(object_type)]
-        tag_ids = [tag_name_to_id[tag] for tag in object_tags]
+        object_tag_names = list(object_config.tags) + [typeTag(object_type).name]
+        tag_ids = [tag_name_to_id[name] for name in object_tag_names]
 
         if isinstance(object_config, WallConfig):
             cpp_config = CppWallConfig(type_id=type_id, type_name=object_type, initial_vibe=object_config.vibe)

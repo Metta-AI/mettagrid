@@ -9,7 +9,7 @@ from pydantic import Field
 from mettagrid.config.mutation.mutation import Mutation
 
 if TYPE_CHECKING:
-    from mettagrid.config.mutation.mutation import AnyMutation
+    from mettagrid.config.mutation import AnyMutation
 
 
 class AttackMutation(Mutation):

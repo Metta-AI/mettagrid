@@ -13,7 +13,6 @@ from mettagrid.config.mettagrid_config import (
     ObsConfig,
     WallConfig,
 )
-from mettagrid.config.tag import Tag
 from mettagrid.config.vibes import VIBES
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.map_builder.utils import create_grid
@@ -44,7 +43,7 @@ def basic_sim() -> Simulation:
             obs=ObsConfig(width=3, height=3, num_tokens=NUM_OBS_TOKENS),
             max_steps=1000,
             actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
-            objects={"wall": WallConfig(tags=[Tag("wall")])},
+            objects={"wall": WallConfig(tags=["wall"])},
             resource_names=["laser", "armor", "heart"],
             map_builder=AsciiMapBuilder.Config(
                 map_data=[
@@ -70,7 +69,7 @@ def adjacent_agents_sim() -> Simulation:
             obs=ObsConfig(width=3, height=3, num_tokens=NUM_OBS_TOKENS),
             max_steps=1000,
             actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
-            objects={"wall": WallConfig(tags=[Tag("wall")])},
+            objects={"wall": WallConfig(tags=["wall"])},
             resource_names=["laser", "armor", "heart"],
             map_builder=AsciiMapBuilder.Config(
                 map_data=[
@@ -278,7 +277,7 @@ class TestGlobalTokens:
                 ),
                 max_steps=10,  # Important: 10 steps total so 1 step = 10%
                 actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
-                objects={"wall": WallConfig(tags=[Tag("wall")])},
+                objects={"wall": WallConfig(tags=["wall"])},
                 resource_names=["laser", "armor", "heart"],
                 map_builder=AsciiMapBuilder.Config(map_data=game_map.tolist(), char_to_map_name=DEFAULT_CHAR_TO_NAME),
             )
@@ -366,7 +365,7 @@ class TestGlobalTokens:
                     move=MoveActionConfig(),
                     change_vibe=ChangeVibeActionConfig(enabled=True, vibes=VIBES[:8]),
                 ),
-                objects={"wall": WallConfig(tags=[Tag("wall")])},
+                objects={"wall": WallConfig(tags=["wall"])},
                 resource_names=["laser", "armor"],
                 map_builder=AsciiMapBuilder.Config(map_data=game_map.tolist(), char_to_map_name=DEFAULT_CHAR_TO_NAME),
             )
@@ -471,7 +470,7 @@ class TestEdgeObservations:
                 max_steps=50,  # Enough steps to walk around
                 actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
                 objects={
-                    "wall": WallConfig(tags=[Tag("wall")]),
+                    "wall": WallConfig(tags=["wall"]),
                 },
                 resource_names=["laser", "resource1", "resource2"],  # laser required for attack action
                 map_builder=AsciiMapBuilder.Config(map_data=game_map.tolist(), char_to_map_name=DEFAULT_CHAR_TO_NAME),
@@ -562,7 +561,7 @@ class TestCollectiveObservations:
                 obs=ObsConfig(width=3, height=3, num_tokens=NUM_OBS_TOKENS),
                 max_steps=10,
                 actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
-                objects={"wall": WallConfig(tags=[Tag("wall")])},
+                objects={"wall": WallConfig(tags=["wall"])},
                 resource_names=["gold"],
                 collectives={
                     "team_cogs": CollectiveConfig(),
@@ -623,7 +622,7 @@ class TestCollectiveObservations:
                 obs=ObsConfig(width=3, height=3, num_tokens=NUM_OBS_TOKENS),
                 max_steps=10,
                 actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
-                objects={"wall": WallConfig(tags=[Tag("wall")])},
+                objects={"wall": WallConfig(tags=["wall"])},
                 resource_names=["gold"],
                 map_builder=AsciiMapBuilder.Config(map_data=game_map.tolist(), char_to_map_name=DEFAULT_CHAR_TO_NAME),
             )

@@ -2,27 +2,25 @@
 
 from __future__ import annotations
 
-from typing import Any
+from pydantic import ConfigDict
 
-from pydantic import GetCoreSchemaHandler
-from pydantic_core import CoreSchema, core_schema
+from mettagrid.base_config import Config
 
 
-class Tag(str):
+class Tag(Config):
     """A tag identifier for game objects.
 
-    Use Tag("foo") to create tags. Pydantic fields typed as Tag will
+    Use tag("foo") to create tags. Pydantic fields typed as Tag will
     validate as strings and coerce to Tag instances.
-
-    Examples:
-        Tag("infected")
-        Tag("type:wall")
-        Tag("team:red")
     """
 
-    @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler) -> CoreSchema:
-        return core_schema.no_info_after_validator_function(cls, core_schema.str_schema())
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+
+
+def tag(name: str) -> Tag:
+    return Tag(name=name)
 
 
 def typeTag(name: str) -> Tag:
@@ -33,4 +31,4 @@ def typeTag(name: str) -> Tag:
     Args:
         name: The object or agent type name (e.g., "wall", "agent", "hub")
     """
-    return Tag(f"type:{name}")
+    return Tag(name=f"type:{name}")

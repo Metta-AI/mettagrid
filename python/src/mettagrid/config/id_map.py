@@ -141,22 +141,22 @@ class IdMap:
         Note: Must match the logic in mettagrid_c_config.py to ensure tag IDs are consistent
         between Python and C++.
         """
-        all_tags = set(self._config.tags)
+        all_tags = set(tag.name for tag in self._config.tags)
 
         # Objects: use dict key for type tag (matches C++ conversion)
         for obj_key, obj_config in self._config.objects.items():
             all_tags.update(obj_config.tags)
-            all_tags.add(typeTag(obj_key))
+            all_tags.add(typeTag(obj_key).name)
 
         # Agents: use agent.name for type tag (matches C++ conversion)
         if self._config.agents:
             for agent in self._config.agents:
                 all_tags.update(agent.tags)
-                all_tags.add(typeTag(agent.name))
+                all_tags.add(typeTag(agent.name).name)
         elif self._config.num_agents > 0:
             # Default agent template
             all_tags.update(self._config.agent.tags)
-            all_tags.add(typeTag(self._config.agent.name))
+            all_tags.add(typeTag(self._config.agent.name).name)
 
         return sorted(all_tags)
 

@@ -3,6 +3,14 @@
 Mutations are the effects that handlers apply when triggered.
 """
 
+# AnyMutation defined here where all concrete types are real imports (no strings).
+from typing import Annotated, Union  # noqa: E402
+
+from pydantic import (
+    Discriminator,  # noqa: E402
+    Tag,  # noqa: E402
+)
+
 from mettagrid.config.mutation.alignment_mutation import (
     AlignmentMutation,
     AlignTo,
@@ -14,7 +22,7 @@ from mettagrid.config.mutation.attack_mutation import AttackMutation
 from mettagrid.config.mutation.clear_inventory_mutation import ClearInventoryMutation
 from mettagrid.config.mutation.freeze_mutation import FreezeMutation
 from mettagrid.config.mutation.game_value_mutation import SetGameValueMutation
-from mettagrid.config.mutation.mutation import AlignmentEntityTarget, AnyMutation, EntityTarget, Mutation
+from mettagrid.config.mutation.mutation import AlignmentEntityTarget, EntityTarget, Mutation
 from mettagrid.config.mutation.resource_mutation import (
     ResourceDeltaMutation,
     ResourceTransferMutation,
@@ -40,9 +48,24 @@ from mettagrid.config.mutation.stats_mutation import (
 )
 from mettagrid.config.mutation.tag_mutation import AddTagMutation, RemoveTagMutation, addTag, removeTag
 
-# Rebuild models with forward references now that AnyMutation is defined
-AttackMutation.model_rebuild()
-SetGameValueMutation.model_rebuild()
+AnyMutation = Annotated[
+    Union[
+        Annotated[ResourceDeltaMutation, Tag("resource_delta")],
+        Annotated[ResourceTransferMutation, Tag("resource_transfer")],
+        Annotated[AlignmentMutation, Tag("alignment")],
+        Annotated[FreezeMutation, Tag("freeze")],
+        Annotated[ClearInventoryMutation, Tag("clear_inventory")],
+        Annotated[AttackMutation, Tag("attack")],
+        Annotated[StatsMutation, Tag("stats")],
+        Annotated[AddTagMutation, Tag("add_tag")],
+        Annotated[RemoveTagMutation, Tag("remove_tag")],
+        Annotated[SetGameValueMutation, Tag("set_game_value")],
+    ],
+    Discriminator("mutation_type"),
+]
+
+# Rebuild models that reference "AnyMutation" as a string annotation.
+AttackMutation.model_rebuild(_types_namespace={"AnyMutation": AnyMutation})
 
 __all__ = [
     # Enums

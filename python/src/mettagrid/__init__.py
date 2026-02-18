@@ -42,7 +42,6 @@ _configure_logging()
 _LAZY_ATTRS: Dict[str, Tuple[str, str]] = {
     # Config
     "MettaGridConfig": ("mettagrid.config.mettagrid_config", "MettaGridConfig"),
-    "Config": ("mettagrid.config", "Config"),
     # Core classes
     "Simulator": ("mettagrid.simulator.simulator", "Simulator"),
     "Simulation": ("mettagrid.simulator.simulator", "Simulation"),

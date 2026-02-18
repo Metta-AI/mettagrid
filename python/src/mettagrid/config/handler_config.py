@@ -10,6 +10,8 @@ Handlers consist of filters (conditions that must be met) and mutations (effects
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from pydantic import Field
 
 from mettagrid.base_config import Config
@@ -21,6 +23,7 @@ from mettagrid.config.filter import (
     HandlerTarget,
     MaxDistanceFilter,
     NotFilter,
+    Query,
     ResourceFilter,
     TagFilter,
     VibeFilter,
@@ -37,6 +40,7 @@ from mettagrid.config.filter import (
     isNotAlignedTo,
     isNotAlignedToActor,
     isNotNeutral,
+    query,
     targetCollectiveHas,
     targetHas,
 )
@@ -86,7 +90,7 @@ class Handler(Config):
     The handler name is provided as the dict key when defining handlers on a GridObject.
     """
 
-    filters: list[AnyFilter] = Field(
+    filters: Sequence[AnyFilter] = Field(
         default_factory=list,
         description="All filters must pass for handler to trigger",
     )
@@ -171,6 +175,9 @@ __all__ = [
     # Config classes
     "AOEConfig",
     "Handler",
+    # Query
+    "Query",
+    "query",
     # Filter helpers
     "isNot",
     "isAlignedToActor",

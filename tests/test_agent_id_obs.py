@@ -8,7 +8,6 @@ from mettagrid.config.mettagrid_config import (
     ObsConfig,
     WallConfig,
 )
-from mettagrid.config.tag import Tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Location, Simulation
@@ -37,7 +36,7 @@ def _make_sim(game_map: list[list[str]], num_agents: int) -> Simulation:
             ),
             max_steps=100,
             actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
-            objects={"wall": WallConfig(tags=[Tag("wall")])},
+            objects={"wall": WallConfig(tags=["wall"])},
             resource_names=[],
             map_builder=AsciiMapBuilder.Config(
                 map_data=game_map,
