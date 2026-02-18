@@ -21,6 +21,7 @@ public:
     _episode_completion_pct = get("episode_completion_pct");
     _last_action = get("last_action");
     _last_reward = get("last_reward");
+    _last_action_move = has("last_action_move") ? get("last_action_move") : 0;
     _vibe = get("vibe");
     _tag = get("tag");
     _cooldown_remaining = get("cooldown_remaining");
@@ -32,6 +33,8 @@ public:
     _lp_north = has("lp:north") ? get("lp:north") : 0;
     _lp_south = has("lp:south") ? get("lp:south") : 0;
     _agent_id = has("agent_id") ? get("agent_id") : 0;
+    _aoe_mask = has("aoe_mask") ? get("aoe_mask") : 0;
+    _territory = has("territory") ? get("territory") : 0;
 
     // Initialize public members (must be done AFTER private members are set above)
     Group = _group;
@@ -39,6 +42,7 @@ public:
     EpisodeCompletionPct = _episode_completion_pct;
     LastAction = _last_action;
     LastReward = _last_reward;
+    LastActionMove = _last_action_move;
     Vibe = _vibe;
     Tag = _tag;
     CooldownRemaining = _cooldown_remaining;
@@ -50,6 +54,8 @@ public:
     LpNorth = _lp_north;
     LpSouth = _lp_south;
     AgentId = _agent_id;
+    AoeMask = _aoe_mask;
+    Territory = _territory;
   }
 
   // Get feature ID by name (throws if not found)
@@ -72,6 +78,7 @@ public:
   ObservationType EpisodeCompletionPct;
   ObservationType LastAction;
   ObservationType LastReward;
+  ObservationType LastActionMove;
   ObservationType Vibe;
   ObservationType Tag;
   ObservationType CooldownRemaining;
@@ -83,6 +90,8 @@ public:
   ObservationType LpNorth;
   ObservationType LpSouth;
   ObservationType AgentId;
+  ObservationType AoeMask;
+  ObservationType Territory;
 
 private:
   std::unordered_map<std::string, ObservationType> _name_to_id;
@@ -93,6 +102,7 @@ private:
   ObservationType _episode_completion_pct;
   ObservationType _last_action;
   ObservationType _last_reward;
+  ObservationType _last_action_move;
   ObservationType _vibe;
   ObservationType _tag;
   ObservationType _cooldown_remaining;
@@ -104,6 +114,8 @@ private:
   ObservationType _lp_north;
   ObservationType _lp_south;
   ObservationType _agent_id;
+  ObservationType _aoe_mask;
+  ObservationType _territory;
 };
 
 // Global singleton instance
@@ -121,6 +133,7 @@ extern ObservationType Frozen;
 extern ObservationType EpisodeCompletionPct;
 extern ObservationType LastAction;
 extern ObservationType LastReward;
+extern ObservationType LastActionMove;
 extern ObservationType Vibe;
 extern ObservationType Tag;
 extern ObservationType CooldownRemaining;
@@ -132,6 +145,8 @@ extern ObservationType LpWest;
 extern ObservationType LpNorth;
 extern ObservationType LpSouth;
 extern ObservationType AgentId;
+extern ObservationType AoeMask;
+extern ObservationType Territory;
 }  // namespace ObservationFeature
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CONFIG_OBSERVATION_FEATURES_HPP_

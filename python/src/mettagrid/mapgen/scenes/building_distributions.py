@@ -127,25 +127,35 @@ def _sample_positions_by_distribution(
         return list(zip(rows.tolist(), cols.tolist(), strict=False))
 
     elif dist_type == DistributionType.POISSON:
-        # Poisson process - uniform but with natural clumping
-        # Use small clusters randomly distributed
-        num_clusters = max(1, count // 5)
-        cluster_centers_x = rng.uniform(col_min, col_max, size=num_clusters)
-        cluster_centers_y = rng.uniform(row_min, row_max, size=num_clusters)
+        # Poisson disk sampling: approximately uniform with a minimum separation.
+        #
+        # This prevents "clumps" of buildings of the same type, which is important for
+        # gameplay-critical objects like junctions.
+        area = max(1, available_width * available_height)
+        # Heuristic: scale minimum separation with average per-point area.
+        min_dist = max(1, int(np.sqrt(area / max(1, count)) * 0.5))
 
-        positions = []
-        for _ in range(count):
-            cluster_idx = rng.integers(0, num_clusters)
-            center_x = cluster_centers_x[cluster_idx]
-            center_y = cluster_centers_y[cluster_idx]
+        def chebyshev(a: tuple[int, int], b: tuple[int, int]) -> int:
+            return max(abs(a[0] - b[0]), abs(a[1] - b[1]))
 
-            # Add small jitter around cluster center
-            jitter_x = rng.normal(0, available_width * 0.05)
-            jitter_y = rng.normal(0, available_height * 0.05)
+        positions: list[tuple[int, int]] = []
+        tries_per_point = 200
+        current_min_dist = min_dist
+        while len(positions) < count and current_min_dist >= 1:
+            remaining = count - len(positions)
+            max_tries = remaining * tries_per_point
+            tries = 0
+            while len(positions) < count and tries < max_tries:
+                tries += 1
+                row = int(rng.integers(row_min, row_max + 1))
+                col = int(rng.integers(col_min, col_max + 1))
+                cand = (row, col)
+                if all(chebyshev(cand, p) >= current_min_dist for p in positions):
+                    positions.append(cand)
 
-            col = int(np.clip(center_x + jitter_x, col_min, col_max))
-            row = int(np.clip(center_y + jitter_y, row_min, row_max))
-            positions.append((row, col))
+            # If we can't place enough points at this separation, relax by 1 and try again.
+            if len(positions) < count:
+                current_min_dist -= 1
 
         return positions
 

@@ -699,6 +699,8 @@ def _convert_aoe_configs(
         cpp_aoe.radius = aoe.radius
         cpp_aoe.is_static = aoe.is_static
         cpp_aoe.effect_self = aoe.effect_self
+        cpp_aoe.is_round = aoe.is_round
+        cpp_aoe.territory_mode = aoe.territory_mode
 
         _convert_filters(
             aoe.filters,

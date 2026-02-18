@@ -20,6 +20,10 @@ class GlobalObsConfig(Config):
     # Controls whether the last_action global token is included
     last_action: bool = Field(default=True)
 
+    # Optional movement result token: 1 if the agent's location changed in the last step, else 0.
+    # This can differ from action_success when a move action "uses" an adjacent building successfully.
+    last_action_move: bool = Field(default=False)
+
     last_reward: bool = Field(default=True)
 
     # Goal tokens that indicate rewarding resources
@@ -47,3 +51,12 @@ class ObsConfig(Config):
     Default 256 for efficient byte packing.
     """
     global_obs: GlobalObsConfig = Field(default_factory=GlobalObsConfig)
+
+    # Optional per-tile AOE observability. When enabled, MettaGrid emits `aoe_mask` tokens
+    # at spatial locations covered by static AOEs that would affect the observing agent.
+    aoe_mask: bool = Field(default=False)
+
+    # Optional per-tile territory map. When enabled, MettaGrid emits `territory` tokens
+    # at spatial locations covered by "territory-mode" static AOEs that would affect
+    # the observing agent. Values are: 1 = positive (friendly), 2 = negative (enemy).
+    territory_map: bool = Field(default=False)

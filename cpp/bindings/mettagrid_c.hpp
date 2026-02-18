@@ -208,6 +208,9 @@ private:
   // Reusable buffer for global observation tokens (avoids allocation per agent per step)
   std::vector<PartialObservationToken> _global_tokens_buffer;
 
+  // Previous agent locations (captured at the start of each step) for last_action_move tokens.
+  std::vector<GridLocation> _prev_agent_locations;
+
   // Scratch buffer for object observation features (avoids allocation per object per step)
   std::vector<PartialObservationToken> _obs_features_scratch;
 
@@ -219,6 +222,14 @@ private:
   void init_action_handlers();
   void _compute_agent_goal_obs_tokens(size_t agent_idx);
   size_t _emit_obs_value_tokens(size_t agent_idx, size_t tokens_written, ObservationType global_location);
+  void _build_global_tokens(size_t agent_idx, ActionType action, RewardType reward, std::vector<PartialObservationToken>& out);
+  void _emit_tile_observability_tokens(size_t agent_idx,
+                                       const GridLocation& object_loc,
+                                       uint8_t location,
+                                       ObservationToken*& obs_ptr,
+                                       size_t& tokens_written,
+                                       size_t& attempted_tokens_written,
+                                       size_t buffer_capacity);
   void add_agent(Agent* agent);
   void _init_grid(const GameConfig& game_config,
                   const py::list& map,

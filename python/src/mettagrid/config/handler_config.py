@@ -131,6 +131,16 @@ class AOEConfig(Handler):
         description="One-time resource changes when target enters/exits AOE. "
         "On enter: apply +delta, on exit: apply -delta. Keys are resource names.",
     )
+    is_round: bool = Field(
+        default=False,
+        description="If True, AOE radius uses Euclidean distance (a circle on the grid). "
+        "If False (default), uses Chebyshev distance (a square on the grid).",
+    )
+    territory_mode: bool = Field(
+        default=False,
+        description="If True, AOEs on the same tile collapse into a single positive/neutral/negative 'territory' "
+        "field per target. This prevents overlapping territory sources (e.g. junction clusters) from stacking.",
+    )
 
 
 # Re-export all handler-related types
