@@ -14,6 +14,7 @@ const
   MiniViewZoomThreshold = 4.25f # Show mini/pip overlays at a less zoomed-out level.
   FollowMarginScreenFraction = 0.2f # Keep selected agent within 1/5 of screen edges.
   FollowMarginMaxWorldTiles = 5.0f # Cap edge margin to 5 world tiles when zoomed out.
+  ZoomOutMargin = 1.5f # Panel may show at most this multiple of the map's linear extent when zoomed out.
 
 proc centerAt*(zoomInfo: ZoomInfo, entity: Entity)
 
@@ -1291,6 +1292,20 @@ proc drawWorldMain*() {.measure.} =
     drawFogOfWar()
   if settings.showGrid:
     drawGrid()
+
+proc updateMinZoom*(zoomInfo: ZoomInfo) =
+  ## Recompute minZoom so the map cannot be zoomed out beyond ZoomOutMargin times its full-fit size.
+  if replay.isNil:
+    return
+  let rectW = zoomInfo.rect.w.float32
+  let rectH = zoomInfo.rect.h.float32
+  if rectW <= 0 or rectH <= 0:
+    return
+  let
+    mapW = max(0.001f, replay.mapSize[0].float32)
+    mapH = max(0.001f, replay.mapSize[1].float32)
+    fitZoom = sqrt(min(rectW / mapW, rectH / mapH))
+  zoomInfo.minZoom = fitZoom / sqrt(ZoomOutMargin)
 
 proc fitFullMap*(zoomInfo: ZoomInfo) =
   ## Set zoom and pan so the full map fits in the panel.
