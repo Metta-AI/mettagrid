@@ -116,7 +116,7 @@ class GridObjectConfig(Config):
     map_name: str = Field(default="", description="Stable key used by maps to select this config")
     render_name: str = Field(default="", description="Stable display-class identifier for theming")
     render_symbol: str = Field(default="❓", description="Symbol used for rendering (e.g., emoji)")
-    tags: list[Tag] = Field(default_factory=list, description="Tags for this object instance")
+    tags: list[str] = Field(default_factory=list, description="Tags for this object instance")
     vibe: int = Field(default=0, ge=0, le=255, description="Vibe value for this object instance")
     collective: Optional[str] = Field(
         default=None,
@@ -148,7 +148,7 @@ class GridObjectConfig(Config):
             self.render_name = self.name
         # Add collective tag if collective is set
         if self.collective:
-            collective_tag = Tag(f"collective:{self.collective}")
+            collective_tag = f"collective:{self.collective}"
             if collective_tag not in self.tags:
                 self.tags = self.tags + [collective_tag]
         # Type tags are auto-generated during C++ conversion via typeTag(object_type)

@@ -45,7 +45,7 @@ def resolve_game_value(gv: GameValue, mappings: dict):
 
     if isinstance(gv, NumObjectsValue):
         cfg = CppTagCountValueConfig()
-        tag_name = str(typeTag(gv.object_type))
+        tag_name = typeTag(gv.object_type).name
         cfg.id = mappings["tag_name_to_id"][tag_name]
         return cfg
 

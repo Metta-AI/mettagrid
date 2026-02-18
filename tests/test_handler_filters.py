@@ -33,7 +33,8 @@ from mettagrid.config.mutation import (
     EntityTarget,
     ResourceDeltaMutation,
 )
-from mettagrid.config.tag import Tag
+from mettagrid.config.query import Query
+from mettagrid.config.tag import tag
 from mettagrid.simulator import Simulation
 
 
@@ -1400,7 +1401,7 @@ class TestCollectiveAlignmentFilter:
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
         }
-        cfg.game.tags = ["near_target"]
+        cfg.game.tags = [tag("near_target")]
         cfg.game.agent.tags = ["near_target"]
         cfg.game.actions.noop.enabled = True
 
@@ -1423,13 +1424,15 @@ class TestCollectiveAlignmentFilter:
                         MaxDistanceFilter(
                             target=HandlerTarget.TARGET,
                             radius=2,
-                            target_tag="near_target",
-                            filters=[
-                                TagFilter(
-                                    target=HandlerTarget.TARGET,
-                                    tag=Tag("collective:cogs"),
-                                )
-                            ],
+                            query=Query(
+                                tag=tag("near_target"),
+                                filters=[
+                                    TagFilter(
+                                        target=HandlerTarget.TARGET,
+                                        tag=tag("collective:cogs"),
+                                    )
+                                ],
+                            ),
                         )
                     ],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],

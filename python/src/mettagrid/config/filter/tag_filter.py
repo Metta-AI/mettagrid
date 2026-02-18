@@ -17,7 +17,7 @@ class TagFilter(Filter):
     This is useful for events that should only affect certain object types.
 
     Example:
-        TagFilter(target=HandlerTarget.TARGET, tag=Tag("type:hub"))
+        TagFilter(target=HandlerTarget.TARGET, tag=tag("type:hub"))
     """
 
     filter_type: Literal["tag"] = "tag"

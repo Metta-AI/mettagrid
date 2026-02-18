@@ -18,7 +18,7 @@ from mettagrid.config.mutation import (
     addTag,
     removeTag,
 )
-from mettagrid.config.tag import Tag
+from mettagrid.config.tag import tag
 from mettagrid.simulator import Simulation
 
 # ---------------------------------------------------------------------------
@@ -67,7 +67,7 @@ class TestDirectTagMethods:
     def test_has_tag_reflects_initial_tags(self):
         cfg, sim = _make_sim(
             [[".", "@", "."], [".", ".", "."], [".", ".", "."]],
-            tags=[Tag("alpha"), Tag("beta")],
+            tags=["alpha", "beta"],
         )
         agent = _agent_obj(sim)
         assert agent["has_tag"](_tag_id(cfg, "alpha"))
@@ -76,7 +76,7 @@ class TestDirectTagMethods:
     def test_add_tag_makes_has_tag_true(self):
         cfg, sim = _make_sim(
             [[".", "@", "."], [".", ".", "."], [".", ".", "."]],
-            tags=[Tag("extra")],
+            tags=["extra"],
         )
         agent = _agent_obj(sim)
         extra_id = _tag_id(cfg, "extra")
@@ -89,7 +89,7 @@ class TestDirectTagMethods:
     def test_remove_tag_makes_has_tag_false(self):
         cfg, sim = _make_sim(
             [[".", "@", "."], [".", ".", "."], [".", ".", "."]],
-            tags=[Tag("removable")],
+            tags=["removable"],
         )
         agent = _agent_obj(sim)
         rid = _tag_id(cfg, "removable")
@@ -100,7 +100,7 @@ class TestDirectTagMethods:
     def test_add_remove_cycle(self):
         cfg, sim = _make_sim(
             [[".", "@", "."], [".", ".", "."], [".", ".", "."]],
-            tags=[Tag("cycle")],
+            tags=["cycle"],
         )
         agent = _agent_obj(sim)
         cid = _tag_id(cfg, "cycle")
@@ -113,7 +113,7 @@ class TestDirectTagMethods:
     def test_add_tag_idempotent(self):
         cfg, sim = _make_sim(
             [[".", "@", "."], [".", ".", "."], [".", ".", "."]],
-            tags=[Tag("once")],
+            tags=["once"],
         )
         agent = _agent_obj(sim)
         oid = _tag_id(cfg, "once")
@@ -124,7 +124,7 @@ class TestDirectTagMethods:
     def test_remove_nonexistent_is_noop(self):
         cfg, sim = _make_sim(
             [[".", "@", "."], [".", ".", "."], [".", ".", "."]],
-            tags=[Tag("keep")],
+            tags=["keep"],
         )
         agent = _agent_obj(sim)
         kid = _tag_id(cfg, "keep")
@@ -162,8 +162,8 @@ class TestTagMutationUpdatesLookup:
                 "T": GridObjectConfig(
                     name="tagger",
                     map_name="T",
-                    tags=[Tag("marked")],
-                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag(Tag("marked"))])},
+                    tags=["marked"],
+                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag(tag("marked"))])},
                 )
             },
         )
@@ -190,8 +190,8 @@ class TestTagMutationUpdatesLookup:
                 "T": GridObjectConfig(
                     name="tagger",
                     map_name="T",
-                    tags=[Tag("tracked")],
-                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag(Tag("tracked"))])},
+                    tags=["tracked"],
+                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag(tag("tracked"))])},
                 )
             },
         )
@@ -214,12 +214,12 @@ class TestTagMutationUpdatesLookup:
                 ["#", ".", "C", ".", "#"],
                 ["#", "#", "#", "#", "#"],
             ],
-            tags=[Tag("cursed")],
+            tags=["cursed"],
             objects={
                 "C": GridObjectConfig(
                     name="cleanser",
                     map_name="C",
-                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[removeTag(Tag("cursed"))])},
+                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[removeTag(tag("cursed"))])},
                 )
             },
         )
@@ -242,12 +242,12 @@ class TestTagMutationUpdatesLookup:
                 ["#", ".", "C", ".", "#"],
                 ["#", "#", "#", "#", "#"],
             ],
-            tags=[Tag("doomed")],
+            tags=["doomed"],
             objects={
                 "C": GridObjectConfig(
                     name="cleanser",
                     map_name="C",
-                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[removeTag(Tag("doomed"))])},
+                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[removeTag(tag("doomed"))])},
                 )
             },
         )
@@ -285,8 +285,8 @@ class TestTagMutationWithFilters:
                 "T": GridObjectConfig(
                     name="tagger",
                     map_name="T",
-                    tags=[Tag("vip")],
-                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag(Tag("vip"))])},
+                    tags=["vip"],
+                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag(tag("vip"))])},
                 ),
                 "G": GridObjectConfig(
                     name="giver",
@@ -294,7 +294,7 @@ class TestTagMutationWithFilters:
                     aoes={
                         "default": AOEConfig(
                             radius=2,
-                            filters=[TagFilter(target=HandlerTarget.TARGET, tag=Tag("vip"))],
+                            filters=[TagFilter(target=HandlerTarget.TARGET, tag=tag("vip"))],
                             mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"gold": 50})],
                         )
                     },
@@ -321,7 +321,7 @@ class TestTagMutationWithFilters:
                 ["#", ".", "D", ".", "#"],
                 ["#", "#", "#", "#", "#"],
             ],
-            tags=[Tag("vulnerable")],
+            tags=["vulnerable"],
             resource_names=["hp"],
             objects={
                 "D": GridObjectConfig(
@@ -330,7 +330,7 @@ class TestTagMutationWithFilters:
                     aoes={
                         "default": AOEConfig(
                             radius=2,
-                            filters=[TagFilter(target=HandlerTarget.TARGET, tag=Tag("vulnerable"))],
+                            filters=[TagFilter(target=HandlerTarget.TARGET, tag=tag("vulnerable"))],
                             mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"hp": -30})],
                         )
                     },
@@ -387,8 +387,8 @@ class TestMultiStepTagMutations:
         cfg.game.objects["adder"] = GridObjectConfig(
             name="adder",
             map_name="adder",
-            tags=[Tag("temp")],
-            aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag(Tag("temp"))])},
+            tags=["temp"],
+            aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag(tag("temp"))])},
         )
         # Step 2 event removes "temp" tag (only fires on agents that have it)
         cfg.game.objects["remover"] = GridObjectConfig(
@@ -397,8 +397,8 @@ class TestMultiStepTagMutations:
             aoes={
                 "default": AOEConfig(
                     radius=2,
-                    filters=[TagFilter(target=HandlerTarget.TARGET, tag=Tag("temp"))],
-                    mutations=[removeTag(Tag("temp"))],
+                    filters=[TagFilter(target=HandlerTarget.TARGET, tag=tag("temp"))],
+                    mutations=[removeTag(tag("temp"))],
                 )
             },
         )

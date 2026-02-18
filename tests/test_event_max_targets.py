@@ -14,7 +14,8 @@ import pytest
 from mettagrid.config.event_config import EventConfig
 from mettagrid.config.filter import hasTag
 from mettagrid.config.mutation import logStat
-from mettagrid.config.tag import Tag
+from mettagrid.config.query import query
+from mettagrid.config.tag import tag
 
 
 class TestMaxTargetsConfig:
@@ -24,9 +25,9 @@ class TestMaxTargetsConfig:
         """Test that max_targets defaults to None (unlimited)."""
         event = EventConfig(
             name="test_event",
-            target_tag="test:target",
+            target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(Tag("test:target"))],
+            filters=[hasTag(tag("test:target"))],
             mutations=[logStat("test.stat")],
         )
         assert event.max_targets is None
@@ -35,9 +36,9 @@ class TestMaxTargetsConfig:
         """Test that max_targets=None means unlimited."""
         event = EventConfig(
             name="test_event",
-            target_tag="test:target",
+            target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(Tag("test:target"))],
+            filters=[hasTag(tag("test:target"))],
             mutations=[logStat("test.stat")],
             max_targets=None,
         )
@@ -47,9 +48,9 @@ class TestMaxTargetsConfig:
         """Test that max_targets can be explicitly set."""
         event = EventConfig(
             name="test_event",
-            target_tag="test:target",
+            target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(Tag("test:target"))],
+            filters=[hasTag(tag("test:target"))],
             mutations=[logStat("test.stat")],
             max_targets=5,
         )
@@ -59,9 +60,9 @@ class TestMaxTargetsConfig:
         """Test that max_targets survives serialization."""
         event = EventConfig(
             name="test_event",
-            target_tag="test:target",
+            target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(Tag("test:target"))],
+            filters=[hasTag(tag("test:target"))],
             mutations=[logStat("test.stat")],
             max_targets=3,
         )
@@ -73,9 +74,9 @@ class TestMaxTargetsConfig:
         """Test that max_targets=None survives serialization."""
         event = EventConfig(
             name="test_event",
-            target_tag="test:target",
+            target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(Tag("test:target"))],
+            filters=[hasTag(tag("test:target"))],
             mutations=[logStat("test.stat")],
             max_targets=None,
         )
@@ -87,9 +88,9 @@ class TestMaxTargetsConfig:
         """Test that max_targets is included in model_dump."""
         event = EventConfig(
             name="test_event",
-            target_tag="test:target",
+            target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(Tag("test:target"))],
+            filters=[hasTag(tag("test:target"))],
             mutations=[],
             max_targets=7,
         )

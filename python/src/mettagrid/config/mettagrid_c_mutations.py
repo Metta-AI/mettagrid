@@ -176,23 +176,24 @@ def convert_mutations(
             target_obj.add_stats_mutation(cpp_mutation)
 
         elif isinstance(mutation, AddTagMutation):
-            assert mutation.tag in tag_name_to_id, (
-                f"AddTagMutation references unknown tag '{mutation.tag}'. Available tags: {list(tag_name_to_id.keys())}"
+            assert mutation.tag.name in tag_name_to_id, (
+                f"AddTagMutation references unknown tag '{mutation.tag.name}'. "
+                f"Available tags: {list(tag_name_to_id.keys())}"
             )
             cpp_mutation = CppAddTagMutationConfig(
                 entity=_ALIGNMENT_ENTITY_TARGET_TO_CPP[mutation.target],
-                tag_id=tag_name_to_id[mutation.tag],
+                tag_id=tag_name_to_id[mutation.tag.name],
             )
             target_obj.add_add_tag_mutation(cpp_mutation)
 
         elif isinstance(mutation, RemoveTagMutation):
-            assert mutation.tag in tag_name_to_id, (
-                f"RemoveTagMutation references unknown tag '{mutation.tag}'. "
+            assert mutation.tag.name in tag_name_to_id, (
+                f"RemoveTagMutation references unknown tag '{mutation.tag.name}'. "
                 f"Available tags: {list(tag_name_to_id.keys())}"
             )
             cpp_mutation = CppRemoveTagMutationConfig(
                 entity=_ALIGNMENT_ENTITY_TARGET_TO_CPP[mutation.target],
-                tag_id=tag_name_to_id[mutation.tag],
+                tag_id=tag_name_to_id[mutation.tag.name],
             )
             target_obj.add_remove_tag_mutation(cpp_mutation)
 

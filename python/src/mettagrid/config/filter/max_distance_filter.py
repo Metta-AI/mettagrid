@@ -6,22 +6,23 @@ from typing import Literal
 
 from pydantic import Field
 
-from mettagrid.config.filter.filter import AnyFilter, Filter, HandlerTarget
+from mettagrid.config.filter.filter import Filter, HandlerTarget
+from mettagrid.config.query import Query
 
 
 class MaxDistanceFilter(Filter):
-    """Filter that checks if target is within radius of an object matching filters.
+    """Filter that checks if target is within radius of an object matching a query.
 
     This is useful for proximity-based mechanics. The filter passes if:
-    - Target is within the specified radius of an object that passes ALL filters
+    - Target is within the specified radius of an object that matches the query
 
-    The target_tag is required for efficient spatial lookup via TagIndex. Candidate
-    objects are found by tag, then filters are applied to each candidate.
+    The query's tag is required for efficient spatial lookup via TagIndex. Candidate
+    objects are found by tag, then query filters are applied to each candidate.
 
     Converted to MaxDistanceFilterConfig + TagQueryConfig in the C++ layer.
 
     Examples:
-        isNear("junction", [hasTag(Tag("collective:clips"))], radius=2)
+        isNear(query("junction", [hasTag(tag("collective:clips"))]), radius=2)
     """
 
     filter_type: Literal["max_distance"] = "max_distance"
@@ -29,30 +30,25 @@ class MaxDistanceFilter(Filter):
         default=HandlerTarget.TARGET,
         description="Entity to check the filter against",
     )
-    target_tag: str = Field(description="Tag name to identify nearby candidate objects")
-    filters: list[AnyFilter] = Field(
-        default_factory=list,
-        description="Filters that nearby objects must pass (all must match)",
-    )
+    query: Query = Field(description="Query to find nearby candidate objects")
     radius: int = Field(default=1, description="Chebyshev distance (square radius) to check")
 
 
 # ===== Helper Filter Functions =====
 
 
-def isNear(tag: str, filters: list[AnyFilter] | None = None, radius: int = 1) -> MaxDistanceFilter:
-    """Filter: target is within radius of an object with the given tag.
+def isNear(query: Query, radius: int = 1) -> MaxDistanceFilter:
+    """Filter: target is within radius of an object matching the query.
 
     This is useful for proximity-based mechanics. The filter passes if:
-    - Target is within radius tiles of an object with the tag (and passing filters)
+    - Target is within radius tiles of an object matching the query
 
     Args:
-        tag: Tag for efficient spatial lookup (e.g., "type:junction")
-        filters: Additional filters that nearby objects must pass
+        query: Query identifying nearby objects (tag + optional filters)
         radius: Chebyshev distance (square radius) to check
 
     Examples:
-        isNear("type:junction", radius=3)  # Near junctions
-        isNear("type:clips")  # Near clips objects
+        isNear(query("type:junction", [isAlignedTo("clips")]), radius=3)
+        isNear(query("type:agent", [hasTag(tag("collective:cogs"))]))
     """
-    return MaxDistanceFilter(target=HandlerTarget.TARGET, target_tag=tag, filters=filters or [], radius=radius)
+    return MaxDistanceFilter(target=HandlerTarget.TARGET, query=query, radius=radius)

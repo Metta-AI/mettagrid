@@ -13,7 +13,7 @@ from mettagrid.config.mettagrid_config import (
     ResourceLimitsConfig,
 )
 from mettagrid.config.mutation import EntityTarget, ResourceDeltaMutation
-from mettagrid.config.tag import Tag, typeTag
+from mettagrid.config.tag import tag, typeTag
 from mettagrid.simulator import Simulation
 
 
@@ -42,7 +42,7 @@ class TestTagFilter:
         cfg.game.actions.noop.enabled = True
 
         # Add tags to agent (type:agent is auto-generated from agent name)
-        cfg.game.agent.tags = [Tag("mobile")]
+        cfg.game.agent.tags = ["mobile"]
 
         # AOE source with tag filter - only affects objects with "type:agent" tag (auto-generated)
         cfg.game.objects["aoe_source"] = GridObjectConfig(
@@ -88,7 +88,7 @@ class TestTagFilter:
         cfg.game.actions.noop.enabled = True
 
         # Agent has "mobile" tag but not "type:structure"
-        cfg.game.agent.tags = [Tag("mobile")]
+        cfg.game.agent.tags = ["mobile"]
 
         # Add a structure object so type:structure is auto-registered as a tag
         cfg.game.objects["structure"] = GridObjectConfig(name="structure", map_name="structure")
@@ -121,17 +121,17 @@ class TestTagFilterHelpers:
 
     def test_has_tag_helper(self):
         """hasTag() should create a TagFilter with the given tag."""
-        f = hasTag(Tag("type:junction"))
+        f = hasTag(tag("type:junction"))
         assert isinstance(f, TagFilter)
-        assert f.tag == Tag("type:junction")
+        assert f.tag == tag("type:junction")
 
     def test_is_a_helper(self):
         """isA() should create a TagFilter with type:value format."""
         f = isA("hub")
         assert isinstance(f, TagFilter)
-        assert f.tag == Tag("type:hub")
+        assert f.tag == tag("type:hub")
 
     def test_is_a_helper_with_junction(self):
         """isA() should work with junction type."""
         f = isA("junction")
-        assert f.tag == Tag("type:junction")
+        assert f.tag == tag("type:junction")

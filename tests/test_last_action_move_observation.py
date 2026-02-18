@@ -1,7 +1,6 @@
 from mettagrid.config.handler_config import Handler
 from mettagrid.config.mettagrid_config import GameConfig, GridObjectConfig, MettaGridConfig, ObsConfig, WallConfig
 from mettagrid.config.obs_config import GlobalObsConfig
-from mettagrid.config.tag import Tag
 from mettagrid.simulator import Simulation
 from mettagrid.test_support.observation_helper import ObservationHelper
 
@@ -19,7 +18,7 @@ def test_last_action_move_observation_reflects_actual_location_change() -> None:
             ),
             max_steps=10,
             objects={
-                "wall": WallConfig(tags=[Tag("wall")]),
+                "wall": WallConfig(tags=["wall"]),
                 "station": GridObjectConfig(
                     name="station",
                     map_name="station",

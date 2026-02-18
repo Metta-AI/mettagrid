@@ -23,7 +23,7 @@ from mettagrid.config.mutation import (
     addTag,
     removeTag,
 )
-from mettagrid.config.tag import Tag
+from mettagrid.config.tag import tag
 from mettagrid.simulator import Simulation
 
 
@@ -32,9 +32,9 @@ class TestAddTagMutation:
 
     def test_add_tag_mutation_class(self):
         """AddTagMutation should have correct attributes."""
-        m = AddTagMutation(tag=Tag("infected"), target=AlignmentEntityTarget.TARGET)
+        m = AddTagMutation(tag=tag("infected"), target=AlignmentEntityTarget.TARGET)
         assert m.mutation_type == "add_tag"
-        assert m.tag == Tag("infected")
+        assert m.tag == tag("infected")
         assert m.target == AlignmentEntityTarget.TARGET
 
 
@@ -43,9 +43,9 @@ class TestRemoveTagMutation:
 
     def test_remove_tag_mutation_class(self):
         """RemoveTagMutation should have correct attributes."""
-        m = RemoveTagMutation(tag=Tag("infected"), target=AlignmentEntityTarget.TARGET)
+        m = RemoveTagMutation(tag=tag("infected"), target=AlignmentEntityTarget.TARGET)
         assert m.mutation_type == "remove_tag"
-        assert m.tag == Tag("infected")
+        assert m.tag == tag("infected")
         assert m.target == AlignmentEntityTarget.TARGET
 
 
@@ -54,28 +54,28 @@ class TestTagMutationHelpers:
 
     def test_add_tag_helper(self):
         """addTag() should create an AddTagMutation with the given tag."""
-        m = addTag(Tag("infected"))
+        m = addTag(tag("infected"))
         assert isinstance(m, AddTagMutation)
-        assert m.tag == Tag("infected")
+        assert m.tag == tag("infected")
         assert m.target == AlignmentEntityTarget.TARGET
 
     def test_add_tag_helper_with_target(self):
         """addTag() should accept target parameter."""
-        m = addTag(Tag("buffed"), target=AlignmentEntityTarget.ACTOR)
-        assert m.tag == Tag("buffed")
+        m = addTag(tag("buffed"), target=AlignmentEntityTarget.ACTOR)
+        assert m.tag == tag("buffed")
         assert m.target == AlignmentEntityTarget.ACTOR
 
     def test_remove_tag_helper(self):
         """removeTag() should create a RemoveTagMutation with the given tag."""
-        m = removeTag(Tag("infected"))
+        m = removeTag(tag("infected"))
         assert isinstance(m, RemoveTagMutation)
-        assert m.tag == Tag("infected")
+        assert m.tag == tag("infected")
         assert m.target == AlignmentEntityTarget.TARGET
 
     def test_remove_tag_helper_with_target(self):
         """removeTag() should accept target parameter."""
-        m = removeTag(Tag("buffed"), target=AlignmentEntityTarget.ACTOR)
-        assert m.tag == Tag("buffed")
+        m = removeTag(tag("buffed"), target=AlignmentEntityTarget.ACTOR)
+        assert m.tag == tag("buffed")
         assert m.target == AlignmentEntityTarget.ACTOR
 
 
@@ -102,12 +102,12 @@ class TestAddTagMutationEndToEnd:
         cfg.game.objects["tagger"] = GridObjectConfig(
             name="tagger",
             map_name="tagger",
-            tags=[Tag("infected")],  # Register the tag so it's available for mutations
+            tags=["infected"],  # Register the tag so it's available for mutations
             aoes={
                 "default": AOEConfig(
                     radius=2,
                     filters=[],
-                    mutations=[addTag(Tag("infected"))],
+                    mutations=[addTag(tag("infected"))],
                 )
             },
         )
@@ -164,12 +164,12 @@ class TestAddTagMutationEndToEnd:
         cfg.game.objects["tagger"] = GridObjectConfig(
             name="tagger",
             map_name="tagger",
-            tags=[Tag("blessed")],  # Register the tag so it's available for mutations
+            tags=["blessed"],  # Register the tag so it's available for mutations
             aoes={
                 "default": AOEConfig(
                     radius=2,
                     filters=[],
-                    mutations=[addTag(Tag("blessed"))],
+                    mutations=[addTag(tag("blessed"))],
                 )
             },
         )
@@ -181,7 +181,7 @@ class TestAddTagMutationEndToEnd:
             aoes={
                 "default": AOEConfig(
                     radius=2,
-                    filters=[TagFilter(target=HandlerTarget.TARGET, tag=Tag("blessed"))],
+                    filters=[TagFilter(target=HandlerTarget.TARGET, tag=tag("blessed"))],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 100})],
                 )
             },
@@ -216,7 +216,7 @@ class TestRemoveTagMutationEndToEnd:
         )
 
         # Agent starts with "cursed" tag
-        cfg.game.agent.tags = [Tag("cursed")]
+        cfg.game.agent.tags = ["cursed"]
         cfg.game.actions.noop.enabled = True
 
         # AOE source that removes "cursed" tag from agents in range
@@ -227,7 +227,7 @@ class TestRemoveTagMutationEndToEnd:
                 "default": AOEConfig(
                     radius=2,
                     filters=[],
-                    mutations=[removeTag(Tag("cursed"))],
+                    mutations=[removeTag(tag("cursed"))],
                 )
             },
         )
@@ -272,7 +272,7 @@ class TestRemoveTagMutationEndToEnd:
         )
 
         cfg.game.resource_names = ["hp"]
-        cfg.game.agent.tags = [Tag("vulnerable")]
+        cfg.game.agent.tags = ["vulnerable"]
         cfg.game.agent.inventory.initial = {"hp": 100}
         cfg.game.agent.inventory.limits = {
             "hp": ResourceLimitsConfig(min=1000, resources=["hp"]),
@@ -288,7 +288,7 @@ class TestRemoveTagMutationEndToEnd:
                 "default": AOEConfig(
                     radius=2,
                     filters=[],
-                    mutations=[removeTag(Tag("vulnerable"))],
+                    mutations=[removeTag(tag("vulnerable"))],
                 )
             },
         )
@@ -300,7 +300,7 @@ class TestRemoveTagMutationEndToEnd:
             aoes={
                 "default": AOEConfig(
                     radius=2,
-                    filters=[TagFilter(target=HandlerTarget.TARGET, tag=Tag("vulnerable"))],
+                    filters=[TagFilter(target=HandlerTarget.TARGET, tag=tag("vulnerable"))],
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"hp": -50})],
                 )
             },

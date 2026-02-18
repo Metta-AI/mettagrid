@@ -7,7 +7,7 @@ timed triggers, or scripted scenarios.
 Example:
     EventConfig(
         name="periodic_damage",
-        target_tag="type:enemy",
+        target_query=query("type:enemy"),
         timesteps=periodic(start=100, period=50, end=1000),
         filters=[TagFilter(tag="type:enemy")],
         mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"hp": -10})]
@@ -21,6 +21,7 @@ from typing import Optional
 from pydantic import Field
 
 from mettagrid.config.handler_config import Handler
+from mettagrid.config.query import Query
 
 
 def periodic(start: int, period: int, end: Optional[int] = None, end_period: Optional[int] = None) -> list[int]:
@@ -88,7 +89,7 @@ class EventConfig(Handler):
 
     Attributes:
         name: Unique name for this event (used in stat logging as event.<name>)
-        target_tag: Tag used to find candidate target objects via TagIndex for efficient lookup
+        target_query: Query used to find candidate target objects via TagIndex for efficient lookup
         timesteps: List of timesteps when this event fires
         filters: (inherited) List of filters to select target objects (all must pass)
         mutations: (inherited) List of mutations to apply to matching objects
@@ -101,8 +102,8 @@ class EventConfig(Handler):
     """
 
     name: str = Field(description="Unique name for this event")
-    target_tag: str = Field(
-        description="Tag used to find candidate target objects via TagIndex for efficient lookup",
+    target_query: Query = Field(
+        description="Query used to find candidate target objects via TagIndex for efficient lookup",
     )
     timesteps: list[int] = Field(
         default_factory=list,

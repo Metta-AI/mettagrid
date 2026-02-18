@@ -21,6 +21,8 @@ from mettagrid.config.mettagrid_config import (
     WallConfig,
 )
 from mettagrid.config.mutation import alignTo, logStat
+from mettagrid.config.query import query
+from mettagrid.config.tag import tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Simulation
@@ -33,9 +35,9 @@ class TestFallbackConfig:
         """Test that fallback defaults to None."""
         event = EventConfig(
             name="test_event",
-            target_tag="test:target",
+            target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag("test:target")],
+            filters=[hasTag(tag("test:target"))],
             mutations=[logStat("test.stat")],
         )
         assert event.fallback is None
@@ -44,9 +46,9 @@ class TestFallbackConfig:
         """Test that fallback can be explicitly set."""
         event = EventConfig(
             name="test_event",
-            target_tag="test:target",
+            target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag("test:target")],
+            filters=[hasTag(tag("test:target"))],
             mutations=[logStat("test.stat")],
             fallback="other_event",
         )
@@ -56,9 +58,9 @@ class TestFallbackConfig:
         """Test that fallback survives serialization."""
         event = EventConfig(
             name="test_event",
-            target_tag="test:target",
+            target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag("test:target")],
+            filters=[hasTag(tag("test:target"))],
             mutations=[logStat("test.stat")],
             fallback="fallback_event",
         )
@@ -70,9 +72,9 @@ class TestFallbackConfig:
         """Test that fallback=None survives serialization."""
         event = EventConfig(
             name="test_event",
-            target_tag="test:target",
+            target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag("test:target")],
+            filters=[hasTag(tag("test:target"))],
             mutations=[logStat("test.stat")],
             fallback=None,
         )
@@ -118,14 +120,14 @@ class TestFallbackSimulation:
                     "clips": CollectiveConfig(),
                 },
                 # Register "category:special" tag so it's valid for events
-                tags=["category:special"],
+                tags=[tag("category:special")],
                 events={
                     # Primary event targets "category:special" (no objects have this tag)
                     "primary_event": EventConfig(
                         name="primary_event",
-                        target_tag="category:special",
+                        target_query=query("category:special"),
                         timesteps=[5],
-                        filters=[hasTag("category:special")],
+                        filters=[hasTag(tag("category:special"))],
                         mutations=[alignTo("clips")],
                         max_targets=1,
                         fallback="fallback_event",  # Fall back to this
@@ -133,9 +135,9 @@ class TestFallbackSimulation:
                     # Fallback event targets walls (which exist)
                     "fallback_event": EventConfig(
                         name="fallback_event",
-                        target_tag="type:wall",
+                        target_query=query("type:wall"),
                         timesteps=[],  # Not scheduled directly, only via fallback
-                        filters=[hasTag("type:wall")],
+                        filters=[hasTag(tag("type:wall"))],
                         mutations=[alignTo("clips")],
                         max_targets=1,
                     ),
@@ -200,7 +202,7 @@ class TestFallbackSimulation:
                     # Primary event targets walls and aligns to cogs
                     "primary_event": EventConfig(
                         name="primary_event",
-                        target_tag="type:wall",
+                        target_query=query("type:wall"),
                         timesteps=[5],
                         filters=[isA("wall")],
                         mutations=[alignTo("cogs")],
@@ -210,7 +212,7 @@ class TestFallbackSimulation:
                     # Fallback event would align to clips (but should NOT fire)
                     "fallback_event": EventConfig(
                         name="fallback_event",
-                        target_tag="type:wall",
+                        target_query=query("type:wall"),
                         timesteps=[],
                         filters=[isA("wall")],
                         mutations=[alignTo("clips")],
@@ -281,7 +283,7 @@ class TestFallbackSimulation:
                     # Primary event only matches unaligned walls (none exist)
                     "primary_event": EventConfig(
                         name="primary_event",
-                        target_tag="type:wall",
+                        target_query=query("type:wall"),
                         timesteps=[5],
                         filters=[isA("wall"), isAlignedTo(None)],  # Only unaligned
                         mutations=[logStat("primary.fired")],
@@ -291,7 +293,7 @@ class TestFallbackSimulation:
                     # Fallback aligns to clips
                     "fallback_event": EventConfig(
                         name="fallback_event",
-                        target_tag="type:wall",
+                        target_query=query("type:wall"),
                         timesteps=[],
                         filters=[isA("wall")],
                         mutations=[alignTo("clips")],

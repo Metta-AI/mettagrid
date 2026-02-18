@@ -3,20 +3,14 @@
 from __future__ import annotations
 
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Annotated, Literal, Union
+from typing import TYPE_CHECKING, Literal
 
-from pydantic import Discriminator, Field, Tag
+from pydantic import Field
 
 from mettagrid.base_config import Config
 
 if TYPE_CHECKING:
-    from mettagrid.config.filter.alignment_filter import AlignmentFilter
-    from mettagrid.config.filter.game_value_filter import GameValueFilter
-    from mettagrid.config.filter.max_distance_filter import MaxDistanceFilter
-    from mettagrid.config.filter.resource_filter import ResourceFilter
-    from mettagrid.config.filter.shared_tag_prefix_filter import SharedTagPrefixFilter
-    from mettagrid.config.filter.tag_filter import TagFilter
-    from mettagrid.config.filter.vibe_filter import VibeFilter
+    from mettagrid.config.filter import AnyFilter
 
 
 class HandlerTarget(StrEnum):
@@ -77,21 +71,3 @@ def anyOf(filters: list["AnyFilter"]) -> OrFilter:
         OrFilter wrapping the provided filters
     """
     return OrFilter(inner=filters)
-
-
-AnyFilter = Annotated[
-    Union[
-        Annotated["VibeFilter", Tag("vibe")],
-        Annotated["ResourceFilter", Tag("resource")],
-        Annotated["AlignmentFilter", Tag("alignment")],
-        Annotated["TagFilter", Tag("tag")],
-        Annotated["SharedTagPrefixFilter", Tag("shared_tag_prefix")],
-        Annotated["MaxDistanceFilter", Tag("max_distance")],
-        Annotated["GameValueFilter", Tag("game_value")],
-        Annotated["NotFilter", Tag("not")],
-        Annotated["OrFilter", Tag("or")],
-    ],
-    Discriminator("filter_type"),
-]
-
-# NotFilter.model_rebuild() is called in __init__.py after all filter types are imported
