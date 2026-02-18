@@ -1,5 +1,9 @@
 """Convert Python GameValue types to C++ GameValueConfig variants."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from mettagrid.config.game_value import (
     ConstValue,
     GameValue,
@@ -16,24 +20,16 @@ from mettagrid.mettagrid_c import InventoryValueConfig as CppInventoryValueConfi
 from mettagrid.mettagrid_c import StatValueConfig as CppStatValueConfig
 from mettagrid.mettagrid_c import TagCountValueConfig as CppTagCountValueConfig
 
+if TYPE_CHECKING:
+    from mettagrid.config.cpp_id_maps import CppIdMaps
 
-def resolve_game_value(gv: GameValue, mappings: dict):
-    """Convert a Python GameValue to a C++ typed GameValueConfig variant.
 
-    Args:
-        gv: Python GameValue instance
-        mappings: Dict with keys:
-            - resource_name_to_id: dict[str, int]
-            - tag_name_to_id: dict[str, int]
-
-    Returns:
-        One of InventoryValueConfig, StatValueConfig, TagCountValueConfig,
-        or ConstValueConfig.
-    """
+def resolve_game_value(gv: GameValue, id_maps: CppIdMaps):
+    """Convert a Python GameValue to a C++ typed GameValueConfig variant."""
     if isinstance(gv, InventoryValue):
         cfg = CppInventoryValueConfig()
         cfg.scope = _convert_scope(gv.scope)
-        cfg.id = mappings["resource_name_to_id"][gv.item]
+        cfg.id = id_maps.resource_name_to_id[gv.item]
         return cfg
 
     if isinstance(gv, StatValue):
@@ -46,12 +42,12 @@ def resolve_game_value(gv: GameValue, mappings: dict):
     if isinstance(gv, NumObjectsValue):
         cfg = CppTagCountValueConfig()
         tag_name = typeTag(gv.object_type).name
-        cfg.id = mappings["tag_name_to_id"][tag_name]
+        cfg.id = id_maps.tag_name_to_id[tag_name]
         return cfg
 
     if isinstance(gv, TagCountValue):
         cfg = CppTagCountValueConfig()
-        cfg.id = mappings["tag_name_to_id"][gv.tag]
+        cfg.id = id_maps.tag_name_to_id[gv.tag]
         return cfg
 
     if isinstance(gv, ConstValue):
