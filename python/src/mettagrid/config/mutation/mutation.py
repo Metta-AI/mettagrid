@@ -16,13 +16,6 @@ class EntityTarget(StrEnum):
     TARGET_COLLECTIVE = auto()
 
 
-class AlignmentEntityTarget(StrEnum):
-    """Target entity for alignment/freeze operations (subset of EntityTarget)."""
-
-    ACTOR = auto()
-    TARGET = auto()
-
-
 class Mutation(Config):
     """Base class for handler mutations."""
 

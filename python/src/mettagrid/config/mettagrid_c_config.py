@@ -151,6 +151,7 @@ def _convert_handlers(handlers_dict, resource_name_to_id, limit_name_to_resource
             resource_name_to_id,
             limit_name_to_resource_ids,
             tag_name_to_id,
+            vibe_name_to_id,
             context=f"handler '{handler_name}'",
         )
 
@@ -613,6 +614,7 @@ def _convert_event_configs(
             resource_name_to_id,
             limit_name_to_resource_ids,
             tag_name_to_id,
+            vibe_name_to_id,
             collective_name_to_id,
             context=f"event '{event_name}'",
         )
@@ -628,6 +630,7 @@ def _convert_event_mutations(
     resource_name_to_id,
     limit_name_to_resource_ids,
     tag_name_to_id,
+    vibe_name_to_id,
     collective_name_to_id,
     context: str,
 ):
@@ -656,6 +659,7 @@ def _convert_event_mutations(
         resource_name_to_id,
         limit_name_to_resource_ids,
         tag_name_to_id,
+        vibe_name_to_id,
         context,
     )
 
@@ -717,6 +721,7 @@ def _convert_aoe_configs(
             resource_name_to_id,
             limit_name_to_resource_ids,
             tag_name_to_id,
+            vibe_name_to_id,
             context="AOEConfig",
         )
 

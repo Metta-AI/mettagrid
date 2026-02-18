@@ -16,7 +16,6 @@ from mettagrid.config.mettagrid_config import (
 )
 from mettagrid.config.mutation import (
     AddTagMutation,
-    AlignmentEntityTarget,
     EntityTarget,
     RemoveTagMutation,
     ResourceDeltaMutation,
@@ -32,10 +31,10 @@ class TestAddTagMutation:
 
     def test_add_tag_mutation_class(self):
         """AddTagMutation should have correct attributes."""
-        m = AddTagMutation(tag=tag("infected"), target=AlignmentEntityTarget.TARGET)
+        m = AddTagMutation(tag=tag("infected"), target=EntityTarget.TARGET)
         assert m.mutation_type == "add_tag"
         assert m.tag == tag("infected")
-        assert m.target == AlignmentEntityTarget.TARGET
+        assert m.target == EntityTarget.TARGET
 
 
 class TestRemoveTagMutation:
@@ -43,10 +42,10 @@ class TestRemoveTagMutation:
 
     def test_remove_tag_mutation_class(self):
         """RemoveTagMutation should have correct attributes."""
-        m = RemoveTagMutation(tag=tag("infected"), target=AlignmentEntityTarget.TARGET)
+        m = RemoveTagMutation(tag=tag("infected"), target=EntityTarget.TARGET)
         assert m.mutation_type == "remove_tag"
         assert m.tag == tag("infected")
-        assert m.target == AlignmentEntityTarget.TARGET
+        assert m.target == EntityTarget.TARGET
 
 
 class TestTagMutationHelpers:
@@ -57,26 +56,26 @@ class TestTagMutationHelpers:
         m = addTag(tag("infected"))
         assert isinstance(m, AddTagMutation)
         assert m.tag == tag("infected")
-        assert m.target == AlignmentEntityTarget.TARGET
+        assert m.target == EntityTarget.TARGET
 
     def test_add_tag_helper_with_target(self):
         """addTag() should accept target parameter."""
-        m = addTag(tag("buffed"), target=AlignmentEntityTarget.ACTOR)
+        m = addTag(tag("buffed"), target=EntityTarget.ACTOR)
         assert m.tag == tag("buffed")
-        assert m.target == AlignmentEntityTarget.ACTOR
+        assert m.target == EntityTarget.ACTOR
 
     def test_remove_tag_helper(self):
         """removeTag() should create a RemoveTagMutation with the given tag."""
         m = removeTag(tag("infected"))
         assert isinstance(m, RemoveTagMutation)
         assert m.tag == tag("infected")
-        assert m.target == AlignmentEntityTarget.TARGET
+        assert m.target == EntityTarget.TARGET
 
     def test_remove_tag_helper_with_target(self):
         """removeTag() should accept target parameter."""
-        m = removeTag(tag("buffed"), target=AlignmentEntityTarget.ACTOR)
+        m = removeTag(tag("buffed"), target=EntityTarget.ACTOR)
         assert m.tag == tag("buffed")
-        assert m.target == AlignmentEntityTarget.ACTOR
+        assert m.target == EntityTarget.ACTOR
 
 
 class TestAddTagMutationEndToEnd:
