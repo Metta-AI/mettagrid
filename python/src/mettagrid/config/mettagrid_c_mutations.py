@@ -4,15 +4,18 @@ from mettagrid.config.game_value import ConstValue
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mutation import (
     AddTagMutation,
-    AlignmentEntityTarget,
     AlignmentMutation,
     AlignTo,
     ClearInventoryMutation,
     EntityTarget,
     FreezeMutation,
+    QueryInventoryMutation,
+    RecomputeQueryTagMutation,
     RemoveTagMutation,
+    RemoveTagsWithPrefixMutation,
     ResourceDeltaMutation,
     ResourceTransferMutation,
+    SetGameValueMutation,
     StatsEntity,
     StatsMutation,
     StatsTarget,
@@ -24,12 +27,17 @@ from mettagrid.mettagrid_c import ClearInventoryMutationConfig as CppClearInvent
 from mettagrid.mettagrid_c import EntityRef as CppEntityRef
 from mettagrid.mettagrid_c import FreezeMutationConfig as CppFreezeMutationConfig
 from mettagrid.mettagrid_c import GameValueMutationConfig as CppGameValueMutationConfig
+from mettagrid.mettagrid_c import QueryInventoryMutationConfig as CppQueryInventoryMutationConfig
+from mettagrid.mettagrid_c import RecomputeQueryTagMutationConfig as CppRecomputeQueryTagMutationConfig
 from mettagrid.mettagrid_c import RemoveTagMutationConfig as CppRemoveTagMutationConfig
+from mettagrid.mettagrid_c import RemoveTagsWithPrefixMutationConfig as CppRemoveTagsWithPrefixMutationConfig
 from mettagrid.mettagrid_c import ResourceDeltaMutationConfig as CppResourceDeltaMutationConfig
 from mettagrid.mettagrid_c import ResourceTransferMutationConfig as CppResourceTransferMutationConfig
 from mettagrid.mettagrid_c import StatsEntity as CppStatsEntity
 from mettagrid.mettagrid_c import StatsMutationConfig as CppStatsMutationConfig
 from mettagrid.mettagrid_c import StatsTarget as CppStatsTarget
+from mettagrid.mettagrid_c import TagQueryConfig as CppTagQueryConfig
+from mettagrid.mettagrid_c import make_query_config
 
 # Mapping from Python EntityTarget enum to C++ EntityRef enum
 _ENTITY_TARGET_TO_CPP: dict[EntityTarget, CppEntityRef] = {
@@ -56,12 +64,6 @@ _STATS_TARGET_TO_CPP: dict[StatsTarget, CppStatsTarget] = {
 _STATS_ENTITY_TO_CPP: dict[StatsEntity, CppStatsEntity] = {
     StatsEntity.TARGET: CppStatsEntity.target,
     StatsEntity.ACTOR: CppStatsEntity.actor,
-}
-
-# Mapping from Python AlignmentEntityTarget enum to C++ EntityRef enum
-_ALIGNMENT_ENTITY_TARGET_TO_CPP: dict[AlignmentEntityTarget, CppEntityRef] = {
-    AlignmentEntityTarget.ACTOR: CppEntityRef.actor,
-    AlignmentEntityTarget.TARGET: CppEntityRef.target,
 }
 
 
@@ -91,12 +93,39 @@ def convert_align_to(align_to: AlignTo) -> CppAlignTo:
     return _ALIGN_TO_CPP[align_to]
 
 
+def _convert_query_for_mutation(query, tag_name_to_id, resource_name_to_id, vibe_name_to_id, context=""):
+    """Convert a Python Query to a C++ QueryConfigHolder for use in mutations.
+
+    Uses the same TagQueryConfig + filter conversion as proximity filters.
+    """
+    from mettagrid.config.mettagrid_c_config import _convert_filters  # noqa: PLC0415
+
+    query_tag = query.tag.name
+    assert query_tag in tag_name_to_id, (
+        f"Query in {context} references unknown tag '{query_tag}'. Available tags: {list(tag_name_to_id.keys())}"
+    )
+    tag_query = CppTagQueryConfig()
+    tag_query.tag_id = tag_name_to_id[query_tag]
+
+    _convert_filters(
+        query.filters,
+        tag_query,
+        resource_name_to_id,
+        vibe_name_to_id,
+        tag_name_to_id,
+        context=context,
+    )
+
+    return make_query_config(tag_query)
+
+
 def convert_mutations(
     mutations: list,
     target_obj,
     resource_name_to_id: dict[str, int],
     limit_name_to_resource_ids: dict[str, list[int]],
     tag_name_to_id: dict[str, int],
+    vibe_name_to_id: dict[str, int],
     context: str = "",
 ) -> None:
     """Convert Python mutations and add them to a C++ config object.
@@ -107,6 +136,7 @@ def convert_mutations(
         resource_name_to_id: Dict mapping resource names to IDs
         limit_name_to_resource_ids: Dict mapping limit names to lists of resource IDs
         tag_name_to_id: Dict mapping tag names to IDs
+        vibe_name_to_id: Dict mapping vibe names to IDs
         context: Description for error messages (e.g., "handler 'foo'")
     """
     for mutation in mutations:
@@ -176,28 +206,36 @@ def convert_mutations(
             target_obj.add_stats_mutation(cpp_mutation)
 
         elif isinstance(mutation, AddTagMutation):
-            assert mutation.tag.name in tag_name_to_id, (
-                f"AddTagMutation references unknown tag '{mutation.tag.name}'. "
-                f"Available tags: {list(tag_name_to_id.keys())}"
+            tag_key = mutation.tag.name
+            assert tag_key in tag_name_to_id, (
+                f"AddTagMutation references unknown tag '{tag_key}'. Available tags: {list(tag_name_to_id.keys())}"
             )
             cpp_mutation = CppAddTagMutationConfig(
-                entity=_ALIGNMENT_ENTITY_TARGET_TO_CPP[mutation.target],
-                tag_id=tag_name_to_id[mutation.tag.name],
+                entity=convert_entity_ref(mutation.target),
+                tag_id=tag_name_to_id[tag_key],
             )
             target_obj.add_add_tag_mutation(cpp_mutation)
 
         elif isinstance(mutation, RemoveTagMutation):
-            assert mutation.tag.name in tag_name_to_id, (
-                f"RemoveTagMutation references unknown tag '{mutation.tag.name}'. "
-                f"Available tags: {list(tag_name_to_id.keys())}"
+            tag_key = mutation.tag.name
+            assert tag_key in tag_name_to_id, (
+                f"RemoveTagMutation references unknown tag '{tag_key}'. Available tags: {list(tag_name_to_id.keys())}"
             )
             cpp_mutation = CppRemoveTagMutationConfig(
-                entity=_ALIGNMENT_ENTITY_TARGET_TO_CPP[mutation.target],
-                tag_id=tag_name_to_id[mutation.tag.name],
+                entity=convert_entity_ref(mutation.target),
+                tag_id=tag_name_to_id[tag_key],
             )
             target_obj.add_remove_tag_mutation(cpp_mutation)
 
-        elif hasattr(mutation, "mutation_type") and mutation.mutation_type == "set_game_value":
+        elif isinstance(mutation, RemoveTagsWithPrefixMutation):
+            matching_tag_ids = [tag_id for name, tag_id in tag_name_to_id.items() if name.startswith(mutation.prefix)]
+            cpp_mutation = CppRemoveTagsWithPrefixMutationConfig(
+                entity=convert_entity_ref(mutation.target),
+                tag_ids=matching_tag_ids,
+            )
+            target_obj.add_remove_tags_with_prefix_mutation(cpp_mutation)
+
+        elif isinstance(mutation, SetGameValueMutation):
             mappings = {
                 "resource_name_to_id": resource_name_to_id,
                 "stat_name_to_id": {},  # Stat IDs resolved at C++ init time
@@ -215,3 +253,37 @@ def convert_mutations(
                 source=cpp_source_cfg,
             )
             target_obj.add_game_value_mutation(cpp_mutation)
+
+        elif isinstance(mutation, RecomputeQueryTagMutation):
+            matching_tag_ids = [
+                tag_id for name, tag_id in tag_name_to_id.items() if name.startswith(mutation.tag_prefix)
+            ]
+            assert matching_tag_ids, (
+                f"RecomputeQueryTagMutation prefix '{mutation.tag_prefix}' matched no tags. "
+                f"Available tags: {list(tag_name_to_id.keys())}"
+            )
+            for tag_id in matching_tag_ids:
+                cpp_mutation = CppRecomputeQueryTagMutationConfig()
+                cpp_mutation.tag_id = tag_id
+                target_obj.add_recompute_query_tag_mutation(cpp_mutation)
+
+        elif isinstance(mutation, QueryInventoryMutation):
+            cpp_query = _convert_query_for_mutation(
+                mutation.query,
+                tag_name_to_id,
+                resource_name_to_id,
+                vibe_name_to_id,
+                context=f"{context} query_inventory mutation",
+            )
+            cpp_mutation = CppQueryInventoryMutationConfig()
+            cpp_mutation.set_query(cpp_query)
+            for rname in mutation.deltas:
+                assert rname in resource_name_to_id, (
+                    f"QueryInventoryMutation in {context} references unknown resource '{rname}'. "
+                    f"Available resources: {list(resource_name_to_id.keys())}"
+                )
+            cpp_mutation.deltas = [(resource_name_to_id[rname], delta) for rname, delta in mutation.deltas.items()]
+            if mutation.source is not None:
+                cpp_mutation.source = convert_entity_ref(mutation.source)
+                cpp_mutation.has_source = True
+            target_obj.add_query_inventory_mutation(cpp_mutation)

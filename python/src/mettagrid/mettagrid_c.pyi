@@ -315,6 +315,26 @@ class RemoveTagMutationConfig:
     entity: EntityRef
     tag_id: int
 
+class RemoveTagsWithPrefixMutationConfig:
+    def __init__(
+        self,
+        entity: EntityRef = ...,
+        tag_ids: list[int] = ...,
+    ) -> None: ...
+    entity: EntityRef
+    tag_ids: list[int]
+
+class RecomputeQueryTagMutationConfig:
+    def __init__(self) -> None: ...
+    tag_id: int
+
+class QueryInventoryMutationConfig:
+    def __init__(self) -> None: ...
+    deltas: list[tuple[int, int]]
+    source: EntityRef
+    has_source: bool
+    def set_query(self, query: QueryConfigHolder) -> None: ...
+
 # Handler config
 
 class HandlerConfig:
@@ -342,6 +362,9 @@ class HandlerConfig:
     def add_add_tag_mutation(self, mutation: AddTagMutationConfig) -> None: ...
     def add_remove_tag_mutation(self, mutation: RemoveTagMutationConfig) -> None: ...
     def add_game_value_mutation(self, mutation: GameValueMutationConfig) -> None: ...
+    def add_recompute_query_tag_mutation(self, mutation: RecomputeQueryTagMutationConfig) -> None: ...
+    def add_query_inventory_mutation(self, mutation: QueryInventoryMutationConfig) -> None: ...
+    def add_remove_tags_with_prefix_mutation(self, mutation: RemoveTagsWithPrefixMutationConfig) -> None: ...
 
 class ResourceDelta:
     def __init__(self, resource_id: int = 0, delta: int = 0) -> None: ...
