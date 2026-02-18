@@ -1,5 +1,6 @@
 # Custom build backend for building mettagrid with Bazel
 # This backend compiles the C++ extension using Bazel during package installation
+import fcntl
 import os
 import re
 import shutil
@@ -38,27 +39,30 @@ NIM_PACKAGES = {
 }
 
 
-# Nimby uses a global lock directory at ~/.nimby/nimbylock (created atomically via mkdir).
-# The lock path is hardcoded in nimby -- there's no CLI flag or env var to change it.
-# When nimby crashes (e.g. "Bad file descriptor" during vibescope's nimby sync), the lock
-# is left behind and all subsequent nimby invocations fail with "Nimby is already running".
-_NIMBY_LOCK = Path.home() / ".nimby" / "nimbylock"
+# nimby is not designed for concurrent use. uv builds mettagrid and
+# cogames-agents in parallel, so we serialize all nimby invocations via an
+# OS-level file lock. Released automatically on process exit (even on crash).
+_NIMBY_SYNC_LOCK = Path.home() / ".nimby" / ".python_sync.lock"
 
 
-def _cleanup_nimby_lock() -> None:
-    if not _NIMBY_LOCK.exists():
-        return
-    print(f"Removing nimby lock left behind by crashed process: {_NIMBY_LOCK}")
-    # Lock is a directory (mkdir-based), not a file
-    shutil.rmtree(_NIMBY_LOCK, ignore_errors=True)
+def _run_with_nimby_lock(args: list[str], *, cwd: Path, env: dict | None = None) -> subprocess.CompletedProcess:
+    """Run a nimby command while holding a cross-process file lock."""
+    _NIMBY_SYNC_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    with open(_NIMBY_SYNC_LOCK, "w") as lock_fd:
+        print("Acquiring nimby sync lock...")
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        print(f"Running: {args}")
+        return subprocess.run(args, cwd=cwd, capture_output=True, text=True, env=env)
 
 
 def cmd(args: list[str], *, cwd: Path, max_attempts: int = 1, env: dict | None = None) -> None:
+    is_nimby = args[0] == "nimby"
     for attempt in range(1, max_attempts + 1):
-        if args[0] == "nimby":
-            _cleanup_nimby_lock()
-        print(f"Running: {args}")
-        result = subprocess.run(args, cwd=cwd, capture_output=True, text=True, env=env)
+        if is_nimby:
+            result = _run_with_nimby_lock(args, cwd=cwd, env=env)
+        else:
+            print(f"Running: {args}")
+            result = subprocess.run(args, cwd=cwd, capture_output=True, text=True, env=env)
         print(result.stderr, file=sys.stderr)
         print(result.stdout, file=sys.stderr)
 
