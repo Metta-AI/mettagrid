@@ -355,7 +355,6 @@ class AOEConfig(HandlerConfig):
     radius: int
     is_static: bool
     effect_self: bool
-    is_round: bool
     territory_mode: bool
     presence_deltas: list[ResourceDelta]
 

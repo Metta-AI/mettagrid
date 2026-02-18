@@ -368,60 +368,6 @@ void MettaGrid::_compute_agent_goal_obs_tokens(size_t agent_idx) {
   _agent_goal_obs_tokens[agent_idx] = std::move(goal_tokens);
 }
 
-void MettaGrid::_build_global_tokens(size_t agent_idx,
-                                     ActionType action,
-                                     RewardType reward,
-                                     std::vector<PartialObservationToken>& out) {
-  out.clear();
-
-  if (_global_obs_config.episode_completion_pct) {
-    ObservationType episode_completion_pct = 0;
-    if (max_steps > 0) {
-      if (current_step >= max_steps) {
-        episode_completion_pct = std::numeric_limits<ObservationType>::max();
-      } else {
-        episode_completion_pct = static_cast<ObservationType>(
-            (static_cast<uint32_t>(std::numeric_limits<ObservationType>::max()) + 1) * current_step / max_steps);
-      }
-    }
-    out.push_back({ObservationFeature::EpisodeCompletionPct, episode_completion_pct});
-  }
-
-  if (_global_obs_config.last_action) {
-    out.push_back({ObservationFeature::LastAction, static_cast<ObservationType>(action)});
-  }
-
-  if (ObservationFeature::LastActionMove != 0) {
-    bool moved = !(_agents[agent_idx]->location == _prev_agent_locations[agent_idx]);
-    out.push_back({ObservationFeature::LastActionMove, static_cast<ObservationType>(moved ? 1 : 0)});
-  }
-
-  if (_global_obs_config.last_reward) {
-    ObservationType reward_int = static_cast<ObservationType>(std::round(reward * 100.0f));
-    out.push_back({ObservationFeature::LastReward, reward_int});
-  }
-
-  if (_global_obs_config.goal_obs) {
-    out.insert(out.end(), _agent_goal_obs_tokens[agent_idx].begin(), _agent_goal_obs_tokens[agent_idx].end());
-  }
-
-  if (_global_obs_config.local_position) {
-    auto& agent = *_agents[agent_idx];
-    int dc = static_cast<int>(agent.location.c) - static_cast<int>(agent.spawn_location.c);
-    int dr = static_cast<int>(agent.spawn_location.r) - static_cast<int>(agent.location.r);
-    if (dc > 0) {
-      out.push_back({ObservationFeature::LpEast, static_cast<ObservationType>(std::min(dc, 255))});
-    } else if (dc < 0) {
-      out.push_back({ObservationFeature::LpWest, static_cast<ObservationType>(std::min(-dc, 255))});
-    }
-    if (dr > 0) {
-      out.push_back({ObservationFeature::LpNorth, static_cast<ObservationType>(std::min(dr, 255))});
-    } else if (dr < 0) {
-      out.push_back({ObservationFeature::LpSouth, static_cast<ObservationType>(std::min(-dr, 255))});
-    }
-  }
-}
-
 void MettaGrid::_emit_tile_observability_tokens(size_t agent_idx,
                                                 const GridLocation& object_loc,
                                                 uint8_t location,
@@ -429,31 +375,35 @@ void MettaGrid::_emit_tile_observability_tokens(size_t agent_idx,
                                                 size_t& tokens_written,
                                                 size_t& attempted_tokens_written,
                                                 size_t buffer_capacity) {
-  if (ObservationFeature::AoeMask != 0) {
-    ObservationType aoe_mask = _aoe_tracker->fixed_aoe_mask_at(object_loc, *_agents[agent_idx]);
-    if (aoe_mask != 0) {
-      attempted_tokens_written += 1;
-      if (tokens_written < buffer_capacity) {
-        obs_ptr[0].location = location;
-        obs_ptr[0].feature_id = ObservationFeature::AoeMask;
-        obs_ptr[0].value = aoe_mask;
-        obs_ptr += 1;
-        tokens_written += 1;
-      }
+  ObservationType aoe_mask = 0;
+  ObservationType territory = 0;
+  ObservationType* aoe_mask_ptr = (ObservationFeature::AoeMask != 0) ? &aoe_mask : nullptr;
+  ObservationType* territory_ptr = (ObservationFeature::Territory != 0) ? &territory : nullptr;
+  if (aoe_mask_ptr == nullptr && territory_ptr == nullptr) {
+    return;
+  }
+
+  _aoe_tracker->fixed_observability_at(object_loc, *_agents[agent_idx], aoe_mask_ptr, territory_ptr);
+
+  if (aoe_mask != 0) {
+    attempted_tokens_written += 1;
+    if (tokens_written < buffer_capacity) {
+      obs_ptr[0].location = location;
+      obs_ptr[0].feature_id = ObservationFeature::AoeMask;
+      obs_ptr[0].value = aoe_mask;
+      obs_ptr += 1;
+      tokens_written += 1;
     }
   }
 
-  if (ObservationFeature::Territory != 0) {
-    ObservationType territory = _aoe_tracker->fixed_territory_at(object_loc, *_agents[agent_idx]);
-    if (territory != 0) {
-      attempted_tokens_written += 1;
-      if (tokens_written < buffer_capacity) {
-        obs_ptr[0].location = location;
-        obs_ptr[0].feature_id = ObservationFeature::Territory;
-        obs_ptr[0].value = territory;
-        obs_ptr += 1;
-        tokens_written += 1;
-      }
+  if (territory != 0) {
+    attempted_tokens_written += 1;
+    if (tokens_written < buffer_capacity) {
+      obs_ptr[0].location = location;
+      obs_ptr[0].feature_id = ObservationFeature::Territory;
+      obs_ptr[0].value = territory;
+      obs_ptr += 1;
+      tokens_written += 1;
     }
   }
 }
@@ -611,7 +561,55 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
       agent_obs_ptr, static_cast<size_t>(observation_view.shape(1)) - static_cast<size_t>(tokens_written));
 
   auto& global_tokens = _global_tokens_buffer;
-  _build_global_tokens(agent_idx, action, rewards_view(agent_idx), global_tokens);
+  global_tokens.clear();
+
+  if (_global_obs_config.episode_completion_pct) {
+    ObservationType episode_completion_pct = 0;
+    if (max_steps > 0) {
+      if (current_step >= max_steps) {
+        episode_completion_pct = std::numeric_limits<ObservationType>::max();
+      } else {
+        episode_completion_pct = static_cast<ObservationType>(
+            (static_cast<uint32_t>(std::numeric_limits<ObservationType>::max()) + 1) * current_step / max_steps);
+      }
+    }
+    global_tokens.push_back({ObservationFeature::EpisodeCompletionPct, episode_completion_pct});
+  }
+
+  if (_global_obs_config.last_action) {
+    global_tokens.push_back({ObservationFeature::LastAction, static_cast<ObservationType>(action)});
+  }
+
+  if (ObservationFeature::LastActionMove != 0) {
+    bool moved = !(_agents[agent_idx]->location == _prev_agent_locations[agent_idx]);
+    global_tokens.push_back({ObservationFeature::LastActionMove, static_cast<ObservationType>(moved ? 1 : 0)});
+  }
+
+  if (_global_obs_config.last_reward) {
+    RewardType reward = rewards_view(agent_idx);
+    ObservationType reward_int = static_cast<ObservationType>(std::round(reward * 100.0f));
+    global_tokens.push_back({ObservationFeature::LastReward, reward_int});
+  }
+
+  if (_global_obs_config.goal_obs) {
+    global_tokens.insert(global_tokens.end(), _agent_goal_obs_tokens[agent_idx].begin(), _agent_goal_obs_tokens[agent_idx].end());
+  }
+
+  if (_global_obs_config.local_position) {
+    auto& agent = *_agents[agent_idx];
+    int dc = static_cast<int>(agent.location.c) - static_cast<int>(agent.spawn_location.c);
+    int dr = static_cast<int>(agent.spawn_location.r) - static_cast<int>(agent.location.r);
+    if (dc > 0) {
+      global_tokens.push_back({ObservationFeature::LpEast, static_cast<ObservationType>(std::min(dc, 255))});
+    } else if (dc < 0) {
+      global_tokens.push_back({ObservationFeature::LpWest, static_cast<ObservationType>(std::min(-dc, 255))});
+    }
+    if (dr > 0) {
+      global_tokens.push_back({ObservationFeature::LpNorth, static_cast<ObservationType>(std::min(dr, 255))});
+    } else if (dr < 0) {
+      global_tokens.push_back({ObservationFeature::LpSouth, static_cast<ObservationType>(std::min(-dr, 255))});
+    }
+  }
 
   // Global tokens use a dedicated location marker (0xFE) distinct from spatial coordinates.
   uint8_t global_location = PackedCoordinate::GLOBAL_LOCATION;
@@ -709,7 +707,55 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
 
   // Build global tokens based on configuration (reusing pre-allocated buffer)
   auto& global_tokens = _global_tokens_buffer;
-  _build_global_tokens(agent_idx, action, rewards_view(agent_idx), global_tokens);
+  global_tokens.clear();
+
+  if (_global_obs_config.episode_completion_pct) {
+    ObservationType episode_completion_pct = 0;
+    if (max_steps > 0) {
+      if (current_step >= max_steps) {
+        episode_completion_pct = std::numeric_limits<ObservationType>::max();
+      } else {
+        episode_completion_pct = static_cast<ObservationType>(
+            (static_cast<uint32_t>(std::numeric_limits<ObservationType>::max()) + 1) * current_step / max_steps);
+      }
+    }
+    global_tokens.push_back({ObservationFeature::EpisodeCompletionPct, episode_completion_pct});
+  }
+
+  if (_global_obs_config.last_action) {
+    global_tokens.push_back({ObservationFeature::LastAction, static_cast<ObservationType>(action)});
+  }
+
+  if (ObservationFeature::LastActionMove != 0) {
+    bool moved = !(_agents[agent_idx]->location == _prev_agent_locations[agent_idx]);
+    global_tokens.push_back({ObservationFeature::LastActionMove, static_cast<ObservationType>(moved ? 1 : 0)});
+  }
+
+  if (_global_obs_config.last_reward) {
+    RewardType reward = rewards_view(agent_idx);
+    ObservationType reward_int = static_cast<ObservationType>(std::round(reward * 100.0f));
+    global_tokens.push_back({ObservationFeature::LastReward, reward_int});
+  }
+
+  if (_global_obs_config.goal_obs) {
+    global_tokens.insert(global_tokens.end(), _agent_goal_obs_tokens[agent_idx].begin(), _agent_goal_obs_tokens[agent_idx].end());
+  }
+
+  if (_global_obs_config.local_position) {
+    auto& agent = *_agents[agent_idx];
+    int dc = static_cast<int>(agent.location.c) - static_cast<int>(agent.spawn_location.c);
+    int dr = static_cast<int>(agent.spawn_location.r) - static_cast<int>(agent.location.r);
+    if (dc > 0) {
+      global_tokens.push_back({ObservationFeature::LpEast, static_cast<ObservationType>(std::min(dc, 255))});
+    } else if (dc < 0) {
+      global_tokens.push_back({ObservationFeature::LpWest, static_cast<ObservationType>(std::min(-dc, 255))});
+    }
+    if (dr > 0) {
+      global_tokens.push_back({ObservationFeature::LpNorth, static_cast<ObservationType>(std::min(dr, 255))});
+    } else if (dr < 0) {
+      global_tokens.push_back({ObservationFeature::LpSouth, static_cast<ObservationType>(std::min(-dr, 255))});
+    }
+  }
 
   // Global tokens use a dedicated location marker (0xFE) distinct from spatial coordinates.
   uint8_t global_location = PackedCoordinate::GLOBAL_LOCATION;

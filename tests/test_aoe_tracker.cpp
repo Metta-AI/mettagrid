@@ -96,19 +96,19 @@ TEST_F(AOETrackerTest, FixedAOECreation) {
 
   tracker->register_source(source, config);
 
-  // Effect should be registered at all cells within L-infinity distance 1
-  // 9 cells in a 3x3 square centered at (5,5)
+  // Effect should be registered at all cells within Euclidean radius 1.
+  // 5 cells in a plus-shape centered at (5,5).
   EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(5, 5)));
   EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(4, 5)));
   EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(6, 5)));
   EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(5, 4)));
   EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(5, 6)));
 
-  // Diagonal cells ARE affected with L-infinity distance
-  EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(4, 4)));
-  EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(4, 6)));
-  EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(6, 4)));
-  EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(6, 6)));
+  // Diagonal cells are out of range at radius 1 (sqrt(2) > 1).
+  EXPECT_EQ(0u, tracker->fixed_effect_count_at(GridLocation(4, 4)));
+  EXPECT_EQ(0u, tracker->fixed_effect_count_at(GridLocation(4, 6)));
+  EXPECT_EQ(0u, tracker->fixed_effect_count_at(GridLocation(6, 4)));
+  EXPECT_EQ(0u, tracker->fixed_effect_count_at(GridLocation(6, 6)));
 
   // Cells at distance 2 should NOT be affected
   EXPECT_EQ(0u, tracker->fixed_effect_count_at(GridLocation(3, 5)));
@@ -373,20 +373,26 @@ TEST_F(AOETrackerTest, FixedAOEBoundaryEffects) {
 // ==================== Range Calculation Tests ====================
 
 TEST_F(AOETrackerTest, ChebyshevDistance) {
-  // Verify L-infinity (Chebyshev) distance is used
+  // Verify Euclidean distance is used
   TestObject source("healer", 5, 5);
 
   AOEConfig config = create_aoe_config(2, 0, 10, true, false);
 
   tracker->register_source(source, config);
 
-  // Cells at Chebyshev distance 2 should be affected (including diagonals)
-  EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(3, 3)));  // diagonal distance 2
-  EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(3, 7)));
-  EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(7, 3)));
-  EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(7, 7)));
+  // Axis-aligned cells at Euclidean distance 2 should be affected.
+  EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(3, 5)));
+  EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(7, 5)));
+  EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(5, 3)));
+  EXPECT_EQ(1u, tracker->fixed_effect_count_at(GridLocation(5, 7)));
 
-  // Cells at Chebyshev distance 3 should NOT be affected
+  // Diagonals at (dr=2,dc=2) are out of range (sqrt(8) > 2).
+  EXPECT_EQ(0u, tracker->fixed_effect_count_at(GridLocation(3, 3)));
+  EXPECT_EQ(0u, tracker->fixed_effect_count_at(GridLocation(3, 7)));
+  EXPECT_EQ(0u, tracker->fixed_effect_count_at(GridLocation(7, 3)));
+  EXPECT_EQ(0u, tracker->fixed_effect_count_at(GridLocation(7, 7)));
+
+  // Cells at Euclidean distance 3 should NOT be affected
   EXPECT_EQ(0u, tracker->fixed_effect_count_at(GridLocation(2, 5)));
   EXPECT_EQ(0u, tracker->fixed_effect_count_at(GridLocation(8, 5)));
 }

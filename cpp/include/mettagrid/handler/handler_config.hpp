@@ -53,10 +53,9 @@ struct ResourceDelta {
  * the affected object.
  */
 struct AOEConfig : public HandlerConfig {
-  int radius = 1;               // L-infinity (Chebyshev) distance for AOE
+  int radius = 1;               // Euclidean distance for AOE
   bool is_static = true;        // true = fixed (default), false = mobile (for agents)
   bool effect_self = false;     // Whether source is affected by its own AOE
-  bool is_round = false;        // Use Euclidean radius instead of Chebyshev (circle vs square)
   bool territory_mode = false;  // Collapse overlapping AOEs into a single +/-/0 territory field per target
 
   // One-time resource changes when target enters/exits AOE

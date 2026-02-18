@@ -8,7 +8,7 @@ from mettagrid.config.mutation import updateTarget
 from mettagrid.simulator import Simulation
 
 
-def test_round_aoe_uses_euclidean_distance() -> None:
+def test_aoe_uses_euclidean_distance() -> None:
     def make_cfg(map_data: list[str]) -> MettaGridConfig:
         cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
             map_data,
@@ -22,16 +22,15 @@ def test_round_aoe_uses_euclidean_distance() -> None:
             name="aoe_source",
             map_name="aoe_source",
             aoes={
-                "round": AOEConfig(
+                "aoe": AOEConfig(
                     radius=2,
-                    is_round=True,
                     mutations=[updateTarget({"energy": 10})],
                 )
             },
         )
         return cfg
 
-    # Agent at Chebyshev distance 2 (dr=1, dc=2) but Euclidean distance > 2, so round AOE should not apply.
+    # Agent at Chebyshev distance 2 (dr=1, dc=2) but Euclidean distance > 2, so AOE should not apply.
     cfg_out = make_cfg(["#######", "#.....#", "#.....#", "#..S..#", "#....@#", "#.....#", "#######"])
     sim_out = Simulation(cfg_out)
     sim_out.agent(0).set_action("noop")
