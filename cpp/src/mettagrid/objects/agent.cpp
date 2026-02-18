@@ -19,7 +19,13 @@ Agent::Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vec
       stats(resource_names),
       prev_location(r, c),
       spawn_location(r, c),
-      steps_without_motion(0) {
+      steps_without_motion(0),
+      _log_sum_stats(config.log_sum_stats) {
+  for (size_t i = 0; i < _log_sum_stats.size(); ++i) {
+    for (auto item : _log_sum_stats[i].items) {
+      _item_to_log_sum_indices[item].push_back(i);
+    }
+  }
   populate_initial_inventory(config.initial_inventory);
   GridObject::init(config.type_id, config.type_name, GridLocation(r, c), config.tag_ids, config.initial_vibe);
 }
@@ -82,7 +88,23 @@ void Agent::on_inventory_change(InventoryItem item, InventoryDelta delta) {
       this->stats.add(this->stats.resource_name(item) + ".lost", -delta);
     }
     this->stats.set(this->stats.resource_name(item) + ".amount", amount);
+
+    auto it = _item_to_log_sum_indices.find(item);
+    if (it != _item_to_log_sum_indices.end()) {
+      for (size_t idx : it->second) {
+        _recompute_log_sum(_log_sum_stats[idx]);
+      }
+    }
   }
+}
+
+void Agent::_recompute_log_sum(const LogSumStatConfig& cfg) {
+  float sum = 0.0f;
+  for (auto item : cfg.items) {
+    float val = stats.get(stats.resource_name(item) + cfg.stat_suffix);
+    sum += std::log(val + 1.0f);
+  }
+  stats.set(cfg.stat_name, sum);
 }
 
 bool Agent::onUse(Agent& actor, ActionArg arg) {
