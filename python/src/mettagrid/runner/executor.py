@@ -56,8 +56,8 @@ def _upload_results(
     _upload_debug_dir(str(debug_dir) if debug_dir else None, debug_uri)
 
 
-def _collect_runtime_info(git_commit: str | None) -> RuntimeInfo:
-    return RuntimeInfo(git_commit=git_commit)
+def _collect_runtime_info(git_commit: str | None, cogames_version: str | None) -> RuntimeInfo:
+    return RuntimeInfo(git_commit=git_commit, cogames_version=cogames_version)
 
 
 def _init_logging() -> None:
@@ -78,6 +78,7 @@ def main() -> None:
     replay_uri = os.environ.get("REPLAY_URI")
     runtime_info_uri = os.environ.get("RUNTIME_INFO_URI")
     git_commit = os.environ.get("GIT_COMMIT")
+    cogames_version = os.environ.get("COGAMES_VERSION")
 
     if not job_spec_uri:
         print("Set JOB_SPEC_URI, RESULTS_URI, REPLAY_URI env vars")
@@ -87,7 +88,7 @@ def main() -> None:
     logger.info(f"Running with spec={job_spec_uri[:80]}")
 
     if runtime_info_uri:
-        runtime_info = _collect_runtime_info(git_commit)
+        runtime_info = _collect_runtime_info(git_commit, cogames_version)
         try:
             payload = runtime_info.model_dump_json(exclude_none=True)
             write_data(runtime_info_uri, payload.encode("utf-8"), content_type="application/json")
