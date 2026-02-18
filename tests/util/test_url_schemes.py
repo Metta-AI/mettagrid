@@ -1,9 +1,12 @@
+import importlib.util
+
 import pytest
 
 from mettagrid.util.uri_resolvers.schemes import (
     FileSchemeResolver,
     MockSchemeResolver,
     S3SchemeResolver,
+    parse_init_kwargs_from_query,
     parse_uri,
     resolve_uri,
 )
@@ -113,3 +116,25 @@ def test_policy_spec_from_file_path_with_query_params(tmp_path):
 
     assert spec.init_kwargs.get("miner") == 4
     assert spec.init_kwargs.get("aligner") == 6
+
+
+def test_parse_init_kwargs_from_query_parses_signed_ints():
+    kwargs = parse_init_kwargs_from_query("miner=-1&trace_agent=-1&aligner=+2")
+    assert kwargs["miner"] == -1
+    assert kwargs["trace_agent"] == -1
+    assert kwargs["aligner"] == 2
+
+
+def test_policy_spec_from_metta_uri_nlanky_role_params():
+    if importlib.util.find_spec("cogames_agents.policy") is None:
+        pytest.skip("cogames_agents not importable in this test environment")
+
+    from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
+
+    spec = policy_spec_from_uri("metta://policy/nlanky?miner=4&aligner=2&scrambler=0&trace_agent=-1")
+
+    assert spec.class_path.endswith("PlankyAgentsMultiPolicy")
+    assert spec.init_kwargs["miner"] == 4
+    assert spec.init_kwargs["aligner"] == 2
+    assert spec.init_kwargs["scrambler"] == 0
+    assert spec.init_kwargs["trace_agent"] == -1

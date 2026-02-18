@@ -307,8 +307,8 @@ def parse_init_kwargs_from_query(query: str) -> dict[str, object]:
     for key, values in parse_qs(query).items():
         if not values:
             continue
-        raw_value = values[-1]
-        if raw_value.isdigit():
+        raw_value = values[-1].strip()
+        if raw_value.isdigit() or (raw_value and raw_value[0] in {"+", "-"} and raw_value[1:].isdigit()):
             init_kwargs[key] = int(raw_value)
         elif raw_value.lower() in {"true", "false"}:
             init_kwargs[key] = raw_value.lower() == "true"
