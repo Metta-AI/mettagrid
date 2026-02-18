@@ -1,5 +1,7 @@
 from typing import Literal, Sequence
 
+import numpy as np
+
 from mettagrid.mapgen.scene import Scene, SceneConfig
 
 DEFAULT_EXTRACTORS: tuple[str, str, str, str] = (
@@ -33,6 +35,7 @@ class BaseHubConfig(SceneConfig):
     cross_distance: int = 4
     layout: Literal["default", "tight"] = "default"
     junction_object: str = "junction"
+    randomize_spawn_positions: bool = False
     # Gear stations: list of station names to place (e.g., ["aligner_station", "scrambler_station"])
     # These are placed in a row below the chest, similar to how the chest is placed
     stations: list[str] = []
@@ -120,6 +123,22 @@ class BaseHub(Scene[BaseHubConfig]):
         for x, y in positions:
             if 1 <= x < w - 1 and 1 <= y < h - 1 and grid[y, x] == "empty":
                 grid[y, x] = self.config.spawn_symbol
+
+    def _sample_random_spawn_positions(self, count: int) -> list[tuple[int, int]]:
+        """Sample random empty positions within the hub interior for spawn pads."""
+        grid = self.grid
+        h, w = self.height, self.width
+
+        # Vectorized: find all empty interior cells (exclude walls on the border)
+        interior = grid[1 : h - 1, 1 : w - 1]
+        ys, xs = np.where(interior == "empty")
+        # Offset back to full grid coordinates
+        xs = xs + 1
+        ys = ys + 1
+
+        count = min(count, len(xs))
+        indices = self.rng.choice(len(xs), size=count, replace=False)
+        return [(int(xs[i]), int(ys[i])) for i in indices]
 
     def _place_stations(self, cx: int, base_y: int, grid) -> None:
         """Place stations in a row centered at cx, starting at base_y.
@@ -241,34 +260,38 @@ class BaseHub(Scene[BaseHubConfig]):
 
         # Spawn pads: ensure at least spawn_count if provided, otherwise place 4
         desired = max(0, int(cfg.spawn_count)) if cfg.spawn_count is not None else 4
-        base_positions = [(cx, cy - 2), (cx + 2, cy), (cx, cy + 2), (cx - 2, cy)]
-        valid_positions: list[tuple[int, int]] = []
-        for sx, sy in base_positions:
-            if len(valid_positions) >= desired:
-                break
-            if 0 <= sx < w and 0 <= sy < h and grid[sy, sx] == "empty":
-                valid_positions.append((sx, sy))
 
-        # If more spawns are needed, expand rings until we have enough empty tiles
-        radius = 3
-        max_radius = max(h, w)
-        while len(valid_positions) < desired and radius < max_radius:
-            candidates = [
-                (cx + radius, cy),
-                (cx - radius, cy),
-                (cx, cy + radius),
-                (cx, cy - radius),
-                (cx + radius, cy + radius),
-                (cx + radius, cy - radius),
-                (cx - radius, cy + radius),
-                (cx - radius, cy - radius),
-            ]
-            for sx, sy in candidates:
+        if cfg.randomize_spawn_positions:
+            valid_positions = self._sample_random_spawn_positions(desired)
+        else:
+            base_positions = [(cx, cy - 2), (cx + 2, cy), (cx, cy + 2), (cx - 2, cy)]
+            valid_positions = []
+            for sx, sy in base_positions:
                 if len(valid_positions) >= desired:
                     break
                 if 0 <= sx < w and 0 <= sy < h and grid[sy, sx] == "empty":
                     valid_positions.append((sx, sy))
-            radius += 1
+
+            # If more spawns are needed, expand rings until we have enough empty tiles
+            radius = 3
+            max_radius = max(h, w)
+            while len(valid_positions) < desired and radius < max_radius:
+                candidates = [
+                    (cx + radius, cy),
+                    (cx - radius, cy),
+                    (cx, cy + radius),
+                    (cx, cy - radius),
+                    (cx + radius, cy + radius),
+                    (cx + radius, cy - radius),
+                    (cx - radius, cy + radius),
+                    (cx - radius, cy - radius),
+                ]
+                for sx, sy in candidates:
+                    if len(valid_positions) >= desired:
+                        break
+                    if 0 <= sx < w and 0 <= sy < h and grid[sy, sx] == "empty":
+                        valid_positions.append((sx, sy))
+                radius += 1
 
         self._place_spawn_pads(valid_positions[:desired])
 
@@ -359,34 +382,39 @@ class BaseHub(Scene[BaseHubConfig]):
 
         # Spawn pads: ensure at least spawn_count if provided, otherwise place 4 near the perimeter
         desired = max(0, int(cfg.spawn_count)) if cfg.spawn_count is not None else 4
-        spawn_distance = perimeter_radius + 1
-        positions: list[tuple[int, int]] = [
-            (cx, cy - spawn_distance),
-            (cx + spawn_distance, cy),
-            (cx, cy + spawn_distance),
-            (cx - spawn_distance, cy),
-        ]
-        # If more spawns needed, distribute more around the perimeter ring
-        step = max(1, (2 * perimeter_radius + 1) // 4)
-        if len(positions) < desired:
-            for dx in range(-perimeter_radius, perimeter_radius + 1, step):
-                if len(positions) >= desired:
-                    break
-                positions.append((cx + dx, cy - spawn_distance))
-                if len(positions) >= desired:
-                    break
-                positions.append((cx + dx, cy + spawn_distance))
-            for dy in range(-perimeter_radius, perimeter_radius + 1, step):
-                if len(positions) >= desired:
-                    break
-                positions.append((cx - spawn_distance, cy + dy))
-                if len(positions) >= desired:
-                    break
-                positions.append((cx + spawn_distance, cy + dy))
 
-        valid_positions = [
-            (sx, sy) for sx, sy in positions[:desired] if 0 <= sx < w and 0 <= sy < h and grid[sy, sx] == "empty"
-        ]
+        if cfg.randomize_spawn_positions:
+            valid_positions = self._sample_random_spawn_positions(desired)
+        else:
+            spawn_distance = perimeter_radius + 1
+            positions: list[tuple[int, int]] = [
+                (cx, cy - spawn_distance),
+                (cx + spawn_distance, cy),
+                (cx, cy + spawn_distance),
+                (cx - spawn_distance, cy),
+            ]
+            # If more spawns needed, distribute more around the perimeter ring
+            step = max(1, (2 * perimeter_radius + 1) // 4)
+            if len(positions) < desired:
+                for dx in range(-perimeter_radius, perimeter_radius + 1, step):
+                    if len(positions) >= desired:
+                        break
+                    positions.append((cx + dx, cy - spawn_distance))
+                    if len(positions) >= desired:
+                        break
+                    positions.append((cx + dx, cy + spawn_distance))
+                for dy in range(-perimeter_radius, perimeter_radius + 1, step):
+                    if len(positions) >= desired:
+                        break
+                    positions.append((cx - spawn_distance, cy + dy))
+                    if len(positions) >= desired:
+                        break
+                    positions.append((cx + spawn_distance, cy + dy))
+
+            valid_positions = [
+                (sx, sy) for sx, sy in positions[:desired] if 0 <= sx < w and 0 <= sy < h and grid[sy, sx] == "empty"
+            ]
+
         self._place_spawn_pads(valid_positions)
 
     def _ensure_clearance(self, positions: Sequence[tuple[int, int]]) -> None:
