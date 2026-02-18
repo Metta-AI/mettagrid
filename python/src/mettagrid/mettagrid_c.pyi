@@ -521,6 +521,13 @@ class AgentConfig(GridObjectConfig):
     reward_config: RewardConfig
     initial_inventory: dict[int, int]
     on_tick: list[HandlerConfig]
+    log_sum_stats: list[LogSumStatConfig]
+
+class LogSumStatConfig:
+    def __init__(self) -> None: ...
+    stat_name: str
+    stat_suffix: str
+    items: list[int]
 
 class ActionConfig:
     def __init__(

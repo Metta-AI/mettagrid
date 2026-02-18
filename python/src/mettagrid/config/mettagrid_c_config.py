@@ -32,6 +32,7 @@ from mettagrid.mettagrid_c import HandlerConfig as CppHandlerConfig
 from mettagrid.mettagrid_c import HandlerMode as CppHandlerMode
 from mettagrid.mettagrid_c import InventoryConfig as CppInventoryConfig
 from mettagrid.mettagrid_c import LimitDef as CppLimitDef
+from mettagrid.mettagrid_c import LogSumStatConfig as CppLogSumStatConfig
 from mettagrid.mettagrid_c import MaxDistanceFilterConfig as CppMaxDistanceFilterConfig
 from mettagrid.mettagrid_c import MoveActionConfig as CppMoveActionConfig
 from mettagrid.mettagrid_c import MultiHandler as CppMultiHandler
@@ -972,6 +973,17 @@ def convert_to_cpp_game_config(
                 vibe_name_to_id,
                 tag_name_to_id,
             )
+
+        # Convert agent log_sum_stats to C++ LogSumStatConfig list
+        if agent_cfg.log_sum_stats:
+            cpp_log_sum_stats = []
+            for ls_cfg in agent_cfg.log_sum_stats:
+                cpp_ls = CppLogSumStatConfig()
+                cpp_ls.stat_name = ls_cfg.stat_name
+                cpp_ls.stat_suffix = ls_cfg.stat_suffix
+                cpp_ls.items = [resource_name_to_id[r] for r in ls_cfg.resources]
+                cpp_log_sum_stats.append(cpp_ls)
+            cpp_agent_config.log_sum_stats = cpp_log_sum_stats
 
         return cpp_agent_config
 

@@ -9,6 +9,7 @@
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
 #include "handler/mutations/mutation.hpp"
+#include "objects/agent.hpp"
 #include "objects/has_inventory.hpp"
 
 namespace mettagrid {
@@ -50,12 +51,21 @@ public:
       amount = static_cast<InventoryDelta>(source->inventory.amount(_config.resource_id));
     }
 
-    HasInventory::transfer_resources(source->inventory,
-                                     dest->inventory,
-                                     _config.resource_id,
-                                     amount,
-                                     false  // Don't destroy untransferred resources
+    InventoryDelta transferred = HasInventory::transfer_resources(source->inventory,
+                                                                  dest->inventory,
+                                                                  _config.resource_id,
+                                                                  amount,
+                                                                  false  // Don't destroy untransferred resources
     );
+
+    // Track per-agent deposit stats for log-sum diversity rewards
+    if (transferred > 0) {
+      Agent* source_agent = dynamic_cast<Agent*>(source);
+      if (source_agent) {
+        source_agent->stats.add(source_agent->stats.resource_name(_config.resource_id) + ".deposited", transferred);
+        source_agent->on_log_sum_item_change(_config.resource_id);
+      }
+    }
 
     // Remove source from grid and tag index when its inventory is depleted
     if (_config.remove_source_when_empty && source->inventory.is_empty()) {
