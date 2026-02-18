@@ -217,6 +217,30 @@ proc drawToggleIconButton(pos: Vec2, icon: string, isActive: bool): bool =
   drawIconScaled(icon, pos, iconSize)
   return pressed
 
+proc drawTransportButton(startPos: Vec2, idx: int, icon: string, isDown: bool): bool =
+  ## Draw one transport-style button and return true if clicked.
+  const BtnStride = 48.0f
+  let
+    btnPos = startPos + vec2(idx.float32 * BtnStride, 0)
+    bgSize = sk.getImageSize("ui/transportButton.up")
+    btnRect = rect(btnPos, bgSize)
+    hover = window.mousePos.vec2.overlaps(btnRect)
+    pressed = hover and window.buttonReleased[MouseLeft]
+    bg =
+      if isDown or pressed:
+        "ui/transportButton.down"
+      elif hover:
+        "ui/transportButton.hover"
+      else:
+        "ui/transportButton.up"
+  sk.drawImage(bg, btnPos)
+  let iconSize = sk.getImageSize(icon)
+  sk.drawImage(
+    icon,
+    btnPos + vec2((bgSize.x - iconSize.x) / 2, (bgSize.y - iconSize.y) / 2)
+  )
+  return pressed
+
 proc topLeftPanel() =
   ## Draw top-left panel with score and junction count.
   sk.drawImage("ui/panel_topleft", vec2(0, 0))
@@ -282,39 +306,15 @@ proc bottomLeftPanel(winH: float32) =
   sk.drawImage("ui/panel_bottomleft", bottomLeftPanelPos)
 
   block:
-    const BtnStride = 48.0f
     let startPos = vec2(59, winH - 60)
 
-    proc transportButton(idx: int, icon: string, isDown: bool): bool =
-      ## Draw a transport button, return true if clicked.
-      let
-        btnPos = startPos + vec2(idx.float32 * BtnStride, 0)
-        bgSize = sk.getImageSize("ui/transportButton.up")
-        btnRect = rect(btnPos, bgSize)
-        hover = window.mousePos.vec2.overlaps(btnRect)
-        pressed = hover and window.buttonReleased[MouseLeft]
-        bg =
-          if isDown or pressed:
-            "ui/transportButton.down"
-          elif hover:
-            "ui/transportButton.hover"
-          else:
-            "ui/transportButton.up"
-      sk.drawImage(bg, btnPos)
-      let iconSize = sk.getImageSize(icon)
-      sk.drawImage(
-        icon,
-        btnPos + vec2((bgSize.x - iconSize.x) / 2, (bgSize.y - iconSize.y) / 2)
-      )
-      return pressed
-
-    if transportButton(0, "ui/rewindToStart", false):
+    if drawTransportButton(startPos, 0, "ui/rewindToStart", false):
       echo "rewind to start"
       step = 0
       stepFloat = step.float32
       saveUIState()
 
-    if transportButton(1, "ui/stepBack", false):
+    if drawTransportButton(startPos, 1, "ui/stepBack", false):
       echo "step back"
       step -= 1
       step = clamp(step, 0, replay.maxSteps - 1)
@@ -326,12 +326,12 @@ proc bottomLeftPanel(winH: float32) =
         "ui/pause"
       else:
         "ui/play"
-    if transportButton(2, playIcon, play):
+    if drawTransportButton(startPos, 2, playIcon, play):
       echo "play/pause"
       play = not play
       saveUIState()
 
-    if transportButton(3, "ui/stepForward", false):
+    if drawTransportButton(startPos, 3, "ui/stepForward", false):
       echo "step forward"
       step += 1
       if step > replay.maxSteps - 1:
@@ -340,7 +340,7 @@ proc bottomLeftPanel(winH: float32) =
       stepFloat = step.float32
       saveUIState()
 
-    if transportButton(4, "ui/rewindToEnd", false):
+    if drawTransportButton(startPos, 4, "ui/rewindToEnd", false):
       echo "rewind to end"
       step = replay.maxSteps - 1
       stepFloat = step.float32
@@ -372,6 +372,22 @@ proc bottomRightPanel(winW: float32, winH: float32) =
     brSize = sk.getImageSize("ui/panel_bottomright")
     brPos = vec2(winW - brSize.x, winH - brSize.y)
   sk.drawImage("ui/panel_bottomright", brPos)
+
+  # Speed controls rendered in transport-button style.
+  block:
+    const Speeds = [1.0, 5.0, 10.0, 50.0, 100.0, 1000.0]
+    let speedStartPos = brPos + vec2(230, 316)
+    for i, speed in Speeds:
+      let icon =
+        if i == 0:
+          "ui/turtle"
+        elif i == len(Speeds) - 1:
+          "ui/rabbit"
+        else:
+          "ui/speed"
+      if drawTransportButton(speedStartPos, i, icon, playSpeed >= speed):
+        playSpeed = speed
+        saveUIState()
 
   # Action mode toggles.
   block:
