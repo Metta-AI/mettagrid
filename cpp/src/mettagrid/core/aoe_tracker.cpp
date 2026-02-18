@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "core/grid_object.hpp"
 #include "handler/filters/filter_factory.hpp"
@@ -229,6 +231,12 @@ void AOETracker::unregister_mobile(GridObject& source) {
 void AOETracker::apply_fixed(GridObject& target) {
   HandlerContext target_ctx(nullptr, &target, _game_stats, _tag_index);
   target_ctx.query_system = _query_system;
+  std::unordered_map<InventoryItem, InventoryDelta> deferred_target_resource_deltas;
+  std::vector<InventoryItem> deferred_target_resource_order;
+  std::unordered_set<InventoryItem> deferred_target_resource_seen;
+  target_ctx.deferred_target_resource_deltas = &deferred_target_resource_deltas;
+  target_ctx.deferred_target_resource_order = &deferred_target_resource_order;
+  target_ctx.deferred_target_resource_seen = &deferred_target_resource_seen;
 
   Collective* target_collective = target.getCollective();
   int target_collective_id = target_collective != nullptr ? target_collective->id : -1;
@@ -395,6 +403,21 @@ void AOETracker::apply_fixed(GridObject& target) {
   }
   for (AOESource* aoe_source : _scratch_friendly_sources) {
     process_source(aoe_source);
+  }
+
+  // Apply net ResourceDeltaMutation deltas on target once, so clamping happens on the net result.
+  // This avoids ordering artifacts when multiple fixed effects touch the same capped resource.
+  if (!deferred_target_resource_order.empty()) {
+    for (InventoryItem resource_id : deferred_target_resource_order) {
+      auto it = deferred_target_resource_deltas.find(resource_id);
+      if (it == deferred_target_resource_deltas.end()) {
+        continue;
+      }
+      InventoryDelta delta = it->second;
+      if (delta != 0) {
+        target.inventory.update(resource_id, delta);
+      }
+    }
   }
 }
 

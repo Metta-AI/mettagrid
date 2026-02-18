@@ -22,6 +22,23 @@ public:
   explicit ResourceDeltaMutation(const ResourceDeltaMutationConfig& config) : _config(config) {}
 
   void apply(HandlerContext& ctx) override {
+    // In some hot paths (notably fixed AOEs), we want to apply a single net delta per resource to
+    // avoid intermediate clamp artifacts (e.g. heal clamped to max, then damage applied).
+    if (ctx.deferred_target_resource_deltas != nullptr && _config.entity == EntityRef::target &&
+        ctx.target != nullptr) {
+      // Avoid deferring "modifier" items that affect limits, since deferral would collapse important
+      // ordering semantics for subsequent clamping.
+      if (!ctx.target->inventory.is_modifier(_config.resource_id)) {
+        if (ctx.deferred_target_resource_order != nullptr && ctx.deferred_target_resource_seen != nullptr) {
+          if (ctx.deferred_target_resource_seen->insert(_config.resource_id).second) {
+            ctx.deferred_target_resource_order->push_back(_config.resource_id);
+          }
+        }
+        (*ctx.deferred_target_resource_deltas)[_config.resource_id] += _config.delta;
+        return;
+      }
+    }
+
     HasInventory* entity = ctx.resolve_inventory(_config.entity);
     assert(entity && "ResourceDeltaMutation entity must resolve");
 
