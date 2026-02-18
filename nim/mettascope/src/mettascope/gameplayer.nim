@@ -3,7 +3,7 @@ import
   opengl,
   bumpy, vmath, windy, silky, silky/atlas, chroma,
   common, worldmap, panels, configs,
-  replays, collectives, colors, minimap, actions, cognames
+  replays, collectives, colors, minimap, actions, cognames, timelineslider
 
 var
   pendingCenter: Vec2
@@ -11,6 +11,7 @@ var
   moveToggleActive = false
   queueToggleActive = false
   repeatToggleActive = false
+  timeLineDragging = false
 
 proc applyModeSwitchCenter*(zoomInfo: ZoomInfo) =
   ## Applies the stored world center after a mode switch once the rect is set.
@@ -164,7 +165,7 @@ proc drawVibeButton(
       sk.drawImage("ui/button_main.hover", pos - vec2(16, 16))
     sk.hover = true
     if window.buttonReleased[MouseLeft]:
-      echo "vibe button clicked: ", vibeName
+      worldMapZoomInfo.hasMouse = false
       if selection != nil and selection.isAgent:
         let vibeActionId = replay.actionNames.find("change_vibe_" & vibeName)
         if vibeActionId >= 0:
@@ -214,6 +215,9 @@ proc drawToggleIconButton(pos: Vec2, icon: string, isActive: bool): bool =
   if hover:
     sk.hover = true
 
+  if pressed:
+    worldMapZoomInfo.hasMouse = false
+
   drawIconScaled(icon, pos, iconSize)
   return pressed
 
@@ -239,6 +243,8 @@ proc drawTransportButton(startPos: Vec2, idx: int, icon: string, isDown: bool): 
     icon,
     btnPos + vec2((bgSize.x - iconSize.x) / 2, (bgSize.y - iconSize.y) / 2)
   )
+  if pressed:
+    worldMapZoomInfo.hasMouse = false
   return pressed
 
 proc topLeftPanel() =
@@ -622,6 +628,98 @@ proc bottomLeftMinimap(winH: float32) =
   drawMinimap(mmZoom)
   restoreTransform()
 
+
+proc drawTimelineSlider*(value: var float32, minVal: float32, maxVal: float32, label: string = "") =
+  ## Draw a mettascope timeline slider.
+  ## Similar to the slider in silky but customized for mettascope.
+  let
+    minF = minVal
+    maxF = maxVal
+    range = maxF - minF
+
+  let
+    clampedValue = clamp(value, minF, maxF)
+
+  let
+    baseHandleSize = sk.getImageSize("scrubber.handle")
+    buttonHandleSize = sk.getImageSize("button.9patch")
+    labelSize = if label.len > 0: sk.getTextSize(sk.textStyle, label) else: vec2(0, 0)
+    minLabelSize = if label.len > 0: sk.getTextSize(sk.textStyle, "0000") else: vec2(0, 0)
+    knobTextPadding = sk.theme.padding.float32 * 2 + 8f
+    handleWidth =
+      if label.len > 0:
+        max(buttonHandleSize.x, max(labelSize.x, minLabelSize.x) + knobTextPadding)
+      else:
+        baseHandleSize.x
+    handleHeight = if label.len > 0: max(buttonHandleSize.y, baseHandleSize.y) else: baseHandleSize.y
+    handleSize = vec2(handleWidth, handleHeight)
+    height = handleSize.y
+    width = sk.size.x
+    controlRect = bumpy.rect(sk.at, vec2(width, height))
+    trackStart = controlRect.x + handleSize.x / 2
+    trackEnd = controlRect.x + width - handleSize.x / 2
+    travel = max(0f, trackEnd - trackStart)
+    travelSafe = if travel <= 0: 1f else: travel
+
+  let norm = if range == 0: 0f else: clamp((clampedValue - minF) / range, 0f, 1f)
+  let
+    handlePos = vec2(trackStart + norm * travel - handleSize.x * 0.5, controlRect.y + (height - handleSize.y) * 0.5)
+    handleRect = bumpy.rect(handlePos, handleSize)
+
+  if timeLineDragging and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
+    timeLineDragging = false
+
+  if timeLineDragging:
+    let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
+    value = minF + t * range
+  elif sk.mouseInsideClip(window, handleRect) or sk.mouseInsideClip(window, controlRect):
+    if window.buttonPressed[MouseLeft]:
+      worldMapZoomInfo.hasMouse = false
+      timeLineDragging = true
+      let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
+      value = minF + t * range
+
+  let displayValue = clamp(value, minF, maxF)
+  let norm2 = if range == 0: 0f else: clamp((displayValue - minF) / range, 0f, 1f)
+  let handlePos2 = vec2(trackStart + norm2 * travel - handleSize.x * 0.5, controlRect.y + (height - handleSize.y) * 0.5)
+
+  sk.drawImage("ui/timeslider", handlePos2 - vec2(32, 24))
+  discard sk.drawText("pixelated", label, handlePos2 + vec2(12, -8), Yellow)
+
+proc bottomTimelineSlider(winW: float32, winH: float32) =
+  ## Draw a bottom timeline slider inset from both edges.
+  if replay.isNil:
+    return
+
+  const
+    LeftInset = 350.0f
+    RightInset = 380.0f
+    BottomInset = 6.0f
+
+  let sliderW = winW - LeftInset - RightInset
+  if sliderW <= 0:
+    return
+
+  let
+    prevStepFloat = stepFloat
+    maxStepFloat =
+      if playMode == Realtime and stepFloatSmoothing:
+        stepFloat
+      else:
+        replay.maxSteps.float32 - 1
+    displayStep = $int(stepFloat + 0.5f)
+    sliderH = 40.0f
+
+  ribbon(
+    vec2(LeftInset, winH - BottomInset - sliderH),
+    vec2(sliderW, sliderH),
+    rgbx(0, 0, 0, 0)
+  ):
+    drawTimelineSlider(stepFloat, 0, maxStepFloat, displayStep)
+
+  if prevStepFloat != stepFloat:
+    step = clamp((stepFloat + 0.5f).int, 0, replay.maxSteps - 1)
+
 proc drawGameWorld*() =
   ## Renders the game world to fill the entire window (no panels).
   let
@@ -635,6 +733,8 @@ proc drawGameWorld*() =
   bottomRightPanel(winW, winH)
   centerPanel(winW, winH)
 
-  drawWorldMap(worldMapZoomInfo)
+  bottomTimelineSlider(winW, winH)
 
+  drawWorldMap(worldMapZoomInfo)
   bottomLeftMinimap(winH)
+  worldMapZoomInfo.hasMouse = true
