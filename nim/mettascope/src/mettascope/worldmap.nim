@@ -423,13 +423,16 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
     if maxRange <= 0:
       return
 
-    # Mark coverage area
+    # Mark coverage area as circular influence (fixed AOEs are circular).
+    let rangeSq = maxRange * maxRange
     let pos = obj.location.at(step).xy
     for dx in -maxRange .. maxRange:
       for dy in -maxRange .. maxRange:
         let
           tx = pos.x + dx.int32
           ty = pos.y + dy.int32
+        if dx * dx + dy * dy > rangeSq:
+          continue
         if tx >= 0 and tx < width and ty >= 0 and ty < height:
           reuseableCoverageMap[ty * width + tx] = false  # false = has AoE coverage
 
