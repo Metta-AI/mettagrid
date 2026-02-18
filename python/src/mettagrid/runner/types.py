@@ -62,6 +62,7 @@ class PureSingleEpisodeResult(BaseModel):
 
 class RuntimeInfo(BaseModel):
     git_commit: str | None = None
+    cogames_version: str | None = None
     instance_type: str | None = None
 
 
