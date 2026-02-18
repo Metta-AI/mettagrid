@@ -17,6 +17,12 @@ proc playControls*() =
   let now = epochTime()
   let deltaTime = now - lastFrameTime
 
+  let superDown =
+    window.buttonDown[KeyLeftSuper] or window.buttonDown[KeyRightSuper]
+  if superDown and window.buttonPressed[KeyQ]:
+    when not defined(emscripten):
+      window.closeRequested = true
+
   if window.buttonPressed[KeySpace]:
     play = not play
     stepFloat = step.float32
