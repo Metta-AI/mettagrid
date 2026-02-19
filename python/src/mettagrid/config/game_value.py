@@ -4,15 +4,12 @@ GameValue is the base class for values queryable from game state.
 Used for rewards (numerators/denominators) and observations.
 """
 
-from enum import Enum
 from typing import Set, Tuple, Union
 
-from pydantic import field_serializer
-
-from mettagrid.base_config import Config
+from mettagrid.base_config import Config, ConfigStrEnum
 
 
-class Scope(Enum):
+class Scope(ConfigStrEnum):
     """Scope for a game value."""
 
     AGENT = "agent"
@@ -63,10 +60,6 @@ class InventoryValue(GameValue):
     item: str
     scope: Scope = Scope.AGENT
 
-    @field_serializer("scope")
-    def serialize_scope(self, value: Scope) -> str:
-        return value.value
-
 
 class StatValue(GameValue):
     """Stat value with explicit scope."""
@@ -74,10 +67,6 @@ class StatValue(GameValue):
     name: str
     scope: Scope = Scope.AGENT
     delta: bool = False
-
-    @field_serializer("scope")
-    def serialize_scope(self, value: Scope) -> str:
-        return value.value
 
 
 class NumObjectsValue(GameValue):

@@ -1,10 +1,30 @@
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Any, NoReturn, Self, Union, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationInfo, model_validator
+from pydantic import BaseModel, ConfigDict, GetCoreSchemaHandler, TypeAdapter, ValidationInfo, model_validator
+from pydantic_core import core_schema as cs
 
 LENIENT_CONTEXT: dict[str, bool] = {"lenient": True}
+
+
+class ConfigStrEnum(StrEnum):
+    """StrEnum that serializes as a plain string in Pydantic models.
+
+    Avoids PydanticSerializationUnexpectedValue warnings from wrap-mode
+    serializers by providing an explicit serialization schema.
+    """
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type: type, handler: GetCoreSchemaHandler):
+        schema = handler(source_type)
+        schema["serialization"] = cs.plain_serializer_function_ser_schema(
+            lambda v: v.value,
+            info_arg=False,
+            return_schema=cs.str_schema(),
+        )
+        return schema
 
 
 # Please don't move this class to mettagrid.config, it would cause circular import issues that are difficult to avoid.
@@ -157,4 +177,4 @@ class Config(BaseModel):
         return self
 
 
-__all__ = ["Config", "LENIENT_CONTEXT"]
+__all__ = ["Config", "ConfigStrEnum", "LENIENT_CONTEXT"]
