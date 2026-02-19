@@ -27,10 +27,9 @@ class PolicyEnvInterface(BaseModel):
         "Tag IDs in observations are indices into this list."
     )
     action_names: list[str] = Field(
-        description="Ordered list of action names (e.g., ['noop', 'move_north', ...]). "
-        "Action indices in the policy output correspond to this list."
+        description="Ordered list of primary action names. "
+        "Action indices in policy outputs correspond to this primary action space."
     )
-    non_vibe_action_names: list[str] = Field(default_factory=list, description="Action names for non-vibe actions.")
     vibe_action_names: list[str] = Field(default_factory=list, description="Action names for vibe-only actions.")
     move_energy_cost: Optional[int] = Field(
         default=None,
@@ -62,13 +61,8 @@ class PolicyEnvInterface(BaseModel):
 
     @property
     def action_space(self) -> gym.spaces.Discrete:
-        """Action space derived from non-vibe actions."""
-        return gym.spaces.Discrete(len(self.non_vibe_action_names))
-
-    @property
-    def non_vibe_action_space(self) -> gym.spaces.Discrete:
-        """Action space derived from non-vibe actions."""
-        return gym.spaces.Discrete(len(self.non_vibe_action_names))
+        """Primary action space derived from action_names."""
+        return gym.spaces.Discrete(len(self.action_names))
 
     @property
     def vibe_action_space(self) -> gym.spaces.Discrete:
@@ -77,14 +71,15 @@ class PolicyEnvInterface(BaseModel):
 
     @staticmethod
     def _split_action_names(action_names: list[str]) -> tuple[list[str], list[str]]:
-        non_vibe_action_names: list[str] = []
+        primary_action_names: list[str] = []
         vibe_action_names: list[str] = []
         for action_name in action_names:
-            if action_name.startswith(CHANGE_VIBE_PREFIX):
+            is_vibe_action = action_name.startswith(CHANGE_VIBE_PREFIX)
+            if is_vibe_action:
                 vibe_action_names.append(action_name)
             else:
-                non_vibe_action_names.append(action_name)
-        return non_vibe_action_names, vibe_action_names
+                primary_action_names.append(action_name)
+        return primary_action_names, vibe_action_names
 
     @property
     def tag_id_to_name(self) -> dict[int, str]:
@@ -105,7 +100,7 @@ class PolicyEnvInterface(BaseModel):
         tag_names_list = id_map.tag_names()
         actions_list = mg_cfg.game.actions.actions()
         action_names = [a.name for a in actions_list]
-        non_vibe_action_names, vibe_action_names = cls._split_action_names(action_names)
+        primary_action_names, vibe_action_names = cls._split_action_names(action_names)
         move_energy_cost = None
         if mg_cfg.game.actions.move and mg_cfg.game.actions.move.consumed_resources:
             move_energy_cost = mg_cfg.game.actions.move.consumed_resources.get("energy")
@@ -113,8 +108,7 @@ class PolicyEnvInterface(BaseModel):
         return PolicyEnvInterface(
             obs_features=id_map.features(),
             tags=tag_names_list,
-            action_names=action_names,
-            non_vibe_action_names=non_vibe_action_names,
+            action_names=primary_action_names,
             vibe_action_names=vibe_action_names,
             num_agents=mg_cfg.game.num_agents,
             observation_shape=(mg_cfg.game.obs.num_tokens, mg_cfg.game.obs.token_dim),
@@ -128,8 +122,7 @@ class PolicyEnvInterface(BaseModel):
         payload = self.model_dump(mode="json", include={"num_agents", "tags"})
         payload["obs_width"] = self.obs_width
         payload["obs_height"] = self.obs_height
-        payload["actions"] = self.action_names
-        payload["non_vibe_action_names"] = self.non_vibe_action_names
+        payload["actions"] = [*self.action_names, *self.vibe_action_names]
         payload["vibe_action_names"] = self.vibe_action_names
         payload["obs_features"] = [feature.model_dump(mode="json") for feature in self.obs_features]
         return json.dumps(payload)
@@ -145,18 +138,13 @@ class PolicyEnvInterface(BaseModel):
                 for f in self.obs_features
             ],
             tags=list(self.tags),
-            action_names=list(self.action_names),
+            action_names=[*self.action_names, *self.vibe_action_names],
             move_energy_cost=move_cost if move_cost is not None else -1,
             num_agents=self.num_agents,
             observation_shape=list(self.observation_shape),
             obs_height=self.obs_height,
             obs_width=self.obs_width,
         )
-        payload_as_any = cast(Any, payload)
-        if "non_vibe_action_names" in payload.DESCRIPTOR.fields_by_name:
-            payload_as_any.non_vibe_action_names.extend(self.non_vibe_action_names)
-        if "vibe_action_names" in payload.DESCRIPTOR.fields_by_name:
-            payload_as_any.vibe_action_names.extend(self.vibe_action_names)
         return payload
 
     @staticmethod
@@ -164,13 +152,7 @@ class PolicyEnvInterface(BaseModel):
         """Create PolicyEnvInterface from protobuf message."""
         proto_as_any = cast(Any, proto)
         action_names = list(proto_as_any.action_names)
-        if "non_vibe_action_names" in proto.DESCRIPTOR.fields_by_name:
-            non_vibe_action_names = list(proto_as_any.non_vibe_action_names)
-            vibe_action_names = (
-                list(proto_as_any.vibe_action_names) if "vibe_action_names" in proto.DESCRIPTOR.fields_by_name else []
-            )
-        else:
-            non_vibe_action_names, vibe_action_names = PolicyEnvInterface._split_action_names(action_names)
+        primary_action_names, vibe_action_names = PolicyEnvInterface._split_action_names(action_names)
 
         return PolicyEnvInterface(
             obs_features=[
@@ -182,8 +164,7 @@ class PolicyEnvInterface(BaseModel):
                 for f in proto_as_any.obs_features
             ],
             tags=list(proto_as_any.tags),
-            action_names=action_names,
-            non_vibe_action_names=non_vibe_action_names,
+            action_names=primary_action_names,
             vibe_action_names=vibe_action_names,
             move_energy_cost=proto_as_any.move_energy_cost if proto_as_any.move_energy_cost != -1 else None,
             num_agents=proto_as_any.num_agents,

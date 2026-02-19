@@ -85,7 +85,7 @@ class MettaGridPufferEnv(PufferEnv):
         self._policy_env_info = PolicyEnvInterface.from_mg_cfg(cfg)
         self._env_supervisor: MultiAgentPolicy | None = None
         self._supervisor_uses_vibe_action_space = bool(self._policy_env_info.vibe_action_names)
-        self._supervisor_non_vibe_action_ids: np.ndarray | None = None
+        self._supervisor_action_ids: np.ndarray | None = None
 
         # Initialize shared buffers FIRST (before super().__init__)
         # because PufferLib may access them during initialization
@@ -107,7 +107,7 @@ class MettaGridPufferEnv(PufferEnv):
         # Set observation and action spaces BEFORE calling super().__init__()
         # PufferLib requires these to be set first
         self.single_observation_space: Box = self._policy_env_info.observation_space
-        self.single_action_space: Discrete = self._policy_env_info.non_vibe_action_space
+        self.single_action_space: Discrete = self._policy_env_info.action_space
         self.single_vibe_action_space: Discrete = self._policy_env_info.vibe_action_space
 
         self._sim: Optional[Simulation] = None
@@ -211,12 +211,12 @@ class MettaGridPufferEnv(PufferEnv):
                 self._supervisor_policy_spec,
             )
             if self._supervisor_uses_vibe_action_space:
-                self._supervisor_non_vibe_action_ids = np.array(
-                    [sim.action_ids[action_name] for action_name in sim.non_vibe_action_names],
+                self._supervisor_action_ids = np.array(
+                    [sim.action_ids[action_name] for action_name in supervisor_env_info.action_names],
                     dtype=dtype_actions,
                 )
             else:
-                self._supervisor_non_vibe_action_ids = None
+                self._supervisor_action_ids = None
             self._compute_supervisor_actions()
         return sim
 
@@ -343,14 +343,14 @@ class MettaGridPufferEnv(PufferEnv):
             np.copyto(vibe_actions, teacher_actions)
             return
 
-        supervisor_non_vibe_action_ids = self._supervisor_non_vibe_action_ids
-        assert supervisor_non_vibe_action_ids is not None
+        supervisor_action_ids = self._supervisor_action_ids
+        assert supervisor_action_ids is not None
 
         split_supervisor_actions_inplace(
             teacher_actions,
             vibe_actions,
-            supervisor_non_vibe_action_ids=supervisor_non_vibe_action_ids,
-            action_names=self._policy_env_info.action_names,
+            supervisor_action_ids=supervisor_action_ids,
+            action_names=[*self._policy_env_info.action_names, *self._policy_env_info.vibe_action_names],
         )
 
     def disable_supervisor(self) -> None:

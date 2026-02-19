@@ -5,7 +5,6 @@ from __future__ import annotations
 import torch
 
 import pufferlib.pytorch  # type: ignore[import-untyped]
-from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
 from mettagrid.policy.policy import StatefulPolicyImpl
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.simulator import Action, AgentObservation
@@ -27,11 +26,7 @@ class PufferlibStatefulImpl(StatefulPolicyImpl[dict[str, torch.Tensor | None]]):
         is_recurrent: bool,
     ) -> None:
         self._net = net
-        self._action_names = (
-            policy_env_info.non_vibe_action_names
-            if policy_env_info.non_vibe_action_names
-            else [name for name in policy_env_info.action_names if not name.startswith(CHANGE_VIBE_PREFIX)]
-        )
+        self._action_names = policy_env_info.action_names
         self._num_tokens, self._token_dim = policy_env_info.observation_space.shape
         self._device = device
         self._is_recurrent = is_recurrent

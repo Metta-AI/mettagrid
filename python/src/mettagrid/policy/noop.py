@@ -2,7 +2,6 @@
 
 import numpy as np
 
-from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
 from mettagrid.mettagrid_c import dtype_actions
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
@@ -14,12 +13,7 @@ class NoopAgentPolicy(AgentPolicy):
 
     def __init__(self, policy_env_info: PolicyEnvInterface):
         super().__init__(policy_env_info)
-        non_vibe_action_names = (
-            policy_env_info.non_vibe_action_names
-            if policy_env_info.non_vibe_action_names
-            else [name for name in policy_env_info.action_names if not name.startswith(CHANGE_VIBE_PREFIX)]
-        )
-        self._noop_index = non_vibe_action_names.index("noop")
+        self._noop_index = policy_env_info.action_names.index("noop")
 
     def step(self, obs: AgentObservation) -> Action:
         """Return the noop action for the agent."""
@@ -33,12 +27,7 @@ class NoopPolicy(MultiAgentPolicy):
 
     def __init__(self, policy_env_info: PolicyEnvInterface, device: str = "cpu"):
         super().__init__(policy_env_info, device=device)
-        non_vibe_action_names = (
-            policy_env_info.non_vibe_action_names
-            if policy_env_info.non_vibe_action_names
-            else [name for name in policy_env_info.action_names if not name.startswith(CHANGE_VIBE_PREFIX)]
-        )
-        self._noop_action_value = dtype_actions.type(non_vibe_action_names.index("noop"))
+        self._noop_action_value = dtype_actions.type(policy_env_info.action_names.index("noop"))
 
     def agent_policy(self, agent_id: int) -> AgentPolicy:
         """Get an AgentPolicy instance configured with the noop action id."""

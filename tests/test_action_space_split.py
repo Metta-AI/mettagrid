@@ -1,4 +1,4 @@
-"""Tests for action-space separation between non-vibe and vibe actions."""
+"""Tests for action-space separation between primary and vibe actions."""
 
 from mettagrid.config.action_config import CHANGE_VIBE_PREFIX, ChangeVibeActionConfig
 from mettagrid.config.mettagrid_config import (
@@ -16,8 +16,8 @@ from mettagrid.simulator import Simulation
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
 
 
-def test_policy_env_interface_splits_action_spaces_by_prefix() -> None:
-    """PolicyEnvInterface should expose non-vibe/vibe action partitions."""
+def test_policy_env_interface_exposes_primary_and_vibe_action_spaces() -> None:
+    """PolicyEnvInterface should expose primary and vibe action partitions."""
     map_data = [
         ["wall", "wall", "wall", "wall", "wall"],
         ["wall", "empty", "empty", "empty", "wall"],
@@ -45,14 +45,11 @@ def test_policy_env_interface_splits_action_spaces_by_prefix() -> None:
 
     # Ensure split fields are available from configuration-derived interface.
     env_info = PolicyEnvInterface.from_mg_cfg(config)
-    assert env_info.non_vibe_action_names == sim.non_vibe_action_names
+    assert env_info.action_names == [name for name in sim.action_names if not name.startswith(CHANGE_VIBE_PREFIX)]
     assert env_info.vibe_action_names == sim.vibe_action_names
-    assert env_info.action_space.n == len(sim.non_vibe_action_names)
+    assert [*env_info.action_names, *env_info.vibe_action_names] == sim.action_names
+    assert env_info.action_space.n == len(env_info.action_names)
     assert env_info.vibe_action_space.n == len(sim.vibe_action_names)
-
-    # Fallback split logic still works when new fields are missing.
-    fallback = [name for name in env_info.action_names if not name.startswith(CHANGE_VIBE_PREFIX)]
-    assert env_info.non_vibe_action_names == fallback
 
 
 def _agent_object(sim: Simulation, agent_id: int) -> dict:
@@ -62,7 +59,7 @@ def _agent_object(sim: Simulation, agent_id: int) -> dict:
     raise AssertionError(f"Agent {agent_id} object not found")
 
 
-def test_simulation_processes_vibe_and_non_vibe_actions_in_same_step() -> None:
+def test_simulation_processes_vibe_and_primary_actions_in_same_step() -> None:
     """Directly set both action buffers and verify both streams are processed."""
     map_data = [
         ["wall", "wall", "wall", "wall", "wall"],
@@ -92,7 +89,7 @@ def test_simulation_processes_vibe_and_non_vibe_actions_in_same_step() -> None:
     before = _agent_object(sim, 0)
     before_col = before["c"]
 
-    move_action = sim.non_vibe_action_ids["move_east"]
+    move_action = sim.action_ids["move_east"]
     vibe_action = sim.vibe_action_ids["change_vibe_junction"]
 
     sim._c_sim.actions()[0] = move_action

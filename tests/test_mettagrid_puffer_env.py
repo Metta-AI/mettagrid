@@ -97,7 +97,9 @@ class _VibeActionSupervisorAgentPolicy(AgentPolicy):
 class _VibeActionSupervisorPolicy(MultiAgentPolicy):
     def __init__(self, policy_env_info: PolicyEnvInterface, device: str = "cpu"):
         super().__init__(policy_env_info, device=device)
-        self._vibe_action_id = policy_env_info.action_names.index("change_vibe_default")
+        self._vibe_action_id = [*policy_env_info.action_names, *policy_env_info.vibe_action_names].index(
+            "change_vibe_default"
+        )
 
     def agent_policy(self, agent_id: int) -> AgentPolicy:
         return _VibeActionSupervisorAgentPolicy(self._policy_env_info)

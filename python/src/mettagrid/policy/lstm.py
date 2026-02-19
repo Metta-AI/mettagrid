@@ -7,7 +7,6 @@ import torch.nn as nn
 from einops import rearrange
 
 import pufferlib.pytorch
-from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy, StatefulAgentPolicy, StatefulPolicyImpl
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.policy.utils import LSTMState, LSTMStateDict
@@ -22,11 +21,7 @@ class LSTMPolicyNet(torch.nn.Module):
         super().__init__()
         # Public: Required by PufferLib for RNN state management
         self.hidden_size = 128
-        non_vibe_action_names = (
-            policy_env_info.non_vibe_action_names
-            if policy_env_info.non_vibe_action_names
-            else [name for name in policy_env_info.action_names if not name.startswith(CHANGE_VIBE_PREFIX)]
-        )
+        action_names = policy_env_info.action_names
 
         self._net = torch.nn.Sequential(
             pufferlib.pytorch.layer_init(
@@ -38,7 +33,7 @@ class LSTMPolicyNet(torch.nn.Module):
 
         self._rnn = torch.nn.LSTM(self.hidden_size, self.hidden_size, batch_first=True)
 
-        self._action_head = torch.nn.Linear(self.hidden_size, len(non_vibe_action_names))
+        self._action_head = torch.nn.Linear(self.hidden_size, len(action_names))
         self._value_head = torch.nn.Linear(self.hidden_size, 1)
 
     def forward_eval(
@@ -231,13 +226,8 @@ class LSTMAgentPolicy(StatefulPolicyImpl[LSTMState]):
         # Sample action from the logits
         dist = torch.distributions.Categorical(logits=logits)
         sampled_action = int(dist.sample().cpu().item())
-        non_vibe_action_names = (
-            self._policy_env_info.non_vibe_action_names
-            if self._policy_env_info.non_vibe_action_names
-            else [name for name in self._policy_env_info.action_names if not name.startswith(CHANGE_VIBE_PREFIX)]
-        )
         # Convert action index to Action object
-        action = MettaGridAction(name=non_vibe_action_names[sampled_action])
+        action = MettaGridAction(name=self._policy_env_info.action_names[sampled_action])
         return action, new_state.detach()
 
 

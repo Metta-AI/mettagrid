@@ -97,14 +97,8 @@ class Simulation:
         self._vibe_action_names: list[str] = [
             action_name for action_name in self._action_names if action_name.startswith(CHANGE_VIBE_PREFIX)
         ]
-        self._non_vibe_action_names: list[str] = [
-            action_name for action_name in self._action_names if not action_name.startswith(CHANGE_VIBE_PREFIX)
-        ]
         self._vibe_action_ids: dict[str, int] = {
             action_name: self._action_ids[action_name] for action_name in self._vibe_action_names
-        }
-        self._non_vibe_action_ids: dict[str, int] = {
-            action_name: self._action_ids[action_name] for action_name in self._non_vibe_action_names
         }
         self._vibe_action_name_set = set(self._vibe_action_names)
 
@@ -220,28 +214,16 @@ class Simulation:
         return self._action_ids
 
     @property
-    def non_vibe_action_ids(self) -> dict[str, int]:
-        return self._non_vibe_action_ids
-
-    @property
     def vibe_action_ids(self) -> dict[str, int]:
         return self._vibe_action_ids
 
     @property
-    def non_vibe_action_indices(self) -> list[int]:
-        return list(self._non_vibe_action_ids.values())
-
-    @property
     def action_names(self) -> list[str]:
-        return list(self._action_ids.keys())
-
-    @property
-    def non_vibe_action_names(self) -> list[str]:
-        return self._non_vibe_action_names
+        return list(self._action_names)
 
     @property
     def vibe_action_names(self) -> list[str]:
-        return self._vibe_action_names
+        return list(self._vibe_action_names)
 
     @property
     def object_type_names(self) -> list[str]:

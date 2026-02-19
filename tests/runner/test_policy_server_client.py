@@ -18,6 +18,7 @@ def _env_interface() -> PolicyEnvInterface:
         obs_features=[ObservationFeatureSpec(id=1, name="health", normalization=1.0)],
         tags=[],
         action_names=["noop", "move"],
+        vibe_action_names=[],
         num_agents=2,
         observation_shape=(1, 3),
         egocentric_shape=(1, 1),
