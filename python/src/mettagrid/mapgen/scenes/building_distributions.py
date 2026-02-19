@@ -133,7 +133,7 @@ def _sample_positions_by_distribution(
         # gameplay-critical objects like junctions.
         area = max(1, available_width * available_height)
         # Heuristic: scale minimum separation with average per-point area.
-        min_dist = max(1, int(np.sqrt(area / max(1, count)) * 0.5))
+        min_dist = max(1, int(np.sqrt(area / max(1, count)) * 0.6))
 
         def chebyshev(a: tuple[int, int], b: tuple[int, int]) -> int:
             return max(abs(a[0] - b[0]), abs(a[1] - b[1]))
