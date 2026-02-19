@@ -63,9 +63,14 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
     aoe_feature_id = sim.config.game.id_map().feature_id("aoe_mask")
 
     # Center cell is in range of both AOEs: friendly (cogs) and enemy (clips).
+    # With collapsed territory semantics, this tile is neutral (no token).
     assert (
-        ObservationHelper.find_token_values(obs, location=Location(2, 2), feature_id=aoe_feature_id, is_global=False)
-        == 0x03
+        len(
+            ObservationHelper.find_token_values(
+                obs, location=Location(2, 2), feature_id=aoe_feature_id, is_global=False
+            )
+        )
+        == 0
     )
 
     # (4,4) is outside Euclidean radius 2 from (3,2): no token.

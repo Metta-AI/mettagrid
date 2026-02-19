@@ -53,10 +53,8 @@ class ObsConfig(Config):
     global_obs: GlobalObsConfig = Field(default_factory=GlobalObsConfig)
 
     # Optional per-tile AOE observability. When enabled, MettaGrid emits `aoe_mask` tokens
-    # at spatial locations covered by static AOEs that would affect the observing agent.
+    # with collapsed territory semantics:
+    # - 1: friendly territory/influence
+    # - 2: enemy territory/influence
+    # - 0 / no token: neutral or no influence.
     aoe_mask: bool = Field(default=False)
-
-    # Optional per-tile territory map. When enabled, MettaGrid emits `territory` tokens
-    # at spatial locations covered by "territory-mode" static AOEs that would affect
-    # the observing agent. Values are: 1 = positive (friendly), 2 = negative (enemy).
-    territory_map: bool = Field(default=False)

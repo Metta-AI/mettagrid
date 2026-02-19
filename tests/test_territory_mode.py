@@ -30,7 +30,7 @@ def test_territory_map_observation_tokens_emitted_for_empty_cells() -> None:
     cfg.game.obs.width = 5
     cfg.game.obs.height = 5
     cfg.game.obs.num_tokens = 200
-    cfg.game.obs.territory_map = True
+    cfg.game.obs.aoe_mask = True
     cfg.game.resource_names = []
     cfg.game.agent.collective = "cogs"
     cfg.game.collectives = {
@@ -44,7 +44,6 @@ def test_territory_map_observation_tokens_emitted_for_empty_cells() -> None:
         aoes={
             "friendly": AOEConfig(
                 radius=2,
-                territory_mode=True,
                 filters=[
                     AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.SAME_COLLECTIVE),
                 ],
@@ -58,7 +57,6 @@ def test_territory_map_observation_tokens_emitted_for_empty_cells() -> None:
         aoes={
             "enemy": AOEConfig(
                 radius=2,
-                territory_mode=True,
                 filters=[
                     AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.DIFFERENT_COLLECTIVE),
                 ],
@@ -68,7 +66,7 @@ def test_territory_map_observation_tokens_emitted_for_empty_cells() -> None:
 
     sim = Simulation(cfg)
     obs = sim._c_sim.observations()[0]
-    territory_feature_id = sim.config.game.id_map().feature_id("territory")
+    territory_feature_id = sim.config.game.id_map().feature_id("aoe_mask")
 
     def territory_at(row: int, col: int) -> int | None:
         vals = ObservationHelper.find_token_values(
@@ -99,7 +97,7 @@ def test_territory_map_observation_tokens_emitted_for_empty_cells() -> None:
     assert territory_at(0, 1) == 2
 
 
-def test_territory_mode_collapses_overlapping_sources() -> None:
+def test_mutating_aoes_stack_overlapping_sources() -> None:
     def make_cfg(map_data: list[str]) -> MettaGridConfig:
         cfg = MettaGridConfig.EmptyRoom(num_agents=1, width=5, height=5, with_walls=True).with_ascii_map(
             map_data,
@@ -119,7 +117,6 @@ def test_territory_mode_collapses_overlapping_sources() -> None:
             aoes={
                 "enemy": AOEConfig(
                     radius=3,
-                    territory_mode=True,
                     filters=[
                         AlignmentFilter(
                             target=HandlerTarget.TARGET,
@@ -135,7 +132,7 @@ def test_territory_mode_collapses_overlapping_sources() -> None:
     sim = Simulation(make_cfg(["#####", "#.E.#", "#.@.#", "#.E.#", "#####"]))
     sim.agent(0).set_action("noop")
     sim.step()
-    assert sim.agent(0).inventory.get("hp", 0) == 9
+    assert sim.agent(0).inventory.get("hp", 0) == 8
 
     contested = make_cfg([".....", "..E..", "..@..", "..F..", "....."])
     contested.game.objects["friendly_source"] = GridObjectConfig(
@@ -145,7 +142,6 @@ def test_territory_mode_collapses_overlapping_sources() -> None:
         aoes={
             "friendly": AOEConfig(
                 radius=3,
-                territory_mode=True,
                 filters=[
                     AlignmentFilter(
                         target=HandlerTarget.TARGET,
@@ -160,4 +156,4 @@ def test_territory_mode_collapses_overlapping_sources() -> None:
     sim2 = Simulation(contested)
     sim2.agent(0).set_action("noop")
     sim2.step()
-    assert sim2.agent(0).inventory.get("hp", 0) == 10
+    assert sim2.agent(0).inventory.get("hp", 0) == 109

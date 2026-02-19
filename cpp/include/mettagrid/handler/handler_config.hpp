@@ -53,10 +53,9 @@ struct ResourceDelta {
  * the affected object.
  */
 struct AOEConfig : public HandlerConfig {
-  int radius = 1;               // Euclidean distance for AOE
-  bool is_static = true;        // true = fixed (default), false = mobile (for agents)
-  bool effect_self = false;     // Whether source is affected by its own AOE
-  bool territory_mode = false;  // Collapse overlapping AOEs into a single +/-/0 territory field per target
+  int radius = 1;            // Euclidean distance for AOE
+  bool is_static = true;     // true = fixed (default), false = mobile (for agents)
+  bool effect_self = false;  // Whether source is affected by its own AOE
 
   // One-time resource changes when target enters/exits AOE
   // Enter: apply +delta, Exit: apply -delta
