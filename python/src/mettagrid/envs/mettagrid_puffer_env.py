@@ -42,6 +42,7 @@ from mettagrid.mettagrid_c import (
 from mettagrid.policy.loader import initialize_or_load_policy
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
+from mettagrid.policy.supervisor_actions import split_supervisor_actions_inplace
 from mettagrid.simulator import Simulation, Simulator
 from mettagrid.simulator.simulator import Buffers
 from pufferlib.pufferlib import PufferEnv  # type: ignore[import-untyped]
@@ -345,18 +346,12 @@ class MettaGridPufferEnv(PufferEnv):
         supervisor_non_vibe_action_ids = self._supervisor_non_vibe_action_ids
         assert supervisor_non_vibe_action_ids is not None
 
-        compact_actions = teacher_actions.astype(np.int64, copy=False)
-        if np.any((compact_actions < 0) | (compact_actions >= len(supervisor_non_vibe_action_ids))):
-            invalid_agent = int(
-                np.flatnonzero((compact_actions < 0) | (compact_actions >= len(supervisor_non_vibe_action_ids)))[0]
-            )
-            raise ValueError(
-                "Supervisor produced invalid non-vibe action index "
-                f"{int(teacher_actions[invalid_agent])} for agent {invalid_agent}"
-            )
-
-        np.copyto(teacher_actions, supervisor_non_vibe_action_ids[compact_actions])
-        np.copyto(vibe_actions, dtype_actions.type(0))
+        split_supervisor_actions_inplace(
+            teacher_actions,
+            vibe_actions,
+            supervisor_non_vibe_action_ids=supervisor_non_vibe_action_ids,
+            action_names=self._policy_env_info.action_names,
+        )
 
     def disable_supervisor(self) -> None:
         """Disable supervisor policy to avoid extra forward passes after teacher phase."""

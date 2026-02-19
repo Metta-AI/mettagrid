@@ -246,19 +246,13 @@ class _NimAgentPolicy(AgentPolicy):
                 self._infos = json.loads(raw)
             else:
                 self._infos = {}
-        non_vibe_action_names = (
-            self.policy_env_info.non_vibe_action_names
-            if self.policy_env_info.non_vibe_action_names
-            else [name for name in self.policy_env_info.action_names if not name.startswith(CHANGE_VIBE_PREFIX)]
-        )
         action_index_int = int(action_index)
-        if action_index_int < 0 or action_index_int >= len(non_vibe_action_names):
+        action_names = self.policy_env_info.action_names
+        if action_index_int < 0 or action_index_int >= len(action_names):
             raise ValueError(
-                f"Nim policy returned action index {action_index_int}, expected "
-                f"range [0, {len(non_vibe_action_names) - 1}]"
+                f"Nim policy returned action index {action_index_int}, expected range [0, {len(action_names) - 1}]"
             )
-        action_index = action_index_int
-        return Action(name=non_vibe_action_names[action_index])
+        return Action(name=action_names[action_index_int])
 
 
 class StatefulAgentPolicy(AgentPolicy, Generic[StateType]):
