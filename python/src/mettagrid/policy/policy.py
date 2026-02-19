@@ -199,11 +199,6 @@ class NimMultiAgentPolicy(MultiAgentPolicy):
             action_buffer = self._full_action_buffer
             action_buffer[agent_ids] = 0
             needs_scatter = True
-        non_vibe_action_names = (
-            self.policy_env_info.non_vibe_action_names
-            if self.policy_env_info.non_vibe_action_names
-            else [name for name in self.policy_env_info.action_names if not name.startswith(CHANGE_VIBE_PREFIX)]
-        )
 
         agent_ids_ptr = (
             self._default_subset_ptr
@@ -217,7 +212,7 @@ class NimMultiAgentPolicy(MultiAgentPolicy):
             self._num_tokens,
             self._token_dim,
             obs_buffer.ctypes.data,
-            len(non_vibe_action_names),
+            len(self.policy_env_info.action_names),
             action_buffer.ctypes.data,
         )
 
