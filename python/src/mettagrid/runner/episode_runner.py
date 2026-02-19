@@ -20,6 +20,10 @@ from mettagrid.util.uri_resolvers.schemes import localize_uri, resolve_uri
 logger = logging.getLogger(__name__)
 
 
+def _to_file_uri(path: Path) -> str:
+    return path.resolve().as_uri()
+
+
 def _is_presigned_url(url: str) -> bool:
     parsed = urlparse(url)
     if parsed.scheme not in ("https", "http"):
@@ -106,8 +110,8 @@ def run_episode_isolated(
         servers, http_policy_uris = _spawn_policy_servers(local_policy_uris)
         logger.info(f"Policy servers spawned in {time.monotonic() - t1:.1f}s")
 
-        local_results_uri = results_path.as_uri()
-        local_replay_uri = replay_path.as_uri() if replay_path else None
+        local_results_uri = _to_file_uri(results_path)
+        local_replay_uri = _to_file_uri(replay_path) if replay_path else None
 
         pure_job = PureSingleEpisodeJob(
             policy_uris=http_policy_uris,
