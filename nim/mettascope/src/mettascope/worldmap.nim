@@ -39,6 +39,8 @@ var
   reuseableOwnershipMap: seq[uint8]
   reuseableFriendlyDistMap: seq[int]
   reuseableEnemyDistMap: seq[int]
+  reuseableFriendlyBestIsClipsMap: seq[bool]
+  reuseableEnemyBestIsClipsMap: seq[bool]
 
   px*: Pixelator
   pxMini*: Pixelator
@@ -338,16 +340,37 @@ proc aoeRadius(aoeConfig: JsonNode): int =
     return aoeConfig["radius"].getFloat.int
   return 0
 
-proc aoeControlsTerritory(aoeConfig: JsonNode): bool =
-  if "controls_territory" in aoeConfig and aoeConfig["controls_territory"].kind == JBool:
-    return aoeConfig["controls_territory"].getBool
+proc withinTerritoryInfluenceRadius(dx: int, dy: int, aoeRange: int): bool =
+  ## Must match territory-mask inclusion in AOETracker::register_fixed:
+  ## inside Euclidean radius, excluding exact cardinal boundary points.
+  let
+    distSq = dx * dx + dy * dy
+    rangeSq = aoeRange * aoeRange
+  if distSq > rangeSq:
+    return false
+  if distSq == rangeSq and (dx == 0 or dy == 0):
+    return false
+  return true
+
+proc aoeHasMutations(aoeConfig: JsonNode): bool =
+  if "mutations" notin aoeConfig or aoeConfig["mutations"].kind != JArray:
+    return false
+  return aoeConfig["mutations"].len > 0
+
+proc aoeHasPresenceDeltas(aoeConfig: JsonNode): bool =
+  if "presence_deltas" notin aoeConfig:
+    return false
+  if aoeConfig["presence_deltas"].kind == JObject:
+    return aoeConfig["presence_deltas"].len > 0
+  if aoeConfig["presence_deltas"].kind == JArray:
+    return aoeConfig["presence_deltas"].len > 0
   return false
 
 proc isInfluenceAoeConfig(aoeConfig: JsonNode): bool =
-  ## Influence AOEs are fixed circular fields marked as territory-controlling.
+  ## Influence AOEs are fixed circular fields with no mutations/presence-deltas.
   if aoeRadius(aoeConfig) <= 0:
     return false
-  return aoeControlsTerritory(aoeConfig)
+  return not aoeHasMutations(aoeConfig) and not aoeHasPresenceDeltas(aoeConfig)
 
 proc alignmentFilterPasses(filterConfig: JsonNode, sourceCollectiveId: int, observerCollectiveId: int): bool =
   if observerCollectiveId < 0 or observerCollectiveId >= getNumCollectives():
@@ -441,6 +464,8 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
   reuseableOwnershipMap.setLen(width * height)
   reuseableFriendlyDistMap.setLen(width * height)
   reuseableEnemyDistMap.setLen(width * height)
+  reuseableFriendlyBestIsClipsMap.setLen(width * height)
+  reuseableEnemyBestIsClipsMap.setLen(width * height)
   # Ownership encoding:
   # 0 = neutral/no ownership, 1 = friendly ownership, 2 = enemy ownership.
   for i in 0 ..< reuseableCoverageMap.len:
@@ -448,6 +473,14 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
     reuseableOwnershipMap[i] = 0'u8
     reuseableFriendlyDistMap[i] = maxDist
     reuseableEnemyDistMap[i] = maxDist
+    reuseableFriendlyBestIsClipsMap[i] = false
+    reuseableEnemyBestIsClipsMap[i] = false
+
+  var clipsCollectiveSlot = -1
+  for collectiveId in 0 ..< getNumCollectives():
+    if getCollectiveName(collectiveId) == "clips":
+      clipsCollectiveSlot = collectiveId
+      break
 
   # Check if this collective is visible (not hidden). Neutral slot is never shown in combined mode.
   let isEnabled = slotId < getNumCollectives() and slotId notin settings.hiddenCollectiveAoe
@@ -497,13 +530,12 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
 
     let pos = obj.location.at(step).xy
     for aoeRange in ranges:
-      let rangeSq = aoeRange * aoeRange
       for dx in -aoeRange .. aoeRange:
         for dy in -aoeRange .. aoeRange:
           let
             tx = pos.x + dx.int32
             ty = pos.y + dy.int32
-          if dx * dx + dy * dy > rangeSq:
+          if not withinTerritoryInfluenceRadius(dx, dy, aoeRange):
             continue
           if tx >= 0 and tx < width and ty >= 0 and ty < height:
             reuseableOwnershipMap[ty * width + tx] = 1'u8
@@ -519,26 +551,32 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
       return
 
     let isFriendly = objSlot == slotId
+    let isClipsSource = objSlot == clipsCollectiveSlot
     let pos = obj.location.at(step).xy
 
     for aoeRange in ranges:
-      let rangeSq = aoeRange * aoeRange
       for dx in -aoeRange .. aoeRange:
         for dy in -aoeRange .. aoeRange:
           let
             tx = pos.x + dx.int32
             ty = pos.y + dy.int32
           let distSq = dx * dx + dy * dy
-          if distSq > rangeSq:
+          if not withinTerritoryInfluenceRadius(dx, dy, aoeRange):
             continue
           if tx >= 0 and tx < width and ty >= 0 and ty < height:
             let idx = ty * width + tx
             if isFriendly:
               if distSq < reuseableFriendlyDistMap[idx]:
                 reuseableFriendlyDistMap[idx] = distSq
+                reuseableFriendlyBestIsClipsMap[idx] = isClipsSource
+              elif distSq == reuseableFriendlyDistMap[idx] and isClipsSource:
+                reuseableFriendlyBestIsClipsMap[idx] = true
             else:
               if distSq < reuseableEnemyDistMap[idx]:
                 reuseableEnemyDistMap[idx] = distSq
+                reuseableEnemyBestIsClipsMap[idx] = isClipsSource
+              elif distSq == reuseableEnemyDistMap[idx] and isClipsSource:
+                reuseableEnemyBestIsClipsMap[idx] = true
 
   # If a selected object has influence AoE, show only its AoE.
   # Otherwise show combined AoE for all objects in enabled collectives.
@@ -550,7 +588,7 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
       markSelectedCoverage(selection)
   else:
     # Show combined AoE with territory-style collapse:
-    # winner per tile by nearest distance, ties are neutral.
+    # winner per tile by nearest distance. In midpoint ties, clips loses.
     if isEnabled:
       for obj in replay.objects:
         if not obj.alive.at:
@@ -571,8 +609,12 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
           reuseableOwnershipMap[i] = 1'u8
         elif enemyDist < friendlyDist:
           reuseableOwnershipMap[i] = 2'u8
+        elif reuseableFriendlyBestIsClipsMap[i] and not reuseableEnemyBestIsClipsMap[i]:
+          reuseableOwnershipMap[i] = 2'u8
+        elif reuseableEnemyBestIsClipsMap[i] and not reuseableFriendlyBestIsClipsMap[i]:
+          reuseableOwnershipMap[i] = 1'u8
         else:
-          # Midpoint tie => neutral ownership.
+          # Midpoint tie with no clips involvement => neutral ownership.
           reuseableOwnershipMap[i] = 0'u8
 
   for i in 0 ..< reuseableCoverageMap.len:

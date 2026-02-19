@@ -10,7 +10,7 @@ from mettagrid.simulator.interface import Location
 from mettagrid.test_support.observation_helper import ObservationHelper
 
 
-def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
+def test_territory_observation_tokens_emitted_for_empty_cells() -> None:
     cfg = MettaGridConfig.EmptyRoom(num_agents=1, width=5, height=5, border_width=0).with_ascii_map(
         [
             ".....",
@@ -24,7 +24,7 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
     cfg.game.obs.width = 5
     cfg.game.obs.height = 5
     cfg.game.obs.num_tokens = 200
-    cfg.game.obs.aoe_mask = True
+    cfg.game.obs.territory = True
     cfg.game.resource_names = []
     cfg.game.agent.collective = "cogs"
     cfg.game.collectives = {
@@ -38,7 +38,6 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
         aoes={
             "friendly": AOEConfig(
                 radius=2,
-                controls_territory=True,
                 filters=[
                     AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.SAME_COLLECTIVE),
                 ],
@@ -52,7 +51,6 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
         aoes={
             "enemy": AOEConfig(
                 radius=2,
-                controls_territory=True,
                 filters=[
                     AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.DIFFERENT_COLLECTIVE),
                 ],
@@ -62,24 +60,21 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
 
     sim = Simulation(cfg)
     obs = sim._c_sim.observations()[0]
-    aoe_feature_id = sim.config.game.id_map().feature_id("aoe_mask")
+    territory_feature_id = sim.config.game.id_map().feature_id("territory")
 
-    # Center cell is in range of both AOEs: friendly (cogs) and enemy (clips).
-    # With collapsed territory semantics, this tile is neutral (no token).
+    # Center cell is a midpoint tie between cogs and clips, and clips loses ties.
     assert (
-        len(
-            ObservationHelper.find_token_values(
-                obs, location=Location(2, 2), feature_id=aoe_feature_id, is_global=False
-            )
+        ObservationHelper.find_token_values(
+            obs, location=Location(2, 2), feature_id=territory_feature_id, is_global=False
         )
-        == 0
+        == 0x01
     )
 
     # (4,4) is outside Euclidean radius 2 from (3,2): no token.
     assert (
         len(
             ObservationHelper.find_token_values(
-                obs, location=Location(4, 4), feature_id=aoe_feature_id, is_global=False
+                obs, location=Location(4, 4), feature_id=territory_feature_id, is_global=False
             )
         )
         == 0
@@ -87,6 +82,8 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
 
     # (4,3) is in range of the friendly source at (3,2) but out of range of the enemy at (1,2).
     assert (
-        ObservationHelper.find_token_values(obs, location=Location(4, 3), feature_id=aoe_feature_id, is_global=False)
+        ObservationHelper.find_token_values(
+            obs, location=Location(4, 3), feature_id=territory_feature_id, is_global=False
+        )
         == 0x01
     )

@@ -22,7 +22,6 @@ ObservationType LpWest;
 ObservationType LpNorth;
 ObservationType LpSouth;
 ObservationType AgentId;
-ObservationType AoeMask;
 ObservationType Territory;
 
 void Initialize(const std::unordered_map<std::string, ObservationType>& feature_ids) {
@@ -46,7 +45,6 @@ void Initialize(const std::unordered_map<std::string, ObservationType>& feature_
   LpNorth = _instance->LpNorth;
   LpSouth = _instance->LpSouth;
   AgentId = _instance->AgentId;
-  AoeMask = _instance->AoeMask;
   Territory = _instance->Territory;
 }
 }  // namespace ObservationFeature
