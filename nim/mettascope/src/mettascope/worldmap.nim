@@ -36,6 +36,8 @@ var
   # Allocated coverage map for AoE map generation,
   # so that it's not reallocated every time and cause GC pressure.
   reuseableCoverageMap: seq[bool]
+  reuseableFriendlyDistMap: seq[int]
+  reuseableEnemyDistMap: seq[int]
 
   px*: Pixelator
   pxMini*: Pixelator
@@ -372,40 +374,40 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
   let
     width = aoeMap.width
     height = aoeMap.height
+    maxDist = high(int) div 4
 
   reuseableCoverageMap.setLen(width * height)
+  reuseableFriendlyDistMap.setLen(width * height)
+  reuseableEnemyDistMap.setLen(width * height)
   # Initialize all to true (no AoE coverage = fog)
   for i in 0 ..< reuseableCoverageMap.len:
     reuseableCoverageMap[i] = true
+    reuseableFriendlyDistMap[i] = maxDist
+    reuseableEnemyDistMap[i] = maxDist
 
   # Check if this collective is visible (not hidden). Neutral slot is never shown in combined mode.
   let isEnabled = slotId < getNumCollectives() and slotId notin settings.hiddenCollectiveAoe
 
-  # Mark AoE coverage for objects with matching collective
-  proc markAoeCoverage(obj: Entity) =
-    # Check if object's collective maps to this slot
-    if collectiveToSlot(obj.collectiveId.at(step)) != slotId:
-      return
-
+  proc influenceRange(obj: Entity): int =
     # Get AoE range for this object type
     if obj.typeName == "agent":
-      return  # Agents don't emit AoE
+      return 0 # Agents don't emit AoE
     if replay.isNil or replay.mgConfig.isNil:
-      return
+      return 0
     if "game" notin replay.mgConfig:
-      return
+      return 0
     let game = replay.mgConfig["game"]
     if "objects" notin game:
-      return
+      return 0
     let objects = game["objects"]
     if obj.typeName notin objects:
-      return
+      return 0
     let objConfig = objects[obj.typeName]
     if "aoes" notin objConfig:
-      return
+      return 0
     let aoes = objConfig["aoes"]
     if aoes.kind != JObject:
-      return
+      return 0
 
     var maxRange = 0
     for aoeName, aoeConfig in aoes.pairs:
@@ -419,7 +421,13 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
           r = aoeConfig["radius"].getFloat.int
         if r > maxRange:
           maxRange = r
+    return maxRange
 
+  # Mark AoE coverage directly (used for selected-object mode).
+  proc markSelectedCoverage(obj: Entity) =
+    if collectiveToSlot(obj.collectiveId.at(step)) != slotId:
+      return
+    let maxRange = influenceRange(obj)
     if maxRange <= 0:
       return
 
@@ -436,6 +444,35 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
         if tx >= 0 and tx < width and ty >= 0 and ty < height:
           reuseableCoverageMap[ty * width + tx] = false  # false = has AoE coverage
 
+  # Accumulate nearest distances for friendly/enemy influence (territory-style collapse).
+  proc accumulateTerritoryDistances(obj: Entity) =
+    let objSlot = collectiveToSlot(obj.collectiveId.at(step))
+    if objSlot >= getNumCollectives() or objSlot in settings.hiddenCollectiveAoe:
+      return
+    let maxRange = influenceRange(obj)
+    if maxRange <= 0:
+      return
+    let isFriendly = objSlot == slotId
+
+    let rangeSq = maxRange * maxRange
+    let pos = obj.location.at(step).xy
+    for dx in -maxRange .. maxRange:
+      for dy in -maxRange .. maxRange:
+        let
+          tx = pos.x + dx.int32
+          ty = pos.y + dy.int32
+        let distSq = dx * dx + dy * dy
+        if distSq > rangeSq:
+          continue
+        if tx >= 0 and tx < width and ty >= 0 and ty < height:
+          let idx = ty * width + tx
+          if isFriendly:
+            if distSq < reuseableFriendlyDistMap[idx]:
+              reuseableFriendlyDistMap[idx] = distSq
+          else:
+            if distSq < reuseableEnemyDistMap[idx]:
+              reuseableEnemyDistMap[idx] = distSq
+
   # If a selected object has influence AoE, show only its AoE.
   # Otherwise show combined AoE for all objects in enabled collectives.
   let selectionHasInfluence = selection != nil and hasInfluenceAoe(selection)
@@ -443,15 +480,29 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
   if selectionHasInfluence:
     # Only show the selected object's influence AoE
     if collectiveToSlot(selection.collectiveId.at(step)) == slotId:
-      markAoeCoverage(selection)
+      markSelectedCoverage(selection)
   else:
-    # Show combined AoE for all objects in enabled collectives (like before)
-    # Neutral slot is never shown in combined mode (only on selection)
+    # Show combined AoE with territory-style collapse:
+    # winner per tile by nearest distance, ties are neutral.
     if isEnabled:
       for obj in replay.objects:
         if not obj.alive.at:
           continue
-        markAoeCoverage(obj)
+        accumulateTerritoryDistances(obj)
+
+      for i in 0 ..< reuseableCoverageMap.len:
+        let
+          friendlyDist = reuseableFriendlyDistMap[i]
+          enemyDist = reuseableEnemyDistMap[i]
+        if friendlyDist == maxDist:
+          reuseableCoverageMap[i] = true
+        elif enemyDist == maxDist:
+          reuseableCoverageMap[i] = false
+        elif friendlyDist < enemyDist:
+          reuseableCoverageMap[i] = false
+        else:
+          # Enemy closer or tie => not this slot (ties are neutral).
+          reuseableCoverageMap[i] = true
 
   # Generate the tile edges using marching squares
   for i in 0 ..< aoeMap.indexData.len:
