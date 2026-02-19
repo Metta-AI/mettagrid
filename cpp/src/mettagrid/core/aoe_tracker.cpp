@@ -291,7 +291,7 @@ void AOETracker::apply_fixed(GridObject& target) {
     }
   }
 
-  // Territory selection: for territory-mode AOEs, collapse to a single effective source per tile/target.
+  // Territory selection: collapse to a single effective source per tile/target.
   AOESource* territory_friendly_best = nullptr;
   AOESource* territory_enemy_best = nullptr;
   int territory_friendly_best_key = std::numeric_limits<int>::max();
@@ -299,12 +299,13 @@ void AOETracker::apply_fixed(GridObject& target) {
   GridObjectId territory_friendly_best_id = std::numeric_limits<GridObjectId>::max();
   GridObjectId territory_enemy_best_id = std::numeric_limits<GridObjectId>::max();
 
+  auto is_territory_aoe = [](const AOESource* aoe_source) {
+    return aoe_source != nullptr && !aoe_source->has_mutations() && !aoe_source->has_presence_deltas();
+  };
+
   if (territory_collapse_enabled) {
     auto consider_territory = [&](AOESource* aoe_source, bool is_friendly) {
-      if (!aoe_source->config.territory_mode || aoe_source->source == nullptr) {
-        return;
-      }
-      if (!aoe_source->has_mutations() && !aoe_source->has_presence_deltas()) {
+      if (!is_territory_aoe(aoe_source) || aoe_source->source == nullptr) {
         return;
       }
 
@@ -371,7 +372,7 @@ void AOETracker::apply_fixed(GridObject& target) {
     bool now_passes = (!skip_self && aoe_source->passes_filters(&target, target_ctx));
     bool effective_passes = now_passes;
 
-    if (territory_collapse_enabled && aoe_source->config.territory_mode && aoe_source->source != nullptr &&
+    if (territory_collapse_enabled && is_territory_aoe(aoe_source) && aoe_source->source != nullptr &&
         aoe_source->source->getCollective() != nullptr) {
       effective_passes = (territory_selected != nullptr && aoe_source == territory_selected && now_passes);
     }
@@ -514,7 +515,6 @@ void AOETracker::fixed_observability_at(const GridLocation& loc,
   HandlerContext ctx(nullptr, &observer, _game_stats, _tag_index);
   ctx.query_system = _query_system;
 
-  ObservationType mask = 0;
   bool friendly_present = false;
   bool enemy_present = false;
   int friendly_best_key = std::numeric_limits<int>::max();
@@ -522,9 +522,17 @@ void AOETracker::fixed_observability_at(const GridLocation& loc,
   GridObjectId friendly_best_id = std::numeric_limits<GridObjectId>::max();
   GridObjectId enemy_best_id = std::numeric_limits<GridObjectId>::max();
 
+  auto is_territory_aoe = [](const AOESource* aoe_source) {
+    return aoe_source != nullptr && aoe_source->has_mutations() == false && aoe_source->has_presence_deltas() == false;
+  };
+
   for (const auto& aoe_source : cell_effects) {
     GridObject* source = aoe_source->source;
     if (source == nullptr) {
+      continue;
+    }
+
+    if (!is_territory_aoe(aoe_source.get())) {
       continue;
     }
 
@@ -538,51 +546,41 @@ void AOETracker::fixed_observability_at(const GridLocation& loc,
     }
 
     bool is_friendly = (source_collective->id == observer_collective->id);
-    if (out_aoe_mask != nullptr) {
-      mask |= is_friendly ? 0x01 : 0x02;
-    }
-
-    if (out_territory != nullptr && aoe_source->config.territory_mode) {
-      int key = distance_sq(source->location, loc);
-      GridObjectId src_id = source->id;
-      if (is_friendly) {
-        friendly_present = true;
-        if (key < friendly_best_key || (key == friendly_best_key && src_id < friendly_best_id)) {
-          friendly_best_key = key;
-          friendly_best_id = src_id;
-        }
-      } else {
-        enemy_present = true;
-        if (key < enemy_best_key || (key == enemy_best_key && src_id < enemy_best_id)) {
-          enemy_best_key = key;
-          enemy_best_id = src_id;
-        }
+    int key = distance_sq(source->location, loc);
+    GridObjectId src_id = source->id;
+    if (is_friendly) {
+      friendly_present = true;
+      if (key < friendly_best_key || (key == friendly_best_key && src_id < friendly_best_id)) {
+        friendly_best_key = key;
+        friendly_best_id = src_id;
+      }
+    } else {
+      enemy_present = true;
+      if (key < enemy_best_key || (key == enemy_best_key && src_id < enemy_best_id)) {
+        enemy_best_key = key;
+        enemy_best_id = src_id;
       }
     }
+  }
 
-    if (out_aoe_mask != nullptr && out_territory == nullptr && mask == 0x03) {
-      break;
+  ObservationType aoe_value = 0;
+  if (friendly_present && enemy_present) {
+    if (friendly_best_key < enemy_best_key) {
+      aoe_value = 1;
+    } else if (enemy_best_key < friendly_best_key) {
+      aoe_value = 2;
     }
+  } else if (friendly_present) {
+    aoe_value = 1;
+  } else if (enemy_present) {
+    aoe_value = 2;
   }
 
   if (out_aoe_mask != nullptr) {
-    *out_aoe_mask = mask;
+    *out_aoe_mask = aoe_value;
   }
-
   if (out_territory != nullptr) {
-    if (friendly_present && enemy_present) {
-      if (friendly_best_key < enemy_best_key) {
-        *out_territory = 1;
-      } else if (enemy_best_key < friendly_best_key) {
-        *out_territory = 2;
-      } else {
-        *out_territory = 0;
-      }
-    } else if (friendly_present) {
-      *out_territory = 1;
-    } else if (enemy_present) {
-      *out_territory = 2;
-    }
+    *out_territory = aoe_value;
   }
 }
 

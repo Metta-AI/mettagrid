@@ -123,12 +123,14 @@ public:
 
   // Compute observability signals for empty tiles.
   //
-  // out_aoe_mask (optional): per-tile AOE mask.
-  // - Bit 0: at least one fixed AOE would affect the observer from a same-collective source.
-  // - Bit 1: at least one fixed AOE would affect the observer from a different-collective source.
+  // out_aoe_mask (optional): per-tile collapsed AOE mask.
+  // - 0 = no influence
+  // - 1 = friendly territory/influence
+  // - 2 = enemy territory/influence
+  // - neutral contests encode as 0
   //
-  // out_territory (optional): per-tile territory field using only fixed AOEs with config.territory_mode=true.
-  // - 0 = neutral, 1 = positive (friendly), 2 = negative (enemy).
+  // out_territory is kept for historical compatibility; it receives the same
+  // collapsed territory value when requested.
   //
   // Writes 0 for any requested output that has no signal at loc.
   void fixed_observability_at(const GridLocation& loc,

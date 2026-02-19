@@ -353,7 +353,6 @@ def _convert_aoe_configs(aoes: dict, id_maps: CppIdMaps) -> list:
         cpp_aoe.radius = aoe.radius
         cpp_aoe.is_static = aoe.is_static
         cpp_aoe.effect_self = aoe.effect_self
-        cpp_aoe.territory_mode = aoe.territory_mode
 
         _convert_filters(aoe.filters, cpp_aoe, id_maps, context="AOEConfig")
         convert_mutations(aoe.mutations, cpp_aoe, id_maps, context="AOEConfig")

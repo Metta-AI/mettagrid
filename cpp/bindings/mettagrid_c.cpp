@@ -406,14 +406,12 @@ void MettaGrid::_emit_tile_observability_tokens(size_t agent_idx,
                                                 size_t& attempted_tokens_written,
                                                 size_t buffer_capacity) {
   ObservationType aoe_mask = 0;
-  ObservationType territory = 0;
   ObservationType* aoe_mask_ptr = (ObservationFeature::AoeMask != 0) ? &aoe_mask : nullptr;
-  ObservationType* territory_ptr = (ObservationFeature::Territory != 0) ? &territory : nullptr;
-  if (aoe_mask_ptr == nullptr && territory_ptr == nullptr) {
+  if (aoe_mask_ptr == nullptr) {
     return;
   }
 
-  _aoe_tracker->fixed_observability_at(object_loc, *_agents[agent_idx], aoe_mask_ptr, territory_ptr);
+  _aoe_tracker->fixed_observability_at(object_loc, *_agents[agent_idx], aoe_mask_ptr, nullptr);
 
   if (aoe_mask != 0) {
     attempted_tokens_written += 1;
@@ -421,17 +419,6 @@ void MettaGrid::_emit_tile_observability_tokens(size_t agent_idx,
       obs_ptr[0].location = location;
       obs_ptr[0].feature_id = ObservationFeature::AoeMask;
       obs_ptr[0].value = aoe_mask;
-      obs_ptr += 1;
-      tokens_written += 1;
-    }
-  }
-
-  if (territory != 0) {
-    attempted_tokens_written += 1;
-    if (tokens_written < buffer_capacity) {
-      obs_ptr[0].location = location;
-      obs_ptr[0].feature_id = ObservationFeature::Territory;
-      obs_ptr[0].value = territory;
       obs_ptr += 1;
       tokens_written += 1;
     }
