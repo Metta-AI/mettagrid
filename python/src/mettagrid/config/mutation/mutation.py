@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from enum import StrEnum, auto
+from enum import auto
 
-from mettagrid.base_config import Config
+from mettagrid.base_config import Config, ConfigStrEnum
 
 
-class EntityTarget(StrEnum):
+class EntityTarget(ConfigStrEnum):
     """Target entity for mutation operations."""
 
     ACTOR = auto()

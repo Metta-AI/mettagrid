@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-from enum import StrEnum, auto
+from enum import auto
 from typing import TYPE_CHECKING, Literal, Optional
 
 from pydantic import Field
 
+from mettagrid.base_config import ConfigStrEnum
 from mettagrid.config.filter.filter import Filter, HandlerTarget, isNot
 
 if TYPE_CHECKING:
     from mettagrid.config.filter.filter import NotFilter
 
 
-class AlignmentCondition(StrEnum):
+class AlignmentCondition(ConfigStrEnum):
     """Conditions for alignment filter checks."""
 
     ALIGNED = auto()  # target has any collective

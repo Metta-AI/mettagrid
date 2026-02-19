@@ -2,25 +2,24 @@ from __future__ import annotations
 
 import inspect
 import time
-from enum import StrEnum, auto
+from enum import auto
 from typing import Any, ClassVar, Final, Generic, Self, TypeVar, get_args, get_origin
 
 import numpy as np
 from pydantic import (
     ModelWrapValidatorHandler,
     SerializeAsAny,
-    field_serializer,
     model_serializer,
     model_validator,
 )
 
-from mettagrid.base_config import Config
+from mettagrid.base_config import Config, ConfigStrEnum
 from mettagrid.map_builder import MapGrid
 from mettagrid.mapgen.area import Area, AreaQuery
 from mettagrid.util.module import load_symbol
 
 
-class GridTransform(StrEnum):
+class GridTransform(ConfigStrEnum):
     IDENTITY = auto()
     ROT_90 = auto()
     ROT_180 = auto()
@@ -116,11 +115,6 @@ class SceneConfig(Config):
 
     # Transform relative to the area that this scene config receives in `create`.
     transform: GridTransform = GridTransform.IDENTITY
-
-    @field_serializer("transform")
-    def _ser_transform(self, value: GridTransform):
-        # Emit as the enum value (str) to avoid UnexpectedValue warnings during dumps
-        return value.value
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         kwargs.setdefault("serialize_as_any", True)

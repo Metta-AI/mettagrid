@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from enum import StrEnum, auto
+from enum import auto
 from typing import Literal, Optional
 
 from pydantic import Field
 
+from mettagrid.base_config import ConfigStrEnum
 from mettagrid.config.mutation.mutation import Mutation
 
 
-class AlignTo(StrEnum):
+class AlignTo(ConfigStrEnum):
     """Alignment target options for AlignmentMutation."""
 
     ACTOR_COLLECTIVE = auto()  # align to actor's collective

@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from enum import StrEnum, auto
+from enum import auto
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import Field
 
-from mettagrid.base_config import Config
+from mettagrid.base_config import Config, ConfigStrEnum
 
 if TYPE_CHECKING:
     from mettagrid.config.filter import AnyFilter
 
 
-class HandlerTarget(StrEnum):
+class HandlerTarget(ConfigStrEnum):
     """Target entity for filter operations."""
 
     ACTOR = auto()

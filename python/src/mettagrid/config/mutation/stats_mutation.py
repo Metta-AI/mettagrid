@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from enum import StrEnum, auto
+from enum import auto
 from typing import Literal
 
 from pydantic import Field
 
+from mettagrid.base_config import ConfigStrEnum
 from mettagrid.config.mutation.mutation import Mutation
 
 
-class StatsTarget(StrEnum):
+class StatsTarget(ConfigStrEnum):
     """Target for stats logging - which stats tracker to log to."""
 
     GAME = auto()  # log to game-level stats tracker
@@ -18,7 +19,7 @@ class StatsTarget(StrEnum):
     COLLECTIVE = auto()  # log to entity's (actor or target) collective's stats tracker
 
 
-class StatsEntity(StrEnum):
+class StatsEntity(ConfigStrEnum):
     """Which entity to use for resolving the stats tracker."""
 
     TARGET = auto()  # use the target entity
