@@ -129,7 +129,7 @@ proc drawMinimap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: V
   let minimapZoomInfo = ZoomInfo()
   minimapZoomInfo.rect = irect(contentPos.x, contentPos.y, contentSize.x, contentSize.y)
   # Adjust zoom info and draw the minimap.
-  minimapZoomInfo.hasMouse = false
+  minimapZoomInfo.hasMouse = sk.mouseInsideClip(window, rect(contentPos, contentSize))
 
   saveTransform()
   translateTransform(contentPos)

@@ -2,6 +2,8 @@ import
   chroma, vmath, windy, silky,
   common, worldmap, panels
 
+var minimapDragging = false
+
 proc drawCameraViewportOverlay(zoomInfo: ZoomInfo, zoomScale, posX, posY: float32) =
   ## Draw the current main world-map camera viewport as a white minimap outline.
   if worldMapZoomInfo.isNil:
@@ -52,6 +54,32 @@ proc drawCameraViewportOverlay(zoomInfo: ZoomInfo, zoomScale, posX, posY: float3
     outlineColor
   )
 
+proc handleMinimapInput(zoomInfo: ZoomInfo, zoomScale, posX, posY: float32) =
+  ## Click or drag the minimap to move the main camera.
+  if window.buttonPressed[MouseLeft] and zoomInfo.hasMouse:
+    minimapDragging = true
+
+  if not window.buttonDown[MouseLeft]:
+    minimapDragging = false
+    return
+
+  if not minimapDragging:
+    return
+
+  let
+    mouseLocal = window.mousePos.vec2 - zoomInfo.rect.xy.vec2
+    worldX = (mouseLocal.x - posX) / zoomScale
+    worldY = (mouseLocal.y - posY) / zoomScale
+    mainRectW = worldMapZoomInfo.rect.w.float32
+    mainRectH = worldMapZoomInfo.rect.h.float32
+    z = worldMapZoomInfo.zoom * worldMapZoomInfo.zoom
+  worldMapZoomInfo.pos.x = mainRectW / 2.0f - worldX * z
+  worldMapZoomInfo.pos.y = mainRectH / 2.0f - worldY * z
+  # Clear main camera momentum so it doesn't fight the minimap positioning.
+  worldMapZoomInfo.vel = vec2(0, 0)
+  worldMapZoomInfo.dragging = false
+  settings.lockFocus = false
+
 proc drawMinimap*(zoomInfo: ZoomInfo) =
   ## Draw the minimap with automatic fitting to panel size.
   if replay.isNil or replay.mapSize == (0, 0):
@@ -88,3 +116,4 @@ proc drawMinimap*(zoomInfo: ZoomInfo) =
 
   restoreTransform()
   drawCameraViewportOverlay(zoomInfo, zoomScale, posX, posY)
+  handleMinimapInput(zoomInfo, zoomScale, posX, posY)
