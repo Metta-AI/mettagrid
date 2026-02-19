@@ -86,6 +86,7 @@ class MettaGridPufferEnv(PufferEnv):
         self._env_supervisor: MultiAgentPolicy | None = None
         self._supervisor_uses_vibe_action_space = bool(self._policy_env_info.vibe_action_names)
         self._supervisor_action_ids: np.ndarray | None = None
+        self._vibe_action_ids_by_index: np.ndarray | None = None
 
         # Initialize shared buffers FIRST (before super().__init__)
         # because PufferLib may access them during initialization
@@ -202,6 +203,13 @@ class MettaGridPufferEnv(PufferEnv):
 
     def _init_simulation(self) -> Simulation:
         sim = self._simulator.new_simulation(self._current_cfg, self._current_seed, buffers=self._buffers)
+        if self._policy_env_info.vibe_action_names:
+            self._vibe_action_ids_by_index = np.array(
+                [sim.action_ids[action_name] for action_name in self._policy_env_info.vibe_action_names],
+                dtype=dtype_actions,
+            )
+        else:
+            self._vibe_action_ids_by_index = np.zeros((0,), dtype=dtype_actions)
         if self._supervisor_policy_spec is not None:
             supervisor_env_info = self._supervisor_policy_env_info()
 
@@ -310,18 +318,83 @@ class MettaGridPufferEnv(PufferEnv):
 
         # Gymnasium returns int64 arrays by default when sampling MultiDiscrete spaces,
         # so coerce here to keep callers simple while preserving strict bounds checking.
-        actions_to_copy = actions if actions.dtype == dtype_actions else np.asarray(actions, dtype=dtype_actions)
-        np.copyto(self._buffers.actions, actions_to_copy, casting="safe")
+        actions_view = actions if actions.dtype == dtype_actions else np.asarray(actions, dtype=dtype_actions)
+        core_actions = actions_view
+        learner_vibe_actions: Optional[np.ndarray] = None
+        num_non_vibe_actions = int(self.single_action_space.n)
+        num_vibe_actions = len(self._policy_env_info.vibe_action_names)
+        vibe_action_ids_by_index = self._vibe_action_ids_by_index
+        if num_non_vibe_actions <= 0:
+            raise ValueError("Environment must expose at least one non-vibe action")
+        if actions_view.ndim == 2:
+            if actions_view.shape[1] == 1:
+                core_actions = actions_view[:, 0]
+            elif actions_view.shape[1] == 2:
+                core_actions = actions_view[:, 0]
+                raw_vibe = actions_view[:, 1].astype(np.int64, copy=False)
+                if bool((raw_vibe < 0).any()):
+                    raise ValueError(f"Vibe actions must be non-negative, got min={raw_vibe.min()}")
+                if num_vibe_actions > 0 and bool((raw_vibe < num_vibe_actions).all()):
+                    assert vibe_action_ids_by_index is not None
+                    learner_vibe_actions = vibe_action_ids_by_index[raw_vibe]
+                else:
+                    learner_vibe_actions = raw_vibe.astype(dtype_actions, copy=False)
+            else:
+                raise ValueError(
+                    f"Expected step actions shape [num_agents] or [num_agents,2], got {actions_view.shape}"
+                )
+        elif actions_view.ndim == 1:
+            actions_i64 = actions_view.astype(np.int64, copy=False)
+            if bool((actions_i64 < 0).any()):
+                raise ValueError(f"Core actions must be non-negative, got min={actions_i64.min()}")
+            encoded_mask = actions_i64 >= num_non_vibe_actions
+            if bool(encoded_mask.any()):
+                if num_vibe_actions <= 0:
+                    raise ValueError(
+                        "Received encoded vibe actions but this environment has no configured vibe action space"
+                    )
+                vibe_bucket = actions_i64 // num_non_vibe_actions
+                core_actions = (actions_i64 % num_non_vibe_actions).astype(dtype_actions, copy=False)
+                vibe_indices = vibe_bucket - 1
+                if bool((vibe_indices < 0).any()) or bool((vibe_indices >= num_vibe_actions).any()):
+                    raise ValueError(
+                        f"Encoded vibe action indices out of range [0,{num_vibe_actions}), "
+                        f"min={vibe_indices.min()} max={vibe_indices.max()}"
+                    )
+                assert vibe_action_ids_by_index is not None
+                learner_vibe_actions = np.zeros(core_actions.shape, dtype=dtype_actions)
+                learner_vibe_actions[encoded_mask] = vibe_action_ids_by_index[vibe_indices[encoded_mask]]
+        else:
+            raise ValueError(f"Expected step actions shape [num_agents] or [num_agents,2], got {actions_view.shape}")
+
+        core_actions_i64 = core_actions.astype(np.int64, copy=False)
+        if bool((core_actions_i64 < 0).any()) or bool((core_actions_i64 >= num_non_vibe_actions).any()):
+            raise ValueError(
+                f"Core actions out of range [0,{num_non_vibe_actions}), "
+                f"min={core_actions_i64.min()} max={core_actions_i64.max()}"
+            )
+        if core_actions.dtype != dtype_actions:
+            core_actions = core_actions.astype(dtype_actions, copy=False)
+
+        if core_actions.shape != self._buffers.actions.shape:
+            raise ValueError(f"Expected {self._buffers.actions.shape} core actions, got {core_actions.shape}")
+        np.copyto(self._buffers.actions, core_actions, casting="safe")
+
+        vibe_actions = self._buffers.vibe_actions
+        if learner_vibe_actions is not None:
+            assert vibe_actions is not None
+            if learner_vibe_actions.shape != vibe_actions.shape:
+                raise ValueError(f"Expected {vibe_actions.shape} vibe actions, got {learner_vibe_actions.shape}")
+            np.copyto(vibe_actions, learner_vibe_actions, casting="safe")
+        elif self._supervisor_policy_spec is None:
+            assert vibe_actions is not None
+            vibe_actions.fill(dtype_actions.type(0))
 
         sim.step()
 
         # Do this after step() so that the trainer can use it if needed
         if self._supervisor_policy_spec is not None:
             self._compute_supervisor_actions()
-        else:
-            vibe_actions = self._buffers.vibe_actions
-            if vibe_actions is not None:
-                vibe_actions.fill(dtype_actions.type(0))
 
         return (
             self._buffers.observations,
