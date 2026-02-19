@@ -44,6 +44,7 @@ def test_territory_map_observation_tokens_emitted_for_empty_cells() -> None:
         aoes={
             "friendly": AOEConfig(
                 radius=2,
+                controls_territory=True,
                 filters=[
                     AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.SAME_COLLECTIVE),
                 ],
@@ -57,6 +58,7 @@ def test_territory_map_observation_tokens_emitted_for_empty_cells() -> None:
         aoes={
             "enemy": AOEConfig(
                 radius=2,
+                controls_territory=True,
                 filters=[
                     AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.DIFFERENT_COLLECTIVE),
                 ],
@@ -157,3 +159,131 @@ def test_mutating_aoes_stack_overlapping_sources() -> None:
     sim2.agent(0).set_action("noop")
     sim2.step()
     assert sim2.agent(0).inventory.get("hp", 0) == 109
+
+
+def test_mutating_aoes_do_not_emit_territory_ownership_tokens() -> None:
+    cfg = MettaGridConfig.EmptyRoom(num_agents=1, width=5, height=5, border_width=0).with_ascii_map(
+        [
+            ".....",
+            "..E..",
+            "..@..",
+            ".....",
+            ".....",
+        ],
+        char_to_map_name={"E": "enemy_source"},
+    )
+    cfg.game.obs.width = 5
+    cfg.game.obs.height = 5
+    cfg.game.obs.num_tokens = 200
+    cfg.game.obs.aoe_mask = True
+    cfg.game.resource_names = ["hp"]
+    cfg.game.agent.collective = "cogs"
+    cfg.game.agent.inventory.initial = {"hp": 10}
+    cfg.game.collectives = {
+        "cogs": CollectiveConfig(inventory=InventoryConfig()),
+        "clips": CollectiveConfig(inventory=InventoryConfig()),
+    }
+    cfg.game.objects["enemy_source"] = GridObjectConfig(
+        name="enemy_source",
+        map_name="enemy_source",
+        collective="clips",
+        aoes={
+            "enemy": AOEConfig(
+                radius=2,
+                filters=[
+                    AlignmentFilter(
+                        target=HandlerTarget.TARGET,
+                        alignment=AlignmentCondition.DIFFERENT_COLLECTIVE,
+                    )
+                ],
+                mutations=[updateTarget({"hp": -1})],
+            )
+        },
+    )
+
+    sim = Simulation(cfg)
+    obs = sim._c_sim.observations()[0]
+    territory_feature_id = sim.config.game.id_map().feature_id("aoe_mask")
+
+    vals = ObservationHelper.find_token_values(
+        obs, location=Location(2, 2), feature_id=territory_feature_id, is_global=False
+    )
+    assert len(vals) == 0
+
+    sim.agent(0).set_action("noop")
+    sim.step()
+    assert sim.agent(0).inventory.get("hp", 0) == 9
+
+
+def test_territory_controlled_mutating_aoes_use_winning_side_and_preserve_stacking() -> None:
+    cfg = MettaGridConfig.EmptyRoom(num_agents=1, width=5, height=5, border_width=0).with_ascii_map(
+        [
+            ".....",
+            "..E..",
+            "F.@..",
+            "..E..",
+            ".....",
+        ],
+        char_to_map_name={"E": "enemy_source", "F": "friendly_source"},
+    )
+    cfg.game.obs.width = 5
+    cfg.game.obs.height = 5
+    cfg.game.obs.num_tokens = 200
+    cfg.game.obs.aoe_mask = True
+    cfg.game.resource_names = ["hp"]
+    cfg.game.agent.collective = "cogs"
+    cfg.game.agent.inventory.initial = {"hp": 10}
+    cfg.game.collectives = {
+        "cogs": CollectiveConfig(inventory=InventoryConfig()),
+        "clips": CollectiveConfig(inventory=InventoryConfig()),
+    }
+    cfg.game.objects["enemy_source"] = GridObjectConfig(
+        name="enemy_source",
+        map_name="enemy_source",
+        collective="clips",
+        aoes={
+            "enemy": AOEConfig(
+                radius=3,
+                controls_territory=True,
+                filters=[
+                    AlignmentFilter(
+                        target=HandlerTarget.TARGET,
+                        alignment=AlignmentCondition.DIFFERENT_COLLECTIVE,
+                    )
+                ],
+                mutations=[updateTarget({"hp": -1})],
+            )
+        },
+    )
+    cfg.game.objects["friendly_source"] = GridObjectConfig(
+        name="friendly_source",
+        map_name="friendly_source",
+        collective="cogs",
+        aoes={
+            "friendly": AOEConfig(
+                radius=3,
+                controls_territory=True,
+                filters=[
+                    AlignmentFilter(
+                        target=HandlerTarget.TARGET,
+                        alignment=AlignmentCondition.SAME_COLLECTIVE,
+                    )
+                ],
+                mutations=[updateTarget({"hp": +100})],
+            )
+        },
+    )
+
+    sim = Simulation(cfg)
+    obs = sim._c_sim.observations()[0]
+    territory_feature_id = sim.config.game.id_map().feature_id("aoe_mask")
+
+    vals = ObservationHelper.find_token_values(
+        obs, location=Location(2, 2), feature_id=territory_feature_id, is_global=False
+    )
+    assert len(vals) == 1
+    assert int(vals[0]) == 2
+
+    sim.agent(0).set_action("noop")
+    sim.step()
+    assert sim.agent(0).inventory.get("hp", 0) == 8

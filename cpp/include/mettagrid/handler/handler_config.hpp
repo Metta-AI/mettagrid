@@ -56,6 +56,7 @@ struct AOEConfig : public HandlerConfig {
   int radius = 1;            // Euclidean distance for AOE
   bool is_static = true;     // true = fixed (default), false = mobile (for agents)
   bool effect_self = false;  // Whether source is affected by its own AOE
+  bool controls_territory = false;  // Whether this AOE contributes to territory ownership/collapse
 
   // One-time resource changes when target enters/exits AOE
   // Enter: apply +delta, Exit: apply -delta

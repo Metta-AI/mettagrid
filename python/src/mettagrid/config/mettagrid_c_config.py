@@ -382,23 +382,24 @@ def _convert_event_mutations(mutations, cpp_target, id_maps: CppIdMaps, context:
 def _convert_aoe_configs(aoes: dict, id_maps: CppIdMaps) -> list:
     """Convert Python AOEConfig dict to C++ AOEConfig list."""
     cpp_aoe_configs = []
-    for aoe in aoes.values():
-        cpp_aoe = CppAOEConfig()
-        cpp_aoe.radius = aoe.radius
-        cpp_aoe.is_static = aoe.is_static
-        cpp_aoe.effect_self = aoe.effect_self
+    for aoe_config in aoes.values():
+        cpp_aoe_config = CppAOEConfig()
+        cpp_aoe_config.radius = aoe_config.radius
+        cpp_aoe_config.is_static = aoe_config.is_static
+        cpp_aoe_config.effect_self = aoe_config.effect_self
+        cpp_aoe_config.controls_territory = aoe_config.controls_territory
 
-        _convert_filters(aoe.filters, cpp_aoe, id_maps, context="AOEConfig")
-        convert_mutations(aoe.mutations, cpp_aoe, id_maps, context="AOEConfig")
+        _convert_filters(aoe_config.filters, cpp_aoe_config, id_maps, context="AOEConfig")
+        convert_mutations(aoe_config.mutations, cpp_aoe_config, id_maps, context="AOEConfig")
 
         presence_deltas_list = []
-        for resource_name, delta in aoe.presence_deltas.items():
+        for resource_name, delta in aoe_config.presence_deltas.items():
             if resource_name not in id_maps.resource_name_to_id:
                 raise ValueError(f"Unknown resource '{resource_name}' in AOEConfig presence_deltas")
             presence_deltas_list.append(CppResourceDelta(id_maps.resource_name_to_id[resource_name], delta))
-        cpp_aoe.presence_deltas = presence_deltas_list
+        cpp_aoe_config.presence_deltas = presence_deltas_list
 
-        cpp_aoe_configs.append(cpp_aoe)
+        cpp_aoe_configs.append(cpp_aoe_config)
     return cpp_aoe_configs
 
 
