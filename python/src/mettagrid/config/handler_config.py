@@ -132,6 +132,8 @@ class AOEConfig(Handler):
     - mutations: Applied every tick to targets that pass filters and are in range.
     - presence_deltas: One-time resource changes when target enters/exits AOE.
       On enter: apply +delta, on exit: apply -delta.
+    - Territory ownership for `territory` is derived from fixed AOEs with no
+      mutations and no presence_deltas.
     """
 
     radius: int = Field(default=1, ge=0, description="Radius of effect (Euclidean distance)")
@@ -143,10 +145,6 @@ class AOEConfig(Handler):
     effect_self: bool = Field(
         default=False,
         description="If True, the AOE source is affected by its own AOE.",
-    )
-    controls_territory: bool = Field(
-        default=False,
-        description="Whether this AOE contributes to territory ownership.",
     )
     presence_deltas: dict[str, int] = Field(
         default_factory=dict,

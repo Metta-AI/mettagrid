@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -10,6 +11,7 @@
 #include "handler/filters/filter_factory.hpp"
 #include "handler/handler_context.hpp"
 #include "handler/mutations/mutation_factory.hpp"
+#include "objects/collective.hpp"
 #include "systems/stats_tracker.hpp"
 
 namespace mettagrid {
@@ -20,8 +22,13 @@ int distance_sq(const GridLocation& a, const GridLocation& b) {
   return dr * dr + dc * dc;
 }
 
+bool is_clips_collective(const Collective* collective) {
+  static constexpr std::string_view kClipsCollectiveName = "clips";
+  return collective != nullptr && collective->name == kClipsCollectiveName;
+}
+
 bool is_territory_aoe(const AOESource* aoe_source) {
-  return aoe_source != nullptr && aoe_source->config.controls_territory;
+  return aoe_source != nullptr && !aoe_source->has_mutations() && !aoe_source->has_presence_deltas();
 }
 
 enum class TerritoryOwner {
@@ -35,12 +42,17 @@ struct TerritoryContest {
   bool enemy_present = false;
   int friendly_best_key = std::numeric_limits<int>::max();
   int enemy_best_key = std::numeric_limits<int>::max();
+  bool friendly_best_is_clips = false;
+  bool enemy_best_is_clips = false;
 
-  void consider(bool is_friendly, int key) {
+  void consider(bool is_friendly, int key, bool source_is_clips) {
     if (is_friendly) {
       friendly_present = true;
       if (key < friendly_best_key) {
         friendly_best_key = key;
+        friendly_best_is_clips = source_is_clips;
+      } else if (key == friendly_best_key && source_is_clips) {
+        friendly_best_is_clips = true;
       }
       return;
     }
@@ -48,6 +60,9 @@ struct TerritoryContest {
     enemy_present = true;
     if (key < enemy_best_key) {
       enemy_best_key = key;
+      enemy_best_is_clips = source_is_clips;
+    } else if (key == enemy_best_key && source_is_clips) {
+      enemy_best_is_clips = true;
     }
   }
 
@@ -58,6 +73,13 @@ struct TerritoryContest {
       }
       if (enemy_best_key < friendly_best_key) {
         return TerritoryOwner::Enemy;
+      }
+      // Midpoint tie-break: clips loses ties.
+      if (friendly_best_is_clips && !enemy_best_is_clips) {
+        return TerritoryOwner::Enemy;
+      }
+      if (enemy_best_is_clips && !friendly_best_is_clips) {
+        return TerritoryOwner::Friendly;
       }
       return TerritoryOwner::Neutral;
     }
@@ -181,6 +203,7 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
 
   const GridLocation& source_loc = source.location;
   int range = config.radius;
+  bool territory_boundary = is_territory_aoe(aoe_source.get());
 
   // Register at all cells within Euclidean radius.
   int range_sq = range * range;
@@ -196,6 +219,11 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
       }
       int dist_sq = dr * dr + dc * dc;
       if (dist_sq > range_sq) {
+        continue;
+      }
+      // Territory circles intentionally exclude exact cardinal boundary points
+      // so the mask shape is smooth and matches Mettascope overlays.
+      if (territory_boundary && dist_sq == range_sq && (dr == 0 || dc == 0)) {
         continue;
       }
       _cell_effects[cell_r][cell_c].push_back(aoe_source);
@@ -361,7 +389,9 @@ void AOETracker::apply_fixed(GridObject& target) {
         return;
       }
 
-      territory_contest.consider(is_friendly, distance_sq(aoe_source->source->location, target.location));
+      territory_contest.consider(is_friendly,
+                                 distance_sq(aoe_source->source->location, target.location),
+                                 is_clips_collective(source_collective));
     };
 
     for (AOESource* aoe_source : _scratch_friendly_sources) {
@@ -507,16 +537,12 @@ size_t AOETracker::fixed_effect_count_at(const GridLocation& loc) const {
 
 void AOETracker::fixed_observability_at(const GridLocation& loc,
                                         GridObject& observer,
-                                        ObservationType* out_aoe_mask,
                                         ObservationType* out_territory) const {
-  if (out_aoe_mask != nullptr) {
-    *out_aoe_mask = 0;
-  }
   if (out_territory != nullptr) {
     *out_territory = 0;
   }
 
-  if ((out_aoe_mask == nullptr && out_territory == nullptr) || loc.r >= _height || loc.c >= _width) {
+  if (out_territory == nullptr || loc.r >= _height || loc.c >= _width) {
     return;
   }
 
@@ -555,22 +581,18 @@ void AOETracker::fixed_observability_at(const GridLocation& loc,
     }
 
     bool is_friendly = (source_collective->id == observer_collective->id);
-    territory_contest.consider(is_friendly, distance_sq(source->location, loc));
+    territory_contest.consider(is_friendly, distance_sq(source->location, loc), is_clips_collective(source_collective));
   }
 
-  ObservationType aoe_value = 0;
+  ObservationType territory_value = 0;
   TerritoryOwner owner = territory_contest.owner();
   if (owner == TerritoryOwner::Friendly) {
-    aoe_value = 1;
+    territory_value = 1;
   } else if (owner == TerritoryOwner::Enemy) {
-    aoe_value = 2;
-  }
-
-  if (out_aoe_mask != nullptr) {
-    *out_aoe_mask = aoe_value;
+    territory_value = 2;
   }
   if (out_territory != nullptr) {
-    *out_territory = aoe_value;
+    *out_territory = territory_value;
   }
 }
 
