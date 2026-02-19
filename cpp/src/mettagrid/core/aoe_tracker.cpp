@@ -372,8 +372,7 @@ void AOETracker::apply_fixed(GridObject& target) {
     }
   }
 
-  TerritoryOwner territory_owner =
-      territory_collapse_enabled ? territory_contest.owner() : TerritoryOwner::Neutral;
+  TerritoryOwner territory_owner = territory_collapse_enabled ? territory_contest.owner() : TerritoryOwner::Neutral;
 
   auto process_source = [&](AOESource* aoe_source) {
     if (!aoe_source->has_mutations() && !aoe_source->has_presence_deltas()) {
@@ -390,10 +389,8 @@ void AOETracker::apply_fixed(GridObject& target) {
         effective_passes = false;
       } else {
         bool source_is_friendly = (source_collective->id == target_collective_id);
-        effective_passes =
-            now_passes &&
-            ((territory_owner == TerritoryOwner::Friendly && source_is_friendly) ||
-             (territory_owner == TerritoryOwner::Enemy && !source_is_friendly));
+        effective_passes = now_passes && ((territory_owner == TerritoryOwner::Friendly && source_is_friendly) ||
+                                          (territory_owner == TerritoryOwner::Enemy && !source_is_friendly));
       }
     }
 
