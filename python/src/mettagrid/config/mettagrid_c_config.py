@@ -206,6 +206,21 @@ def _convert_one_filter(filter_config, id_maps: CppIdMaps, context: str) -> tupl
             ),
         )
 
+    if ft == "tag_prefix":
+        tag_ids = _resolve_tag_prefix(filter_config.tag_prefix, id_maps.tag_name_to_id)
+        if not tag_ids:
+            raise ValueError(
+                f"TagPrefixFilter prefix '{filter_config.tag_prefix}' matched no tags. "
+                f"Available tags: {sorted(id_maps.tag_name_to_id.keys())}"
+            )
+        return (
+            "tag_prefix",
+            CppTagPrefixFilterConfig(
+                entity=convert_entity_ref(filter_config.target),
+                tag_ids=tag_ids,
+            ),
+        )
+
     if ft == "shared_tag_prefix":
         tag_ids = _resolve_tag_prefix(filter_config.tag_prefix, id_maps.tag_name_to_id)
         if not tag_ids:

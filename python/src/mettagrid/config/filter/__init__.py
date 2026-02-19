@@ -38,6 +38,7 @@ from mettagrid.config.filter.shared_tag_prefix_filter import (
     sharedTagPrefix,
 )
 from mettagrid.config.filter.tag_filter import TagFilter, hasTag, isA
+from mettagrid.config.filter.tag_prefix_filter import TagPrefixFilter, hasTagPrefix
 from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVibe
 from mettagrid.config.query import AnyQuery, ClosureQuery, MaterializedQuery, Query, materializedQuery, query
 from mettagrid.config.tag import Tag, typeTag
@@ -49,6 +50,7 @@ AnyFilter = Annotated[
         Annotated[AlignmentFilter, PydanticTag("alignment")],
         Annotated[TagFilter, PydanticTag("tag")],
         Annotated[SharedTagPrefixFilter, PydanticTag("shared_tag_prefix")],
+        Annotated[TagPrefixFilter, PydanticTag("tag_prefix")],
         Annotated[MaxDistanceFilter, PydanticTag("max_distance")],
         Annotated[GameValueFilter, PydanticTag("game_value")],
         Annotated[NotFilter, PydanticTag("not")],
@@ -84,6 +86,7 @@ __all__ = [
     "ResourceFilter",
     "AlignmentFilter",
     "TagFilter",
+    "TagPrefixFilter",
     "SharedTagPrefixFilter",
     "MaxDistanceFilter",
     "GameValueFilter",
@@ -110,6 +113,7 @@ __all__ = [
     "targetHasAnyOf",
     "actorVibe",
     "targetVibe",
+    "hasTagPrefix",
     "sharedTagPrefix",
     # Tag utilities
     "Tag",
