@@ -67,7 +67,6 @@ from mettagrid.config.mutation.tag_mutation import (
     removeTagPrefix,
 )
 from mettagrid.config.query import AnyQuery, ClosureQuery, MaterializedQuery, Query
-from mettagrid.config.tag import Tag as TagType
 
 AnyMutation = Annotated[
     Union[
@@ -95,7 +94,6 @@ _mutation_namespace = {
     "Query": Query,
     "MaterializedQuery": MaterializedQuery,
     "ClosureQuery": ClosureQuery,
-    "Tag": TagType,
     "ResourceDeltaMutation": ResourceDeltaMutation,
     "ResourceTransferMutation": ResourceTransferMutation,
     "FreezeMutation": FreezeMutation,

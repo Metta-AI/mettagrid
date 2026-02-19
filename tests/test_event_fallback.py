@@ -22,7 +22,7 @@ from mettagrid.config.mettagrid_config import (
 )
 from mettagrid.config.mutation import alignTo, logStat
 from mettagrid.config.query import query
-from mettagrid.config.tag import tag
+from mettagrid.config.tag import tag, typeTag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Simulation
@@ -101,7 +101,7 @@ class TestFallbackSimulation:
 
         Setup:
         - Primary event targets "type:chest" (no chests exist on the map)
-        - Fallback event targets "type:wall" and aligns them to clips
+        - Fallback event targets typeTag("wall") and aligns them to clips
         - After event fires, walls should be aligned (proving fallback fired)
         """
         config = MettaGridConfig(
@@ -112,7 +112,7 @@ class TestFallbackSimulation:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 resource_names=[],
                 objects={
-                    "wall": WallConfig(tags=["type:wall", "category:structure"]),
+                    "wall": WallConfig(tags=[typeTag("wall"), "category:structure"]),
                 },
                 # Note: We don't define "chest" objects. The primary event targets
                 # "category:special" tag which no objects have.
@@ -135,9 +135,9 @@ class TestFallbackSimulation:
                     # Fallback event targets walls (which exist)
                     "fallback_event": EventConfig(
                         name="fallback_event",
-                        target_query=query("type:wall"),
+                        target_query=query(typeTag("wall")),
                         timesteps=[],  # Not scheduled directly, only via fallback
-                        filters=[hasTag(tag("type:wall"))],
+                        filters=[hasTag(typeTag("wall"))],
                         mutations=[alignTo("clips")],
                         max_targets=1,
                     ),
@@ -180,8 +180,8 @@ class TestFallbackSimulation:
         """Test that fallback does NOT fire when primary event has matching targets.
 
         Setup:
-        - Primary event targets "type:wall" and aligns to cogs
-        - Fallback event targets "type:wall" and aligns to clips
+        - Primary event targets typeTag("wall") and aligns to cogs
+        - Fallback event targets typeTag("wall") and aligns to clips
         - After event fires, walls should be aligned to cogs (not clips)
         """
         config = MettaGridConfig(
@@ -192,7 +192,7 @@ class TestFallbackSimulation:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 resource_names=[],
                 objects={
-                    "wall": WallConfig(tags=["type:wall"]),
+                    "wall": WallConfig(tags=[typeTag("wall")]),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -202,7 +202,7 @@ class TestFallbackSimulation:
                     # Primary event targets walls and aligns to cogs
                     "primary_event": EventConfig(
                         name="primary_event",
-                        target_query=query("type:wall"),
+                        target_query=query(typeTag("wall")),
                         timesteps=[5],
                         filters=[isA("wall")],
                         mutations=[alignTo("cogs")],
@@ -212,7 +212,7 @@ class TestFallbackSimulation:
                     # Fallback event would align to clips (but should NOT fire)
                     "fallback_event": EventConfig(
                         name="fallback_event",
-                        target_query=query("type:wall"),
+                        target_query=query(typeTag("wall")),
                         timesteps=[],
                         filters=[isA("wall")],
                         mutations=[alignTo("clips")],
@@ -273,7 +273,7 @@ class TestFallbackSimulation:
                 resource_names=[],
                 objects={
                     # All walls start aligned to cogs
-                    "wall": WallConfig(tags=["type:wall"], collective="cogs"),
+                    "wall": WallConfig(tags=[typeTag("wall")], collective="cogs"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -283,7 +283,7 @@ class TestFallbackSimulation:
                     # Primary event only matches unaligned walls (none exist)
                     "primary_event": EventConfig(
                         name="primary_event",
-                        target_query=query("type:wall"),
+                        target_query=query(typeTag("wall")),
                         timesteps=[5],
                         filters=[isA("wall"), isAlignedTo(None)],  # Only unaligned
                         mutations=[logStat("primary.fired")],
@@ -293,7 +293,7 @@ class TestFallbackSimulation:
                     # Fallback aligns to clips
                     "fallback_event": EventConfig(
                         name="fallback_event",
-                        target_query=query("type:wall"),
+                        target_query=query(typeTag("wall")),
                         timesteps=[],
                         filters=[isA("wall")],
                         mutations=[alignTo("clips")],

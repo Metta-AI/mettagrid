@@ -7,7 +7,6 @@ from typing import Literal
 from pydantic import Field
 
 from mettagrid.config.mutation.mutation import EntityTarget, Mutation
-from mettagrid.config.tag import Tag
 
 
 class AddTagMutation(Mutation):
@@ -25,7 +24,7 @@ class AddTagMutation(Mutation):
         default=EntityTarget.TARGET,
         description="Entity to add tag to (actor or target)",
     )
-    tag: Tag = Field(description="Tag name to add")
+    tag: str = Field(description="Tag name to add")
 
 
 class RemoveTagMutation(Mutation):
@@ -43,7 +42,7 @@ class RemoveTagMutation(Mutation):
         default=EntityTarget.TARGET,
         description="Entity to remove tag from (actor or target)",
     )
-    tag: Tag = Field(description="Tag name to remove")
+    tag: str = Field(description="Tag name to remove")
 
 
 class RemoveTagsWithPrefixMutation(Mutation):
@@ -64,24 +63,24 @@ class RemoveTagsWithPrefixMutation(Mutation):
 # ===== Helper Mutation Functions =====
 
 
-def addTag(tag: str | Tag, target: EntityTarget = EntityTarget.TARGET) -> AddTagMutation:
+def addTag(tag: str, target: EntityTarget = EntityTarget.TARGET) -> AddTagMutation:
     """Mutation: add a tag to an entity.
 
     Args:
-        tag: Tag name to add (str or Tag).
+        tag: Tag name to add.
         target: Entity to add tag to (actor or target). Defaults to TARGET.
     """
-    return AddTagMutation(tag=Tag(name=tag) if isinstance(tag, str) else tag, target=target)
+    return AddTagMutation(tag=tag, target=target)
 
 
-def removeTag(tag: str | Tag, target: EntityTarget = EntityTarget.TARGET) -> RemoveTagMutation:
+def removeTag(tag: str, target: EntityTarget = EntityTarget.TARGET) -> RemoveTagMutation:
     """Mutation: remove a tag from an entity.
 
     Args:
-        tag: Tag name to remove (str or Tag).
+        tag: Tag name to remove.
         target: Entity to remove tag from (actor or target). Defaults to TARGET.
     """
-    return RemoveTagMutation(tag=Tag(name=tag) if isinstance(tag, str) else tag, target=target)
+    return RemoveTagMutation(tag=tag, target=target)
 
 
 def RemoveTagsWithPrefix(

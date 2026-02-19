@@ -41,7 +41,7 @@ def resolve_game_value(gv: GameValue, id_maps: CppIdMaps):
 
     if isinstance(gv, NumObjectsValue):
         cfg = CppTagCountValueConfig()
-        tag_name = typeTag(gv.object_type).name
+        tag_name = typeTag(gv.object_type)
         cfg.id = id_maps.tag_name_to_id[tag_name]
         return cfg
 

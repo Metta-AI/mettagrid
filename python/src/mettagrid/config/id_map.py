@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict
 
 from mettagrid.config.game_value import InventoryValue, NumObjectsValue, Scope, StatValue, TagCountValue
-from mettagrid.config.query import MaterializedQuery
 from mettagrid.config.tag import typeTag
 
 # This breaks a circular dependency: id_map <-> mettagrid_config
@@ -135,32 +134,28 @@ class IdMap:
         """Get all tag names in alphabetical order.
 
         Collects tags from:
-        - GameConfig.tags (explicit tags and materialized queries)
+        - GameConfig.tags (explicit tag strings)
+        - GameConfig.materialize_queries (materialized query output tags)
         - Object/agent tags (obj.tags)
         - Auto-generated type tags (typeTag(dict_key) for objects, typeTag(name) for agents)
 
         Note: Must match the logic in mettagrid_c_config.py to ensure tag IDs are consistent
         between Python and C++.
         """
-        materialized_tags: set[str] = set()
-        static_tags: set[str] = set()
-        for t in self._config.tags:
-            if isinstance(t, MaterializedQuery):
-                materialized_tags.add(t.tag)
-            else:
-                static_tags.add(t.name)
+        materialized_tags: set[str] = {mq.tag for mq in self._config.materialize_queries}
+        static_tags: set[str] = set(self._config.tags)
 
         for obj_key, obj_config in self._config.objects.items():
             static_tags.update(obj_config.tags)
-            static_tags.add(typeTag(obj_key).name)
+            static_tags.add(typeTag(obj_key))
 
         if self._config.agents:
             for agent in self._config.agents:
                 static_tags.update(agent.tags)
-                static_tags.add(typeTag(agent.name).name)
+                static_tags.add(typeTag(agent.name))
         elif self._config.num_agents > 0:
             static_tags.update(self._config.agent.tags)
-            static_tags.add(typeTag(self._config.agent.name).name)
+            static_tags.add(typeTag(self._config.agent.name))
 
         collisions = materialized_tags & static_tags
         if collisions:

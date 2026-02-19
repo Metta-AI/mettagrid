@@ -48,7 +48,7 @@ def isNear(query: "AnyQuery", radius: int = 1) -> MaxDistanceFilter:
         radius: Chebyshev distance (square radius) to check
 
     Examples:
-        isNear(query("type:junction", [isAlignedTo("clips")]), radius=3)
-        isNear(query("type:agent", [hasTag(tag("collective:cogs"))]))
+        isNear(query(typeTag("junction"), [isAlignedTo("clips")]), radius=3)
+        isNear(query(typeTag("agent"), [hasTag(tag("collective:cogs"))]))
     """
     return MaxDistanceFilter(target=HandlerTarget.TARGET, query=query, radius=radius)

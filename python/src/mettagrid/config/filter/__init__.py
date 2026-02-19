@@ -41,7 +41,7 @@ from mettagrid.config.filter.tag_filter import TagFilter, hasTag, isA
 from mettagrid.config.filter.tag_prefix_filter import TagPrefixFilter, hasTagPrefix
 from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVibe
 from mettagrid.config.query import AnyQuery, ClosureQuery, MaterializedQuery, Query, materializedQuery, query
-from mettagrid.config.tag import Tag, typeTag
+from mettagrid.config.tag import typeTag
 
 AnyFilter = Annotated[
     Union[
@@ -115,8 +115,6 @@ __all__ = [
     "targetVibe",
     "hasTagPrefix",
     "sharedTagPrefix",
-    # Tag utilities
-    "Tag",
     # Query
     "Query",
     "MaterializedQuery",

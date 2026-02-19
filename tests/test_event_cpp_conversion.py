@@ -28,7 +28,7 @@ from mettagrid.config.mettagrid_config import (
 )
 from mettagrid.config.mutation import alignTo
 from mettagrid.config.query import query
-from mettagrid.config.tag import tag
+from mettagrid.config.tag import tag, typeTag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 
@@ -67,7 +67,7 @@ class TestEventCppConversion:
         events = {
             "test_event": EventConfig(
                 name="test_event",
-                target_query=query("type:wall"),
+                target_query=query(typeTag("wall")),
                 timesteps=[10],
                 filters=[isA("wall")],
                 mutations=[alignTo("clips")],
@@ -87,7 +87,7 @@ class TestEventCppConversion:
         events = {
             "unlimited_event": EventConfig(
                 name="unlimited_event",
-                target_query=query("type:wall"),
+                target_query=query(typeTag("wall")),
                 timesteps=[10],
                 filters=[isA("wall")],
                 mutations=[alignTo("clips")],
@@ -106,7 +106,7 @@ class TestEventCppConversion:
         events = {
             "test_event": EventConfig(
                 name="test_event",
-                target_query=query("type:wall"),
+                target_query=query(typeTag("wall")),
                 timesteps=[10, 20, 30],
                 filters=[isA("wall")],
                 mutations=[alignTo("clips")],
@@ -133,7 +133,7 @@ class TestEventFilterConversion:
             resource_names=[],
             objects={
                 "wall": WallConfig(tags=["target_wall"], collective="cogs"),
-                "junction": WallConfig(tags=["type:junction"]),
+                "junction": WallConfig(tags=[typeTag("junction")]),
             },
             collectives={
                 "cogs": CollectiveConfig(),
@@ -155,9 +155,9 @@ class TestEventFilterConversion:
         events = {
             "test_event": EventConfig(
                 name="test_event",
-                target_query=query("type:wall"),
+                target_query=query(typeTag("wall")),
                 timesteps=[10],
-                filters=[isA("junction")],  # Creates TagFilter with "type:junction"
+                filters=[isA("junction")],  # Creates TagFilter with typeTag("junction")
                 mutations=[alignTo("clips")],
             ),
         }
@@ -177,7 +177,7 @@ class TestEventFilterConversion:
         events = {
             "test_event": EventConfig(
                 name="test_event",
-                target_query=query("type:wall"),
+                target_query=query(typeTag("wall")),
                 timesteps=[10],
                 filters=[isA("junction"), isAlignedTo(None)],  # AlignmentFilter
                 mutations=[alignTo("clips")],
@@ -196,7 +196,7 @@ class TestEventFilterConversion:
         events = {
             "test_event": EventConfig(
                 name="test_event",
-                target_query=query("type:wall"),
+                target_query=query(typeTag("wall")),
                 timesteps=[10],
                 filters=[isA("wall"), isAlignedTo("cogs")],  # AlignmentFilter with collective
                 mutations=[alignTo("clips")],
@@ -215,7 +215,7 @@ class TestEventFilterConversion:
         events = {
             "multi_filter_event": EventConfig(
                 name="multi_filter_event",
-                target_query=query("type:wall"),
+                target_query=query(typeTag("wall")),
                 timesteps=[10],
                 filters=[
                     isA("junction"),  # TagFilter
@@ -264,7 +264,7 @@ class TestConvertEventsFunction:
         events = {
             "event1": EventConfig(
                 name="event1",
-                target_query=query("type:wall"),
+                target_query=query(typeTag("wall")),
                 timesteps=[10],
                 filters=[hasTag(tag("target_wall"))],
                 mutations=[alignTo("cogs")],
@@ -272,7 +272,7 @@ class TestConvertEventsFunction:
             ),
             "event2": EventConfig(
                 name="event2",
-                target_query=query("type:wall"),
+                target_query=query(typeTag("wall")),
                 timesteps=[20],
                 filters=[hasTag(tag("target_wall"))],
                 mutations=[alignTo("cogs")],

@@ -17,7 +17,7 @@ from mettagrid.config.mettagrid_config import (
     MettaGridConfig,
 )
 from mettagrid.config.query import ClosureQuery, MaterializedQuery, Query
-from mettagrid.config.tag import tag
+from mettagrid.config.tag import typeTag
 from mettagrid.simulator import Simulation
 
 
@@ -58,20 +58,20 @@ class TestBasicClosure:
         cfg.game.objects["hub"] = GridObjectConfig(
             name="hub",
             map_name="hub",
-            tags=["type:hub"],
+            tags=[typeTag("hub")],
         )
         cfg.game.objects["wire"] = GridObjectConfig(
             name="wire",
             map_name="wire",
-            tags=["type:wire"],
+            tags=[typeTag("wire")],
         )
 
-        cfg.game.tags = [
+        cfg.game.materialize_queries = [
             MaterializedQuery(
                 tag="connected",
                 query=ClosureQuery(
-                    source=Query(tag="type:hub"),
-                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=tag("type:wire"))],
+                    source=Query(tag=typeTag("hub")),
+                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=1,
                 ),
             ),
@@ -103,20 +103,20 @@ class TestBasicClosure:
         cfg.game.objects["hub"] = GridObjectConfig(
             name="hub",
             map_name="hub",
-            tags=["type:hub"],
+            tags=[typeTag("hub")],
         )
         cfg.game.objects["wire"] = GridObjectConfig(
             name="wire",
             map_name="wire",
-            tags=["type:wire"],
+            tags=[typeTag("wire")],
         )
 
-        cfg.game.tags = [
+        cfg.game.materialize_queries = [
             MaterializedQuery(
                 tag="connected",
                 query=ClosureQuery(
-                    source=Query(tag="type:hub"),
-                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=tag("type:wire"))],
+                    source=Query(tag=typeTag("hub")),
+                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=1,
                 ),
             ),
@@ -146,20 +146,20 @@ class TestBasicClosure:
         cfg.game.objects["hub"] = GridObjectConfig(
             name="hub",
             map_name="hub",
-            tags=["type:hub"],
+            tags=[typeTag("hub")],
         )
         cfg.game.objects["wire"] = GridObjectConfig(
             name="wire",
             map_name="wire",
-            tags=["type:wire"],
+            tags=[typeTag("wire")],
         )
 
-        cfg.game.tags = [
+        cfg.game.materialize_queries = [
             MaterializedQuery(
                 tag="connected",
                 query=ClosureQuery(
-                    source=Query(tag="type:hub"),
-                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=tag("type:wire"))],
+                    source=Query(tag=typeTag("hub")),
+                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=1,
                 ),
             ),
@@ -188,16 +188,16 @@ class TestBasicClosure:
         cfg.game.objects["wire"] = GridObjectConfig(
             name="wire",
             map_name="wire",
-            tags=["type:wire"],
+            tags=[typeTag("wire")],
         )
 
-        cfg.game.tags = [
-            tag("type:hub"),
+        cfg.game.tags = [typeTag("hub")]
+        cfg.game.materialize_queries = [
             MaterializedQuery(
                 tag="connected",
                 query=ClosureQuery(
-                    source=Query(tag="type:hub"),
-                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=tag("type:wire"))],
+                    source=Query(tag=typeTag("hub")),
+                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=1,
                 ),
             ),
@@ -231,28 +231,28 @@ class TestAdvancedClosure:
         cfg.game.objects["hub"] = GridObjectConfig(
             name="hub",
             map_name="hub",
-            tags=["type:hub"],
+            tags=[typeTag("hub")],
         )
         cfg.game.objects["wire"] = GridObjectConfig(
             name="wire",
             map_name="wire",
-            tags=["type:wire"],
+            tags=[typeTag("wire")],
         )
 
-        cfg.game.tags = [
+        cfg.game.materialize_queries = [
             MaterializedQuery(
                 tag="r1",
                 query=ClosureQuery(
-                    source=Query(tag="type:hub"),
-                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=tag("type:wire"))],
+                    source=Query(tag=typeTag("hub")),
+                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=1,
                 ),
             ),
             MaterializedQuery(
                 tag="r2",
                 query=ClosureQuery(
-                    source=Query(tag="type:hub"),
-                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=tag("type:wire"))],
+                    source=Query(tag=typeTag("hub")),
+                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=2,
                 ),
             ),
@@ -298,38 +298,38 @@ class TestAdvancedClosure:
         cfg.game.objects["hub"] = GridObjectConfig(
             name="hub",
             map_name="hub",
-            tags=["type:hub"],
+            tags=[typeTag("hub")],
         )
         cfg.game.objects["wire"] = GridObjectConfig(
             name="wire",
             map_name="wire",
-            tags=["type:wire"],
+            tags=[typeTag("wire")],
         )
         cfg.game.objects["power"] = GridObjectConfig(
             name="power",
             map_name="power",
-            tags=["type:power"],
+            tags=[typeTag("power")],
         )
         cfg.game.objects["cable"] = GridObjectConfig(
             name="cable",
             map_name="cable",
-            tags=["type:cable"],
+            tags=[typeTag("cable")],
         )
 
-        cfg.game.tags = [
+        cfg.game.materialize_queries = [
             MaterializedQuery(
                 tag="net1",
                 query=ClosureQuery(
-                    source=Query(tag="type:hub"),
-                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=tag("type:wire"))],
+                    source=Query(tag=typeTag("hub")),
+                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=1,
                 ),
             ),
             MaterializedQuery(
                 tag="net2",
                 query=ClosureQuery(
-                    source=Query(tag="type:power"),
-                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=tag("type:cable"))],
+                    source=Query(tag=typeTag("power")),
+                    bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("cable"))],
                     radius=1,
                 ),
             ),
@@ -366,30 +366,30 @@ class TestMaterializedQueryTagCollision:
         cfg.game.objects["hub"] = GridObjectConfig(
             name="hub",
             map_name="hub",
-            tags=["type:hub"],
+            tags=[typeTag("hub")],
         )
         return cfg
 
     def test_collision_with_object_tag(self):
         """MaterializedQuery tag matching an object tag should raise."""
         cfg = self._base_cfg()
-        cfg.game.tags = [
+        cfg.game.materialize_queries = [
             MaterializedQuery(
-                tag="type:hub",
-                query=Query(tag="type:hub"),
+                tag=typeTag("hub"),
+                query=Query(tag=typeTag("hub")),
             ),
         ]
         with pytest.raises(ValueError, match="collide with static tags"):
             Simulation(cfg)
 
     def test_collision_with_explicit_tag(self):
-        """MaterializedQuery tag matching an explicit Tag should raise."""
+        """MaterializedQuery tag matching an explicit tag string should raise."""
         cfg = self._base_cfg()
-        cfg.game.tags = [
-            tag("my_static"),
+        cfg.game.tags = ["my_static"]
+        cfg.game.materialize_queries = [
             MaterializedQuery(
                 tag="my_static",
-                query=Query(tag="type:hub"),
+                query=Query(tag=typeTag("hub")),
             ),
         ]
         with pytest.raises(ValueError, match="collide with static tags"):
@@ -398,10 +398,10 @@ class TestMaterializedQueryTagCollision:
     def test_collision_with_type_tag(self):
         """MaterializedQuery tag matching an auto-generated type tag should raise."""
         cfg = self._base_cfg()
-        cfg.game.tags = [
+        cfg.game.materialize_queries = [
             MaterializedQuery(
-                tag="type:wall",
-                query=Query(tag="type:hub"),
+                tag=typeTag("wall"),
+                query=Query(tag=typeTag("hub")),
             ),
         ]
         with pytest.raises(ValueError, match="collide with static tags"):
@@ -410,10 +410,10 @@ class TestMaterializedQueryTagCollision:
     def test_no_collision_passes(self):
         """Non-colliding materialized query tag should work fine."""
         cfg = self._base_cfg()
-        cfg.game.tags = [
+        cfg.game.materialize_queries = [
             MaterializedQuery(
                 tag="unique_mat_tag",
-                query=Query(tag="type:hub"),
+                query=Query(tag=typeTag("hub")),
             ),
         ]
         sim = Simulation(cfg)
