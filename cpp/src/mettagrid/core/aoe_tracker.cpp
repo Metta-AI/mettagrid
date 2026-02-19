@@ -298,7 +298,6 @@ void AOETracker::apply_fixed(GridObject& target) {
   int territory_enemy_best_key = std::numeric_limits<int>::max();
   GridObjectId territory_friendly_best_id = std::numeric_limits<GridObjectId>::max();
   GridObjectId territory_enemy_best_id = std::numeric_limits<GridObjectId>::max();
-
   auto is_territory_aoe = [](const AOESource* aoe_source) {
     return aoe_source != nullptr && !aoe_source->has_mutations() && !aoe_source->has_presence_deltas();
   };
@@ -522,17 +521,9 @@ void AOETracker::fixed_observability_at(const GridLocation& loc,
   GridObjectId friendly_best_id = std::numeric_limits<GridObjectId>::max();
   GridObjectId enemy_best_id = std::numeric_limits<GridObjectId>::max();
 
-  auto is_territory_aoe = [](const AOESource* aoe_source) {
-    return aoe_source != nullptr && aoe_source->has_mutations() == false && aoe_source->has_presence_deltas() == false;
-  };
-
   for (const auto& aoe_source : cell_effects) {
     GridObject* source = aoe_source->source;
     if (source == nullptr) {
-      continue;
-    }
-
-    if (!is_territory_aoe(aoe_source.get())) {
       continue;
     }
 
