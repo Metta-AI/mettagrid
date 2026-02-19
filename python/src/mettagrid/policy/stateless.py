@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 
 import pufferlib.pytorch
+from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.simulator import Action as MettaGridAction
@@ -103,7 +104,12 @@ class StatelessPolicy(MultiAgentPolicy):
     def __init__(self, policy_env_info: PolicyEnvInterface, device: torch.device | str | None = None):
         super().__init__(policy_env_info)
         self._obs_shape = policy_env_info.observation_space.shape
-        self.num_actions = len(policy_env_info.action_names)
+        self._non_vibe_action_names = (
+            policy_env_info.non_vibe_action_names
+            if policy_env_info.non_vibe_action_names
+            else [name for name in policy_env_info.action_names if not name.startswith(CHANGE_VIBE_PREFIX)]
+        )
+        self.num_actions = len(self._non_vibe_action_names)
         self._net = StatelessPolicyNet(self.num_actions, self._obs_shape)
         if device is not None:
             self._net = self._net.to(torch.device(device))
@@ -120,7 +126,7 @@ class StatelessPolicy(MultiAgentPolicy):
             current_device,
             self.num_actions,
             self._obs_shape,
-            self._policy_env_info.action_names,
+            self._non_vibe_action_names,
         )
 
     def is_recurrent(self) -> bool:

@@ -81,31 +81,34 @@ class MettaGridPufferEnv(PufferEnv):
         self._current_cfg = cfg
         self._current_seed = seed
         self._supervisor_policy_spec = supervisor_policy_spec
+        self._policy_env_info = PolicyEnvInterface.from_mg_cfg(cfg)
+        self._env_supervisor: MultiAgentPolicy | None = None
+        self._supervisor_uses_vibe_action_space = bool(self._policy_env_info.vibe_action_names)
+        self._supervisor_non_vibe_action_ids: np.ndarray | None = None
 
         # Initialize shared buffers FIRST (before super().__init__)
         # because PufferLib may access them during initialization
 
-        policy_env_info = PolicyEnvInterface.from_mg_cfg(cfg)
-
         self._buffers: Buffers = Buffers(
             observations=np.zeros(
-                (policy_env_info.num_agents, *policy_env_info.observation_space.shape),
+                (self._policy_env_info.num_agents, *self._policy_env_info.observation_space.shape),
                 dtype=dtype_observations,
             ),
-            terminals=np.zeros(policy_env_info.num_agents, dtype=dtype_terminals),
-            truncations=np.zeros(policy_env_info.num_agents, dtype=dtype_truncations),
-            rewards=np.zeros(policy_env_info.num_agents, dtype=dtype_rewards),
-            masks=np.ones(policy_env_info.num_agents, dtype=dtype_masks),
-            actions=np.zeros(policy_env_info.num_agents, dtype=dtype_actions),
-            teacher_actions=np.zeros(policy_env_info.num_agents, dtype=dtype_actions),
+            terminals=np.zeros(self._policy_env_info.num_agents, dtype=dtype_terminals),
+            truncations=np.zeros(self._policy_env_info.num_agents, dtype=dtype_truncations),
+            rewards=np.zeros(self._policy_env_info.num_agents, dtype=dtype_rewards),
+            masks=np.ones(self._policy_env_info.num_agents, dtype=dtype_masks),
+            actions=np.zeros(self._policy_env_info.num_agents, dtype=dtype_actions),
+            vibe_actions=np.zeros(self._policy_env_info.num_agents, dtype=dtype_actions),
+            teacher_actions=np.zeros(self._policy_env_info.num_agents, dtype=dtype_actions),
         )
 
         # Set observation and action spaces BEFORE calling super().__init__()
         # PufferLib requires these to be set first
-        self.single_observation_space: Box = policy_env_info.observation_space
-        self.single_action_space: Discrete = policy_env_info.action_space
+        self.single_observation_space: Box = self._policy_env_info.observation_space
+        self.single_action_space: Discrete = self._policy_env_info.non_vibe_action_space
+        self.single_vibe_action_space: Discrete = self._policy_env_info.vibe_action_space
 
-        self._env_supervisor: MultiAgentPolicy | None = None
         self._sim: Optional[Simulation] = None
         self._sim = self._init_simulation()
         self.num_agents = self._sim.num_agents
@@ -199,12 +202,25 @@ class MettaGridPufferEnv(PufferEnv):
     def _init_simulation(self) -> Simulation:
         sim = self._simulator.new_simulation(self._current_cfg, self._current_seed, buffers=self._buffers)
         if self._supervisor_policy_spec is not None:
+            supervisor_env_info = self._supervisor_policy_env_info()
+
+            self._supervisor_uses_vibe_action_space = bool(supervisor_env_info.vibe_action_names)
             self._env_supervisor = initialize_or_load_policy(
-                PolicyEnvInterface.from_mg_cfg(self._current_cfg),
+                supervisor_env_info,
                 self._supervisor_policy_spec,
             )
+            if self._supervisor_uses_vibe_action_space:
+                self._supervisor_non_vibe_action_ids = np.array(
+                    [sim.action_ids[action_name] for action_name in sim.non_vibe_action_names],
+                    dtype=dtype_actions,
+                )
+            else:
+                self._supervisor_non_vibe_action_ids = None
             self._compute_supervisor_actions()
         return sim
+
+    def _supervisor_policy_env_info(self) -> PolicyEnvInterface:
+        return self._policy_env_info
 
     def _new_sim(self) -> None:
         if self._sim is not None:
@@ -301,6 +317,10 @@ class MettaGridPufferEnv(PufferEnv):
         # Do this after step() so that the trainer can use it if needed
         if self._supervisor_policy_spec is not None:
             self._compute_supervisor_actions()
+        else:
+            vibe_actions = self._buffers.vibe_actions
+            if vibe_actions is not None:
+                vibe_actions.fill(dtype_actions.type(0))
 
         return (
             self._buffers.observations,
@@ -316,6 +336,27 @@ class MettaGridPufferEnv(PufferEnv):
         teacher_actions = self._buffers.teacher_actions
         raw_observations = self._buffers.observations
         supervisor.step_batch(raw_observations, teacher_actions)
+        vibe_actions = self._buffers.vibe_actions
+        assert vibe_actions is not None
+        if not self._supervisor_uses_vibe_action_space:
+            np.copyto(vibe_actions, teacher_actions)
+            return
+
+        supervisor_non_vibe_action_ids = self._supervisor_non_vibe_action_ids
+        assert supervisor_non_vibe_action_ids is not None
+
+        compact_actions = teacher_actions.astype(np.int64, copy=False)
+        if np.any((compact_actions < 0) | (compact_actions >= len(supervisor_non_vibe_action_ids))):
+            invalid_agent = int(
+                np.flatnonzero((compact_actions < 0) | (compact_actions >= len(supervisor_non_vibe_action_ids)))[0]
+            )
+            raise ValueError(
+                "Supervisor produced invalid non-vibe action index "
+                f"{int(teacher_actions[invalid_agent])} for agent {invalid_agent}"
+            )
+
+        np.copyto(teacher_actions, supervisor_non_vibe_action_ids[compact_actions])
+        np.copyto(vibe_actions, dtype_actions.type(0))
 
     def disable_supervisor(self) -> None:
         """Disable supervisor policy to avoid extra forward passes after teacher phase."""
@@ -376,7 +417,20 @@ class MettaGridPufferEnv(PufferEnv):
 
     @teacher_actions.setter
     def teacher_actions(self, teacher_actions: np.ndarray) -> None:
-        self._buffers.teacher_actions = teacher_actions
+        np.copyto(self._buffers.teacher_actions, teacher_actions)
+        vibe_actions = self._buffers.vibe_actions
+        if vibe_actions is not None:
+            np.copyto(vibe_actions, teacher_actions)
+
+    @property
+    def vibe_actions(self) -> np.ndarray:
+        vibe_actions = self._buffers.vibe_actions
+        assert vibe_actions is not None
+        return vibe_actions
+
+    @vibe_actions.setter
+    def vibe_actions(self, vibe_actions: np.ndarray) -> None:
+        self._buffers.vibe_actions = vibe_actions
 
     @property
     def render_mode(self) -> str:

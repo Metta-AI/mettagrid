@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import gymnasium as gym
 from pydantic import BaseModel, Field
 
+from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.config.mettagrid_config import MettaGridConfig
 from mettagrid.mettagrid_c import dtype_observations
@@ -29,6 +30,8 @@ class PolicyEnvInterface(BaseModel):
         description="Ordered list of action names (e.g., ['noop', 'move_north', ...]). "
         "Action indices in the policy output correspond to this list."
     )
+    non_vibe_action_names: list[str] = Field(default_factory=list, description="Action names for non-vibe actions.")
+    vibe_action_names: list[str] = Field(default_factory=list, description="Action names for vibe-only actions.")
     move_energy_cost: Optional[int] = Field(
         default=None,
         description="Energy cost for a single move action, if configured.",
@@ -59,16 +62,37 @@ class PolicyEnvInterface(BaseModel):
 
     @property
     def action_space(self) -> gym.spaces.Discrete:
-        """Action space derived from action_names."""
-        return gym.spaces.Discrete(len(self.action_names))
+        """Action space derived from non-vibe actions."""
+        return gym.spaces.Discrete(len(self.non_vibe_action_names))
+
+    @property
+    def non_vibe_action_space(self) -> gym.spaces.Discrete:
+        """Action space derived from non-vibe actions."""
+        return gym.spaces.Discrete(len(self.non_vibe_action_names))
+
+    @property
+    def vibe_action_space(self) -> gym.spaces.Discrete:
+        """Action space derived from vibe actions."""
+        return gym.spaces.Discrete(len(self.vibe_action_names))
+
+    @staticmethod
+    def _split_action_names(action_names: list[str]) -> tuple[list[str], list[str]]:
+        non_vibe_action_names: list[str] = []
+        vibe_action_names: list[str] = []
+        for action_name in action_names:
+            if action_name.startswith(CHANGE_VIBE_PREFIX):
+                vibe_action_names.append(action_name)
+            else:
+                non_vibe_action_names.append(action_name)
+        return non_vibe_action_names, vibe_action_names
 
     @property
     def tag_id_to_name(self) -> dict[int, str]:
         """Tag ID to name mapping, derived from alphabetically-sorted tags list."""
         return {i: name for i, name in enumerate(self.tags)}
 
-    @staticmethod
-    def from_mg_cfg(mg_cfg: MettaGridConfig) -> "PolicyEnvInterface":
+    @classmethod
+    def from_mg_cfg(cls, mg_cfg: MettaGridConfig) -> "PolicyEnvInterface":
         """Create PolicyEnvInterface from MettaGridConfig.
 
         Args:
@@ -80,6 +104,8 @@ class PolicyEnvInterface(BaseModel):
         id_map = mg_cfg.game.id_map()
         tag_names_list = id_map.tag_names()
         actions_list = mg_cfg.game.actions.actions()
+        action_names = [a.name for a in actions_list]
+        non_vibe_action_names, vibe_action_names = cls._split_action_names(action_names)
         move_energy_cost = None
         if mg_cfg.game.actions.move and mg_cfg.game.actions.move.consumed_resources:
             move_energy_cost = mg_cfg.game.actions.move.consumed_resources.get("energy")
@@ -87,7 +113,9 @@ class PolicyEnvInterface(BaseModel):
         return PolicyEnvInterface(
             obs_features=id_map.features(),
             tags=tag_names_list,
-            action_names=[a.name for a in actions_list],
+            action_names=action_names,
+            non_vibe_action_names=non_vibe_action_names,
+            vibe_action_names=vibe_action_names,
             num_agents=mg_cfg.game.num_agents,
             observation_shape=(mg_cfg.game.obs.num_tokens, mg_cfg.game.obs.token_dim),
             egocentric_shape=(mg_cfg.game.obs.height, mg_cfg.game.obs.width),
@@ -101,6 +129,8 @@ class PolicyEnvInterface(BaseModel):
         payload["obs_width"] = self.obs_width
         payload["obs_height"] = self.obs_height
         payload["actions"] = self.action_names
+        payload["non_vibe_action_names"] = self.non_vibe_action_names
+        payload["vibe_action_names"] = self.vibe_action_names
         payload["obs_features"] = [feature.model_dump(mode="json") for feature in self.obs_features]
         return json.dumps(payload)
 
@@ -109,7 +139,7 @@ class PolicyEnvInterface(BaseModel):
         from mettagrid.protobuf.sim.policy_v1 import policy_pb2  # noqa: PLC0415
 
         move_cost = self.move_energy_cost
-        return policy_pb2.PolicyEnvInterface(
+        payload = policy_pb2.PolicyEnvInterface(
             obs_features=[
                 policy_pb2.GameRules.Feature(id=f.id, name=f.name, normalization=f.normalization)
                 for f in self.obs_features
@@ -122,18 +152,41 @@ class PolicyEnvInterface(BaseModel):
             obs_height=self.obs_height,
             obs_width=self.obs_width,
         )
+        payload_as_any = cast(Any, payload)
+        if "non_vibe_action_names" in payload.DESCRIPTOR.fields_by_name:
+            payload_as_any.non_vibe_action_names.extend(self.non_vibe_action_names)
+        if "vibe_action_names" in payload.DESCRIPTOR.fields_by_name:
+            payload_as_any.vibe_action_names.extend(self.vibe_action_names)
+        return payload
 
     @staticmethod
     def from_proto(proto: "policy_pb2.PolicyEnvInterface") -> "PolicyEnvInterface":
         """Create PolicyEnvInterface from protobuf message."""
+        proto_as_any = cast(Any, proto)
+        action_names = list(proto_as_any.action_names)
+        if "non_vibe_action_names" in proto.DESCRIPTOR.fields_by_name:
+            non_vibe_action_names = list(proto_as_any.non_vibe_action_names)
+            vibe_action_names = (
+                list(proto_as_any.vibe_action_names) if "vibe_action_names" in proto.DESCRIPTOR.fields_by_name else []
+            )
+        else:
+            non_vibe_action_names, vibe_action_names = PolicyEnvInterface._split_action_names(action_names)
+
         return PolicyEnvInterface(
             obs_features=[
-                ObservationFeatureSpec(id=f.id, name=f.name, normalization=f.normalization) for f in proto.obs_features
+                ObservationFeatureSpec(
+                    id=f.id,
+                    name=f.name,
+                    normalization=f.normalization,
+                )
+                for f in proto_as_any.obs_features
             ],
-            tags=list(proto.tags),
-            action_names=list(proto.action_names),
-            move_energy_cost=proto.move_energy_cost if proto.move_energy_cost != -1 else None,
-            num_agents=proto.num_agents,
-            observation_shape=tuple(proto.observation_shape),
-            egocentric_shape=(proto.obs_height, proto.obs_width),
+            tags=list(proto_as_any.tags),
+            action_names=action_names,
+            non_vibe_action_names=non_vibe_action_names,
+            vibe_action_names=vibe_action_names,
+            move_energy_cost=proto_as_any.move_energy_cost if proto_as_any.move_energy_cost != -1 else None,
+            num_agents=proto_as_any.num_agents,
+            observation_shape=tuple(proto_as_any.observation_shape),
+            egocentric_shape=(proto_as_any.obs_height, proto_as_any.obs_width),
         )

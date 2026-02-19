@@ -11,6 +11,7 @@ import numpy as np
 # MettaGridConfig because it will cause a circular import.
 import mettagrid.config.mettagrid_c_config as mettagrid_c_config
 import mettagrid.config.mettagrid_config as mettagrid_config
+from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.map_builder.map_builder import GameMap, HasSeed, MapBuilderConfig
 from mettagrid.mettagrid_c import MettaGrid as MettaGridCpp
@@ -42,6 +43,11 @@ class Buffers:
     masks: np.ndarray
     actions: np.ndarray
     teacher_actions: np.ndarray
+    vibe_actions: Optional[np.ndarray] = None
+
+    def __post_init__(self) -> None:
+        if self.vibe_actions is None:
+            self.vibe_actions = self.teacher_actions
 
 
 class Simulation:
@@ -85,19 +91,34 @@ class Simulation:
         with self._timer("sim.init.create_c_sim"):
             self.__c_sim = MettaGridCpp(c_cfg, map_grid, self._seed)
 
-        # Compute action_ids from config actions
-        self._action_ids: dict[str, int] = {
-            action.name: idx for idx, action in enumerate(self._config.game.actions.actions())
+        # Compute action ids from config actions
+        self._action_names: list[str] = [action.name for action in self._config.game.actions.actions()]
+        self._action_ids: dict[str, int] = {action_name: idx for idx, action_name in enumerate(self._action_names)}
+        self._vibe_action_names: list[str] = [
+            action_name for action_name in self._action_names if action_name.startswith(CHANGE_VIBE_PREFIX)
+        ]
+        self._non_vibe_action_names: list[str] = [
+            action_name for action_name in self._action_names if not action_name.startswith(CHANGE_VIBE_PREFIX)
+        ]
+        self._vibe_action_ids: dict[str, int] = {
+            action_name: self._action_ids[action_name] for action_name in self._vibe_action_names
         }
+        self._non_vibe_action_ids: dict[str, int] = {
+            action_name: self._action_ids[action_name] for action_name in self._non_vibe_action_names
+        }
+        self._vibe_action_name_set = set(self._vibe_action_names)
 
         # Set buffers on C++ simulation if provided (for PufferEnv shared memory)
         if buffers is not None:
+            vibe_actions = buffers.vibe_actions
+            assert vibe_actions is not None
             self.__c_sim.set_buffers(
                 buffers.observations,
                 buffers.terminals,
                 buffers.truncations,
                 buffers.rewards,
                 buffers.actions,
+                vibe_actions,
             )
 
         # Build feature dict from id_map
@@ -199,8 +220,28 @@ class Simulation:
         return self._action_ids
 
     @property
+    def non_vibe_action_ids(self) -> dict[str, int]:
+        return self._non_vibe_action_ids
+
+    @property
+    def vibe_action_ids(self) -> dict[str, int]:
+        return self._vibe_action_ids
+
+    @property
+    def non_vibe_action_indices(self) -> list[int]:
+        return list(self._non_vibe_action_ids.values())
+
+    @property
     def action_names(self) -> list[str]:
         return list(self._action_ids.keys())
+
+    @property
+    def non_vibe_action_names(self) -> list[str]:
+        return self._non_vibe_action_names
+
+    @property
+    def vibe_action_names(self) -> list[str]:
+        return self._vibe_action_names
 
     @property
     def object_type_names(self) -> list[str]:
@@ -361,7 +402,12 @@ class SimulationAgent:
         # Convert action to index
         action_name = action if isinstance(action, str) else action.name
         action_idx = self._sim.action_ids[action_name]
-        self._sim._c_sim.actions()[self._agent_id] = action_idx
+        use_vibe_buffer = action_name in self._sim._vibe_action_name_set
+        action_buffer = self._sim._c_sim.vibe_actions() if use_vibe_buffer else self._sim._c_sim.actions()
+        inactive_buffer = self._sim._c_sim.actions() if use_vibe_buffer else self._sim._c_sim.vibe_actions()
+
+        inactive_buffer[self._agent_id] = 0
+        action_buffer[self._agent_id] = action_idx
 
     @property
     def observation(self) -> AgentObservation:
