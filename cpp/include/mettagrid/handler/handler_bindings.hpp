@@ -529,8 +529,10 @@ inline void bind_handler_config(py::module& m) {
           [](HandlerConfig& self, const GameValueMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))
       .def(
-          "add_recompute_query_tag_mutation",
-          [](HandlerConfig& self, const RecomputeQueryTagMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          "add_recompute_materialized_query_mutation",
+          [](HandlerConfig& self, const RecomputeMaterializedQueryMutationConfig& cfg) {
+            self.mutations.push_back(cfg);
+          },
           py::arg("mutation"))
       .def(
           "add_query_inventory_mutation",

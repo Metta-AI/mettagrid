@@ -30,7 +30,10 @@ from mettagrid.config.mutation.query_inventory_mutation import (
     queryDeposit,
     queryWithdraw,
 )
-from mettagrid.config.mutation.recompute_query_tag_mutation import RecomputeQueryTagMutation, recomputeQueryTag
+from mettagrid.config.mutation.recompute_materialized_query_mutation import (
+    RecomputeMaterializedQueryMutation,
+    recomputeMaterializedQuery,
+)
 from mettagrid.config.mutation.resource_mutation import (
     ResourceDeltaMutation,
     ResourceTransferMutation,
@@ -63,7 +66,7 @@ from mettagrid.config.mutation.tag_mutation import (
     removeTag,
     removeTagPrefix,
 )
-from mettagrid.config.query import AnyQuery, ClosureQuery, Query
+from mettagrid.config.query import AnyQuery, ClosureQuery, MaterializedQuery, Query
 from mettagrid.config.tag import Tag as TagType
 
 AnyMutation = Annotated[
@@ -79,7 +82,7 @@ AnyMutation = Annotated[
         Annotated[RemoveTagMutation, Tag("remove_tag")],
         Annotated[RemoveTagsWithPrefixMutation, Tag("remove_tags_with_prefix")],
         Annotated[SetGameValueMutation, Tag("set_game_value")],
-        Annotated[RecomputeQueryTagMutation, Tag("recompute_query_tag")],
+        Annotated[RecomputeMaterializedQueryMutation, Tag("recompute_materialized_query")],
         Annotated[QueryInventoryMutation, Tag("query_inventory")],
     ],
     Discriminator("mutation_type"),
@@ -90,6 +93,7 @@ _mutation_namespace = {
     "AnyFilter": AnyFilter,
     "AnyMutation": AnyMutation,
     "Query": Query,
+    "MaterializedQuery": MaterializedQuery,
     "ClosureQuery": ClosureQuery,
     "Tag": TagType,
     "ResourceDeltaMutation": ResourceDeltaMutation,
@@ -103,12 +107,12 @@ _mutation_namespace = {
     "RemoveTagMutation": RemoveTagMutation,
     "RemoveTagsWithPrefixMutation": RemoveTagsWithPrefixMutation,
     "SetGameValueMutation": SetGameValueMutation,
-    "RecomputeQueryTagMutation": RecomputeQueryTagMutation,
+    "RecomputeMaterializedQueryMutation": RecomputeMaterializedQueryMutation,
     "QueryInventoryMutation": QueryInventoryMutation,
 }
 AttackMutation.model_rebuild(_types_namespace=_mutation_namespace)
 SetGameValueMutation.model_rebuild(_types_namespace=_mutation_namespace)
-RecomputeQueryTagMutation.model_rebuild(_types_namespace=_mutation_namespace)
+RecomputeMaterializedQueryMutation.model_rebuild(_types_namespace=_mutation_namespace)
 QueryInventoryMutation.model_rebuild(_types_namespace=_mutation_namespace)
 
 __all__ = [
@@ -129,7 +133,7 @@ __all__ = [
     "RemoveTagMutation",
     "RemoveTagsWithPrefixMutation",
     "SetGameValueMutation",
-    "RecomputeQueryTagMutation",
+    "RecomputeMaterializedQueryMutation",
     "QueryInventoryMutation",
     "AnyMutation",
     # Mutation helpers
@@ -158,5 +162,5 @@ __all__ = [
     "queryDeposit",
     "queryWithdraw",
     "queryDelta",
-    "recomputeQueryTag",
+    "recomputeMaterializedQuery",
 ]

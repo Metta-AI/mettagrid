@@ -38,7 +38,7 @@ public:
   TagIndex* tag_index = nullptr;       // Tag index for tag/query lookups
   Grid* grid = nullptr;                // Grid for removing objects from cells
   const std::vector<std::unique_ptr<Collective>>* collectives = nullptr;  // Collectives indexed by ID (for events)
-  QuerySystem* query_system = nullptr;                                    // For RecomputeQueryTagMutation
+  QuerySystem* query_system = nullptr;                                    // For RecomputeMaterializedQueryMutation
   bool skip_on_update_trigger = false;  // Skip triggering on_update handlers (prevent recursion)
 
   // Optional accumulator for ResourceDeltaMutation on the target entity.

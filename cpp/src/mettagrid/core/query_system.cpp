@@ -19,7 +19,10 @@
 
 namespace mettagrid {
 
-QuerySystem::QuerySystem(Grid* grid, TagIndex* tag_index, std::mt19937* rng, const std::vector<QueryTagConfig>& configs)
+QuerySystem::QuerySystem(Grid* grid,
+                         TagIndex* tag_index,
+                         std::mt19937* rng,
+                         const std::vector<MaterializedQueryTag>& configs)
     : _grid(grid), _tag_index(tag_index), _rng(rng) {
   _query_tags.reserve(configs.size());
 

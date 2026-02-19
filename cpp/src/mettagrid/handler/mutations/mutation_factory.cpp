@@ -7,7 +7,7 @@
 #include "handler/mutations/freeze_mutation.hpp"
 #include "handler/mutations/game_value_mutation.hpp"
 #include "handler/mutations/query_inventory_mutation.hpp"
-#include "handler/mutations/recompute_query_tag_mutation.hpp"
+#include "handler/mutations/recompute_materialized_query_mutation.hpp"
 #include "handler/mutations/resource_mutation.hpp"
 #include "handler/mutations/stats_mutation.hpp"
 #include "handler/mutations/tag_mutation.hpp"
@@ -38,8 +38,8 @@ std::unique_ptr<Mutation> create_mutation(const MutationConfig& config) {
           return std::make_unique<RemoveTagMutation>(cfg);
         } else if constexpr (std::is_same_v<T, GameValueMutationConfig>) {
           return std::make_unique<GameValueMutation>(cfg);
-        } else if constexpr (std::is_same_v<T, RecomputeQueryTagMutationConfig>) {
-          return std::make_unique<RecomputeQueryTagMutation>(cfg);
+        } else if constexpr (std::is_same_v<T, RecomputeMaterializedQueryMutationConfig>) {
+          return std::make_unique<RecomputeMaterializedQueryMutation>(cfg);
         } else if constexpr (std::is_same_v<T, QueryInventoryMutationConfig>) {
           return std::make_unique<QueryInventoryMutation>(cfg);
         } else if constexpr (std::is_same_v<T, RemoveTagsWithPrefixMutationConfig>) {

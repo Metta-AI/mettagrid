@@ -39,7 +39,7 @@ from mettagrid.config.filter.shared_tag_prefix_filter import (
 )
 from mettagrid.config.filter.tag_filter import TagFilter, hasTag, isA
 from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVibe
-from mettagrid.config.query import AnyQuery, ClosureQuery, Query, query
+from mettagrid.config.query import AnyQuery, ClosureQuery, MaterializedQuery, Query, materializedQuery, query
 from mettagrid.config.tag import Tag, typeTag
 
 AnyFilter = Annotated[
@@ -62,11 +62,13 @@ _rebuild_ns = {
     "AnyFilter": AnyFilter,
     "AnyQuery": AnyQuery,
     "Query": Query,
+    "MaterializedQuery": MaterializedQuery,
     "ClosureQuery": ClosureQuery,
 }
 NotFilter.model_rebuild(_types_namespace=_rebuild_ns)
 OrFilter.model_rebuild(_types_namespace=_rebuild_ns)
 Query.model_rebuild(_types_namespace=_rebuild_ns)
+MaterializedQuery.model_rebuild(_types_namespace=_rebuild_ns)
 ClosureQuery.model_rebuild(_types_namespace=_rebuild_ns)
 MaxDistanceFilter.model_rebuild(_types_namespace=_rebuild_ns)
 
@@ -113,7 +115,9 @@ __all__ = [
     "Tag",
     # Query
     "Query",
+    "MaterializedQuery",
     "ClosureQuery",
     "AnyQuery",
     "query",
+    "materializedQuery",
 ]

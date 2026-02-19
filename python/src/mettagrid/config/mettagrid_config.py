@@ -45,6 +45,7 @@ from mettagrid.config.obs_config import (  # noqa: F401 - re-exported
     GlobalObsConfig,
     ObsConfig,
 )
+from mettagrid.config.query import MaterializedQuery
 from mettagrid.config.reward_config import AgentReward
 from mettagrid.config.tag import Tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
@@ -292,7 +293,10 @@ class GameConfig(Config):
 
     # Explicit list of tags used in the game. All tag references in filters/mutations
     # must refer to one of these, or obj.tags, or the implicit type:object_type tag.
-    tags: list[Tag] = Field(default_factory=list, description="Explicit list of tags used in the game")
+    tags: list[Tag | MaterializedQuery] = Field(
+        default_factory=list,
+        description="Tags used in the game: plain tags (Tag) and materialized queries (MaterializedQuery)",
+    )
 
     @model_validator(mode="after")
     def _compute_feature_ids(self) -> "GameConfig":

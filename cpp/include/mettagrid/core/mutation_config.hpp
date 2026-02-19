@@ -99,7 +99,7 @@ struct GameValueMutationConfig {
   GameValueConfig source;  // Source of the delta (CONST for static, or any GameValue for dynamic)
 };
 
-struct RecomputeQueryTagMutationConfig {
+struct RecomputeMaterializedQueryMutationConfig {
   int tag_id = -1;
 };
 
@@ -126,7 +126,7 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     AddTagMutationConfig,
                                     RemoveTagMutationConfig,
                                     GameValueMutationConfig,
-                                    RecomputeQueryTagMutationConfig,
+                                    RecomputeMaterializedQueryMutationConfig,
                                     QueryInventoryMutationConfig,
                                     RemoveTagsWithPrefixMutationConfig>;
 

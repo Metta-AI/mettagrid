@@ -22,16 +22,16 @@ class Filter;
  *
  * Supports TagQuery and ClosureQuery (with MaxDistance filters).
  * Recomputation is explicit via recompute(tag_id), triggered by
- * RecomputeQueryTagMutation.
+ * RecomputeMaterializedQueryMutation.
  */
 class QuerySystem {
 public:
-  QuerySystem(Grid* grid, TagIndex* tag_index, std::mt19937* rng, const std::vector<QueryTagConfig>& configs);
+  QuerySystem(Grid* grid, TagIndex* tag_index, std::mt19937* rng, const std::vector<MaterializedQueryTag>& configs);
 
   // Compute all query tags from scratch (called at init)
   void compute_all();
 
-  // Recompute a specific query tag (called by RecomputeQueryTagMutation)
+  // Recompute a specific query tag (called by RecomputeMaterializedQueryMutation)
   void recompute(int tag_id);
 
   // Public accessors for use by QueryConfig::evaluate() implementations
