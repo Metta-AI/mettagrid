@@ -13,6 +13,7 @@ from gymnasium import spaces
 from pettingzoo import ParallelEnv
 from typing_extensions import override
 
+from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
 from mettagrid.config.mettagrid_config import MettaGridConfig
 from mettagrid.mettagrid_c import dtype_actions
 from mettagrid.simulator import Simulation, Simulator
@@ -50,7 +51,11 @@ class MettaGridPettingZooEnv(ParallelEnv):
         self._sim: Simulation | None = None
         self._sim = self._simulator.new_simulation(cfg, seed=self._seed)
         assert self._sim is not None
-        self._non_vibe_action_indices = self._sim.non_vibe_action_indices
+        self._action_indices = [
+            self._sim.action_ids[action_name]
+            for action_name in self._sim.action_names
+            if not action_name.startswith(CHANGE_VIBE_PREFIX)
+        ]
 
         # PettingZoo attributes - agent IDs are integers
         self.possible_agents: List[int] = list(range(self._sim.num_agents))
@@ -60,7 +65,7 @@ class MettaGridPettingZooEnv(ParallelEnv):
         # PettingZoo requires same space object instances to be returned
         obs_shape = self._sim.observation_shape
         self._observation_space_obj = spaces.Box(low=0, high=255, shape=obs_shape, dtype=np.uint8)
-        self._action_space_obj = spaces.Discrete(len(self._non_vibe_action_indices))
+        self._action_space_obj = spaces.Discrete(len(self._action_indices))
 
     @override
     def reset(
@@ -126,9 +131,9 @@ class MettaGridPettingZooEnv(ParallelEnv):
         for agent_id in self.agents:
             if agent_id in actions:
                 action_idx = int(np.asarray(actions[agent_id], dtype=dtype_actions).reshape(()).item())
-                if action_idx < 0 or action_idx >= len(self._non_vibe_action_indices):
+                if action_idx < 0 or action_idx >= len(self._action_indices):
                     raise ValueError(f"Action index {action_idx} out of range for PettingZoo action space.")
-                action_array[agent_id] = self._non_vibe_action_indices[action_idx]
+                action_array[agent_id] = self._action_indices[action_idx]
 
         # Execute simulation step
         sim.step()

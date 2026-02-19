@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field
 if TYPE_CHECKING:
     import torch.nn as nn
 
-from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
 from mettagrid.mettagrid_c import dtype_observations
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.policy.policy_registry import PolicyRegistryMeta
@@ -212,7 +211,7 @@ class NimMultiAgentPolicy(MultiAgentPolicy):
             self._num_tokens,
             self._token_dim,
             obs_buffer.ctypes.data,
-            len(self.policy_env_info.action_names),
+            len([*self.policy_env_info.action_names, *self.policy_env_info.vibe_action_names]),
             action_buffer.ctypes.data,
         )
 
@@ -242,7 +241,7 @@ class _NimAgentPolicy(AgentPolicy):
             else:
                 self._infos = {}
         action_index_int = int(action_index)
-        action_names = self.policy_env_info.action_names
+        action_names = [*self.policy_env_info.action_names, *self.policy_env_info.vibe_action_names]
         if action_index_int < 0 or action_index_int >= len(action_names):
             raise ValueError(
                 f"Nim policy returned action index {action_index_int}, expected range [0, {len(action_names) - 1}]"
@@ -277,12 +276,7 @@ class StatefulAgentPolicy(AgentPolicy, Generic[StateType]):
         self._state: Optional[StateType] = None
         self._agent_id = agent_id
         self._agent_states: dict[int, StateType] = {}
-        non_vibe_action_names = (
-            policy_env_info.non_vibe_action_names
-            if policy_env_info.non_vibe_action_names
-            else [name for name in policy_env_info.action_names if not name.startswith(CHANGE_VIBE_PREFIX)]
-        )
-        self._action_name_to_index = {name: idx for idx, name in enumerate(non_vibe_action_names)}
+        self._action_name_to_index = {name: idx for idx, name in enumerate(policy_env_info.action_names)}
         self._simulation: Simulation | None = None
         self._state_initialized = False
 

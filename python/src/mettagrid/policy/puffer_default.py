@@ -19,7 +19,6 @@ import torch.nn.functional as F
 
 import pufferlib.models
 import pufferlib.pytorch
-from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy, StatefulAgentPolicy, StatefulPolicyImpl
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.simulator import Action, AgentObservation
@@ -79,14 +78,7 @@ class _PufferDefaultStatefulImpl(StatefulPolicyImpl[dict[str, torch.Tensor | Non
         self._net = net
         self._device = device
         self._hidden_size = hidden_size
-        non_vibe_action_names = (
-            [name for name in policy_env_info.action_names if not name.startswith(CHANGE_VIBE_PREFIX)]
-            if not policy_env_info.non_vibe_action_names
-            else policy_env_info.non_vibe_action_names
-        )
-        self._action_names = (
-            policy_env_info.non_vibe_action_names if policy_env_info.non_vibe_action_names else non_vibe_action_names
-        )
+        self._action_names = policy_env_info.action_names
         self._obs_shape = policy_env_info.observation_space.shape
 
     def initial_agent_state(self) -> dict[str, torch.Tensor | None]:
