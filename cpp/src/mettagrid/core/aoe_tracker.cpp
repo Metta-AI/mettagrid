@@ -389,8 +389,9 @@ void AOETracker::apply_fixed(GridObject& target) {
         effective_passes = false;
       } else {
         bool source_is_friendly = (source_collective->id == target_collective_id);
-        effective_passes = now_passes && ((territory_owner == TerritoryOwner::Friendly && source_is_friendly) ||
-                                          (territory_owner == TerritoryOwner::Enemy && !source_is_friendly));
+        bool territory_matches_source = (territory_owner == TerritoryOwner::Friendly && source_is_friendly) ||
+                                        (territory_owner == TerritoryOwner::Enemy && !source_is_friendly);
+        effective_passes = now_passes && territory_matches_source;
       }
     }
 
