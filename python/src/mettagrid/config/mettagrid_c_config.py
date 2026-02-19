@@ -21,6 +21,7 @@ from mettagrid.mettagrid_c import AOEConfig as CppAOEConfig
 from mettagrid.mettagrid_c import AttackActionConfig as CppAttackActionConfig
 from mettagrid.mettagrid_c import AttackOutcome as CppAttackOutcome
 from mettagrid.mettagrid_c import ChangeVibeActionConfig as CppChangeVibeActionConfig
+from mettagrid.mettagrid_c import ClosureQueryConfig as CppClosureQueryConfig
 from mettagrid.mettagrid_c import CollectiveConfig as CppCollectiveConfig
 from mettagrid.mettagrid_c import EventConfig as CppEventConfig
 from mettagrid.mettagrid_c import GameConfig as CppGameConfig
@@ -39,6 +40,7 @@ from mettagrid.mettagrid_c import MultiHandler as CppMultiHandler
 from mettagrid.mettagrid_c import NegFilterConfig as CppNegFilterConfig
 from mettagrid.mettagrid_c import ObsValueConfig as CppObsValueConfig
 from mettagrid.mettagrid_c import OrFilterConfig as CppOrFilterConfig  # pyright: ignore[reportAttributeAccessIssue]
+from mettagrid.mettagrid_c import QueryOrderBy as CppQueryOrderBy
 from mettagrid.mettagrid_c import ResourceDelta as CppResourceDelta
 from mettagrid.mettagrid_c import ResourceFilterConfig as CppResourceFilterConfig
 from mettagrid.mettagrid_c import RewardConfig as CppRewardConfig
@@ -79,11 +81,17 @@ def _resolve_tag_prefix(prefix: str, tag_name_to_id: dict) -> list[int]:
 
 
 def _convert_tag_query(query, id_maps: CppIdMaps, context: str = ""):
-    """Convert a Python Query to a C++ QueryConfig (wrapped in shared_ptr).
+    """Convert a Python Query or ClosureQuery to a C++ QueryConfig (wrapped in shared_ptr).
 
-    Used by both MaxDistanceFilter (proximity) and QueryInventoryMutation.
+    Used by MaxDistanceFilter (proximity), QueryInventoryMutation, and QueryTags.
     """
-    query_tag = query.tag.name
+
+    query_type = getattr(query, "query_type", "query")
+
+    if query_type == "closure":
+        return _convert_closure_query(query, id_maps, context)
+
+    query_tag = query.tag
     if query_tag not in id_maps.tag_name_to_id:
         raise ValueError(
             f"Tag query in {context} references unknown tag '{query_tag}'. Add it to GameConfig.tags or object tags."
@@ -91,10 +99,34 @@ def _convert_tag_query(query, id_maps: CppIdMaps, context: str = ""):
 
     tag_query = CppTagQueryConfig()
     tag_query.tag_id = id_maps.tag_name_to_id[query_tag]
+    if query.max_items is not None:
+        tag_query.max_items = query.max_items
+    if query.order_by == "random":
+        tag_query.order_by = CppQueryOrderBy.random
 
     _convert_filters(query.filters, tag_query, id_maps, context=context)
 
     return make_query_config(tag_query)
+
+
+def _convert_closure_query(query, id_maps: CppIdMaps, context: str = ""):
+    """Convert a ClosureQuery to a C++ ClosureQueryConfig."""
+    cpp_source = _convert_tag_query(query.source, id_maps, context=f"{context} closure.source")
+
+    cpp_q = CppClosureQueryConfig()
+    cpp_q.set_source(cpp_source)
+    cpp_q.radius = query.radius
+    if query.max_items is not None:
+        cpp_q.max_items = query.max_items
+    if query.order_by == "random":
+        cpp_q.order_by = CppQueryOrderBy.random
+
+    _convert_filters(query.bridge, cpp_q, id_maps, context=f"{context} closure.bridge")
+
+    if query.filters:
+        _convert_filters(query.filters, cpp_q, id_maps, context=f"{context} closure.filters", method_prefix="result_")
+
+    return make_query_config(cpp_q)
 
 
 # ---------------------------------------------------------------------------
@@ -218,9 +250,11 @@ _FILTER_TYPE_TO_METHOD = {
 }
 
 
-def _attach(target, type_key: str, result):
+def _attach(target, type_key: str, result, *, method_prefix: str = ""):
     """Attach converted filter(s) to a C++ target."""
-    method = getattr(target, _FILTER_TYPE_TO_METHOD[type_key])
+    base = _FILTER_TYPE_TO_METHOD[type_key]
+    method_name = f"add_{method_prefix}{base[len('add_') :]}" if method_prefix else base
+    method = getattr(target, method_name)
     if isinstance(result, list):
         for item in result:
             method(item)
@@ -233,12 +267,12 @@ def _attach(target, type_key: str, result):
 # ---------------------------------------------------------------------------
 
 
-def _convert_filters(filters, cpp_target, id_maps: CppIdMaps, context: str = ""):
+def _convert_filters(filters, cpp_target, id_maps: CppIdMaps, context: str = "", *, method_prefix: str = ""):
     """Convert Python filters to C++ and add them to the target config."""
     for f in filters:
         converted = _convert_one_filter(f, id_maps, context)
         if converted is not None:
-            _attach(cpp_target, *converted)
+            _attach(cpp_target, *converted, method_prefix=method_prefix)
 
 
 def _build_neg_filter(filter_config, id_maps: CppIdMaps, context: str) -> CppNegFilterConfig:
@@ -305,7 +339,7 @@ def _convert_event_configs(events: dict, id_maps: CppIdMaps) -> dict:
         cpp_event.max_targets = event.max_targets if event.max_targets is not None else 0
         cpp_event.fallback = event.fallback or ""
 
-        target_tag_name = event.target_query.tag.name
+        target_tag_name = event.target_query.tag
         if target_tag_name not in id_maps.tag_name_to_id:
             raise ValueError(
                 f"Event '{event_name}' has target_query tag '{target_tag_name}' not found in tag mappings. "

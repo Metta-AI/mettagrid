@@ -19,6 +19,8 @@ from mettagrid.config.filter import (
     AlignmentCondition,
     AlignmentFilter,
     AnyFilter,
+    AnyQuery,
+    ClosureQuery,
     Filter,
     HandlerTarget,
     MaxDistanceFilter,
@@ -181,6 +183,8 @@ __all__ = [
     "Handler",
     # Query
     "Query",
+    "ClosureQuery",
+    "AnyQuery",
     "query",
     # Filter helpers
     "isNot",
