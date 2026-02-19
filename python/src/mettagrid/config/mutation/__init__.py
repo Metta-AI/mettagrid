@@ -63,7 +63,7 @@ from mettagrid.config.mutation.tag_mutation import (
     removeTag,
     removeTagPrefix,
 )
-from mettagrid.config.query import Query
+from mettagrid.config.query import AnyQuery, ClosureQuery, Query
 from mettagrid.config.tag import Tag as TagType
 
 AnyMutation = Annotated[
@@ -86,10 +86,11 @@ AnyMutation = Annotated[
 ]
 
 _mutation_namespace = {
-    "AnyQuery": Query,
+    "AnyQuery": AnyQuery,
     "AnyFilter": AnyFilter,
     "AnyMutation": AnyMutation,
     "Query": Query,
+    "ClosureQuery": ClosureQuery,
     "Tag": TagType,
     "ResourceDeltaMutation": ResourceDeltaMutation,
     "ResourceTransferMutation": ResourceTransferMutation,

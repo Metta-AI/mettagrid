@@ -1425,7 +1425,7 @@ class TestCollectiveAlignmentFilter:
                             target=HandlerTarget.TARGET,
                             radius=2,
                             query=Query(
-                                tag=tag("near_target"),
+                                tag="near_target",
                                 filters=[
                                     TagFilter(
                                         target=HandlerTarget.TARGET,

@@ -111,7 +111,7 @@ class TestMaxDistanceFilter:
         """Test creating MaxDistanceFilter via isNear helper."""
         f = isNear(query("junction", [isAlignedTo("clips")]), radius=2)
         assert f.filter_type == "max_distance"
-        assert f.query.tag == tag("junction")
+        assert f.query.tag == "junction"
         assert len(f.query.filters) == 1
         assert f.radius == 2
 
@@ -120,7 +120,7 @@ class TestMaxDistanceFilter:
         f = isNear(query("hub", [isAlignedTo("cogs")]), radius=3)
         assert isinstance(f, MaxDistanceFilter)
         assert f.filter_type == "max_distance"
-        assert f.query.tag == tag("hub")
+        assert f.query.tag == "hub"
         assert len(f.query.filters) == 1
         assert f.radius == 3
 
@@ -128,14 +128,14 @@ class TestMaxDistanceFilter:
         """Test isNear with default radius."""
         f = isNear(query("wall", [isAlignedTo("team_a")]))
         assert f.radius == 1
-        assert f.query.tag == tag("wall")
+        assert f.query.tag == "wall"
 
     def test_max_distance_filter_serialization(self):
         """Test MaxDistanceFilter serialization."""
         f = isNear(query("chest", [isAlignedTo("team_a")]), radius=2)
         data = f.model_dump()
         assert data["filter_type"] == "max_distance"
-        assert data["query"]["tag"] == {"name": "chest"}
+        assert data["query"]["tag"] == "chest"
         assert len(data["query"]["filters"]) == 1
         assert data["radius"] == 2
 

@@ -140,6 +140,10 @@ inline void bind_query_config(py::module& m) {
       .def(
           "add_shared_tag_prefix_filter",
           [](TagQueryConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_alignment_filter",
+          [](TagQueryConfig& self, const AlignmentFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"));
 
   py::class_<ClosureQueryConfig>(m, "ClosureQueryConfig")
@@ -180,6 +184,14 @@ inline void bind_query_config(py::module& m) {
           "add_game_value_filter",
           [](ClosureQueryConfig& self, const GameValueFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
           py::arg("filter"))
+      .def(
+          "add_alignment_filter",
+          [](ClosureQueryConfig& self, const AlignmentFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_vibe_filter",
+          [](ClosureQueryConfig& self, const VibeFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          py::arg("filter"))
       // Result filters (applied to traversed objects to restrict final result set)
       .def(
           "add_result_tag_prefix_filter",
@@ -204,6 +216,18 @@ inline void bind_query_config(py::module& m) {
       .def(
           "add_result_game_value_filter",
           [](ClosureQueryConfig& self, const GameValueFilterConfig& cfg) { self.result_filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_result_alignment_filter",
+          [](ClosureQueryConfig& self, const AlignmentFilterConfig& cfg) { self.result_filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_result_vibe_filter",
+          [](ClosureQueryConfig& self, const VibeFilterConfig& cfg) { self.result_filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_result_max_distance_filter",
+          [](ClosureQueryConfig& self, const MaxDistanceFilterConfig& cfg) { self.result_filters.push_back(cfg); },
           py::arg("filter"));
 
   py::class_<MaxDistanceFilterConfig>(m, "MaxDistanceFilterConfig")

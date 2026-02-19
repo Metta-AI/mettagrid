@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import Field
 
 from mettagrid.config.filter.filter import Filter, HandlerTarget
-from mettagrid.config.query import Query
+from mettagrid.config.query import AnyQuery
 
 
 class MaxDistanceFilter(Filter):
@@ -30,14 +30,14 @@ class MaxDistanceFilter(Filter):
         default=HandlerTarget.TARGET,
         description="Entity to check the filter against",
     )
-    query: Query = Field(description="Query to find nearby candidate objects")
+    query: "AnyQuery" = Field(description="Query to find nearby candidate objects")
     radius: int = Field(default=1, description="Chebyshev distance (square radius) to check")
 
 
 # ===== Helper Filter Functions =====
 
 
-def isNear(query: Query, radius: int = 1) -> MaxDistanceFilter:
+def isNear(query: "AnyQuery", radius: int = 1) -> MaxDistanceFilter:
     """Filter: target is within radius of an object matching the query.
 
     This is useful for proximity-based mechanics. The filter passes if:
