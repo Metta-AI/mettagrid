@@ -13,7 +13,7 @@ from mettagrid.config.mettagrid_config import (
     ResourceLimitsConfig,
 )
 from mettagrid.config.mutation import EntityTarget, ResourceDeltaMutation
-from mettagrid.config.tag import tag, typeTag
+from mettagrid.config.tag import typeTag
 from mettagrid.simulator import Simulation
 
 
@@ -121,17 +121,17 @@ class TestTagFilterHelpers:
 
     def test_has_tag_helper(self):
         """hasTag() should create a TagFilter with the given tag."""
-        f = hasTag(tag("type:junction"))
+        f = hasTag(typeTag("junction"))
         assert isinstance(f, TagFilter)
-        assert f.tag == tag("type:junction")
+        assert f.tag == typeTag("junction")
 
     def test_is_a_helper(self):
         """isA() should create a TagFilter with type:value format."""
         f = isA("hub")
         assert isinstance(f, TagFilter)
-        assert f.tag == tag("type:hub")
+        assert f.tag == typeTag("hub")
 
     def test_is_a_helper_with_junction(self):
         """isA() should work with junction type."""
         f = isA("junction")
-        assert f.tag == tag("type:junction")
+        assert f.tag == typeTag("junction")

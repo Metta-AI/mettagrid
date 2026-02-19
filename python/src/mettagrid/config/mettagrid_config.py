@@ -47,7 +47,6 @@ from mettagrid.config.obs_config import (  # noqa: F401 - re-exported
 )
 from mettagrid.config.query import MaterializedQuery
 from mettagrid.config.reward_config import AgentReward
-from mettagrid.config.tag import Tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.map_builder.map_builder import AnyMapBuilderConfig
 from mettagrid.map_builder.random_map import RandomMapBuilder
@@ -293,9 +292,14 @@ class GameConfig(Config):
 
     # Explicit list of tags used in the game. All tag references in filters/mutations
     # must refer to one of these, or obj.tags, or the implicit type:object_type tag.
-    tags: list[Tag | MaterializedQuery] = Field(
+    tags: list[str] = Field(
         default_factory=list,
-        description="Tags used in the game: plain tags (Tag) and materialized queries (MaterializedQuery)",
+        description="Explicit tag names used in the game (beyond object/agent tags and auto-generated type tags)",
+    )
+
+    materialize_queries: list[MaterializedQuery] = Field(
+        default_factory=list,
+        description="Queries whose results are materialized as tags, recomputed via RecomputeMaterializedQueryMutation",
     )
 
     @model_validator(mode="after")

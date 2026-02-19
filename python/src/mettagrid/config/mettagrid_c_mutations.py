@@ -150,26 +150,24 @@ def convert_mutations(
             target_obj.add_stats_mutation(cpp_mutation)
 
         elif isinstance(mutation, AddTagMutation):
-            tag_key = mutation.tag.name
-            assert tag_key in id_maps.tag_name_to_id, (
-                f"AddTagMutation references unknown tag '{tag_key}'. "
+            assert mutation.tag in id_maps.tag_name_to_id, (
+                f"AddTagMutation references unknown tag '{mutation.tag}'. "
                 f"Available tags: {list(id_maps.tag_name_to_id.keys())}"
             )
             cpp_mutation = CppAddTagMutationConfig(
                 entity=convert_entity_ref(mutation.target),
-                tag_id=id_maps.tag_name_to_id[tag_key],
+                tag_id=id_maps.tag_name_to_id[mutation.tag],
             )
             target_obj.add_add_tag_mutation(cpp_mutation)
 
         elif isinstance(mutation, RemoveTagMutation):
-            tag_key = mutation.tag.name
-            assert tag_key in id_maps.tag_name_to_id, (
-                f"RemoveTagMutation references unknown tag '{tag_key}'. "
+            assert mutation.tag in id_maps.tag_name_to_id, (
+                f"RemoveTagMutation references unknown tag '{mutation.tag}'. "
                 f"Available tags: {list(id_maps.tag_name_to_id.keys())}"
             )
             cpp_mutation = CppRemoveTagMutationConfig(
                 entity=convert_entity_ref(mutation.target),
-                tag_id=id_maps.tag_name_to_id[tag_key],
+                tag_id=id_maps.tag_name_to_id[mutation.tag],
             )
             target_obj.add_remove_tag_mutation(cpp_mutation)
 

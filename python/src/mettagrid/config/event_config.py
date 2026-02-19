@@ -7,9 +7,9 @@ timed triggers, or scripted scenarios.
 Example:
     EventConfig(
         name="periodic_damage",
-        target_query=query("type:enemy"),
+        target_query=query(typeTag("enemy")),
         timesteps=periodic(start=100, period=50, end=1000),
-        filters=[TagFilter(tag="type:enemy")],
+        filters=[TagFilter(tag=typeTag("enemy"))],
         mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"hp": -10})]
     )
 """

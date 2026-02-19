@@ -345,7 +345,7 @@ class TestTags:
         tag_names = env1.config.game.id_map().tag_names()
         alpha_tag_value = tag_names.index("alpha")
         beta_tag_value = tag_names.index("beta")
-        type_wall_tag_value = tag_names.index(typeTag("wall").name)
+        type_wall_tag_value = tag_names.index(typeTag("wall"))
 
         # Extract tag IDs from both environments
         def get_wall_tag_ids(sim, obs):
@@ -501,7 +501,7 @@ def test_team_tag_consistency_success():
     assert tag_id_map[1] == "beta"
     assert tag_id_map[2] == "delta"
     assert tag_id_map[3] == "gamma"
-    assert tag_id_map[4] == typeTag("agent").name
+    assert tag_id_map[4] == typeTag("agent")
 
 
 def test_empty_tags_allowed():
@@ -520,7 +520,7 @@ def test_empty_tags_allowed():
     # Verify type:agent tag is in mapping (from validator default + C++ auto-generated, deduplicated)
     tag_id_map = cpp_config.tag_id_map
     assert len(tag_id_map) == 1  # Only type:agent (deduped)
-    assert tag_id_map[0] == typeTag("agent").name
+    assert tag_id_map[0] == typeTag("agent")
 
 
 def test_default_agent_tags_preserved():
@@ -593,7 +593,7 @@ def test_default_agent_tags_in_cpp_config():
     # Tags should be sorted alphabetically: hero=0, player=1, type:agent=2
     assert tag_id_map[0] == "hero", f"Tag ID 0 should be 'hero', got {tag_id_map[0]}"
     assert tag_id_map[1] == "player", f"Tag ID 1 should be 'player', got {tag_id_map[1]}"
-    assert tag_id_map[2] == typeTag("agent").name, f"Tag ID 2 should be 'type:agent', got {tag_id_map[2]}"
+    assert tag_id_map[2] == typeTag("agent"), f"Tag ID 2 should be 'type:agent', got {tag_id_map[2]}"
 
 
 def test_tag_mapping_in_id_map():
@@ -642,8 +642,8 @@ def test_tag_mapping_in_id_map():
             "mobile",
             "player",
             "solid",
-            typeTag("agent").name,
-            typeTag("wall").name,
+            typeTag("agent"),
+            typeTag("wall"),
         ]
     )
     assert len(tag_values) == len(expected_tags), f"Should have {len(expected_tags)} tags, got {len(tag_values)}"
@@ -690,4 +690,4 @@ def test_tag_mapping_empty_tags():
     # Now expect mapping to include the default 'type:wall' tag (from validator)
     tag_values = id_map.tag_names()
     assert isinstance(tag_values, list)
-    assert typeTag("wall").name in tag_values, f"Expected default 'type:wall' tag. Got {tag_values}"
+    assert typeTag("wall") in tag_values, f"Expected default 'type:wall' tag. Got {tag_values}"

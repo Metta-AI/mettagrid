@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Annotated, Literal, Optional, Union
 from pydantic import Discriminator, Field
 
 from mettagrid.base_config import Config
-from mettagrid.config.tag import Tag
 
 if TYPE_CHECKING:
     from mettagrid.config.filter.filter import AnyFilter
@@ -38,7 +37,7 @@ class MaterializedQuery(Query):
     """A query whose results are materialized as a tag.
 
     Computed at init time, recomputed explicitly via RecomputeMaterializedQueryMutation.
-    Defined in GameConfig.tags alongside plain Tags.
+    Defined in GameConfig.materialize_queries.
     """
 
     query_type: Literal["materialized"] = "materialized"
@@ -63,18 +62,16 @@ class ClosureQuery(Query):
 AnyQuery = Annotated[Union[Query, MaterializedQuery, ClosureQuery], Discriminator("query_type")]
 
 
-def query(tag: str | Tag, filters: list[AnyFilter] | None = None) -> Query:
+def query(tag: str, filters: list[AnyFilter] | None = None) -> Query:
     """Create a Query for finding objects by tag with optional filters.
 
     Examples:
-        query("type:junction")
-        query("type:agent", [hasTag(tag("collective:cogs"))])
+        query(typeTag("junction"))
+        query(typeTag("agent"), [hasTag("collective:cogs")])
     """
-    tag_name = tag if isinstance(tag, str) else tag.name
-    return Query(tag=tag_name, filters=filters or [])
+    return Query(tag=tag, filters=filters or [])
 
 
-def materializedQuery(tag: str | Tag, q: "AnyQuery") -> MaterializedQuery:
+def materializedQuery(tag: str, q: "AnyQuery") -> MaterializedQuery:
     """Create a MaterializedQuery that materializes query results as a tag."""
-    tag_name = tag if isinstance(tag, str) else tag.name
-    return MaterializedQuery(tag=tag_name, query=q)
+    return MaterializedQuery(tag=tag, query=q)

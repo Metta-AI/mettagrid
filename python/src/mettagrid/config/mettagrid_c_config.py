@@ -11,7 +11,7 @@ from mettagrid.config.mettagrid_config import (
     WallConfig,
 )
 from mettagrid.config.mutation import AlignmentMutation
-from mettagrid.config.query import MaterializedQuery, Query
+from mettagrid.config.query import Query
 from mettagrid.config.tag import typeTag
 from mettagrid.mettagrid_c import ActionConfig as CppActionConfig
 from mettagrid.mettagrid_c import AgentConfig as CppAgentConfig
@@ -196,13 +196,13 @@ def _convert_one_filter(filter_config, id_maps: CppIdMaps, context: str) -> tupl
         )
 
     if ft == "tag":
-        if filter_config.tag.name not in id_maps.tag_name_to_id:
+        if filter_config.tag not in id_maps.tag_name_to_id:
             return None
         return (
             "tag_prefix",
             CppTagPrefixFilterConfig(
                 entity=convert_entity_ref(filter_config.target),
-                tag_ids=[id_maps.tag_name_to_id[filter_config.tag.name]],
+                tag_ids=[id_maps.tag_name_to_id[filter_config.tag]],
             ),
         )
 
@@ -514,19 +514,14 @@ def convert_to_cpp_game_config(
                 ]
                 limit_name_to_resource_ids[limit_name] = limit_resource_ids
 
-    materialized_tag_names: set[str] = set()
-    static_tag_names: set[str] = set()
-    for t in game_config.tags:
-        if isinstance(t, MaterializedQuery):
-            materialized_tag_names.add(t.tag)
-        else:
-            static_tag_names.add(t.name)
+    materialized_tag_names: set[str] = {mq.tag for mq in game_config.materialize_queries}
+    static_tag_names: set[str] = set(game_config.tags)
     for obj_name, obj_config in game_config.objects.items():
         static_tag_names.update(obj_config.tags)
-        static_tag_names.add(typeTag(obj_name).name)
+        static_tag_names.add(typeTag(obj_name))
     for agent_config in game_config.agents:
         static_tag_names.update(agent_config.tags)
-        static_tag_names.add(typeTag(agent_config.name).name)
+        static_tag_names.add(typeTag(agent_config.name))
 
     collisions = materialized_tag_names & static_tag_names
     if collisions:
@@ -585,7 +580,7 @@ def convert_to_cpp_game_config(
         inv_config = agent_props.get("inventory", {})
         initial_inventory = {resource_name_to_id[k]: v for k, v in inv_config.get("initial", {}).items()}
 
-        agent_tag_names = list(agent_cfg.tags) + [typeTag(agent_cfg.name).name]
+        agent_tag_names = list(agent_cfg.tags) + [typeTag(agent_cfg.name)]
         tag_ids = [tag_name_to_id[name] for name in agent_tag_names]
 
         limit_defs = []
@@ -703,7 +698,7 @@ def convert_to_cpp_game_config(
         cpp_config = None
 
         type_id = type_id_by_type_name[object_type]
-        object_tag_names = list(object_config.tags) + [typeTag(object_type).name]
+        object_tag_names = list(object_config.tags) + [typeTag(object_type)]
         tag_ids = [tag_name_to_id[name] for name in object_tag_names]
 
         if isinstance(object_config, WallConfig):
@@ -762,6 +757,8 @@ def convert_to_cpp_game_config(
         del game_cpp_params["map_builder"]
     if "tags" in game_cpp_params:
         del game_cpp_params["tags"]
+    if "materialize_queries" in game_cpp_params:
+        del game_cpp_params["materialize_queries"]
 
     if "obs" in game_cpp_params:
         obs_config = game_cpp_params.pop("obs")
@@ -898,12 +895,11 @@ def convert_to_cpp_game_config(
     # --- Materialized queries ---
 
     materialized_queries_cpp = []
-    for tag_entry in game_config.tags:
-        if isinstance(tag_entry, MaterializedQuery):
-            cpp_mq = CppMaterializedQueryTag()
-            cpp_mq.tag_id = tag_name_to_id[tag_entry.tag]
-            cpp_mq.set_query(_convert_tag_query(tag_entry.query, id_maps, f"materialized_query '{tag_entry.tag}'"))
-            materialized_queries_cpp.append(cpp_mq)
+    for mq in game_config.materialize_queries:
+        cpp_mq = CppMaterializedQueryTag()
+        cpp_mq.tag_id = tag_name_to_id[mq.tag]
+        cpp_mq.set_query(_convert_tag_query(mq.query, id_maps, f"materialized_query '{mq.tag}'"))
+        materialized_queries_cpp.append(cpp_mq)
     if materialized_queries_cpp:
         game_cpp_params["materialized_queries"] = materialized_queries_cpp
 

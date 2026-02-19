@@ -24,6 +24,7 @@ from mettagrid.config.mettagrid_config import (
 )
 from mettagrid.config.mutation import alignTo, removeAlignment
 from mettagrid.config.query import query
+from mettagrid.config.tag import typeTag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Simulation
@@ -57,7 +58,7 @@ class TestEventMaxTargetsSimulation:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 resource_names=[],
                 objects={
-                    "wall": WallConfig(tags=["type:wall"]),
+                    "wall": WallConfig(tags=[typeTag("wall")]),
                 },
                 collectives={
                     "clips": CollectiveConfig(),
@@ -65,7 +66,7 @@ class TestEventMaxTargetsSimulation:
                 events={
                     "align_one_wall": EventConfig(
                         name="align_one_wall",
-                        target_query=query("type:wall"),
+                        target_query=query(typeTag("wall")),
                         timesteps=[5],  # Fire at timestep 5
                         filters=[isA("wall")],
                         mutations=[alignTo("clips")],
@@ -126,7 +127,7 @@ class TestEventMaxTargetsSimulation:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 resource_names=[],
                 objects={
-                    "wall": WallConfig(tags=["type:wall"]),
+                    "wall": WallConfig(tags=[typeTag("wall")]),
                 },
                 collectives={
                     "clips": CollectiveConfig(),
@@ -134,7 +135,7 @@ class TestEventMaxTargetsSimulation:
                 events={
                     "align_all_walls": EventConfig(
                         name="align_all_walls",
-                        target_query=query("type:wall"),
+                        target_query=query(typeTag("wall")),
                         timesteps=[5],
                         filters=[isA("wall"), isAlignedTo(None)],  # Only unaligned walls
                         mutations=[alignTo("clips")],
@@ -178,7 +179,7 @@ class TestEventMaxTargetsSimulation:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 resource_names=[],
                 objects={
-                    "wall": WallConfig(tags=["type:wall"]),
+                    "wall": WallConfig(tags=[typeTag("wall")]),
                 },
                 collectives={
                     "clips": CollectiveConfig(),
@@ -186,7 +187,7 @@ class TestEventMaxTargetsSimulation:
                 events={
                     "align_five_walls": EventConfig(
                         name="align_five_walls",
-                        target_query=query("type:wall"),
+                        target_query=query(typeTag("wall")),
                         timesteps=[5],
                         filters=[isA("wall")],
                         mutations=[alignTo("clips")],
@@ -257,9 +258,9 @@ class TestEventFilterSimulation:
                 resource_names=[],
                 objects={
                     # wall type that starts unaligned
-                    "wall": WallConfig(tags=["type:wall"]),
+                    "wall": WallConfig(tags=[typeTag("wall")]),
                     # aligned_wall type that starts aligned
-                    "aligned_wall": WallConfig(tags=["type:wall"], collective="cogs"),
+                    "aligned_wall": WallConfig(tags=[typeTag("wall")], collective="cogs"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -268,7 +269,7 @@ class TestEventFilterSimulation:
                 events={
                     "align_unaligned_only": EventConfig(
                         name="align_unaligned_only",
-                        target_query=query("type:wall"),
+                        target_query=query(typeTag("wall")),
                         timesteps=[5],
                         filters=[isA("wall"), isAlignedTo(None)],  # Only unaligned
                         mutations=[alignTo("clips")],
@@ -324,8 +325,10 @@ class TestEventFilterSimulation:
                 actions=ActionsConfig(noop=NoopActionConfig()),
                 resource_names=[],
                 objects={
-                    "clips_wall": WallConfig(name="clips_wall", map_name="C", tags=["type:wall"], collective="clips"),
-                    "cogs_wall": WallConfig(name="cogs_wall", map_name="G", tags=["type:wall"], collective="cogs"),
+                    "clips_wall": WallConfig(
+                        name="clips_wall", map_name="C", tags=[typeTag("wall")], collective="clips"
+                    ),
+                    "cogs_wall": WallConfig(name="cogs_wall", map_name="G", tags=[typeTag("wall")], collective="cogs"),
                 },
                 collectives={
                     "cogs": CollectiveConfig(),
@@ -334,7 +337,7 @@ class TestEventFilterSimulation:
                 events={
                     "scramble_non_clips": EventConfig(
                         name="scramble_non_clips",
-                        target_query=query("type:wall"),
+                        target_query=query(typeTag("wall")),
                         timesteps=[5],
                         filters=[isNotAlignedTo("clips")],  # Should exclude clips-aligned
                         mutations=[removeAlignment()],  # Remove alignment

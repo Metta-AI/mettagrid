@@ -7,32 +7,32 @@ from typing import Literal
 from pydantic import Field
 
 from mettagrid.config.filter.filter import Filter, HandlerTarget
-from mettagrid.config.tag import Tag, typeTag
+from mettagrid.config.tag import typeTag
 
 
 class TagFilter(Filter):
     """Filter that checks if the target has a specific tag.
 
-    Tags are specified in "name:value" format (e.g., "type:hub").
+    Tags are specified in "name:value" format (e.g., typeTag("hub")).
     This is useful for events that should only affect certain object types.
 
     Example:
-        TagFilter(target=HandlerTarget.TARGET, tag=tag("type:hub"))
+        TagFilter(target=HandlerTarget.TARGET, tag=typeTag("hub"))
     """
 
     filter_type: Literal["tag"] = "tag"
     target: HandlerTarget = Field(description="Entity to check the filter against")
-    tag: Tag = Field(description="Full tag in name:value format")
+    tag: str = Field(description="Full tag in name:value format")
 
 
 # ===== Helper Filter Functions =====
 
 
-def hasTag(tag: Tag) -> TagFilter:
+def hasTag(tag: str) -> TagFilter:
     """Filter: target has the specified tag.
 
     Args:
-        tag: Full tag in name:value format (e.g., "type:hub")
+        tag: Full tag in name:value format (e.g., typeTag("hub"))
     """
     return TagFilter(target=HandlerTarget.TARGET, tag=tag)
 

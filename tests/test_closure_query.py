@@ -31,7 +31,7 @@ from mettagrid.config.mettagrid_config import (
     WallConfig,
 )
 from mettagrid.config.mutation import QueryInventoryMutation, alignTo, queryDeposit
-from mettagrid.config.tag import Tag, tag
+from mettagrid.config.tag import tag, typeTag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Simulation
@@ -42,32 +42,32 @@ class TestClosureQueryConstruction:
 
     def test_basic_construction(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire")],
             radius=1,
         )
         assert cq.query_type == "closure"
-        assert cq.source.tag == "type:hub"
+        assert cq.source.tag == typeTag("hub")
         assert cq.radius == 1
         assert len(cq.bridge) == 1
 
     def test_default_tag_is_empty(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire")],
         )
         assert cq.tag == ""
 
     def test_default_radius_is_1(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire")],
         )
         assert cq.radius == 1
 
     def test_custom_radius(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire")],
             radius=5,
         )
@@ -75,7 +75,7 @@ class TestClosureQueryConstruction:
 
     def test_with_result_filters(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire")],
             filters=[isA("junction")],
         )
@@ -84,7 +84,7 @@ class TestClosureQueryConstruction:
 
     def test_multiple_bridge_filters(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire"), hasTag(tag("team:red"))],
             radius=2,
         )
@@ -92,14 +92,14 @@ class TestClosureQueryConstruction:
 
     def test_source_with_filters(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub", filters=[hasTag(tag("team:red"))]),
+            source=Query(tag=typeTag("hub"), filters=[hasTag(tag("team:red"))]),
             bridge=[isA("wire")],
         )
         assert len(cq.source.filters) == 1
 
     def test_max_items(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire")],
             max_items=10,
         )
@@ -107,7 +107,7 @@ class TestClosureQueryConstruction:
 
     def test_order_by_random(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire")],
             order_by="random",
         )
@@ -118,22 +118,22 @@ class TestQueryDiscriminator:
     """Test AnyQuery discriminated union."""
 
     def test_query_type_tag(self):
-        q = Query(tag="type:hub")
+        q = Query(tag=typeTag("hub"))
         assert q.query_type == "query"
 
     def test_closure_type_tag(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire")],
         )
         assert cq.query_type == "closure"
 
     def test_query_max_items(self):
-        q = Query(tag="type:hub", max_items=5)
+        q = Query(tag=typeTag("hub"), max_items=5)
         assert q.max_items == 5
 
     def test_query_order_by(self):
-        q = Query(tag="type:hub", order_by="random")
+        q = Query(tag=typeTag("hub"), order_by="random")
         assert q.order_by == "random"
 
 
@@ -142,13 +142,13 @@ class TestClosureQuerySerialization:
 
     def test_round_trip(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
-            bridge=[TagFilter(target=HandlerTarget.TARGET, tag=Tag(name="type:wire"))],
+            source=Query(tag=typeTag("hub")),
+            bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
             radius=3,
         )
         data = cq.model_dump()
         assert data["query_type"] == "closure"
-        assert data["source"]["tag"] == "type:hub"
+        assert data["source"]["tag"] == typeTag("hub")
         assert data["source"]["query_type"] == "query"
         assert data["radius"] == 3
         assert len(data["bridge"]) == 1
@@ -157,12 +157,12 @@ class TestClosureQuerySerialization:
         data = {
             "query_type": "closure",
             "tag": "",
-            "source": {"query_type": "query", "tag": "type:hub", "filters": []},
+            "source": {"query_type": "query", "tag": typeTag("hub"), "filters": []},
             "bridge": [
                 {
                     "filter_type": "tag",
                     "target": "target",
-                    "tag": {"name": "type:wire"},
+                    "tag": typeTag("wire"),
                 }
             ],
             "radius": 2,
@@ -170,15 +170,15 @@ class TestClosureQuerySerialization:
         }
         cq = ClosureQuery.model_validate(data)
         assert cq.query_type == "closure"
-        assert cq.source.tag == "type:hub"
+        assert cq.source.tag == typeTag("hub")
         assert cq.radius == 2
         assert len(cq.bridge) == 1
 
     def test_query_serialization(self):
-        q = Query(tag="type:hub", max_items=5, order_by="random")
+        q = Query(tag=typeTag("hub"), max_items=5, order_by="random")
         data = q.model_dump()
         assert data["query_type"] == "query"
-        assert data["tag"] == "type:hub"
+        assert data["tag"] == typeTag("hub")
         assert data["max_items"] == 5
         assert data["order_by"] == "random"
 
@@ -188,7 +188,7 @@ class TestClosureInFilters:
 
     def test_closure_in_max_distance_filter(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire")],
             radius=2,
         )
@@ -203,7 +203,7 @@ class TestClosureInFilters:
 
     def test_closure_via_is_near_helper(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire")],
         )
         f = isNear(cq, radius=5)
@@ -217,7 +217,7 @@ class TestClosureInMutations:
 
     def test_closure_in_query_inventory_mutation(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire")],
         )
         m = QueryInventoryMutation(
@@ -229,7 +229,7 @@ class TestClosureInMutations:
 
     def test_closure_with_query_deposit_helper(self):
         cq = ClosureQuery(
-            source=Query(tag="type:hub"),
+            source=Query(tag=typeTag("hub")),
             bridge=[isA("wire")],
         )
         m = queryDeposit(cq, {"energy": 5})
@@ -243,7 +243,7 @@ class TestNestedClosureQuery:
     def test_nested_closure_source(self):
         """A ClosureQuery whose source is itself a ClosureQuery."""
         inner = ClosureQuery(
-            source=Query(tag="type:power_plant"),
+            source=Query(tag=typeTag("power_plant")),
             bridge=[isA("power_line")],
             radius=1,
         )
@@ -254,11 +254,11 @@ class TestNestedClosureQuery:
         )
         assert outer.query_type == "closure"
         assert outer.source.query_type == "closure"
-        assert outer.source.source.tag == "type:power_plant"
+        assert outer.source.source.tag == typeTag("power_plant")
 
     def test_nested_serialization_round_trip(self):
         inner = ClosureQuery(
-            source=Query(tag="type:core"),
+            source=Query(tag=typeTag("core")),
             bridge=[isA("conduit")],
         )
         outer = ClosureQuery(
@@ -269,7 +269,7 @@ class TestNestedClosureQuery:
         data = outer.model_dump()
         restored = ClosureQuery.model_validate(data)
         assert restored.source.query_type == "closure"
-        assert restored.source.source.tag == "type:core"
+        assert restored.source.source.tag == typeTag("core")
         assert len(restored.filters) == 1
 
 
@@ -328,10 +328,10 @@ class TestClosureQueryIntegration:
                 resource_names=[],
                 agent=AgentConfig(collective="team_a"),
                 objects={
-                    "wall": WallConfig(tags=["type:wall"]),
-                    "hub": GridObjectConfig(name="hub", map_name="hub", tags=["type:hub"]),
-                    "wire": GridObjectConfig(name="wire", map_name="wire", tags=["type:wire"]),
-                    "junction": WallConfig(name="junction", tags=["type:junction"]),
+                    "wall": WallConfig(tags=[typeTag("wall")]),
+                    "hub": GridObjectConfig(name="hub", map_name="hub", tags=[typeTag("hub")]),
+                    "wire": GridObjectConfig(name="wire", map_name="wire", tags=[typeTag("wire")]),
+                    "junction": WallConfig(name="junction", tags=[typeTag("junction")]),
                 },
                 collectives={
                     "team_a": CollectiveConfig(),
@@ -340,13 +340,13 @@ class TestClosureQueryIntegration:
                 events={
                     "connect_junctions": EventConfig(
                         name="connect_junctions",
-                        target_query=query("type:junction"),
+                        target_query=query(typeTag("junction")),
                         timesteps=[3],
                         filters=[
                             isA("junction"),
                             isNear(
                                 ClosureQuery(
-                                    source=Query(tag="type:hub"),
+                                    source=Query(tag=typeTag("hub")),
                                     bridge=[isA("wire")],
                                     radius=1,
                                 ),
@@ -408,10 +408,10 @@ class TestClosureQueryIntegration:
                 resource_names=[],
                 agent=AgentConfig(collective="team_a"),
                 objects={
-                    "wall": WallConfig(tags=["type:wall"]),
-                    "hub": GridObjectConfig(name="hub", map_name="hub", tags=["type:hub"]),
-                    "wire": GridObjectConfig(name="wire", map_name="wire", tags=["type:wire"]),
-                    "junction": WallConfig(name="junction", tags=["type:junction"]),
+                    "wall": WallConfig(tags=[typeTag("wall")]),
+                    "hub": GridObjectConfig(name="hub", map_name="hub", tags=[typeTag("hub")]),
+                    "wire": GridObjectConfig(name="wire", map_name="wire", tags=[typeTag("wire")]),
+                    "junction": WallConfig(name="junction", tags=[typeTag("junction")]),
                 },
                 collectives={
                     "team_a": CollectiveConfig(),
@@ -420,13 +420,13 @@ class TestClosureQueryIntegration:
                 events={
                     "connect_junctions": EventConfig(
                         name="connect_junctions",
-                        target_query=query("type:junction"),
+                        target_query=query(typeTag("junction")),
                         timesteps=[3],
                         filters=[
                             isA("junction"),
                             isNear(
                                 ClosureQuery(
-                                    source=Query(tag="type:hub"),
+                                    source=Query(tag=typeTag("hub")),
                                     bridge=[isA("wire")],
                                     radius=1,
                                 ),
@@ -494,10 +494,10 @@ class TestClosureQueryIntegration:
                     resource_names=[],
                     agent=AgentConfig(collective="team_a"),
                     objects={
-                        "wall": WallConfig(tags=["type:wall"]),
-                        "hub": GridObjectConfig(name="hub", map_name="hub", tags=["type:hub"]),
-                        "wire": GridObjectConfig(name="wire", map_name="wire", tags=["type:wire"]),
-                        "junction": WallConfig(name="junction", tags=["type:junction"]),
+                        "wall": WallConfig(tags=[typeTag("wall")]),
+                        "hub": GridObjectConfig(name="hub", map_name="hub", tags=[typeTag("hub")]),
+                        "wire": GridObjectConfig(name="wire", map_name="wire", tags=[typeTag("wire")]),
+                        "junction": WallConfig(name="junction", tags=[typeTag("junction")]),
                     },
                     collectives={
                         "team_a": CollectiveConfig(),
@@ -506,13 +506,13 @@ class TestClosureQueryIntegration:
                     events={
                         "connect_junctions": EventConfig(
                             name="connect_junctions",
-                            target_query=query("type:junction"),
+                            target_query=query(typeTag("junction")),
                             timesteps=[3],
                             filters=[
                                 isA("junction"),
                                 isNear(
                                     ClosureQuery(
-                                        source=Query(tag="type:hub"),
+                                        source=Query(tag=typeTag("hub")),
                                         bridge=[isA("wire")],
                                         radius=closure_radius,
                                     ),
@@ -574,10 +574,10 @@ class TestClosureQueryIntegration:
                 resource_names=[],
                 agent=AgentConfig(collective="team_a"),
                 objects={
-                    "wall": WallConfig(tags=["type:wall"]),
-                    "hub": GridObjectConfig(name="hub", map_name="hub", tags=["type:hub"]),
-                    "wire": GridObjectConfig(name="wire", map_name="wire", tags=["type:wire"]),
-                    "junction": WallConfig(name="junction", tags=["type:junction"]),
+                    "wall": WallConfig(tags=[typeTag("wall")]),
+                    "hub": GridObjectConfig(name="hub", map_name="hub", tags=[typeTag("hub")]),
+                    "wire": GridObjectConfig(name="wire", map_name="wire", tags=[typeTag("wire")]),
+                    "junction": WallConfig(name="junction", tags=[typeTag("junction")]),
                 },
                 collectives={
                     "team_a": CollectiveConfig(),
@@ -586,13 +586,13 @@ class TestClosureQueryIntegration:
                 events={
                     "connect_junctions": EventConfig(
                         name="connect_junctions",
-                        target_query=query("type:junction"),
+                        target_query=query(typeTag("junction")),
                         timesteps=[3],
                         filters=[
                             isA("junction"),
                             isNear(
                                 ClosureQuery(
-                                    source=Query(tag="type:hub"),
+                                    source=Query(tag=typeTag("hub")),
                                     bridge=[isA("wire")],
                                     radius=1,
                                 ),

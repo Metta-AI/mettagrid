@@ -22,7 +22,7 @@ from mettagrid.config.mutation import (
     removeTag,
 )
 from mettagrid.config.query import MaterializedQuery, Query
-from mettagrid.config.tag import tag
+from mettagrid.config.tag import tag, typeTag
 from mettagrid.simulator import Simulation
 
 # ---------------------------------------------------------------------------
@@ -452,15 +452,15 @@ class TestTagMutationWithMaterializedQuery:
         )
         cfg.game.actions.noop.enabled = True
 
-        cfg.game.tags = [
-            tag("team:alpha"),
+        cfg.game.tags = ["team:alpha"]
+        cfg.game.materialize_queries = [
             MaterializedQuery(tag="team_members", query=Query(tag="team:alpha")),
         ]
 
         cfg.game.events = {
             "tag_agents": EventConfig(
                 name="tag_agents",
-                target_query=Query(tag="type:agent", filters=[hasTag(tag("type:agent"))]),
+                target_query=Query(tag=typeTag("agent"), filters=[hasTag(typeTag("agent"))]),
                 timesteps=[3],
                 mutations=[addTag(tag("team:alpha")), recomputeMaterializedQuery("team_members")],
                 max_targets=10,
@@ -498,14 +498,14 @@ class TestTagMutationWithMaterializedQuery:
         cfg.game.actions.noop.enabled = True
         cfg.game.agent.tags = ["team:beta"]
 
-        cfg.game.tags = [
+        cfg.game.materialize_queries = [
             MaterializedQuery(tag="beta_team", query=Query(tag="team:beta")),
         ]
 
         cfg.game.events = {
             "untag_agents": EventConfig(
                 name="untag_agents",
-                target_query=Query(tag="type:agent", filters=[hasTag(tag("type:agent"))]),
+                target_query=Query(tag=typeTag("agent"), filters=[hasTag(typeTag("agent"))]),
                 timesteps=[3],
                 mutations=[removeTag(tag("team:beta")), recomputeMaterializedQuery("beta_team")],
                 max_targets=10,
