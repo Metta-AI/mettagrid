@@ -1,3 +1,4 @@
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -50,6 +51,7 @@ class TestGetMettagridSource:
         assert source.startswith("mettagrid==")
 
 
+@patch.dict(os.environ, {"EPISODE_RUNNER_USE_ISOLATED_VENVS": "1"})
 @patch(
     "mettagrid.runner.policy_server.manager._get_mettagrid_source",
     return_value="mettagrid==0.0.0",
