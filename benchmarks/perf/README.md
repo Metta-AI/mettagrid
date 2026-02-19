@@ -1,6 +1,8 @@
-# MettaGrid Performance Optimization
+# MettaGrid Env-Only Performance Benchmarks
 
-Tools for profiling and benchmarking MettaGrid performance.
+Canonical benchmark for env-only (C++ simulation) performance. Supports two preset configs: `toy` and `arena`
+(mettagrid-internal). For cogsguard benchmarking, see `packages/cogames/benchmarks/perf/`. See the
+[perf benchmarking spec](../../../docs/specs/0027-perf-benchmarking.md) for methodology.
 
 ## Step Phases
 
@@ -18,8 +20,8 @@ A single `_step()` call executes these phases in order:
 | **rewards**      | Evaluate reward conditions, accumulate per-agent rewards                                |
 | **truncation**   | Check `current_step >= max_steps`, set terminal flags                                   |
 
-Phase costs vary by config — use `scripts/profile_multi_config.py` for per-config breakdowns. Observations typically
-dominate; actions and rewards are secondary bottlenecks.
+Phase costs vary by config — use `perf_benchmark.py --config arena --profile` or `--config toy --profile` for per-config
+breakdowns. Observations typically dominate; actions and rewards are secondary bottlenecks.
 
 Set `METTAGRID_PROFILING=1` to enable per-phase nanosecond timing (read once at construction, zero overhead when unset,
 ~6% overhead when enabled). With profiling on, `env.step_timing` exposes per-step durations after each `step()` call.
@@ -28,7 +30,7 @@ of any specific optimization.
 
 ## Profiling Workflow
 
-Start with `profile_multi_config.py` to identify which phase dominates for your config. Use
+Start with `perf_benchmark.py --config <preset> --profile` to identify which phase dominates for your config. Use
 `perf_benchmark.py --profile` to measure before/after for a specific change. Use training A/B comparison to measure
 end-to-end SPS impact.
 
@@ -89,30 +91,13 @@ uv run python perf_benchmark.py --report results/
 - Phase breakdown requires `--profile`, which adds ~6% overhead. SPS without `--profile` reflects production
   performance.
 
-### `scripts/profile_multi_config.py`
-
-Profiles step timing across three configs: Toy (20 agents, walls only), Arena (24 agents, combat), and CogsGuard (8
-agents, machina_1 layout).
-
-```bash
-uv run python scripts/profile_multi_config.py
-```
-
-No options. Prints a per-phase timing table for each config showing mean microseconds, percentage of C++ step time, and
-percentage of wall-clock time (includes Python/pybind overhead). Phases contributing <1% of C++ time are omitted.
-
-**Limitations:**
-
-- CogsGuard config requires `recipes.experiment.cogsguard` to be importable (skipped if not available).
-- Hardcoded step counts (15K steps, 5K warmup). Sufficient for stable timing but not configurable.
-
-### `test_perf.sh`
+### `run.sh`
 
 Rebuilds mettagrid (`uv sync --reinstall-package mettagrid`) then runs `perf_benchmark.py` with any arguments passed
 through.
 
 ```bash
-bash test_perf.sh --profile --rounds 10
+bash run.sh --config arena --profile --rounds 10
 ```
 
 ### Training A/B comparison
