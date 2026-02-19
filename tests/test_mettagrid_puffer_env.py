@@ -15,8 +15,11 @@ from mettagrid.config.mettagrid_config import (
 )
 from mettagrid.envs.mettagrid_puffer_env import MettaGridPufferEnv
 from mettagrid.map_builder.random_map import RandomMapBuilder
-from mettagrid.policy.policy import PolicySpec
+from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy, PolicySpec
+from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.simulator import Simulator
+from mettagrid.simulator.interface import AgentObservation
+from mettagrid.types import Action
 from pufferlib.emulation import GymnasiumPufferEnv
 
 
@@ -81,6 +84,26 @@ class TestMettaGridPufferEnvCreation:
         assert isinstance(env.metadata, dict)
         assert "render_modes" in env.metadata
         assert "ansi" in env.metadata["render_modes"]
+
+
+class _VibeActionSupervisorAgentPolicy(AgentPolicy):
+    def __init__(self, policy_env_info: PolicyEnvInterface):
+        super().__init__(policy_env_info)
+
+    def step(self, obs: AgentObservation) -> Action:
+        return Action(name="noop")
+
+
+class _VibeActionSupervisorPolicy(MultiAgentPolicy):
+    def __init__(self, policy_env_info: PolicyEnvInterface, device: str = "cpu"):
+        super().__init__(policy_env_info, device=device)
+        self._vibe_action_id = policy_env_info.action_names.index("change_vibe_default")
+
+    def agent_policy(self, agent_id: int) -> AgentPolicy:
+        return _VibeActionSupervisorAgentPolicy(self._policy_env_info)
+
+    def step_batch(self, raw_observations: np.ndarray, raw_actions: np.ndarray) -> None:
+        raw_actions[...] = np.int32(self._vibe_action_id)
 
 
 class TestMettaGridPufferEnvGymnasiumVector:
@@ -383,3 +406,14 @@ class TestMettaGridPufferEnvSupervisorPolicy:
         teacher_actions_after_step4 = env.teacher_actions
         assert teacher_actions_after_step4[0] == noop_idx
         assert teacher_actions_after_step4[1] == noop_idx
+
+    def test_supervisor_full_vibe_actions_are_preserved_in_teacher_labels(self, simulator, puffer_sim_config):
+        supervisor_policy_spec = PolicySpec(class_path="tests.test_mettagrid_puffer_env._VibeActionSupervisorPolicy")
+        env = MettaGridPufferEnv(simulator, puffer_sim_config, supervisor_policy_spec=supervisor_policy_spec)
+
+        env.reset()
+
+        vibe_action_id = env._sim.action_names.index("change_vibe_default")
+        expected = np.full(env.num_agents, vibe_action_id, dtype=np.int32)
+        np.testing.assert_array_equal(env.teacher_actions, expected)
+        np.testing.assert_array_equal(env.vibe_actions, expected)
