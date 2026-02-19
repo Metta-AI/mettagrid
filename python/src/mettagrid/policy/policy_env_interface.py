@@ -67,7 +67,10 @@ class PolicyEnvInterface(BaseModel):
     @property
     def vibe_action_space(self) -> gym.spaces.Discrete:
         """Action space derived from vibe actions."""
-        return gym.spaces.Discrete(len(self.vibe_action_names))
+        num_vibe_actions = len(self.vibe_action_names)
+        if num_vibe_actions <= 0:
+            return gym.spaces.Discrete(1)
+        return gym.spaces.Discrete(num_vibe_actions)
 
     @staticmethod
     def _split_action_names(action_names: list[str]) -> tuple[list[str], list[str]]:
