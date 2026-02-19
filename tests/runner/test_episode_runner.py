@@ -1,4 +1,6 @@
-from mettagrid.runner.episode_runner import _is_presigned_url
+from pathlib import Path
+
+from mettagrid.runner.episode_runner import _is_presigned_url, _to_file_uri
 
 
 class TestIsPresignedUrl:
@@ -17,3 +19,9 @@ class TestIsPresignedUrl:
     def test_s3_scheme(self):
         url = "s3://my-bucket/my-key"
         assert _is_presigned_url(url) is False
+
+
+def test_to_file_uri_resolves_relative_paths() -> None:
+    relative_path = Path("train_dir/replay.json.z")
+
+    assert _to_file_uri(relative_path) == relative_path.resolve().as_uri()
