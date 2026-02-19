@@ -10,6 +10,7 @@ import zipfile
 from contextlib import nullcontext
 from pathlib import Path
 
+from mettagrid.base_config import LENIENT_CONTEXT
 from mettagrid.runner.episode_runner import run_episode_isolated
 from mettagrid.runner.types import RuntimeInfo, SingleEpisodeJob
 from mettagrid.util.file import copy_data, read, write_data
@@ -96,7 +97,7 @@ def main() -> None:
         except Exception as e:
             logger.warning(f"Failed to upload runtime info: {e}")
 
-    job = SingleEpisodeJob.model_validate_json(read(job_spec_uri))
+    job = SingleEpisodeJob.model_validate_json(read(job_spec_uri), context=LENIENT_CONTEXT)
     logger.info(f"Job spec loaded in {time.monotonic() - t0:.1f}s")
 
     debug_uri = os.environ.get("DEBUG_URI")
