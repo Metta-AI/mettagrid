@@ -87,14 +87,14 @@ def test_territory_map_observation_tokens_emitted_for_empty_cells() -> None:
     # (4,4) is outside Euclidean radius 2 from (3,2): no token.
     assert territory_at(4, 4) is None
 
-    # (4,3) is only in range of the friendly source.
-    assert territory_at(4, 3) == 1
+    # (4,2) is only in range of the friendly source and inside circular local vision.
+    assert territory_at(4, 2) == 1
 
     # (0,0) is outside Euclidean radius 2 from (1,2): no token.
     assert territory_at(0, 0) is None
 
-    # (0,1) is only in range of the enemy source.
-    assert territory_at(0, 1) == 2
+    # (0,2) is only in range of the enemy source and inside circular local vision.
+    assert territory_at(0, 2) == 2
 
 
 def test_territory_midpoint_tie_without_clips_stays_neutral() -> None:

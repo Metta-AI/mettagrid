@@ -155,6 +155,17 @@ proc generateTerrainMap(): TileMap {.measure.} =
   terrainMap.setupGPU()
   return terrainMap
 
+proc withinAgentVisionMask(dx: int32, dy: int32, radius: int, radiusSq: int): bool =
+  let
+    dxInt = int(dx)
+    dyInt = int(dy)
+    distSq = dxInt * dxInt + dyInt * dyInt
+  if distSq <= radiusSq:
+    return true
+  # Expand pure cardinal tips from 1 tile to 3 tiles for radius >= 2.
+  radius >= 2 and distSq == radiusSq + 1 and
+    (abs(dxInt) == radius or abs(dyInt) == radius)
+
 proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
   ## Rebuild the visibility map.
   let
@@ -175,9 +186,15 @@ proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
 
   for obj in agentsToProcess:
     let center = ivec2(int32(obj.visionSize div 2), int32(obj.visionSize div 2))
+    let visionRadius = obj.visionSize div 2
+    let visionRadiusSq = visionRadius * visionRadius
     let pos = obj.location.at
     for i in 0 ..< obj.visionSize:
       for j in 0 ..< obj.visionSize:
+        let dx = int32(i) - center.x
+        let dy = int32(j) - center.y
+        if not withinAgentVisionMask(dx, dy, visionRadius, visionRadiusSq):
+          continue
         let gridPos = pos.xy + ivec2(int32(i), int32(j)) - center
         if gridPos.x >= 0 and gridPos.x < width and
           gridPos.y >= 0 and gridPos.y < height:
@@ -259,10 +276,16 @@ proc rebuildExplorationFogMap*(explorationFogMap: TileMap) {.measure.} =
   # increase memory use (potentially map-size data across many timesteps).
   for obj in agentsToProcess:
     let center = ivec2(int32(obj.visionSize div 2), int32(obj.visionSize div 2))
+    let visionRadius = obj.visionSize div 2
+    let visionRadiusSq = visionRadius * visionRadius
     for historyStep in 0 .. step:
       let pos = obj.location.at(historyStep)
       for i in 0 ..< obj.visionSize:
         for j in 0 ..< obj.visionSize:
+          let dx = int32(i) - center.x
+          let dy = int32(j) - center.y
+          if not withinAgentVisionMask(dx, dy, visionRadius, visionRadiusSq):
+            continue
           let gridPos = pos.xy + ivec2(int32(i), int32(j)) - center
           if gridPos.x >= 0 and gridPos.x < width and
             gridPos.y >= 0 and gridPos.y < height:
