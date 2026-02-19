@@ -41,8 +41,8 @@ class ObsConfig(Config):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    width: int = Field(default=11)
-    height: int = Field(default=11)
+    width: int = Field(default=13)
+    height: int = Field(default=13)
     token_dim: int = Field(default=3)
     num_tokens: int = Field(default=200)
     token_value_base: int = Field(default=256)

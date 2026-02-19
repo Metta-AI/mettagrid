@@ -80,10 +80,10 @@ def test_territory_observation_tokens_emitted_for_empty_cells() -> None:
         == 0
     )
 
-    # (4,3) is in range of the friendly source at (3,2) but out of range of the enemy at (1,2).
+    # (4,2) is in range of the friendly source at (3,2) but out of range of the enemy at (1,2).
     assert (
         ObservationHelper.find_token_values(
-            obs, location=Location(4, 3), feature_id=territory_feature_id, is_global=False
+            obs, location=Location(4, 2), feature_id=territory_feature_id, is_global=False
         )
         == 0x01
     )

@@ -110,7 +110,7 @@ class TestObservations:
         assert (obs[1, -1, :] == TokenTypes.EMPTY_TOKEN).all()
 
     def test_detailed_wall_observations(self, basic_sim):
-        """Test detailed wall observations for both agents."""
+        """Test detailed wall observations for both agents with circular local vision."""
         obs = basic_sim._c_sim.observations()
         tag_feature_id = basic_sim.config.game.id_map().feature_id("tag")
         # Find tag id for 'wall'
@@ -134,17 +134,14 @@ class TestObservations:
         # Agent 0 is at grid position (1,1)
         # Agent 0 should see walls at these relative positions:
         #
-        #   W W W
+        #   . W .
         #   W A .
-        #   W . .
+        #   . . .
         #
-        # The bottom wall is outside the 3x3 observation window
+        # Diagonal cells are outside the circular 3x3 local-vision mask.
         wall_positions_agent0 = [
-            xy(0, 0),  # top-left
             xy(1, 0),  # top-center
-            xy(2, 0),  # top-right
             xy(0, 1),  # middle-left
-            xy(0, 2),  # bottom-left
         ]
 
         agent0_wall_tokens = helper.find_tokens(agent0_obs, feature_id=tag_feature_id, value=wall_tag_id)
@@ -154,7 +151,7 @@ class TestObservations:
         )
 
         # Verify wall count
-        assert len(agent0_wall_tokens) == 5, "Agent 0 should see exactly 5 walls"
+        assert len(agent0_wall_tokens) == 2, "Agent 0 should see exactly 2 walls"
 
         # Test Agent 1 observation
         agent1_obs = obs[1]
@@ -164,12 +161,10 @@ class TestObservations:
         #
         #   . . .
         #   . A .
-        #   W W W
+        #   . W .
         #
         wall_positions_agent1 = [
-            xy(0, 2),  # bottom-left
             xy(1, 2),  # bottom-center
-            xy(2, 2),  # bottom-right
         ]
 
         agent1_wall_tokens = helper.find_tokens(agent1_obs, feature_id=tag_feature_id, value=wall_tag_id)
@@ -179,7 +174,83 @@ class TestObservations:
         )
 
         # Verify wall count
-        assert len(agent1_wall_tokens) == 3, "Agent 1 should see exactly 3 walls"
+        assert len(agent1_wall_tokens) == 1, "Agent 1 should see exactly 1 wall"
+
+    def test_observation_mask_excludes_diagonals_for_3x3(self):
+        """3x3 observation windows should use a circular mask (cardinals only)."""
+        cfg = MettaGridConfig(
+            game=GameConfig(
+                num_agents=1,
+                obs=ObsConfig(width=3, height=3, num_tokens=NUM_OBS_TOKENS),
+                max_steps=10,
+                actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
+                objects={"wall": WallConfig(tags=["wall"])},
+                resource_names=["laser", "armor", "heart"],
+                map_builder=AsciiMapBuilder.Config(
+                    map_data=[
+                        [".", ".", ".", ".", "."],
+                        [".", "#", "#", "#", "."],
+                        [".", "#", "@", "#", "."],
+                        [".", "#", "#", "#", "."],
+                        [".", ".", ".", ".", "."],
+                    ],
+                    char_to_map_name=DEFAULT_CHAR_TO_NAME,
+                ),
+            )
+        )
+        sim = Simulation(cfg)
+        obs = sim._c_sim.observations()
+        helper = ObservationHelper()
+        tag_feature_id = sim.config.game.id_map().feature_id("tag")
+        wall_tag_id = sim.config.game.id_map().tag_names().index("wall")
+
+        wall_tokens = helper.find_tokens(obs[0], feature_id=tag_feature_id, value=wall_tag_id)
+        wall_positions = helper.get_positions_from_tokens(wall_tokens)
+
+        expected_positions = {
+            xy(1, 0),  # north
+            xy(0, 1),  # west
+            xy(2, 1),  # east
+            xy(1, 2),  # south
+        }
+        assert set(wall_positions) == expected_positions
+
+    def test_observation_mask_has_three_wide_cardinal_spikes_for_11x11(self):
+        """11x11 circular windows should have 3-wide cardinal tips at max radius."""
+        map_data = [["." for _ in range(15)] for _ in range(15)]
+        map_data[7][7] = "@"
+        for x in range(5, 10):
+            map_data[2][x] = "#"
+
+        cfg = MettaGridConfig(
+            game=GameConfig(
+                num_agents=1,
+                obs=ObsConfig(width=11, height=11, num_tokens=NUM_OBS_TOKENS),
+                max_steps=10,
+                actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
+                objects={"wall": WallConfig(tags=["wall"])},
+                resource_names=["laser", "armor", "heart"],
+                map_builder=AsciiMapBuilder.Config(
+                    map_data=map_data,
+                    char_to_map_name=DEFAULT_CHAR_TO_NAME,
+                ),
+            )
+        )
+        sim = Simulation(cfg)
+        obs = sim._c_sim.observations()
+        helper = ObservationHelper()
+        tag_feature_id = sim.config.game.id_map().feature_id("tag")
+        wall_tag_id = sim.config.game.id_map().tag_names().index("wall")
+
+        wall_tokens = helper.find_tokens(obs[0], feature_id=tag_feature_id, value=wall_tag_id)
+        wall_positions = set(helper.get_positions_from_tokens(wall_tokens))
+
+        expected_positions = {
+            xy(4, 0),  # top row, left shoulder of the cardinal tip
+            xy(5, 0),  # top row, cardinal center
+            xy(6, 0),  # top row, right shoulder of the cardinal tip
+        }
+        assert wall_positions == expected_positions
 
     def test_agents_see_each_other(self, adjacent_agents_sim):
         """Test that adjacent agents can see each other."""

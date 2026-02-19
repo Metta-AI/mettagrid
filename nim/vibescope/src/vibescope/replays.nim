@@ -918,7 +918,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay =
       else:
         entity.frozenProgress = @[0]
       entity.frozenTime = getInt(obj, "frozen_time", 0)
-      entity.visionSize = 11 # TODO Fix this
+      entity.visionSize = 13
 
       let vibeIdField = getJsonNode(obj, "vibe_id")
       if vibeIdField != nil:

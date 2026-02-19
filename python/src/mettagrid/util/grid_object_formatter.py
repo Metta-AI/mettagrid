@@ -37,7 +37,7 @@ def format_agent_properties(
     """Add agent-specific properties to the update object."""
     agent_id = grid_object["agent_id"]
     update_object["agent_id"] = agent_id
-    update_object["vision_size"] = 11  # TODO: Waiting for env to support this
+    update_object["vision_size"] = 13
     agent_action = np.asarray(actions[agent_id]).reshape(-1)
     action_id = 0
     action_param = 0
