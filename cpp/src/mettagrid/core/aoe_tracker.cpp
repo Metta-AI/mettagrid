@@ -19,6 +19,57 @@ int distance_sq(const GridLocation& a, const GridLocation& b) {
   int dc = std::abs(static_cast<int>(a.c) - static_cast<int>(b.c));
   return dr * dr + dc * dc;
 }
+
+bool is_territory_aoe(const AOESource* aoe_source) {
+  return aoe_source != nullptr && aoe_source->config.controls_territory;
+}
+
+enum class TerritoryOwner {
+  Neutral,
+  Friendly,
+  Enemy,
+};
+
+struct TerritoryContest {
+  bool friendly_present = false;
+  bool enemy_present = false;
+  int friendly_best_key = std::numeric_limits<int>::max();
+  int enemy_best_key = std::numeric_limits<int>::max();
+
+  void consider(bool is_friendly, int key) {
+    if (is_friendly) {
+      friendly_present = true;
+      if (key < friendly_best_key) {
+        friendly_best_key = key;
+      }
+      return;
+    }
+
+    enemy_present = true;
+    if (key < enemy_best_key) {
+      enemy_best_key = key;
+    }
+  }
+
+  TerritoryOwner owner() const {
+    if (friendly_present && enemy_present) {
+      if (friendly_best_key < enemy_best_key) {
+        return TerritoryOwner::Friendly;
+      }
+      if (enemy_best_key < friendly_best_key) {
+        return TerritoryOwner::Enemy;
+      }
+      return TerritoryOwner::Neutral;
+    }
+    if (friendly_present) {
+      return TerritoryOwner::Friendly;
+    }
+    if (enemy_present) {
+      return TerritoryOwner::Enemy;
+    }
+    return TerritoryOwner::Neutral;
+  }
+};
 }  // namespace
 
 // AOESource implementation
@@ -291,16 +342,8 @@ void AOETracker::apply_fixed(GridObject& target) {
     }
   }
 
-  // Territory selection: collapse to a single effective source per tile/target.
-  AOESource* territory_friendly_best = nullptr;
-  AOESource* territory_enemy_best = nullptr;
-  int territory_friendly_best_key = std::numeric_limits<int>::max();
-  int territory_enemy_best_key = std::numeric_limits<int>::max();
-  GridObjectId territory_friendly_best_id = std::numeric_limits<GridObjectId>::max();
-  GridObjectId territory_enemy_best_id = std::numeric_limits<GridObjectId>::max();
-  auto is_territory_aoe = [](const AOESource* aoe_source) {
-    return aoe_source != nullptr && !aoe_source->has_mutations() && !aoe_source->has_presence_deltas();
-  };
+  // Territory selection: collapse to a single winning side per tile/target.
+  TerritoryContest territory_contest;
 
   if (territory_collapse_enabled) {
     auto consider_territory = [&](AOESource* aoe_source, bool is_friendly) {
@@ -318,23 +361,7 @@ void AOETracker::apply_fixed(GridObject& target) {
         return;
       }
 
-      int key = distance_sq(aoe_source->source->location, target.location);
-      GridObjectId src_id = aoe_source->source->id;
-
-      if (is_friendly) {
-        if (key < territory_friendly_best_key ||
-            (key == territory_friendly_best_key && src_id < territory_friendly_best_id)) {
-          territory_friendly_best_key = key;
-          territory_friendly_best_id = src_id;
-          territory_friendly_best = aoe_source;
-        }
-      } else {
-        if (key < territory_enemy_best_key || (key == territory_enemy_best_key && src_id < territory_enemy_best_id)) {
-          territory_enemy_best_key = key;
-          territory_enemy_best_id = src_id;
-          territory_enemy_best = aoe_source;
-        }
-      }
+      territory_contest.consider(is_friendly, distance_sq(aoe_source->source->location, target.location));
     };
 
     for (AOESource* aoe_source : _scratch_friendly_sources) {
@@ -345,22 +372,8 @@ void AOETracker::apply_fixed(GridObject& target) {
     }
   }
 
-  const AOESource* territory_selected = nullptr;
-  if (territory_collapse_enabled) {
-    if (territory_friendly_best != nullptr && territory_enemy_best != nullptr) {
-      if (territory_friendly_best_key < territory_enemy_best_key) {
-        territory_selected = territory_friendly_best;
-      } else if (territory_enemy_best_key < territory_friendly_best_key) {
-        territory_selected = territory_enemy_best;
-      } else {
-        territory_selected = nullptr;  // Midpoint: neutral.
-      }
-    } else if (territory_friendly_best != nullptr) {
-      territory_selected = territory_friendly_best;
-    } else if (territory_enemy_best != nullptr) {
-      territory_selected = territory_enemy_best;
-    }
-  }
+  TerritoryOwner territory_owner =
+      territory_collapse_enabled ? territory_contest.owner() : TerritoryOwner::Neutral;
 
   auto process_source = [&](AOESource* aoe_source) {
     if (!aoe_source->has_mutations() && !aoe_source->has_presence_deltas()) {
@@ -371,9 +384,17 @@ void AOETracker::apply_fixed(GridObject& target) {
     bool now_passes = (!skip_self && aoe_source->passes_filters(&target, target_ctx));
     bool effective_passes = now_passes;
 
-    if (territory_collapse_enabled && is_territory_aoe(aoe_source) && aoe_source->source != nullptr &&
-        aoe_source->source->getCollective() != nullptr) {
-      effective_passes = (territory_selected != nullptr && aoe_source == territory_selected && now_passes);
+    if (territory_collapse_enabled && is_territory_aoe(aoe_source) && aoe_source->source != nullptr) {
+      Collective* source_collective = aoe_source->source->getCollective();
+      if (source_collective == nullptr) {
+        effective_passes = false;
+      } else {
+        bool source_is_friendly = (source_collective->id == target_collective_id);
+        effective_passes =
+            now_passes &&
+            ((territory_owner == TerritoryOwner::Friendly && source_is_friendly) ||
+             (territory_owner == TerritoryOwner::Enemy && !source_is_friendly));
+      }
     }
 
     bool was_inside = prev_inside.contains(aoe_source);
@@ -514,16 +535,15 @@ void AOETracker::fixed_observability_at(const GridLocation& loc,
   HandlerContext ctx(nullptr, &observer, _game_stats, _tag_index);
   ctx.query_system = _query_system;
 
-  bool friendly_present = false;
-  bool enemy_present = false;
-  int friendly_best_key = std::numeric_limits<int>::max();
-  int enemy_best_key = std::numeric_limits<int>::max();
-  GridObjectId friendly_best_id = std::numeric_limits<GridObjectId>::max();
-  GridObjectId enemy_best_id = std::numeric_limits<GridObjectId>::max();
+  TerritoryContest territory_contest;
 
   for (const auto& aoe_source : cell_effects) {
     GridObject* source = aoe_source->source;
     if (source == nullptr) {
+      continue;
+    }
+
+    if (!is_territory_aoe(aoe_source.get())) {
       continue;
     }
 
@@ -537,33 +557,14 @@ void AOETracker::fixed_observability_at(const GridLocation& loc,
     }
 
     bool is_friendly = (source_collective->id == observer_collective->id);
-    int key = distance_sq(source->location, loc);
-    GridObjectId src_id = source->id;
-    if (is_friendly) {
-      friendly_present = true;
-      if (key < friendly_best_key || (key == friendly_best_key && src_id < friendly_best_id)) {
-        friendly_best_key = key;
-        friendly_best_id = src_id;
-      }
-    } else {
-      enemy_present = true;
-      if (key < enemy_best_key || (key == enemy_best_key && src_id < enemy_best_id)) {
-        enemy_best_key = key;
-        enemy_best_id = src_id;
-      }
-    }
+    territory_contest.consider(is_friendly, distance_sq(source->location, loc));
   }
 
   ObservationType aoe_value = 0;
-  if (friendly_present && enemy_present) {
-    if (friendly_best_key < enemy_best_key) {
-      aoe_value = 1;
-    } else if (enemy_best_key < friendly_best_key) {
-      aoe_value = 2;
-    }
-  } else if (friendly_present) {
+  TerritoryOwner owner = territory_contest.owner();
+  if (owner == TerritoryOwner::Friendly) {
     aoe_value = 1;
-  } else if (enemy_present) {
+  } else if (owner == TerritoryOwner::Enemy) {
     aoe_value = 2;
   }
 

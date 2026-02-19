@@ -38,6 +38,7 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
         aoes={
             "friendly": AOEConfig(
                 radius=2,
+                controls_territory=True,
                 filters=[
                     AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.SAME_COLLECTIVE),
                 ],
@@ -51,6 +52,7 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
         aoes={
             "enemy": AOEConfig(
                 radius=2,
+                controls_territory=True,
                 filters=[
                     AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.DIFFERENT_COLLECTIVE),
                 ],

@@ -139,6 +139,10 @@ class AOEConfig(Handler):
         default=False,
         description="If True, the AOE source is affected by its own AOE.",
     )
+    controls_territory: bool = Field(
+        default=False,
+        description="Whether this AOE contributes to territory ownership.",
+    )
     presence_deltas: dict[str, int] = Field(
         default_factory=dict,
         description="One-time resource changes when target enters/exits AOE. "
