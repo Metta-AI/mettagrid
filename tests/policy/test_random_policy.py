@@ -29,6 +29,8 @@ def test_only_non_vibe_actions():
     """Works when no vibe actions exist."""
     mock = MagicMock()
     mock.action_names = ["noop", "move_north"]
+    mock.non_vibe_action_names = ["noop", "move_north"]
+    mock.vibe_action_names = []
 
     policy = RandomMultiAgentPolicy(mock, vibe_action_p=0.5)
     agent = policy.agent_policy(0)
