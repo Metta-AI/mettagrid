@@ -54,7 +54,7 @@ class TestSharedTagPrefixFilter:
         cfg.game.tags = [tag("team:red"), tag("team:blue")]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
-            name="aoe_source", map_name="aoe_source", tags=["team:red"], aoes=_aoe([sharedTagPrefix("team")])
+            name="aoe_source", map_name="aoe_source", tags=["team:red"], aoes=_aoe([sharedTagPrefix("team:")])
         )
         assert _run_one_step(cfg) == 10
 
@@ -63,7 +63,7 @@ class TestSharedTagPrefixFilter:
         cfg.game.tags = [tag("team:red"), tag("team:blue")]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
-            name="aoe_source", map_name="aoe_source", tags=["team:blue"], aoes=_aoe([sharedTagPrefix("team")])
+            name="aoe_source", map_name="aoe_source", tags=["team:blue"], aoes=_aoe([sharedTagPrefix("team:")])
         )
         assert _run_one_step(cfg) == 0
 
@@ -71,7 +71,7 @@ class TestSharedTagPrefixFilter:
         cfg = _base_cfg()
         cfg.game.tags = [tag("team:red"), tag("team:blue")]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
-            name="aoe_source", map_name="aoe_source", tags=["team:red"], aoes=_aoe([sharedTagPrefix("team")])
+            name="aoe_source", map_name="aoe_source", tags=["team:red"], aoes=_aoe([sharedTagPrefix("team:")])
         )
         assert _run_one_step(cfg) == 0
 
@@ -80,7 +80,7 @@ class TestSharedTagPrefixFilter:
         cfg.game.tags = [tag("team:red"), tag("team:blue")]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
-            name="aoe_source", map_name="aoe_source", aoes=_aoe([sharedTagPrefix("team")])
+            name="aoe_source", map_name="aoe_source", aoes=_aoe([sharedTagPrefix("team:")])
         )
         assert _run_one_step(cfg) == 0
 
@@ -94,7 +94,7 @@ class TestSharedTagPrefixFilterWithNot:
             name="aoe_source",
             map_name="aoe_source",
             tags=["team:blue"],
-            aoes=_aoe([isNot(sharedTagPrefix("team"))]),
+            aoes=_aoe([isNot(sharedTagPrefix("team:"))]),
         )
         assert _run_one_step(cfg) == 10
 
@@ -106,7 +106,7 @@ class TestSharedTagPrefixFilterWithNot:
             name="aoe_source",
             map_name="aoe_source",
             tags=["team:red"],
-            aoes=_aoe([isNot(sharedTagPrefix("team"))]),
+            aoes=_aoe([isNot(sharedTagPrefix("team:"))]),
         )
         assert _run_one_step(cfg) == 0
 

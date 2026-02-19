@@ -139,6 +139,10 @@ class GridObjectConfig(Config):
         default_factory=dict,
         description="Handlers triggered when agent uses/activates this object (context: actor=agent, target=this)",
     )
+    on_tag_remove: dict[str, Handler] = Field(
+        default_factory=dict,
+        description="Handlers triggered when a matching tag is removed from this object (tag_prefix -> handler)",
+    )
 
     @model_validator(mode="after")
     def _defaults_from_name(self) -> "GridObjectConfig":

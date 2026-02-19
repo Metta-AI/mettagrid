@@ -37,6 +37,11 @@ def hasTag(tag: str) -> TagFilter:
     return TagFilter(target=HandlerTarget.TARGET, tag=tag)
 
 
+def actorHasTag(tag: str) -> TagFilter:
+    """Filter: actor has the specified tag."""
+    return TagFilter(target=HandlerTarget.ACTOR, tag=tag)
+
+
 def isA(type_value: str) -> TagFilter:
     """Filter: target has a type tag with the specified value.
 

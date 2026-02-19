@@ -76,8 +76,7 @@ def _scope_to_feature_str(scope: Scope) -> str:
 
 
 def _resolve_tag_prefix(prefix: str, tag_name_to_id: dict) -> list[int]:
-    full_prefix = prefix + ":"
-    return [tag_id for tag_name, tag_id in tag_name_to_id.items() if tag_name.startswith(full_prefix)]
+    return [tag_id for tag_name, tag_id in tag_name_to_id.items() if tag_name.startswith(prefix)]
 
 
 # ---------------------------------------------------------------------------
@@ -400,6 +399,25 @@ def _convert_event_mutations(mutations, cpp_target, id_maps: CppIdMaps, context:
             raise ValueError(f"Collective '{collective_name}' not found in collective_name_to_id mapping in {context}")
 
 
+def _convert_on_tag_lifecycle_handlers(
+    handlers_dict: dict, cpp_config: object, id_maps: CppIdMaps, *, add_method: str, label: str
+):
+    """Convert on_tag_add/on_tag_remove handler dicts to C++ and attach them."""
+    adder = getattr(cpp_config, add_method)
+    for tag_prefix, handler in handlers_dict.items():
+        tag_ids = _resolve_tag_prefix(tag_prefix, id_maps.tag_name_to_id)
+        if not tag_ids:
+            raise ValueError(
+                f"{label} prefix '{tag_prefix}' matched no tags. "
+                f"Available tags: {sorted(id_maps.tag_name_to_id.keys())}"
+            )
+        cpp_handler = CppHandlerConfig(tag_prefix)
+        _convert_filters(handler.filters, cpp_handler, id_maps, context=f"{label} '{tag_prefix}'")
+        convert_mutations(handler.mutations, cpp_handler, id_maps, context=f"{label} '{tag_prefix}'")
+        for tag_id in tag_ids:
+            adder(tag_id, cpp_handler)
+
+
 def _convert_aoe_configs(aoes: dict, id_maps: CppIdMaps) -> list:
     """Convert Python AOEConfig dict to C++ AOEConfig list."""
     cpp_aoe_configs = []
@@ -627,6 +645,15 @@ def convert_to_cpp_game_config(
         if agent_cfg.aoes:
             cpp_agent_config.aoe_configs = _convert_aoe_configs(agent_cfg.aoes, id_maps)
 
+        if agent_cfg.on_tag_remove:
+            _convert_on_tag_lifecycle_handlers(
+                agent_cfg.on_tag_remove,
+                cpp_agent_config,
+                id_maps,
+                add_method="add_on_tag_remove_handler",
+                label="on_tag_remove",
+            )
+
         if agent_cfg.on_tick:
             cpp_agent_config.on_tick = _convert_handlers(agent_cfg.on_tick, id_maps)
 
@@ -742,6 +769,14 @@ def convert_to_cpp_game_config(
                 cpp_config.on_use_handler = _create_on_use_handler(object_config.on_use_handlers, id_maps)
             if object_config.aoes:
                 cpp_config.aoe_configs = _convert_aoe_configs(object_config.aoes, id_maps)
+            if object_config.on_tag_remove:
+                _convert_on_tag_lifecycle_handlers(
+                    object_config.on_tag_remove,
+                    cpp_config,
+                    id_maps,
+                    add_method="add_on_tag_remove_handler",
+                    label="on_tag_remove",
+                )
 
             objects_cpp_params[object_config.map_name or object_type] = cpp_config
 
