@@ -312,10 +312,16 @@ void MettaGrid::_make_buffers(unsigned int num_agents) {
       py::array_t<TruncationType, py::array::c_style>({static_cast<ssize_t>(num_agents)}, {sizeof(TruncationType)});
   auto rewards = py::array_t<RewardType, py::array::c_style>({static_cast<ssize_t>(num_agents)}, {sizeof(RewardType)});
   auto actions = py::array_t<ActionType, py::array::c_style>(std::vector<ssize_t>{static_cast<ssize_t>(num_agents)});
+  auto vibe_actions =
+      py::array_t<ActionType, py::array::c_style>(std::vector<ssize_t>{static_cast<ssize_t>(num_agents)});
+  auto action_ptr = static_cast<ActionType*>(actions.request().ptr);
+  auto vibe_action_ptr = static_cast<ActionType*>(vibe_actions.request().ptr);
+  std::fill(action_ptr, action_ptr + num_agents, ActionType(0));
+  std::fill(vibe_action_ptr, vibe_action_ptr + num_agents, ActionType(0));
   this->_episode_rewards =
       py::array_t<float, py::array::c_style>({static_cast<ssize_t>(num_agents)}, {sizeof(RewardType)});
 
-  set_buffers(observations, terminals, truncations, rewards, actions);
+  set_buffers(observations, terminals, truncations, rewards, actions, vibe_actions);
 }
 
 void MettaGrid::_init_buffers(unsigned int num_agents) {
@@ -350,6 +356,10 @@ void MettaGrid::init_action_handlers() {
   _max_action_priority = result.max_priority;
   _action_handlers = std::move(result.actions);
   _action_handler_impl = std::move(result.handlers);
+  _action_is_vibe.resize(_action_handlers.size());
+  for (size_t i = 0; i < _action_handlers.size(); ++i) {
+    _action_is_vibe[i] = _action_handlers[i].name().rfind("change_vibe_", 0) == 0;
+  }
 }
 
 void MettaGrid::add_agent(Agent* agent) {
@@ -959,6 +969,7 @@ void MettaGrid::_step() {
     step_start = std::chrono::steady_clock::now();
   }
   auto actions_view = _actions.unchecked<1>();
+  auto vibe_actions_view = _vibe_actions.unchecked<1>();
 
   for (size_t i = 0; i < _agents.size(); ++i) {
     _prev_agent_locations[i] = _agents[i]->location;
@@ -1013,25 +1024,35 @@ void MettaGrid::_step() {
   for (unsigned char offset = 0; offset <= _max_action_priority; offset++) {
     unsigned char current_priority = _max_action_priority - offset;
 
-    for (const auto& agent_idx : agent_indices) {
-      ActionType action_idx = actions_view(agent_idx);
-
+    auto process_action_stream = [&](ActionType action_idx, size_t agent_idx, bool is_vibe_stream) {
       if (action_idx < 0 || static_cast<size_t>(action_idx) >= _action_handlers.size()) {
         _handle_invalid_action(agent_idx, "action.invalid_index", action_idx);
-        continue;
+        return;
       }
 
-      Action& action = _action_handlers[static_cast<size_t>(action_idx)];
+      auto action_idx_usize = static_cast<size_t>(action_idx);
+      if (_action_is_vibe[action_idx_usize] != is_vibe_stream) {
+        return;
+      }
+
+      Action& action = _action_handlers[action_idx_usize];
       if (action.handler()->priority != current_priority) {
-        continue;
+        return;
       }
 
       auto* agent = _agents[agent_idx];
       bool success = action.handle(*agent);
-      _action_success[agent_idx] = success;
       if (success) {
         executed_actions[agent_idx] = action_idx;
+        _action_success[agent_idx] = true;
       }
+    };
+
+    for (const auto& agent_idx : agent_indices) {
+      process_action_stream(actions_view(agent_idx), agent_idx, false);
+    }
+    for (const auto& agent_idx : agent_indices) {
+      process_action_stream(vibe_actions_view(agent_idx), agent_idx, true);
     }
   }
   if (_profiling_enabled) {
@@ -1152,8 +1173,15 @@ void MettaGrid::validate_buffers() {
   {
     auto truncations_info = _truncations.request();
     auto truncations_shape = truncations_info.shape;
-    if (truncations_info.ndim != 1 || truncations_shape[0] != static_cast<ssize_t>(num_agents)) {
+  if (truncations_info.ndim != 1 || truncations_shape[0] != static_cast<ssize_t>(num_agents)) {
       throw std::runtime_error("truncations has the wrong shape");
+    }
+  }
+  {
+    auto vibe_actions_info = _vibe_actions.request();
+    auto vibe_actions_shape = vibe_actions_info.shape;
+    if (vibe_actions_info.ndim != 1 || vibe_actions_shape[0] != static_cast<ssize_t>(num_agents)) {
+      throw std::runtime_error("vibe_actions has the wrong shape");
     }
   }
   {
@@ -1170,12 +1198,27 @@ void MettaGrid::set_buffers(const py::array_t<uint8_t, py::array::c_style>& obse
                             const py::array_t<bool, py::array::c_style>& truncations,
                             const py::array_t<float, py::array::c_style>& rewards,
                             const py::array_t<ActionType, py::array::c_style>& actions) {
+  // Backward-compatible wrapper: unset vibe actions as no-op by default (index 0 in each action space).
+  auto vibe_actions = py::array_t<ActionType, py::array::c_style>({static_cast<ssize_t>(_agents.size())});
+  std::fill(static_cast<ActionType*>(vibe_actions.request().ptr),
+            static_cast<ActionType*>(vibe_actions.request().ptr) + vibe_actions.size(),
+            ActionType(0));
+  set_buffers(observations, terminals, truncations, rewards, actions, vibe_actions);
+}
+
+void MettaGrid::set_buffers(const py::array_t<uint8_t, py::array::c_style>& observations,
+                            const py::array_t<bool, py::array::c_style>& terminals,
+                            const py::array_t<bool, py::array::c_style>& truncations,
+                            const py::array_t<float, py::array::c_style>& rewards,
+                            const py::array_t<ActionType, py::array::c_style>& actions,
+                            const py::array_t<ActionType, py::array::c_style>& vibe_actions) {
   // These are initialized in reset()
   _observations = observations;
   _terminals = terminals;
   _truncations = truncations;
   _rewards = rewards;
   _actions = actions;
+  _vibe_actions = vibe_actions;
   for (size_t i = 0; i < _agents.size(); i++) {
     _agents[i]->init(&_rewards.mutable_unchecked<1>()(i));
   }
@@ -1186,6 +1229,7 @@ void MettaGrid::set_buffers(const py::array_t<uint8_t, py::array::c_style>& obse
 
 void MettaGrid::step() {
   auto info = _actions.request();
+  auto vibe_info = _vibe_actions.request();
 
   // Validate that actions array has correct shape
   if (info.ndim != 1) {
@@ -1193,6 +1237,12 @@ void MettaGrid::step() {
   }
   if (info.shape[0] != static_cast<ssize_t>(_agents.size())) {
     throw std::runtime_error("actions has the wrong shape");
+  }
+  if (vibe_info.ndim != 1) {
+    throw std::runtime_error("vibe_actions must be 1D array");
+  }
+  if (vibe_info.shape[0] != static_cast<ssize_t>(_agents.size())) {
+    throw std::runtime_error("vibe_actions has the wrong shape");
   }
 
   _step();

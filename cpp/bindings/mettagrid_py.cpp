@@ -168,6 +168,10 @@ py::array_t<ActionType> MettaGrid::actions() {
   return _actions;
 }
 
+py::array_t<ActionType> MettaGrid::vibe_actions() {
+  return _vibe_actions;
+}
+
 py::dict MettaGrid::get_episode_stats() {
   // Returns a dictionary with the following structure:
   // {
@@ -291,10 +295,29 @@ PYBIND11_MODULE(mettagrid_c, m) {
   // MettaGrid class bindings
   auto mettagrid_cls =
       py::class_<MettaGrid>(m, "MettaGrid")
+          .def("set_buffers",
+               static_cast<void (MettaGrid::*)(
+                   const py::array_t<uint8_t, py::array::c_style>&,
+                   const py::array_t<bool, py::array::c_style>&,
+                   const py::array_t<bool, py::array::c_style>&,
+                   const py::array_t<float, py::array::c_style>&,
+                   const py::array_t<ActionType, py::array::c_style>&,
+                   const py::array_t<ActionType, py::array::c_style>&)>(&MettaGrid::set_buffers),
+               py::arg("observations").noconvert(),
+               py::arg("terminals").noconvert(),
+               py::arg("truncations").noconvert(),
+               py::arg("rewards").noconvert(),
+               py::arg("actions").noconvert(),
+               py::arg("vibe_actions").noconvert())
           .def(py::init<const GameConfig&, const py::list&, unsigned int>())
           .def("step", &MettaGrid::step)
           .def("set_buffers",
-               &MettaGrid::set_buffers,
+               static_cast<void (MettaGrid::*)(
+                   const py::array_t<uint8_t, py::array::c_style>&,
+                   const py::array_t<bool, py::array::c_style>&,
+                   const py::array_t<bool, py::array::c_style>&,
+                   const py::array_t<float, py::array::c_style>&,
+                   const py::array_t<ActionType, py::array::c_style>&)>(&MettaGrid::set_buffers),
                py::arg("observations").noconvert(),
                py::arg("terminals").noconvert(),
                py::arg("truncations").noconvert(),
@@ -316,6 +339,7 @@ PYBIND11_MODULE(mettagrid_c, m) {
           .def("rewards", &MettaGrid::rewards)
           .def("masks", &MettaGrid::masks)
           .def("actions", &MettaGrid::actions)
+          .def("vibe_actions", &MettaGrid::vibe_actions)
           .def_property_readonly("map_width", &MettaGrid::map_width)
           .def_property_readonly("map_height", &MettaGrid::map_height)
           .def("get_episode_rewards", &MettaGrid::get_episode_rewards)

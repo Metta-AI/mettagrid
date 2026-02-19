@@ -77,6 +77,12 @@ public:
                    const py::array_t<TruncationType, py::array::c_style>& truncations,
                    const py::array_t<RewardType, py::array::c_style>& rewards,
                    const py::array_t<ActionType, py::array::c_style>& actions);
+  void set_buffers(const py::array_t<ObservationType, py::array::c_style>& observations,
+                   const py::array_t<TerminalType, py::array::c_style>& terminals,
+                   const py::array_t<TruncationType, py::array::c_style>& truncations,
+                   const py::array_t<RewardType, py::array::c_style>& rewards,
+                   const py::array_t<ActionType, py::array::c_style>& actions,
+                   const py::array_t<ActionType, py::array::c_style>& vibe_actions);
   void validate_buffers();
   py::dict grid_objects(py::object self_ref,
                         int min_row = -1,
@@ -91,6 +97,7 @@ public:
   py::array_t<RewardType> rewards();
   py::array_t<MaskType> masks();
   py::array_t<ActionType> actions();
+  py::array_t<ActionType> vibe_actions();
 
   GridCoord map_width();
   GridCoord map_height();
@@ -160,7 +167,9 @@ private:
   std::unique_ptr<Grid> _grid;
 
   Actions _actions;
+  Actions _vibe_actions;
   std::vector<Action> _action_handlers;                              // All actions from all handlers
+  std::vector<bool> _action_is_vibe;
   std::vector<std::unique_ptr<ActionHandler>> _action_handler_impl;  // Owns the ActionHandler objects
   unsigned char _max_action_priority;
 

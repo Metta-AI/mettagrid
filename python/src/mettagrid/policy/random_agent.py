@@ -13,8 +13,17 @@ class RandomAgentPolicy(AgentPolicy):
 
     def __init__(self, policy_env_info: PolicyEnvInterface, vibe_action_p: float = 0.5):
         super().__init__(policy_env_info)
-        self._vibe_actions = [a for a in policy_env_info.action_names if a.startswith(CHANGE_VIBE_PREFIX)]
-        self._non_vibe_actions = [a for a in policy_env_info.action_names if not a.startswith(CHANGE_VIBE_PREFIX)]
+        non_vibe_action_names = (
+            policy_env_info.non_vibe_action_names
+            if policy_env_info.non_vibe_action_names
+            else [a for a in policy_env_info.action_names if not a.startswith(CHANGE_VIBE_PREFIX)]
+        )
+        self._vibe_actions = (
+            policy_env_info.vibe_action_names
+            if policy_env_info.vibe_action_names
+            else [a for a in policy_env_info.action_names if a.startswith(CHANGE_VIBE_PREFIX)]
+        )
+        self._non_vibe_actions = non_vibe_action_names
         self._vibe_action_p = vibe_action_p
 
     def step(self, obs: AgentObservation) -> Action:
