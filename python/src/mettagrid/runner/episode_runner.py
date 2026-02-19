@@ -6,7 +6,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -56,35 +56,45 @@ def _localize_policy_uri(uri: str, temp_dirs: list[Path]) -> str:
 def _spawn_policy_servers(
     local_policy_uris: list[str],
 ) -> tuple[list[LocalPolicyServerHandle], list[str]]:
-    unique_uris = list(dict.fromkeys(local_policy_uris))
-    uri_to_server: dict[str, LocalPolicyServerHandle] = {}
+    if not local_policy_uris:
+        return [], []
+
     servers: list[LocalPolicyServerHandle] = []
-    futures: dict = {}
+    futures: list = []
     try:
-        with ThreadPoolExecutor(max_workers=len(unique_uris)) as pool:
-            futures = {pool.submit(launch_local_policy_server, uri): uri for uri in unique_uris}
-            for future in as_completed(futures):
-                uri = futures[future]
-                handle = future.result()
-                servers.append(handle)
-                uri_to_server[uri] = handle
+        with ThreadPoolExecutor(max_workers=len(local_policy_uris)) as pool:
+            futures = [pool.submit(launch_local_policy_server, uri) for uri in local_policy_uris]
+            # Read results in submission order so returned URIs line up with local_policy_uris.
+            servers = [future.result() for future in futures]
     except Exception:
-        for f in futures:
-            f.cancel()
+        for future in futures:
+            future.cancel()
         # LocalPolicyServerHandle is not hashable (it contains a Popen), so de-dup by identity.
         all_handles: dict[int, LocalPolicyServerHandle] = {id(h): h for h in servers}
-        for f in futures:
-            if f.done() and not f.cancelled() and f.exception() is None:
-                h = f.result()
-                all_handles[id(h)] = h
+        for future in futures:
+            if future.done() and not future.cancelled() and future.exception() is None:
+                handle = future.result()
+                all_handles[id(handle)] = handle
         for h in all_handles.values():
             try:
                 h.shutdown()
             except Exception:
                 pass
         raise
-    http_uris = [uri_to_server[uri].base_url for uri in local_policy_uris]
+    http_uris = [server.base_url for server in servers]
     return servers, http_uris
+
+
+def _per_agent_policy_mapping(
+    local_policy_uris: list[str],
+    assignments: list[int],
+    num_agents: int,
+) -> tuple[list[str], list[int]]:
+    if len(assignments) != num_agents or not all(
+        0 <= assignment < len(local_policy_uris) for assignment in assignments
+    ):
+        raise ValueError("Assignments must match agent count and be within policy range")
+    return [local_policy_uris[assignment] for assignment in assignments], list(range(num_agents))
 
 
 def run_episode_isolated(
@@ -107,15 +117,20 @@ def run_episode_isolated(
         logger.info(f"Policy localization took {time.monotonic() - t0:.1f}s for {len(spec.policy_uris)} policies")
 
         t1 = time.monotonic()
-        servers, http_policy_uris = _spawn_policy_servers(local_policy_uris)
-        logger.info(f"Policy servers spawned in {time.monotonic() - t1:.1f}s")
+        per_agent_policy_uris, per_agent_assignments = _per_agent_policy_mapping(
+            local_policy_uris,
+            spec.assignments,
+            spec.env.game.num_agents,
+        )
+        servers, http_policy_uris = _spawn_policy_servers(per_agent_policy_uris)
+        logger.info(f"Policy servers spawned in {time.monotonic() - t1:.1f}s for {len(spec.assignments)} agents")
 
         local_results_uri = _to_file_uri(results_path)
         local_replay_uri = _to_file_uri(replay_path) if replay_path else None
 
         pure_job = PureSingleEpisodeJob(
             policy_uris=http_policy_uris,
-            assignments=spec.assignments,
+            assignments=per_agent_assignments,
             env=spec.env,
             results_uri=local_results_uri,
             replay_uri=local_replay_uri,
