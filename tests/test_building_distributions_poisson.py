@@ -41,3 +41,45 @@ def test_poisson_distribution_enforces_min_separation() -> None:
     for i in range(len(positions)):
         for j in range(i + 1, len(positions)):
             assert chebyshev(positions[i], positions[j]) >= min_dist
+
+
+def test_poisson_distribution_cogsguard_min_separation_targets() -> None:
+    def _min_pairwise_chebyshev(positions: list[tuple[int, int]]) -> int:
+        def chebyshev(a: tuple[int, int], b: tuple[int, int]) -> int:
+            return max(abs(a[0] - b[0]), abs(a[1] - b[1]))
+
+        return min(
+            chebyshev(positions[i], positions[j]) for i in range(len(positions)) for j in range(i + 1, len(positions))
+        )
+
+    dist = DistributionConfig(type=DistributionType.POISSON)
+
+    # 48x48 interior with count=84 corresponds to the current CogsGuard arena junction group.
+    arena_positions = _sample_positions_by_distribution(
+        count=84,
+        width=50,
+        height=50,
+        row_min=1,
+        row_max=48,
+        col_min=1,
+        col_max=48,
+        dist_config=dist,
+        rng=np.random.default_rng(0),
+    )
+    assert len(arena_positions) == 84
+    assert _min_pairwise_chebyshev(arena_positions) >= 3
+
+    # 86x86 interior with count=158 corresponds to the current CogsGuard Machina1 junction group.
+    machina_positions = _sample_positions_by_distribution(
+        count=158,
+        width=88,
+        height=88,
+        row_min=1,
+        row_max=86,
+        col_min=1,
+        col_max=86,
+        dist_config=dist,
+        rng=np.random.default_rng(0),
+    )
+    assert len(machina_positions) == 158
+    assert _min_pairwise_chebyshev(machina_positions) >= 4
