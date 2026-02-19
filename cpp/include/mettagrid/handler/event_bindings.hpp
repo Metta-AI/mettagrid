@@ -93,6 +93,22 @@ inline void bind_event_config(py::module& m) {
       .def(
           "add_remove_tag_mutation",
           [](EventConfig& self, const RemoveTagMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_game_value_mutation",
+          [](EventConfig& self, const GameValueMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_recompute_materialized_query_mutation",
+          [](EventConfig& self, const RecomputeMaterializedQueryMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_query_inventory_mutation",
+          [](EventConfig& self, const QueryInventoryMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_remove_tags_with_prefix_mutation",
+          [](EventConfig& self, const RemoveTagsWithPrefixMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"));
 }
 

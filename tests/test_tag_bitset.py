@@ -1,10 +1,12 @@
 """Tests for tag bitset: O(1) has_tag via std::bitset<kMaxTags>.
 
 Verifies that tag mutations (add/remove) correctly update the bitset,
-and that lookups, TagIndex counts, and TagFilter all reflect the changes.
+and that lookups, TagIndex counts, TagFilter, and MaterializedQuery
+materialization all reflect the changes.
 """
 
-from mettagrid.config.filter import TagFilter
+from mettagrid.config.event_config import EventConfig
+from mettagrid.config.filter import TagFilter, hasTag
 from mettagrid.config.filter.filter import HandlerTarget
 from mettagrid.config.handler_config import AOEConfig
 from mettagrid.config.mettagrid_config import (
@@ -16,8 +18,10 @@ from mettagrid.config.mutation import (
     EntityTarget,
     ResourceDeltaMutation,
     addTag,
+    recomputeMaterializedQuery,
     removeTag,
 )
+from mettagrid.config.query import MaterializedQuery, Query
 from mettagrid.config.tag import tag
 from mettagrid.simulator import Simulation
 
@@ -424,3 +428,102 @@ class TestMultiStepTagMutations:
         agent = _agent_obj(sim)
         # After adder adds and remover removes, the agent should no longer have the tag
         assert not agent["has_tag"](temp_id)
+
+
+# ===========================================================================
+# 5. Tag mutations + MaterializedQuery materialization
+# ===========================================================================
+
+
+class TestTagMutationWithMaterializedQuery:
+    """Verify MaterializedQuery membership updates after tag mutations + recompute."""
+
+    def test_add_tag_then_recompute_materialized_query(self):
+        """Objects that gain a tag should appear in MaterializedQuery results after recompute."""
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+            [
+                ["#", "#", "#", "#", "#"],
+                ["#", ".", ".", ".", "#"],
+                ["#", ".", "@", ".", "#"],
+                ["#", ".", ".", ".", "#"],
+                ["#", "#", "#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty"},
+        )
+        cfg.game.actions.noop.enabled = True
+
+        cfg.game.tags = [
+            tag("team:alpha"),
+            MaterializedQuery(tag="team_members", query=Query(tag="team:alpha")),
+        ]
+
+        cfg.game.events = {
+            "tag_agents": EventConfig(
+                name="tag_agents",
+                target_query=Query(tag="type:agent", filters=[hasTag(tag("type:agent"))]),
+                timesteps=[3],
+                mutations=[addTag(tag("team:alpha")), recomputeMaterializedQuery("team_members")],
+                max_targets=10,
+            ),
+        }
+
+        sim = Simulation(cfg)
+        id_map = cfg.game.id_map()
+        tag_names = id_map.tag_names()
+        tag_name_to_id = {n: i for i, n in enumerate(tag_names)}
+        tm_id = tag_name_to_id["team_members"]
+
+        agent = _agent_obj(sim)
+        assert not agent["has_tag"](tm_id), "Agent should not have materialized tag before event"
+
+        for _ in range(4):
+            sim.agent(0).set_action("noop")
+            sim.step()
+
+        agent = _agent_obj(sim)
+        assert agent["has_tag"](tm_id), "Agent should have materialized tag after addTag + recompute"
+
+    def test_remove_tag_then_recompute_materialized_query(self):
+        """Objects that lose a tag should lose MaterializedQuery membership after recompute."""
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+            [
+                ["#", "#", "#", "#", "#"],
+                ["#", ".", ".", ".", "#"],
+                ["#", ".", "@", ".", "#"],
+                ["#", ".", ".", ".", "#"],
+                ["#", "#", "#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty"},
+        )
+        cfg.game.actions.noop.enabled = True
+        cfg.game.agent.tags = ["team:beta"]
+
+        cfg.game.tags = [
+            MaterializedQuery(tag="beta_team", query=Query(tag="team:beta")),
+        ]
+
+        cfg.game.events = {
+            "untag_agents": EventConfig(
+                name="untag_agents",
+                target_query=Query(tag="type:agent", filters=[hasTag(tag("type:agent"))]),
+                timesteps=[3],
+                mutations=[removeTag(tag("team:beta")), recomputeMaterializedQuery("beta_team")],
+                max_targets=10,
+            ),
+        }
+
+        sim = Simulation(cfg)
+        id_map = cfg.game.id_map()
+        tag_names = id_map.tag_names()
+        tag_name_to_id = {n: i for i, n in enumerate(tag_names)}
+        bt_id = tag_name_to_id["beta_team"]
+
+        agent = _agent_obj(sim)
+        assert agent["has_tag"](bt_id), "Agent should have materialized tag initially"
+
+        for _ in range(4):
+            sim.agent(0).set_action("noop")
+            sim.step()
+
+        agent = _agent_obj(sim)
+        assert not agent["has_tag"](bt_id), "Agent should lose materialized tag after removeTag + recompute"

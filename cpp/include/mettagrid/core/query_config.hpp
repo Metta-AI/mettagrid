@@ -55,10 +55,10 @@ struct ClosureQueryConfig : public QueryConfig {
 };
 
 // ============================================================================
-// Query Tag Config - Tags computed by queries
+// Materialized Query Tag - Tags computed by queries
 // ============================================================================
 
-struct QueryTagConfig {
+struct MaterializedQueryTag {
   int tag_id = -1;
   std::shared_ptr<QueryConfig> query;
 };

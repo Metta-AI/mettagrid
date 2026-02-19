@@ -1,7 +1,7 @@
 from typing import Any
 
 from mettagrid.config.cpp_id_maps import CppIdMaps
-from mettagrid.config.game_value import Scope
+from mettagrid.config.game_value import InventoryValue, Scope, StatValue
 from mettagrid.config.handler_config import AlignmentCondition
 from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_mutations
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
@@ -10,6 +10,8 @@ from mettagrid.config.mettagrid_config import (
     GridObjectConfig,
     WallConfig,
 )
+from mettagrid.config.mutation import AlignmentMutation
+from mettagrid.config.query import MaterializedQuery, Query
 from mettagrid.config.tag import typeTag
 from mettagrid.mettagrid_c import ActionConfig as CppActionConfig
 from mettagrid.mettagrid_c import AgentConfig as CppAgentConfig
@@ -34,6 +36,9 @@ from mettagrid.mettagrid_c import HandlerMode as CppHandlerMode
 from mettagrid.mettagrid_c import InventoryConfig as CppInventoryConfig
 from mettagrid.mettagrid_c import LimitDef as CppLimitDef
 from mettagrid.mettagrid_c import LogSumStatConfig as CppLogSumStatConfig
+from mettagrid.mettagrid_c import (
+    MaterializedQueryTag as CppMaterializedQueryTag,  # pyright: ignore[reportAttributeAccessIssue]
+)
 from mettagrid.mettagrid_c import MaxDistanceFilterConfig as CppMaxDistanceFilterConfig
 from mettagrid.mettagrid_c import MoveActionConfig as CppMoveActionConfig
 from mettagrid.mettagrid_c import MultiHandler as CppMultiHandler
@@ -87,6 +92,9 @@ def _convert_tag_query(query, id_maps: CppIdMaps, context: str = ""):
     """
 
     query_type = getattr(query, "query_type", "query")
+
+    if query_type == "materialized":
+        return _convert_tag_query(Query(tag=query.tag), id_maps, context)
 
     if query_type == "closure":
         return _convert_closure_query(query, id_maps, context)
@@ -356,8 +364,6 @@ def _convert_event_configs(events: dict, id_maps: CppIdMaps) -> dict:
 
 def _convert_event_mutations(mutations, cpp_target, id_maps: CppIdMaps, context: str):
     """Convert Python mutations for events, including AlignmentMutation with collective."""
-    from mettagrid.config.mutation import AlignmentMutation  # noqa: PLC0415
-
     standard_mutations = []
     collective_alignment_mutations = []
     for mutation in mutations:
@@ -493,14 +499,29 @@ def convert_to_cpp_game_config(
                 ]
                 limit_name_to_resource_ids[limit_name] = limit_resource_ids
 
-    all_tag_names: set[str] = {t.name for t in game_config.tags}
+    materialized_tag_names: set[str] = set()
+    static_tag_names: set[str] = set()
+    for t in game_config.tags:
+        if isinstance(t, MaterializedQuery):
+            materialized_tag_names.add(t.tag)
+        else:
+            static_tag_names.add(t.name)
     for obj_name, obj_config in game_config.objects.items():
-        all_tag_names.update(obj_config.tags)
-        all_tag_names.add(typeTag(obj_name).name)
+        static_tag_names.update(obj_config.tags)
+        static_tag_names.add(typeTag(obj_name).name)
     for agent_config in game_config.agents:
-        all_tag_names.update(agent_config.tags)
-        all_tag_names.add(typeTag(agent_config.name).name)
+        static_tag_names.update(agent_config.tags)
+        static_tag_names.add(typeTag(agent_config.name).name)
 
+    collisions = materialized_tag_names & static_tag_names
+    if collisions:
+        raise ValueError(
+            f"Materialized query output tags collide with static tags: {sorted(collisions)}. "
+            "QuerySystem.compute_all() clears the tag before recomputing, which would erase "
+            "static tag membership. Use a distinct tag name for the materialized query."
+        )
+
+    all_tag_names = materialized_tag_names | static_tag_names
     sorted_tag_names = sorted(all_tag_names)
     if len(sorted_tag_names) > 256:
         raise ValueError(
@@ -739,8 +760,6 @@ def convert_to_cpp_game_config(
 
     global_obs_config = game_config.obs.global_obs
 
-    from mettagrid.config.game_value import InventoryValue, StatValue  # noqa: PLC0415
-
     obs_cpp = []
     for game_value in global_obs_config.obs:
         cpp_obs = CppObsValueConfig()
@@ -860,5 +879,17 @@ def convert_to_cpp_game_config(
 
     if game_config.events:
         game_cpp_params["events"] = _convert_event_configs(game_config.events, id_maps)
+
+    # --- Materialized queries ---
+
+    materialized_queries_cpp = []
+    for tag_entry in game_config.tags:
+        if isinstance(tag_entry, MaterializedQuery):
+            cpp_mq = CppMaterializedQueryTag()
+            cpp_mq.tag_id = tag_name_to_id[tag_entry.tag]
+            cpp_mq.set_query(_convert_tag_query(tag_entry.query, id_maps, f"materialized_query '{tag_entry.tag}'"))
+            materialized_queries_cpp.append(cpp_mq)
+    if materialized_queries_cpp:
+        game_cpp_params["materialized_queries"] = materialized_queries_cpp
 
     return CppGameConfig(**game_cpp_params), agent_renames

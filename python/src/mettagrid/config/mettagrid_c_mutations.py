@@ -14,7 +14,7 @@ from mettagrid.config.mutation import (
     EntityTarget,
     FreezeMutation,
     QueryInventoryMutation,
-    RecomputeQueryTagMutation,
+    RecomputeMaterializedQueryMutation,
     RemoveTagMutation,
     RemoveTagsWithPrefixMutation,
     ResourceDeltaMutation,
@@ -32,7 +32,9 @@ from mettagrid.mettagrid_c import EntityRef as CppEntityRef
 from mettagrid.mettagrid_c import FreezeMutationConfig as CppFreezeMutationConfig
 from mettagrid.mettagrid_c import GameValueMutationConfig as CppGameValueMutationConfig
 from mettagrid.mettagrid_c import QueryInventoryMutationConfig as CppQueryInventoryMutationConfig
-from mettagrid.mettagrid_c import RecomputeQueryTagMutationConfig as CppRecomputeQueryTagMutationConfig
+from mettagrid.mettagrid_c import (
+    RecomputeMaterializedQueryMutationConfig as CppRecomputeMaterializedQueryMutationConfig,
+)
 from mettagrid.mettagrid_c import RemoveTagMutationConfig as CppRemoveTagMutationConfig
 from mettagrid.mettagrid_c import RemoveTagsWithPrefixMutationConfig as CppRemoveTagsWithPrefixMutationConfig
 from mettagrid.mettagrid_c import ResourceDeltaMutationConfig as CppResourceDeltaMutationConfig
@@ -192,18 +194,18 @@ def convert_mutations(
             )
             target_obj.add_game_value_mutation(cpp_mutation)
 
-        elif isinstance(mutation, RecomputeQueryTagMutation):
+        elif isinstance(mutation, RecomputeMaterializedQueryMutation):
             matching_tag_ids = [
                 tag_id for name, tag_id in id_maps.tag_name_to_id.items() if name.startswith(mutation.tag_prefix)
             ]
             assert matching_tag_ids, (
-                f"RecomputeQueryTagMutation prefix '{mutation.tag_prefix}' matched no tags. "
+                f"RecomputeMaterializedQueryMutation prefix '{mutation.tag_prefix}' matched no tags. "
                 f"Available tags: {list(id_maps.tag_name_to_id.keys())}"
             )
             for tag_id in matching_tag_ids:
-                cpp_mutation = CppRecomputeQueryTagMutationConfig()
+                cpp_mutation = CppRecomputeMaterializedQueryMutationConfig()
                 cpp_mutation.tag_id = tag_id
-                target_obj.add_recompute_query_tag_mutation(cpp_mutation)
+                target_obj.add_recompute_materialized_query_mutation(cpp_mutation)
 
         elif isinstance(mutation, QueryInventoryMutation):
             from mettagrid.config.mettagrid_c_config import _convert_tag_query  # noqa: PLC0415

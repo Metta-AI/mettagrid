@@ -68,8 +68,8 @@ struct GameConfig {
   // Events - timestep-triggered effects that apply mutations to filtered objects
   std::map<std::string, mettagrid::EventConfig> events;
 
-  // Query tags - computed tag membership from spatial queries
-  std::vector<mettagrid::QueryTagConfig> query_tags;
+  // Materialized queries - computed tag membership from spatial queries
+  std::vector<mettagrid::MaterializedQueryTag> materialized_queries;
 };
 
 namespace py = pybind11;
@@ -246,17 +246,17 @@ inline void bind_query_config(py::module& m) {
   m.def("make_query_config",
         [](const ClosureQueryConfig& q) { return QueryConfigHolder{std::make_shared<ClosureQueryConfig>(q)}; });
 
-  py::class_<QueryTagConfig>(m, "QueryTagConfig")
+  py::class_<MaterializedQueryTag>(m, "MaterializedQueryTag")
       .def(py::init<>())
-      .def_readwrite("tag_id", &QueryTagConfig::tag_id)
+      .def_readwrite("tag_id", &MaterializedQueryTag::tag_id)
       .def(
           "set_query",
-          [](QueryTagConfig& self, const QueryConfigHolder& q) { self.query = q.config; },
+          [](MaterializedQueryTag& self, const QueryConfigHolder& q) { self.query = q.config; },
           py::arg("query"));
 
-  py::class_<RecomputeQueryTagMutationConfig>(m, "RecomputeQueryTagMutationConfig")
+  py::class_<RecomputeMaterializedQueryMutationConfig>(m, "RecomputeMaterializedQueryMutationConfig")
       .def(py::init<>())
-      .def_readwrite("tag_id", &RecomputeQueryTagMutationConfig::tag_id);
+      .def_readwrite("tag_id", &RecomputeMaterializedQueryMutationConfig::tag_id);
 }
 
 inline void bind_game_config(py::module& m) {
@@ -288,8 +288,8 @@ inline void bind_game_config(py::module& m) {
                     // Events
                     const std::map<std::string, mettagrid::EventConfig>&,
 
-                    // Query tags
-                    const std::vector<mettagrid::QueryTagConfig>&>(),
+                    // Materialized queries
+                    const std::vector<mettagrid::MaterializedQueryTag>&>(),
            py::arg("num_agents"),
            py::arg("max_steps"),
            py::arg("episode_truncates"),
@@ -317,8 +317,8 @@ inline void bind_game_config(py::module& m) {
            // Events
            py::arg("events") = std::map<std::string, mettagrid::EventConfig>(),
 
-           // Query tags
-           py::arg("query_tags") = std::vector<mettagrid::QueryTagConfig>())
+           // Materialized queries
+           py::arg("materialized_queries") = std::vector<mettagrid::MaterializedQueryTag>())
       .def_readwrite("num_agents", &GameConfig::num_agents)
       .def_readwrite("max_steps", &GameConfig::max_steps)
       .def_readwrite("episode_truncates", &GameConfig::episode_truncates)
@@ -351,8 +351,8 @@ inline void bind_game_config(py::module& m) {
       // Events
       .def_readwrite("events", &GameConfig::events)
 
-      // Query tags
-      .def_readwrite("query_tags", &GameConfig::query_tags);
+      // Materialized queries
+      .def_readwrite("materialized_queries", &GameConfig::materialized_queries);
 }
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CONFIG_METTAGRID_CONFIG_HPP_

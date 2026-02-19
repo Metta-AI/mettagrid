@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict
 
 from mettagrid.config.game_value import InventoryValue, NumObjectsValue, Scope, StatValue, TagCountValue
+from mettagrid.config.query import MaterializedQuery
 from mettagrid.config.tag import typeTag
 
 # This breaks a circular dependency: id_map <-> mettagrid_config
@@ -134,31 +135,42 @@ class IdMap:
         """Get all tag names in alphabetical order.
 
         Collects tags from:
-        - GameConfig.tags (explicit tags)
+        - GameConfig.tags (explicit tags and materialized queries)
         - Object/agent tags (obj.tags)
         - Auto-generated type tags (typeTag(dict_key) for objects, typeTag(name) for agents)
 
         Note: Must match the logic in mettagrid_c_config.py to ensure tag IDs are consistent
         between Python and C++.
         """
-        all_tags = set(tag.name for tag in self._config.tags)
+        materialized_tags: set[str] = set()
+        static_tags: set[str] = set()
+        for t in self._config.tags:
+            if isinstance(t, MaterializedQuery):
+                materialized_tags.add(t.tag)
+            else:
+                static_tags.add(t.name)
 
-        # Objects: use dict key for type tag (matches C++ conversion)
         for obj_key, obj_config in self._config.objects.items():
-            all_tags.update(obj_config.tags)
-            all_tags.add(typeTag(obj_key).name)
+            static_tags.update(obj_config.tags)
+            static_tags.add(typeTag(obj_key).name)
 
-        # Agents: use agent.name for type tag (matches C++ conversion)
         if self._config.agents:
             for agent in self._config.agents:
-                all_tags.update(agent.tags)
-                all_tags.add(typeTag(agent.name).name)
+                static_tags.update(agent.tags)
+                static_tags.add(typeTag(agent.name).name)
         elif self._config.num_agents > 0:
-            # Default agent template
-            all_tags.update(self._config.agent.tags)
-            all_tags.add(typeTag(self._config.agent.name).name)
+            static_tags.update(self._config.agent.tags)
+            static_tags.add(typeTag(self._config.agent.name).name)
 
-        return sorted(all_tags)
+        collisions = materialized_tags & static_tags
+        if collisions:
+            raise ValueError(
+                f"Materialized query output tags collide with static tags: {sorted(collisions)}. "
+                "QuerySystem.compute_all() clears the tag before recomputing, which would erase "
+                "static tag membership. Use a distinct tag name for the materialized query."
+            )
+
+        return sorted(materialized_tags | static_tags)
 
     def _compute_features(self) -> list[ObservationFeatureSpec]:
         """Compute observation features from the game configuration."""
