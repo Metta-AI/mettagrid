@@ -605,6 +605,58 @@ proc centerPanel(winW: float32, winH: float32) =
       resourceCell(cellPos, icon, amount)
       inc visibleResourceCells
 
+  else:
+    # Building info panel.
+    let
+      normalized = normalizeTypeName(selection.typeName)
+      iconName = "icons/objects/" & normalized
+      profilePos = bcPos + vec2(424, 32)
+      profileSize = sk.getImageSize("profiles/cog")
+    if iconName in sk.atlas.entries:
+      let
+        iconW = profileSize.x
+        offsetY = (profileSize.y - iconW) / 2.0
+      drawIconScaled(iconName, profilePos + vec2(0, offsetY), iconW)
+
+    let
+      textPos = bcPos + vec2(69, 32)
+      collectiveName = getCollectiveName(selection.collectiveId.at(step))
+      displayName =
+        if collectiveName.len > 0:
+          collectiveName & " " & normalized
+        else:
+          normalized
+
+    discard sk.drawText("pixelated", displayName, textPos, Yellow, clip = false)
+
+    # Building inventory.
+    let inv = selection.inventory.at
+    const
+      ResourceGridOrigin = vec2(59, 156)
+      ResourceColSpacing = 20.0f
+      ResourceRowSpacing = 12.0f
+      ResourceCols = 3
+    var visibleResourceCells = 0
+    for item in inv:
+      if item.count <= 0 or item.itemId < 0 or item.itemId >= replay.itemNames.len:
+        continue
+      let
+        itemName = replay.itemNames[item.itemId]
+        itemIcon =
+          if "resources/" & itemName in sk.atlas.entries:
+            "resources/" & itemName
+          else:
+            "resources/heart"  # fallback icon
+        row = visibleResourceCells div ResourceCols
+        col = visibleResourceCells mod ResourceCols
+        rowXOffset = if row == 0: 0.0f else: (ResourceCellWidth + ResourceColSpacing) / 2.0f
+        cellPos = bcPos + ResourceGridOrigin + vec2(
+          rowXOffset + col.float32 * (ResourceCellWidth + ResourceColSpacing),
+          row.float32 * (ResourceCellHeight + ResourceRowSpacing)
+        )
+      resourceCell(cellPos, itemIcon, item.count)
+      inc visibleResourceCells
+
 proc bottomLeftMinimap(winH: float32) =
   ## Draw minimap inside the bottom-left panel.
   const
