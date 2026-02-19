@@ -2,18 +2,30 @@ from __future__ import annotations
 
 from typing import Any, NoReturn, Self, Union, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationInfo, model_validator
+
+LENIENT_CONTEXT: dict[str, bool] = {"lenient": True}
 
 
 # Please don't move this class to mettagrid.config, it would cause circular import issues that are difficult to avoid.
 class Config(BaseModel):
     """
     Common extension of Pydantic's BaseModel that:
-    - sets `extra="forbid"` by default
+    - rejects extra fields by default (catches typos at config authoring time)
+    - allows extra fields when validated with context=LENIENT_CONTEXT (for cross-version deserialization)
     - adds `override` and `update` methods for overriding values based on `path.to.value` keys
     """
 
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _strip_extra_fields_if_lenient(cls, data: Any, info: ValidationInfo) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if isinstance(info.context, dict) and info.context.get("lenient"):
+            return {k: v for k, v in data.items() if k in cls.model_fields}
+        return data
 
     def _auto_initialize_field(self, parent_obj: Config, field_name: str) -> Config | None:
         """Auto-initialize a None Config field if possible."""
@@ -145,4 +157,4 @@ class Config(BaseModel):
         return self
 
 
-__all__ = ["Config"]
+__all__ = ["Config", "LENIENT_CONTEXT"]
