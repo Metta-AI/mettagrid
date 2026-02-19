@@ -1,14 +1,24 @@
 """Tests for TagIndex class."""
 
+from mettagrid.config.handler_config import AOEConfig, Handler
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
     AgentConfig,
     GameConfig,
+    GridObjectConfig,
     MettaGridConfig,
     NoopActionConfig,
     ObsConfig,
+    ResourceLimitsConfig,
     WallConfig,
 )
+from mettagrid.config.mutation import (
+    EntityTarget,
+    ResourceDeltaMutation,
+    addTag,
+    removeTag,
+)
+from mettagrid.config.tag import tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.mettagrid_c import TagIndex
@@ -379,3 +389,277 @@ class TestTagIndexIntegration:
 
         # Now should be 0 objects with "mobile"
         assert tag_index.count_objects_with_tag(mobile_id) == 0
+
+
+class TestOnTagAddedIntegration:
+    """Integration tests for on_tag_added via AOE tag mutations."""
+
+    def test_aoe_add_tag_updates_tag_index_count(self):
+        """When AOE adds a tag, TagIndex count should reflect the change."""
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+            [
+                ["#", "#", "#", "#", "#"],
+                ["#", ".", ".", ".", "#"],
+                ["#", ".", "@", ".", "#"],
+                ["#", ".", "S", ".", "#"],
+                ["#", "#", "#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "S": "tagger"},
+        )
+        cfg.game.actions.noop.enabled = True
+        cfg.game.objects["tagger"] = GridObjectConfig(
+            name="tagger",
+            map_name="tagger",
+            tags=["marked"],
+            aoes={
+                "default": AOEConfig(
+                    radius=2,
+                    filters=[],
+                    mutations=[addTag(tag("marked"))],
+                )
+            },
+        )
+
+        sim = Simulation(cfg)
+        tag_index = sim._c_sim.tag_index()
+        id_map = cfg.game.id_map()
+        tag_names = id_map.tag_names()
+        tag_name_to_id = {name: idx for idx, name in enumerate(tag_names)}
+        marked_id = tag_name_to_id["marked"]
+
+        # tagger itself has "marked", agent does not yet
+        initial_count = tag_index.count_objects_with_tag(marked_id)
+        assert initial_count >= 1
+
+        sim.agent(0).set_action("noop")
+        sim.step()
+
+        # After AOE fires, agent also has "marked"
+        assert tag_index.count_objects_with_tag(marked_id) == initial_count + 1
+
+    def test_add_tag_then_remove_tag_round_trip(self):
+        """AOE add then manual remove should bring count back to original."""
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+            [
+                ["#", "#", "#", "#", "#"],
+                ["#", ".", ".", ".", "#"],
+                ["#", ".", "@", ".", "#"],
+                ["#", ".", "S", ".", "#"],
+                ["#", "#", "#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "S": "tagger"},
+        )
+        cfg.game.actions.noop.enabled = True
+        cfg.game.objects["tagger"] = GridObjectConfig(
+            name="tagger",
+            map_name="tagger",
+            tags=["buff"],
+            aoes={
+                "default": AOEConfig(
+                    radius=2,
+                    filters=[],
+                    mutations=[addTag(tag("buff"))],
+                )
+            },
+        )
+
+        sim = Simulation(cfg)
+        tag_index = sim._c_sim.tag_index()
+        id_map = cfg.game.id_map()
+        tag_names = id_map.tag_names()
+        tag_name_to_id = {name: idx for idx, name in enumerate(tag_names)}
+        buff_id = tag_name_to_id["buff"]
+
+        initial_count = tag_index.count_objects_with_tag(buff_id)
+
+        # Step to apply the tag
+        sim.agent(0).set_action("noop")
+        sim.step()
+        assert tag_index.count_objects_with_tag(buff_id) == initial_count + 1
+
+        # Manually remove the tag from the agent
+        objects = sim._c_sim.grid_objects()
+        for _obj_id, obj_data in objects.items():
+            if obj_data["type_name"] == "agent":
+                obj_data["remove_tag"](buff_id)
+                break
+
+        assert tag_index.count_objects_with_tag(buff_id) == initial_count
+
+
+class TestOnTagRemovedIntegration:
+    """Integration tests for on_tag_removed via AOE tag mutations and on_tag_remove handlers."""
+
+    def test_aoe_remove_tag_updates_tag_index_count(self):
+        """When AOE removes a tag, TagIndex count should reflect the change."""
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+            [
+                ["#", "#", "#", "#", "#"],
+                ["#", ".", ".", ".", "#"],
+                ["#", ".", "@", ".", "#"],
+                ["#", ".", "S", ".", "#"],
+                ["#", "#", "#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "S": "cleanser"},
+        )
+        cfg.game.agent.tags = ["cursed"]
+        cfg.game.actions.noop.enabled = True
+        cfg.game.objects["cleanser"] = GridObjectConfig(
+            name="cleanser",
+            map_name="cleanser",
+            aoes={
+                "default": AOEConfig(
+                    radius=2,
+                    filters=[],
+                    mutations=[removeTag(tag("cursed"))],
+                )
+            },
+        )
+
+        sim = Simulation(cfg)
+        tag_index = sim._c_sim.tag_index()
+        id_map = cfg.game.id_map()
+        tag_names = id_map.tag_names()
+        tag_name_to_id = {name: idx for idx, name in enumerate(tag_names)}
+        cursed_id = tag_name_to_id["cursed"]
+
+        # Agent starts with "cursed"
+        assert tag_index.count_objects_with_tag(cursed_id) == 1
+
+        sim.agent(0).set_action("noop")
+        sim.step()
+
+        # After AOE fires, agent no longer has "cursed"
+        assert tag_index.count_objects_with_tag(cursed_id) == 0
+
+    def test_on_tag_remove_handler_fires_on_removal(self):
+        """on_tag_remove handler should fire and apply mutations when tag is removed."""
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+            [
+                ["#", "#", "#", "#", "#"],
+                ["#", ".", ".", ".", "#"],
+                ["#", ".", "@", ".", "#"],
+                ["#", ".", "S", ".", "#"],
+                ["#", "#", "#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "S": "cleanser"},
+        )
+        cfg.game.resource_names = ["gold"]
+        cfg.game.agent.tags = ["enchanted"]
+        cfg.game.agent.inventory.initial = {"gold": 0}
+        cfg.game.agent.inventory.limits = {
+            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
+        }
+        # When "enchanted" is removed, agent gains 50 gold
+        cfg.game.agent.on_tag_remove = {
+            "enchanted": Handler(
+                mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"gold": 50})],
+            ),
+        }
+        cfg.game.actions.noop.enabled = True
+        cfg.game.objects["cleanser"] = GridObjectConfig(
+            name="cleanser",
+            map_name="cleanser",
+            aoes={
+                "default": AOEConfig(
+                    radius=2,
+                    filters=[],
+                    mutations=[removeTag(tag("enchanted"))],
+                )
+            },
+        )
+
+        sim = Simulation(cfg)
+
+        # Agent starts with 0 gold and "enchanted" tag
+        assert sim.agent(0).inventory.get("gold", 0) == 0
+
+        sim.agent(0).set_action("noop")
+        sim.step()
+
+        # on_tag_remove handler should have given 50 gold
+        assert sim.agent(0).inventory.get("gold", 0) == 50
+
+    def test_on_tag_remove_handler_does_not_fire_without_removal(self):
+        """on_tag_remove handler should NOT fire if the tag is not removed."""
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+            [
+                ["#", "#", "#"],
+                ["#", "@", "#"],
+                ["#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty"},
+        )
+        cfg.game.resource_names = ["gold"]
+        cfg.game.agent.tags = ["enchanted"]
+        cfg.game.agent.inventory.initial = {"gold": 0}
+        cfg.game.agent.inventory.limits = {
+            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
+        }
+        cfg.game.agent.on_tag_remove = {
+            "enchanted": Handler(
+                mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"gold": 50})],
+            ),
+        }
+        cfg.game.actions.noop.enabled = True
+
+        sim = Simulation(cfg)
+
+        # No cleanser object — tag is never removed
+        sim.agent(0).set_action("noop")
+        sim.step()
+
+        # Handler should not have fired
+        assert sim.agent(0).inventory.get("gold", 0) == 0
+
+    def test_tag_index_consistent_through_add_remove_cycle(self):
+        """TagIndex counts should remain consistent through repeated add/remove cycles."""
+        cfg = MettaGridConfig(
+            game=GameConfig(
+                num_agents=2,
+                obs=ObsConfig(width=5, height=5, num_tokens=100),
+                max_steps=100,
+                actions=ActionsConfig(noop=NoopActionConfig()),
+                agents=[AgentConfig(tags=["mobile", "trackable"])],
+                resource_names=[],
+                map_builder=AsciiMapBuilder.Config(
+                    map_data=[
+                        [".", ".", "."],
+                        [".", "@", "."],
+                        [".", "@", "."],
+                    ],
+                    char_to_map_name=DEFAULT_CHAR_TO_NAME,
+                ),
+            )
+        )
+        sim = Simulation(cfg)
+        tag_index = sim._c_sim.tag_index()
+        id_map = cfg.game.id_map()
+        tag_names = id_map.tag_names()
+        tag_name_to_id = {name: idx for idx, name in enumerate(tag_names)}
+        trackable_id = tag_name_to_id["trackable"]
+
+        # 2 agents both have "trackable"
+        assert tag_index.count_objects_with_tag(trackable_id) == 2
+
+        # Remove from first agent
+        objects = sim._c_sim.grid_objects()
+        agents = [obj_data for _oid, obj_data in objects.items() if obj_data["type_name"] == "agent"]
+        assert len(agents) == 2
+
+        agents[0]["remove_tag"](trackable_id)
+        assert tag_index.count_objects_with_tag(trackable_id) == 1
+
+        # Re-add to first agent
+        agents[0]["add_tag"](trackable_id)
+        assert tag_index.count_objects_with_tag(trackable_id) == 2
+
+        # Remove from both
+        agents[0]["remove_tag"](trackable_id)
+        agents[1]["remove_tag"](trackable_id)
+        assert tag_index.count_objects_with_tag(trackable_id) == 0
+
+        # Add back to both
+        agents[0]["add_tag"](trackable_id)
+        agents[1]["add_tag"](trackable_id)
+        assert tag_index.count_objects_with_tag(trackable_id) == 2

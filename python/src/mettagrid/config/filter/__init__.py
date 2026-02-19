@@ -37,7 +37,7 @@ from mettagrid.config.filter.shared_tag_prefix_filter import (
     SharedTagPrefixFilter,
     sharedTagPrefix,
 )
-from mettagrid.config.filter.tag_filter import TagFilter, hasTag, isA
+from mettagrid.config.filter.tag_filter import TagFilter, actorHasTag, hasTag, isA
 from mettagrid.config.filter.tag_prefix_filter import TagPrefixFilter, hasTagPrefix
 from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVibe
 from mettagrid.config.query import AnyQuery, ClosureQuery, MaterializedQuery, Query, materializedQuery, query
@@ -102,6 +102,7 @@ __all__ = [
     "isNotNeutral",
     "isEnemy",
     "hasTag",
+    "actorHasTag",
     "isA",
     "typeTag",
     "isNear",

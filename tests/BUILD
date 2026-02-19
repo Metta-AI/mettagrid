@@ -120,6 +120,17 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name="test_tag_lifecycle_bin",
+    srcs=["test_tag_lifecycle.cpp"],
+    copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
+    linkstatic=True,
+    deps=[
+        "//:mettagrid_lib",
+        "@rules_python//python/cc:current_py_cc_libs",
+    ],
+)
+
 # Python test wrappers
 py_test(
     name="test_stats_tracker",
@@ -193,6 +204,15 @@ py_test(
     size="small",
 )
 
+py_test(
+    name="test_tag_lifecycle",
+    srcs=["run_test.py"],
+    main="run_test.py",
+    args=["--bin=test_tag_lifecycle_bin"],
+    data=[":test_tag_lifecycle_bin"],
+    size="small",
+)
+
 # Test suite that runs all tests
 test_suite(
     name="tests_all",
@@ -205,5 +225,6 @@ test_suite(
         ":test_collective",
         ":test_handler",
         ":test_aoe_tracker",
+        ":test_tag_lifecycle",
     ],
 )

@@ -44,24 +44,22 @@ class TestAOEBasicFunctionality:
             char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "S": "aoe_source"},
         )
 
-        cfg.game.resource_names = ["energy", "influence"]
-        cfg.game.agent.inventory.initial = {"energy": 0, "influence": 0}
+        cfg.game.resource_names = ["energy", "hp"]
+        cfg.game.agent.inventory.initial = {"energy": 0, "hp": 0}
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
-            "influence": ResourceLimitsConfig(min=1000, resources=["influence"]),
+            "hp": ResourceLimitsConfig(min=1000, resources=["hp"]),
         }
-        # No on_tick set — no passive regen
         cfg.game.actions.noop.enabled = True
 
-        # Create an AOE source that gives +10 energy and +5 influence per tick
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
             map_name="aoe_source",
             aoes={
                 "default": AOEConfig(
-                    radius=2,  # Agent is 1 cell away, so within range
+                    radius=2,
                     mutations=[
-                        updateTarget({"energy": 10, "influence": 5}),
+                        updateTarget({"energy": 10, "hp": 5}),
                     ],
                 ),
             },
@@ -69,32 +67,28 @@ class TestAOEBasicFunctionality:
 
         sim = Simulation(cfg)
 
-        # Verify initial state
         energy_before = sim.agent(0).inventory.get("energy", 0)
-        influence_before = sim.agent(0).inventory.get("influence", 0)
+        hp_before = sim.agent(0).inventory.get("hp", 0)
         assert energy_before == 0, f"Initial energy should be 0, got {energy_before}"
-        assert influence_before == 0, f"Initial influence should be 0, got {influence_before}"
+        assert hp_before == 0, f"Initial hp should be 0, got {hp_before}"
 
-        # Take one step with noop action
         sim.agent(0).set_action(Action(name="noop"))
         sim.step()
 
-        # Verify AOE effects were applied
         energy_after = sim.agent(0).inventory.get("energy", 0)
-        influence_after = sim.agent(0).inventory.get("influence", 0)
+        hp_after = sim.agent(0).inventory.get("hp", 0)
 
         assert energy_after == 10, f"After 1 step, energy should be 10 (from AOE), got {energy_after}"
-        assert influence_after == 5, f"After 1 step, influence should be 5 (from AOE), got {influence_after}"
+        assert hp_after == 5, f"After 1 step, hp should be 5 (from AOE), got {hp_after}"
 
-        # Take another step to verify continuous application
         sim.agent(0).set_action(Action(name="noop"))
         sim.step()
 
         energy_after_2 = sim.agent(0).inventory.get("energy", 0)
-        influence_after_2 = sim.agent(0).inventory.get("influence", 0)
+        hp_after_2 = sim.agent(0).inventory.get("hp", 0)
 
         assert energy_after_2 == 20, f"After 2 steps, energy should be 20, got {energy_after_2}"
-        assert influence_after_2 == 10, f"After 2 steps, influence should be 10, got {influence_after_2}"
+        assert hp_after_2 == 10, f"After 2 steps, hp should be 10, got {hp_after_2}"
 
     def test_aoe_effects_not_applied_outside_range(self):
         """Test that AOE effects are NOT applied to agents outside range."""
