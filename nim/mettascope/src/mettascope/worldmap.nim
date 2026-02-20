@@ -15,6 +15,7 @@ const
   FollowMarginScreenFraction = 0.2f # Keep selected agent within 1/5 of screen edges.
   FollowMarginMaxWorldTiles = 5.0f # Cap edge margin to 5 world tiles when zoomed out.
   ZoomOutMargin = 1.5f # Panel may show at most this multiple of the map's linear extent when zoomed out.
+  SelectionRadiusPixels = 100.0f # Screen-space click radius for selecting nearby objects.
 
 proc centerAt*(zoomInfo: ZoomInfo, entity: Entity)
 
@@ -688,12 +689,30 @@ proc drawAoeMaps*() {.measure.} =
         tint = getCollectiveColor(slotId).color
       )
 
+proc smoothPos*(entity: Entity): Vec2 =
+  ## Interpolate between floor(stepFloat) and the next step.
+  if entity.isNil:
+    return vec2(0, 0)
+  let
+    baseStep = floor(stepFloat).int
+    stepFrac = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
+    pos0 = entity.location.at(baseStep).xy.vec2
+    pos1 = entity.location.at(baseStep + 1).xy.vec2
+  pos0 + (pos1 - pos0) * stepFrac
+
+proc isSelectableCandidate(entity: Entity): bool =
+  ## Return true when an entity should participate in click selection.
+  not entity.isNil and entity.typeName != "wall" and entity.alive.at
+
 proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
   ## Reads the mouse position and selects the thing under it.
   let modifierDown = when defined(macosx):
     window.buttonDown[KeyLeftSuper] or window.buttonDown[KeyRightSuper]
   else:
     window.buttonDown[KeyLeftControl] or window.buttonDown[KeyRightControl]
+
+  if not selection.isNil and not selection.alive.at:
+    selection = nil
 
   let shiftDown = window.buttonDown[KeyLeftShift] or window.buttonDown[KeyRightShift]
   let rDown = window.buttonDown[KeyR]
@@ -715,14 +734,27 @@ proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
     if mouseDragDistance < maxClickDragDistance:
       selection = nil
       let
-        mousePos = getTransform().inverse * window.mousePos.vec2
-        gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
-      if gridPos.x >= 0 and gridPos.x < replay.mapSize[0] and
-        gridPos.y >= 0 and gridPos.y < replay.mapSize[1]:
-        let obj = getObjectAtLocation(gridPos)
-
-        if obj != nil:
-          selectObject(obj)
+        mouseScreenPos = window.mousePos.vec2
+        clickRadiusSq = SelectionRadiusPixels * SelectionRadiusPixels
+        transform = getTransform()
+      var
+        obj: Entity = nil
+        closestDistSq = clickRadiusSq
+      for candidate in replay.objects:
+        if not isSelectableCandidate(candidate):
+          continue
+        let
+          candidateScreenPos = transform * candidate.smoothPos()
+          delta = candidateScreenPos - mouseScreenPos
+          distSq = delta.x * delta.x + delta.y * delta.y
+          sameDistance = abs(distSq - closestDistSq) <= 0.0001f
+        if distSq > clickRadiusSq:
+          continue
+        if obj.isNil or distSq < closestDistSq or (sameDistance and candidate.id < obj.id):
+          obj = candidate
+          closestDistSq = distSq
+      if obj != nil:
+        selectObject(obj)
 
   if window.buttonPressed[MouseRight] or (window.buttonPressed[MouseLeft] and modifierDown):
     if selection != nil and selection.isAgent:
@@ -808,17 +840,6 @@ proc inferOrientation*(agent: Entity, step: int): Orientation =
   return S
 
 # stripTeamSuffix, stripTeamPrefix, normalizeTypeName are imported from common
-
-proc smoothPos*(entity: Entity): Vec2 =
-  ## Interpolate between floor(stepFloat) and the next step.
-  if entity.isNil:
-    return vec2(0, 0)
-  let
-    baseStep = floor(stepFloat).int
-    stepFrac = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
-    pos0 = entity.location.at(baseStep).xy.vec2
-    pos1 = entity.location.at(baseStep + 1).xy.vec2
-  pos0 + (pos1 - pos0) * stepFrac
 
 proc smoothOrientation*(agent: Entity): Orientation =
   ## Switch orientation halfway through the interpolated move.

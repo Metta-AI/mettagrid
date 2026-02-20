@@ -408,6 +408,8 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
 
 
 proc selectObject*(obj: Entity) =
+  if obj != nil and not obj.alive.at:
+    return
   selection = obj
   if obj != nil:
     let cid = obj.collectiveId.at(step)
