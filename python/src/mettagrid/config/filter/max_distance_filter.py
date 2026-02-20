@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import Field
 
@@ -11,18 +11,22 @@ from mettagrid.config.query import AnyQuery
 
 
 class MaxDistanceFilter(Filter):
-    """Filter that checks if target is within radius of an object matching a query.
+    """Filter that checks Chebyshev distance.
 
-    This is useful for proximity-based mechanics. The filter passes if:
-    - Target is within the specified radius of an object that matches the query
+    radius=0 means unlimited (no distance constraint; always passes).
 
-    The query's tag is required for efficient spatial lookup via TagIndex. Candidate
-    objects are found by tag, then query filters are applied to each candidate.
-
-    Converted to MaxDistanceFilterConfig + TagQueryConfig in the C++ layer.
+    Two modes:
+    - **Unary** (query is set): passes if target is within radius of any
+      object matching the query. With radius=0, passes if the query returns
+      any results (distance unchecked). Used in event/handler filters.
+    - **Binary** (query is None): passes if Chebyshev distance from actor to
+      target <= radius, or unconditionally when radius=0. Source comes from
+      HandlerContext.actor. Used in ClosureQuery edge_filters.
 
     Examples:
-        isNear(query("junction", [hasTag(tag("collective:clips"))]), radius=2)
+        isNear(typeTag("junction"), radius=2)   # unary
+        maxDistance(10)                           # binary, 10-cell limit
+        maxDistance(0)                            # binary, unlimited range
     """
 
     filter_type: Literal["max_distance"] = "max_distance"
@@ -30,25 +34,33 @@ class MaxDistanceFilter(Filter):
         default=HandlerTarget.TARGET,
         description="Entity to check the filter against",
     )
-    query: "AnyQuery" = Field(description="Query to find nearby candidate objects")
-    radius: int = Field(default=1, description="Chebyshev distance (square radius) to check")
+    query: Optional["AnyQuery"] = Field(default=None, description="Query to find nearby objects (None = binary mode)")
+    radius: int = Field(default=1, description="Chebyshev distance limit. 0 means unlimited (no distance constraint).")
 
 
 # ===== Helper Filter Functions =====
 
 
-def isNear(query: "AnyQuery", radius: int = 1) -> MaxDistanceFilter:
-    """Filter: target is within radius of an object matching the query.
+def maxDistance(radius: int) -> MaxDistanceFilter:
+    """Binary filter: Chebyshev distance from source to target must be <= radius.
 
-    This is useful for proximity-based mechanics. The filter passes if:
-    - Target is within radius tiles of an object matching the query
+    radius=0 means unlimited (always passes, no distance constraint).
+    Used in ClosureQuery edge_filters where source=net_member, target=candidate.
+    """
+    return MaxDistanceFilter(target=HandlerTarget.TARGET, radius=radius)
 
-    Args:
-        query: Query identifying nearby objects (tag + optional filters)
-        radius: Chebyshev distance (square radius) to check
+
+def isNear(query: "str | AnyQuery", radius: int = 1) -> MaxDistanceFilter:
+    """Unary filter: target is within radius of an object matching the query.
+
+    Accepts a tag string or a Query. Strings are auto-wrapped into Query(source=str).
 
     Examples:
-        isNear(query(typeTag("junction"), [isAlignedTo("clips")]), radius=3)
-        isNear(query(typeTag("agent"), [hasTag(tag("collective:cogs"))]))
+        isNear(typeTag("junction"), radius=3)
+        isNear(query(typeTag("agent"), [hasTag("collective:cogs")]))
     """
+    from mettagrid.config.query import Query  # noqa: PLC0415
+
+    if isinstance(query, str):
+        query = Query(source=query)
     return MaxDistanceFilter(target=HandlerTarget.TARGET, query=query, radius=radius)

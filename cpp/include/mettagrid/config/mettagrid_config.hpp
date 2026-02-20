@@ -148,51 +148,54 @@ inline void bind_query_config(py::module& m) {
 
   py::class_<ClosureQueryConfig>(m, "ClosureQueryConfig")
       .def(py::init<>())
-      .def_readwrite("radius", &ClosureQueryConfig::radius)
       .def_readwrite("max_items", &ClosureQueryConfig::max_items)
       .def_readwrite("order_by", &ClosureQueryConfig::order_by)
       .def(
           "set_source",
           [](ClosureQueryConfig& self, const QueryConfigHolder& src) { self.source = src.config; },
           py::arg("source"))
-      // Edge filters (for BFS expansion)
       .def(
-          "add_tag_prefix_filter",
-          [](ClosureQueryConfig& self, const TagPrefixFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          "set_candidates",
+          [](ClosureQueryConfig& self, const QueryConfigHolder& c) { self.candidates = c.config; },
+          py::arg("candidates"))
+      // Edge filters (binary: net_member, candidate)
+      .def(
+          "add_edge_max_distance_filter",
+          [](ClosureQueryConfig& self, const MaxDistanceFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_shared_tag_prefix_filter",
-          [](ClosureQueryConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          "add_edge_tag_prefix_filter",
+          [](ClosureQueryConfig& self, const TagPrefixFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_neg_filter",
-          [](ClosureQueryConfig& self, const NegFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          "add_edge_alignment_filter",
+          [](ClosureQueryConfig& self, const AlignmentFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_or_filter",
-          [](ClosureQueryConfig& self, const OrFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          "add_edge_neg_filter",
+          [](ClosureQueryConfig& self, const NegFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_max_distance_filter",
-          [](ClosureQueryConfig& self, const MaxDistanceFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          "add_edge_or_filter",
+          [](ClosureQueryConfig& self, const OrFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_resource_filter",
-          [](ClosureQueryConfig& self, const ResourceFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          "add_edge_shared_tag_prefix_filter",
+          [](ClosureQueryConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_game_value_filter",
-          [](ClosureQueryConfig& self, const GameValueFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          "add_edge_vibe_filter",
+          [](ClosureQueryConfig& self, const VibeFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_alignment_filter",
-          [](ClosureQueryConfig& self, const AlignmentFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          "add_edge_resource_filter",
+          [](ClosureQueryConfig& self, const ResourceFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_vibe_filter",
-          [](ClosureQueryConfig& self, const VibeFilterConfig& cfg) { self.edge_filter.push_back(cfg); },
+          "add_edge_game_value_filter",
+          [](ClosureQueryConfig& self, const GameValueFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
           py::arg("filter"))
-      // Result filters (applied to traversed objects to restrict final result set)
+      // Result filters (unary: applied to final result set)
       .def(
           "add_result_tag_prefix_filter",
           [](ClosureQueryConfig& self, const TagPrefixFilterConfig& cfg) { self.result_filters.push_back(cfg); },

@@ -22,7 +22,7 @@ from mettagrid.config.mutation import (
     removeTag,
 )
 from mettagrid.config.query import MaterializedQuery, query
-from mettagrid.config.tag import tag, typeTag
+from mettagrid.config.tag import typeTag
 from mettagrid.simulator import Simulation
 
 # ---------------------------------------------------------------------------
@@ -167,7 +167,7 @@ class TestTagMutationUpdatesLookup:
                     name="tagger",
                     map_name="T",
                     tags=["marked"],
-                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag(tag("marked"))])},
+                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag("marked")])},
                 )
             },
         )
@@ -195,7 +195,7 @@ class TestTagMutationUpdatesLookup:
                     name="tagger",
                     map_name="T",
                     tags=["tracked"],
-                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag(tag("tracked"))])},
+                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag("tracked")])},
                 )
             },
         )
@@ -223,7 +223,7 @@ class TestTagMutationUpdatesLookup:
                 "C": GridObjectConfig(
                     name="cleanser",
                     map_name="C",
-                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[removeTag(tag("cursed"))])},
+                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[removeTag("cursed")])},
                 )
             },
         )
@@ -251,7 +251,7 @@ class TestTagMutationUpdatesLookup:
                 "C": GridObjectConfig(
                     name="cleanser",
                     map_name="C",
-                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[removeTag(tag("doomed"))])},
+                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[removeTag("doomed")])},
                 )
             },
         )
@@ -290,7 +290,7 @@ class TestTagMutationWithFilters:
                     name="tagger",
                     map_name="T",
                     tags=["vip"],
-                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag(tag("vip"))])},
+                    aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag("vip")])},
                 ),
                 "G": GridObjectConfig(
                     name="giver",
@@ -298,7 +298,7 @@ class TestTagMutationWithFilters:
                     aoes={
                         "default": AOEConfig(
                             radius=2,
-                            filters=[TagFilter(target=HandlerTarget.TARGET, tag=tag("vip"))],
+                            filters=[TagFilter(target=HandlerTarget.TARGET, tag="vip")],
                             mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"gold": 50})],
                         )
                     },
@@ -334,7 +334,7 @@ class TestTagMutationWithFilters:
                     aoes={
                         "default": AOEConfig(
                             radius=2,
-                            filters=[TagFilter(target=HandlerTarget.TARGET, tag=tag("vulnerable"))],
+                            filters=[TagFilter(target=HandlerTarget.TARGET, tag="vulnerable")],
                             mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"hp": -30})],
                         )
                     },
@@ -392,7 +392,7 @@ class TestMultiStepTagMutations:
             name="adder",
             map_name="adder",
             tags=["temp"],
-            aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag(tag("temp"))])},
+            aoes={"default": AOEConfig(radius=2, filters=[], mutations=[addTag("temp")])},
         )
         # Step 2 event removes "temp" tag (only fires on agents that have it)
         cfg.game.objects["remover"] = GridObjectConfig(
@@ -401,8 +401,8 @@ class TestMultiStepTagMutations:
             aoes={
                 "default": AOEConfig(
                     radius=2,
-                    filters=[TagFilter(target=HandlerTarget.TARGET, tag=tag("temp"))],
-                    mutations=[removeTag(tag("temp"))],
+                    filters=[TagFilter(target=HandlerTarget.TARGET, tag="temp")],
+                    mutations=[removeTag("temp")],
                 )
             },
         )
@@ -462,7 +462,7 @@ class TestTagMutationWithMaterializedQuery:
                 name="tag_agents",
                 target_query=query(typeTag("agent"), [hasTag(typeTag("agent"))]),
                 timesteps=[3],
-                mutations=[addTag(tag("team:alpha")), recomputeMaterializedQuery("team_members")],
+                mutations=[addTag("team:alpha"), recomputeMaterializedQuery("team_members")],
                 max_targets=10,
             ),
         }
@@ -507,7 +507,7 @@ class TestTagMutationWithMaterializedQuery:
                 name="untag_agents",
                 target_query=query(typeTag("agent"), [hasTag(typeTag("agent"))]),
                 timesteps=[3],
-                mutations=[removeTag(tag("team:beta")), recomputeMaterializedQuery("beta_team")],
+                mutations=[removeTag("team:beta"), recomputeMaterializedQuery("beta_team")],
                 max_targets=10,
             ),
         }

@@ -15,7 +15,6 @@ from mettagrid.config.event_config import EventConfig
 from mettagrid.config.filter import hasTag
 from mettagrid.config.mutation import logStat
 from mettagrid.config.query import query
-from mettagrid.config.tag import tag
 
 
 class TestMaxTargetsConfig:
@@ -27,7 +26,7 @@ class TestMaxTargetsConfig:
             name="test_event",
             target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(tag("test:target"))],
+            filters=[hasTag("test:target")],
             mutations=[logStat("test.stat")],
         )
         assert event.max_targets is None
@@ -38,7 +37,7 @@ class TestMaxTargetsConfig:
             name="test_event",
             target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(tag("test:target"))],
+            filters=[hasTag("test:target")],
             mutations=[logStat("test.stat")],
             max_targets=None,
         )
@@ -50,7 +49,7 @@ class TestMaxTargetsConfig:
             name="test_event",
             target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(tag("test:target"))],
+            filters=[hasTag("test:target")],
             mutations=[logStat("test.stat")],
             max_targets=5,
         )
@@ -62,7 +61,7 @@ class TestMaxTargetsConfig:
             name="test_event",
             target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(tag("test:target"))],
+            filters=[hasTag("test:target")],
             mutations=[logStat("test.stat")],
             max_targets=3,
         )
@@ -76,7 +75,7 @@ class TestMaxTargetsConfig:
             name="test_event",
             target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(tag("test:target"))],
+            filters=[hasTag("test:target")],
             mutations=[logStat("test.stat")],
             max_targets=None,
         )
@@ -90,7 +89,7 @@ class TestMaxTargetsConfig:
             name="test_event",
             target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(tag("test:target"))],
+            filters=[hasTag("test:target")],
             mutations=[],
             max_targets=7,
         )
