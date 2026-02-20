@@ -33,6 +33,7 @@ public:
     _lp_north = has("lp:north") ? get("lp:north") : 0;
     _lp_south = has("lp:south") ? get("lp:south") : 0;
     _agent_id = has("agent_id") ? get("agent_id") : 0;
+    _aoe_mask = has("aoe_mask") ? get("aoe_mask") : 0;
     _territory = has("territory") ? get("territory") : 0;
 
     // Initialize public members (must be done AFTER private members are set above)
@@ -53,6 +54,7 @@ public:
     LpNorth = _lp_north;
     LpSouth = _lp_south;
     AgentId = _agent_id;
+    AoeMask = _aoe_mask;
     Territory = _territory;
   }
 
@@ -88,6 +90,7 @@ public:
   ObservationType LpNorth;
   ObservationType LpSouth;
   ObservationType AgentId;
+  ObservationType AoeMask;
   ObservationType Territory;
 
 private:
@@ -111,6 +114,7 @@ private:
   ObservationType _lp_north;
   ObservationType _lp_south;
   ObservationType _agent_id;
+  ObservationType _aoe_mask;
   ObservationType _territory;
 };
 
@@ -141,6 +145,7 @@ extern ObservationType LpWest;
 extern ObservationType LpNorth;
 extern ObservationType LpSouth;
 extern ObservationType AgentId;
+extern ObservationType AoeMask;
 extern ObservationType Territory;
 }  // namespace ObservationFeature
 

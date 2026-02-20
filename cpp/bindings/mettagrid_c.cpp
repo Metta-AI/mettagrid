@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <cstdint>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
@@ -44,61 +43,6 @@
 
 namespace py = pybind11;
 
-namespace {
-struct EgocentricObservationShape {
-  int row_radius = 0;
-  int col_radius = 0;
-  int64_t row_radius_sq = 0;
-  int64_t col_radius_sq = 0;
-};
-
-EgocentricObservationShape make_egocentric_observation_shape(
-    ObservationCoord observation_height, ObservationCoord observation_width) {
-  EgocentricObservationShape shape;
-  shape.row_radius = static_cast<int>(observation_height) >> 1;
-  shape.col_radius = static_cast<int>(observation_width) >> 1;
-  shape.row_radius_sq = static_cast<int64_t>(shape.row_radius) * shape.row_radius;
-  shape.col_radius_sq = static_cast<int64_t>(shape.col_radius) * shape.col_radius;
-  return shape;
-}
-
-bool within_egocentric_observation_shape(
-    int row_offset, int col_offset, const EgocentricObservationShape& observation_shape) {
-  int row_radius = observation_shape.row_radius;
-  int col_radius = observation_shape.col_radius;
-
-  if (row_radius == 0 && col_radius == 0) {
-    return row_offset == 0 && col_offset == 0;
-  }
-  if (row_radius == 0) {
-    return row_offset == 0 && std::abs(col_offset) <= col_radius;
-  }
-  if (col_radius == 0) {
-    return col_offset == 0 && std::abs(row_offset) <= row_radius;
-  }
-
-  int64_t row_sq = static_cast<int64_t>(row_offset) * row_offset;
-  int64_t col_sq = static_cast<int64_t>(col_offset) * col_offset;
-  if (row_radius == col_radius) {
-    int64_t radius_sq = observation_shape.row_radius_sq;
-    int64_t dist_sq = row_sq + col_sq;
-    if (dist_sq <= radius_sq) {
-      return true;
-    }
-    // Expand the pure cardinal tips from 1 cell to 3 cells for radius >= 2.
-    if (row_radius >= 2 && dist_sq == radius_sq + 1 &&
-        (std::abs(row_offset) == row_radius || std::abs(col_offset) == col_radius)) {
-      return true;
-    }
-    return false;
-  }
-
-  // Elliptical mask for non-square observation windows.
-  return row_sq * observation_shape.col_radius_sq + col_sq * observation_shape.row_radius_sq <=
-         observation_shape.row_radius_sq * observation_shape.col_radius_sq;
-}
-}  // namespace
-
 MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned int seed)
     : obs_width(game_config.obs_width),
       obs_height(game_config.obs_height),
@@ -127,13 +71,9 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
                              std::to_string(obs_height) + ") exceeds maximum packable size");
   }
 
-  // Pre-compute in-vision observation offsets (Manhattan distance order).
-  auto observation_shape = make_egocentric_observation_shape(obs_height, obs_width);
+  // Pre-compute observation pattern offsets (Manhattan distance order)
   _observation_offsets.reserve(static_cast<size_t>(obs_height) * static_cast<size_t>(obs_width));
   for (const auto& offset : PackedCoordinate::ObservationPattern{obs_height, obs_width}) {
-    if (!within_egocentric_observation_shape(offset.first, offset.second, observation_shape)) {
-      continue;
-    }
     _observation_offsets.push_back(offset);
   }
 
@@ -475,19 +415,20 @@ void MettaGrid::_emit_tile_observability_tokens(size_t agent_idx,
                                                 size_t& tokens_written,
                                                 size_t& attempted_tokens_written,
                                                 size_t buffer_capacity) {
-  if (ObservationFeature::Territory == 0) {
+  ObservationType aoe_mask = 0;
+  ObservationType* aoe_mask_ptr = (ObservationFeature::AoeMask != 0) ? &aoe_mask : nullptr;
+  if (aoe_mask_ptr == nullptr) {
     return;
   }
 
-  ObservationType territory = 0;
-  _aoe_tracker->fixed_observability_at(object_loc, *_agents[agent_idx], &territory);
+  _aoe_tracker->fixed_observability_at(object_loc, *_agents[agent_idx], aoe_mask_ptr, nullptr);
 
-  if (territory != 0) {
+  if (aoe_mask != 0) {
     attempted_tokens_written += 1;
     if (tokens_written < buffer_capacity) {
       obs_ptr[0].location = location;
-      obs_ptr[0].feature_id = ObservationFeature::Territory;
-      obs_ptr[0].value = territory;
+      obs_ptr[0].feature_id = ObservationFeature::AoeMask;
+      obs_ptr[0].value = aoe_mask;
       obs_ptr += 1;
       tokens_written += 1;
     }
@@ -709,12 +650,7 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
   tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
 
   // Process locations in increasing manhattan distance order
-  auto observation_shape = make_egocentric_observation_shape(observable_height, observable_width);
   for (const auto& [r_offset, c_offset] : PackedCoordinate::ObservationPattern{observable_height, observable_width}) {
-    if (!within_egocentric_observation_shape(r_offset, c_offset, observation_shape)) {
-      continue;
-    }
-
     int r = static_cast<int>(observer_row) + r_offset;
     int c = static_cast<int>(observer_col) + c_offset;
 

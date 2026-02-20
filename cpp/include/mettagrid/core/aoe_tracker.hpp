@@ -121,12 +121,22 @@ public:
   // Get number of fixed effect sources at a location (for testing/debugging)
   size_t fixed_effect_count_at(const GridLocation& loc) const;
 
-  // Compute per-tile collapsed territory observability for empty tiles.
+  // Compute observability signals for empty tiles.
+  //
+  // out_aoe_mask (optional): per-tile collapsed AOE mask.
   // - 0 = no influence
   // - 1 = friendly territory/influence
   // - 2 = enemy territory/influence
   // - neutral contests encode as 0
-  void fixed_observability_at(const GridLocation& loc, GridObject& observer, ObservationType* out_territory) const;
+  //
+  // out_territory is kept for historical compatibility; it receives the same
+  // collapsed territory value when requested.
+  //
+  // Writes 0 for any requested output that has no signal at loc.
+  void fixed_observability_at(const GridLocation& loc,
+                              GridObject& observer,
+                              ObservationType* out_aoe_mask,
+                              ObservationType* out_territory) const;
 
   // Get number of mobile sources (for testing/debugging)
   size_t mobile_source_count() const {

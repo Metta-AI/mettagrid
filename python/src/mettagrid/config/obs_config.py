@@ -41,8 +41,8 @@ class ObsConfig(Config):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    width: int = Field(default=13)
-    height: int = Field(default=13)
+    width: int = Field(default=11)
+    height: int = Field(default=11)
     token_dim: int = Field(default=3)
     num_tokens: int = Field(default=200)
     token_value_base: int = Field(default=256)
@@ -52,9 +52,9 @@ class ObsConfig(Config):
     """
     global_obs: GlobalObsConfig = Field(default_factory=GlobalObsConfig)
 
-    # Optional per-tile territory observability. When enabled, MettaGrid emits
-    # `territory` tokens with collapsed influence semantics:
+    # Optional per-tile AOE observability. When enabled, MettaGrid emits `aoe_mask` tokens
+    # with collapsed territory semantics:
     # - 1: friendly territory/influence
     # - 2: enemy territory/influence
     # - 0 / no token: neutral or no influence.
-    territory: bool = Field(default=True)
+    aoe_mask: bool = Field(default=False)
