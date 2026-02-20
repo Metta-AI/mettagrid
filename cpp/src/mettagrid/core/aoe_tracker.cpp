@@ -8,7 +8,6 @@
 
 #include "core/grid_object.hpp"
 #include "handler/filters/filter_factory.hpp"
-#include "handler/handler_context.hpp"
 #include "handler/mutations/mutation_factory.hpp"
 #include "systems/stats_tracker.hpp"
 
@@ -74,8 +73,7 @@ struct TerritoryContest {
 
 // AOESource implementation
 
-AOESource::AOESource(GridObject* src, const AOEConfig& cfg, const std::vector<std::unique_ptr<Collective>>* colls)
-    : source(src), config(cfg), collectives(colls) {
+AOESource::AOESource(GridObject* src, const AOEConfig& cfg) : source(src), config(cfg) {
   // Instantiate filters
   for (const auto& filter_cfg : config.filters) {
     filters.push_back(create_filter(filter_cfg));
@@ -92,10 +90,8 @@ AOESource::AOESource(AOESource&& other) noexcept
     : source(other.source),
       config(std::move(other.config)),
       filters(std::move(other.filters)),
-      mutations(std::move(other.mutations)),
-      collectives(other.collectives) {
+      mutations(std::move(other.mutations)) {
   other.source = nullptr;
-  other.collectives = nullptr;
 }
 
 AOESource& AOESource::operator=(AOESource&& other) noexcept {
@@ -104,9 +100,7 @@ AOESource& AOESource::operator=(AOESource&& other) noexcept {
     config = std::move(other.config);
     filters = std::move(other.filters);
     mutations = std::move(other.mutations);
-    collectives = other.collectives;
     other.source = nullptr;
-    other.collectives = nullptr;
   }
   return *this;
 }
@@ -115,17 +109,13 @@ bool AOESource::try_apply(GridObject* target, const HandlerContext& ctx) {
   HandlerContext target_ctx = ctx;
   target_ctx.actor = source;
   target_ctx.target = target;
-  target_ctx.collectives = collectives;
-  target_ctx.grid = source->grid();
 
-  // Check all filters
   for (const auto& filter : filters) {
     if (!filter->passes(target_ctx)) {
       return false;
     }
   }
 
-  // Apply all mutations
   for (const auto& mutation : mutations) {
     mutation->apply(target_ctx);
   }
@@ -137,8 +127,6 @@ bool AOESource::passes_filters(GridObject* target, const HandlerContext& ctx) co
   HandlerContext target_ctx = ctx;
   target_ctx.actor = source;
   target_ctx.target = target;
-  target_ctx.collectives = collectives;
-  target_ctx.grid = source->grid();
   for (const auto& filter : filters) {
     if (!filter->passes(target_ctx)) {
       return false;
@@ -155,11 +143,9 @@ void AOESource::apply_presence_deltas(GridObject* target, int multiplier) {
 
 // AOETracker implementation
 
-AOETracker::AOETracker(GridCoord height, GridCoord width, StatsTracker* game_stats, TagIndex* tag_index)
+AOETracker::AOETracker(GridCoord height, GridCoord width)
     : _height(height),
       _width(width),
-      _game_stats(game_stats),
-      _tag_index(tag_index),
       _cell_effects(height, std::vector<std::vector<std::shared_ptr<AOESource>>>(width)) {}
 
 void AOETracker::register_source(GridObject& source, const AOEConfig& config) {
@@ -176,7 +162,7 @@ void AOETracker::unregister_source(GridObject& source) {
 }
 
 void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
-  auto aoe_source = std::make_shared<AOESource>(&source, config, _collectives);
+  auto aoe_source = std::make_shared<AOESource>(&source, config);
   _fixed_sources[&source].push_back(aoe_source);
 
   const GridLocation& source_loc = source.location;
@@ -204,7 +190,7 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
 }
 
 void AOETracker::register_mobile(GridObject& source, const AOEConfig& config) {
-  auto aoe_source = std::make_shared<AOESource>(&source, config, _collectives);
+  auto aoe_source = std::make_shared<AOESource>(&source, config);
   _mobile_sources.push_back(aoe_source);
 }
 
@@ -279,9 +265,10 @@ void AOETracker::unregister_mobile(GridObject& source) {
   }
 }
 
-void AOETracker::apply_fixed(GridObject& target) {
-  HandlerContext target_ctx(nullptr, &target, _game_stats, _tag_index);
-  target_ctx.query_system = _query_system;
+void AOETracker::apply_fixed(GridObject& target, const HandlerContext& ctx) {
+  HandlerContext target_ctx = ctx;
+  target_ctx.actor = nullptr;
+  target_ctx.target = &target;
   std::unordered_map<InventoryItem, InventoryDelta> deferred_target_resource_deltas;
   std::vector<InventoryItem> deferred_target_resource_order;
   std::unordered_set<InventoryItem> deferred_target_resource_seen;
@@ -440,9 +427,10 @@ void AOETracker::apply_fixed(GridObject& target) {
   }
 }
 
-void AOETracker::apply_mobile(const std::vector<Agent*>& agents) {
-  HandlerContext mobile_ctx(nullptr, nullptr, _game_stats, _tag_index);
-  mobile_ctx.query_system = _query_system;
+void AOETracker::apply_mobile(const std::vector<Agent*>& agents, const HandlerContext& ctx) {
+  HandlerContext mobile_ctx = ctx;
+  mobile_ctx.actor = nullptr;
+  mobile_ctx.target = nullptr;
 
   for (const auto& aoe_source : _mobile_sources) {
     const GridLocation& source_loc = aoe_source->source->location;
@@ -507,6 +495,7 @@ size_t AOETracker::fixed_effect_count_at(const GridLocation& loc) const {
 
 void AOETracker::fixed_observability_at(const GridLocation& loc,
                                         GridObject& observer,
+                                        const HandlerContext& ctx,
                                         ObservationType* out_aoe_mask,
                                         ObservationType* out_territory) const {
   if (out_aoe_mask != nullptr) {
@@ -530,8 +519,9 @@ void AOETracker::fixed_observability_at(const GridLocation& loc,
     return;
   }
 
-  HandlerContext ctx(nullptr, &observer, _game_stats, _tag_index);
-  ctx.query_system = _query_system;
+  HandlerContext obs_ctx = ctx;
+  obs_ctx.actor = nullptr;
+  obs_ctx.target = &observer;
 
   TerritoryContest territory_contest;
 
@@ -550,7 +540,7 @@ void AOETracker::fixed_observability_at(const GridLocation& loc,
       continue;
     }
 
-    if (!aoe_source->passes_filters(&observer, ctx)) {
+    if (!aoe_source->passes_filters(&observer, obs_ctx)) {
       continue;
     }
 

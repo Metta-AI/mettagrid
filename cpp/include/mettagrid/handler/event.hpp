@@ -2,7 +2,6 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_EVENT_HPP_
 
 #include <memory>
-#include <random>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -48,19 +47,9 @@ public:
     _fallback_event = fallback;
   }
 
-  // Set collectives vector for context-based resolution
-  void set_collectives(const std::vector<std::unique_ptr<Collective>>* collectives) {
-    _collectives = collectives;
-  }
-
-  // Set grid pointer for context-based grid removal
-  void set_grid(Grid* grid) {
-    _grid = grid;
-  }
-
   // Execute this event: find targets, apply mutations, return number of targets affected.
   // If no targets match and a fallback is set, executes the fallback instead.
-  int execute(std::mt19937* rng, const HandlerContext& ctx);
+  int execute(const HandlerContext& ctx);
 
   // Try to apply this event to the given target (events use actor == target)
   // Returns true if all filters passed and mutations were applied
@@ -75,8 +64,6 @@ private:
   int _max_targets = 0;              // 0 = unlimited
   std::string _fallback_name;        // Fallback event name (for initialization)
   Event* _fallback_event = nullptr;  // Pointer to fallback event (resolved at init)
-  Grid* _grid = nullptr;             // Grid for removing objects from cells
-  const std::vector<std::unique_ptr<Collective>>* _collectives = nullptr;  // Collectives for context lookup
   std::vector<std::unique_ptr<Filter>> _filters;
   std::vector<std::unique_ptr<Mutation>> _mutations;
 };

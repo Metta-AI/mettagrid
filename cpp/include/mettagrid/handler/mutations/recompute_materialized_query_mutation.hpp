@@ -19,8 +19,7 @@ public:
       : _config(config) {}
 
   void apply(HandlerContext& ctx) override {
-    assert(ctx.query_system && "RecomputeMaterializedQueryMutation requires query_system in HandlerContext");
-    ctx.query_system->recompute(_config.tag_id);
+    ctx.query_system->recompute(_config.tag_id, ctx);
   }
 
 private:

@@ -118,7 +118,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   GridCoord width = static_cast<GridCoord>(py::len(map[0]));
 
   _grid = std::make_unique<Grid>(height, width);
-  _aoe_tracker = std::make_unique<mettagrid::AOETracker>(height, width, nullptr, &_tag_index);
+  _aoe_tracker = std::make_unique<mettagrid::AOETracker>(height, width);
   _obs_encoder = std::make_unique<ObservationEncoder>(
       game_config.protocol_details_obs, resource_names, game_config.feature_ids, game_config.token_value_base);
 
@@ -136,7 +136,6 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   _stat_tokens_written = _stats->get_or_create_id("tokens_written");
   _stat_tokens_dropped = _stats->get_or_create_id("tokens_dropped");
   _stat_tokens_free_space = _stats->get_or_create_id("tokens_free_space");
-  _aoe_tracker->set_game_stats(_stats.get());
   _token_encoder = std::make_unique<ObservationTokenEncoder>(_game_config.token_value_base);
 
   _action_success.resize(num_agents);
@@ -161,9 +160,6 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
     _collectives.push_back(std::move(collective));
   }
 
-  // Set collectives on AOETracker for alignment filter lookups (before _init_grid registers AOE sources)
-  _aoe_tracker->set_collectives(&_collectives);
-
   _init_grid(game_config, map, _collectives_by_id);
 
   _prev_agent_locations.resize(_agents.size());
@@ -172,18 +168,17 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   }
 
   // Initialize QuerySystem — always created so inline queries in filters/mutations work
-  _query_system = std::make_unique<mettagrid::QuerySystem>(_grid.get(), &_tag_index, &_rng, game_config.materialized_queries);
-  _aoe_tracker->set_query_system(_query_system.get());
-  for (auto& obj : _grid->objects) {
-    if (obj) obj->set_query_system(_query_system.get());
-  }
-  _query_system->compute_all();
+  _query_system = std::make_unique<mettagrid::QuerySystem>(game_config.materialized_queries);
+
+  // Initialize base HandlerContext with all system pointers
+  _game_ctx = mettagrid::HandlerContext(&_tag_index, _grid.get(), _stats.get(), &_collectives, _query_system.get(), &_rng);
+
+  // Compute initial query tags
+  _query_system->compute_all(_game_ctx);
 
   // Initialize EventScheduler from config
   if (!game_config.events.empty()) {
-    _event_scheduler = std::make_unique<mettagrid::EventScheduler>(game_config.events, &_rng);
-    _event_scheduler->set_collectives(&_collectives);
-    _event_scheduler->set_grid(_grid.get());
+    _event_scheduler = std::make_unique<mettagrid::EventScheduler>(game_config.events);
   }
 
   // Pre-compute goal_obs tokens for each agent
@@ -198,7 +193,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   for (auto* agent : _agents) {
     Collective* coll = agent->getCollective();
     StatsTracker* collective_stats = coll ? &coll->stats : nullptr;
-    agent->init_reward(collective_stats, _stats.get(), &_tag_index, _query_system.get(), &resource_names);
+    agent->init_reward(collective_stats, &_game_ctx, &resource_names);
   }
 
   // Validation configuration from environment variables
@@ -282,9 +277,7 @@ void MettaGrid::_init_grid(const GameConfig& game_config,
       _grid->add_object(created_object);
       _stats->incr("objects." + cell);
 
-      // Wire up grid, tag index, and register the object
-      created_object->set_grid(_grid.get());
-      created_object->set_tag_index(&_tag_index);
+      // Register the object with the tag index
       _tag_index.register_object(created_object);
 
       // Register AOE configs for this object (possibly none)
@@ -355,7 +348,7 @@ void MettaGrid::_init_buffers(unsigned int num_agents) {
 }
 
 void MettaGrid::init_action_handlers() {
-  auto result = create_action_handlers(_game_config, _grid.get(), &_rng);
+  auto result = create_action_handlers(_game_config);
   _max_action_priority = result.max_priority;
   _action_handlers = std::move(result.actions);
   _action_handler_impl = std::move(result.handlers);
@@ -424,7 +417,7 @@ void MettaGrid::_emit_tile_observability_tokens(size_t agent_idx,
     return;
   }
 
-  _aoe_tracker->fixed_observability_at(object_loc, *_agents[agent_idx], aoe_mask_ptr, nullptr);
+  _aoe_tracker->fixed_observability_at(object_loc, *_agents[agent_idx], _game_ctx, aoe_mask_ptr, nullptr);
 
   if (aoe_mask != 0) {
     attempted_tokens_written += 1;
@@ -1001,13 +994,7 @@ void MettaGrid::_step() {
 
   // Process events at current timestep
   if (_event_scheduler) {
-    mettagrid::HandlerContext event_ctx;
-    event_ctx.tag_index = &_tag_index;
-    event_ctx.grid = _grid.get();
-    event_ctx.game_stats = _stats.get();
-    event_ctx.collectives = &_collectives;
-    event_ctx.query_system = _query_system.get();
-    _event_scheduler->process_timestep(current_step, event_ctx);
+    _event_scheduler->process_timestep(current_step, _game_ctx);
   }
   if (_profiling_enabled) {
     phase_end = std::chrono::steady_clock::now();
@@ -1044,7 +1031,7 @@ void MettaGrid::_step() {
       }
 
       auto* agent = _agents[agent_idx];
-      bool success = action.handle(*agent);
+      bool success = action.handle(*agent, _game_ctx);
       if (success) {
         executed_actions[agent_idx] = action_idx;
         _action_success[agent_idx] = true;
@@ -1066,14 +1053,9 @@ void MettaGrid::_step() {
   // Apply per-agent on_tick handlers
   if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   for (auto* agent : _agents) {
-    mettagrid::HandlerContext ctx;
+    mettagrid::HandlerContext ctx = _game_ctx;
     ctx.actor = agent;
     ctx.target = agent;
-    ctx.game_stats = _stats.get();
-    ctx.tag_index = &_tag_index;
-    ctx.grid = _grid.get();
-    ctx.collectives = &_collectives;
-    ctx.query_system = _query_system.get();
     agent->apply_on_tick(ctx);
   }
   if (_profiling_enabled) {
@@ -1084,11 +1066,11 @@ void MettaGrid::_step() {
   // Apply fixed AOE effects to all agents at their current location
   if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   for (auto* agent : _agents) {
-    _aoe_tracker->apply_fixed(*agent);
+    _aoe_tracker->apply_fixed(*agent, _game_ctx);
   }
 
   // Apply mobile AOE effects (sources checked against all agents)
-  _aoe_tracker->apply_mobile(_agents);
+  _aoe_tracker->apply_mobile(_agents, _game_ctx);
   if (_profiling_enabled) {
     phase_end = std::chrono::steady_clock::now();
     _step_timing.aoe_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
@@ -1256,13 +1238,9 @@ size_t MettaGrid::_emit_obs_value_tokens(size_t agent_idx, size_t tokens_written
   auto* agent = _agents[agent_idx];
 
   // Build a HandlerContext so we can use resolve_game_value
-  mettagrid::HandlerContext ctx;
+  mettagrid::HandlerContext ctx = _game_ctx;
   ctx.actor = agent;
   ctx.target = agent;
-  ctx.game_stats = _stats.get();
-  ctx.tag_index = &_tag_index;
-  ctx.collectives = &_collectives;
-  ctx.query_system = _query_system.get();
 
   size_t total_written = 0;
 

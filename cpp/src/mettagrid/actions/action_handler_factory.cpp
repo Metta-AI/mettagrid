@@ -9,13 +9,13 @@
 #include "actions/noop.hpp"
 #include "config/mettagrid_config.hpp"
 
-ActionHandlerResult create_action_handlers(const GameConfig& game_config, Grid* grid, std::mt19937* rng) {
+ActionHandlerResult create_action_handlers(const GameConfig& game_config) {
   ActionHandlerResult result;
   result.max_priority = 0;
 
   // Noop
   auto noop = std::make_unique<Noop>(*game_config.actions.at("noop"));
-  noop->init(grid, rng);
+  noop->init();
   if (noop->priority > result.max_priority) result.max_priority = noop->priority;
   for (const auto& action : noop->actions()) {
     result.actions.push_back(action);
@@ -25,7 +25,7 @@ ActionHandlerResult create_action_handlers(const GameConfig& game_config, Grid* 
   // Move
   auto move_config = std::static_pointer_cast<const MoveActionConfig>(game_config.actions.at("move"));
   auto move = std::make_unique<Move>(*move_config, &game_config);
-  move->init(grid, rng);
+  move->init();
   if (move->priority > result.max_priority) result.max_priority = move->priority;
   for (const auto& action : move->actions()) {
     result.actions.push_back(action);
@@ -37,7 +37,7 @@ ActionHandlerResult create_action_handlers(const GameConfig& game_config, Grid* 
   // Attack
   auto attack_config = std::static_pointer_cast<const AttackActionConfig>(game_config.actions.at("attack"));
   auto attack = std::make_unique<Attack>(*attack_config, &game_config);
-  attack->init(grid, rng);
+  attack->init();
   if (attack->priority > result.max_priority) result.max_priority = attack->priority;
   for (const auto& action : attack->actions()) {
     result.actions.push_back(action);
@@ -54,7 +54,7 @@ ActionHandlerResult create_action_handlers(const GameConfig& game_config, Grid* 
   auto change_vibe_config =
       std::static_pointer_cast<const ChangeVibeActionConfig>(game_config.actions.at("change_vibe"));
   auto change_vibe = std::make_unique<ChangeVibe>(*change_vibe_config, &game_config);
-  change_vibe->init(grid, rng);
+  change_vibe->init();
   if (change_vibe->priority > result.max_priority) result.max_priority = change_vibe->priority;
   for (const auto& action : change_vibe->actions()) {
     result.actions.push_back(action);

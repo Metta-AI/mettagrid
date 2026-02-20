@@ -2,13 +2,11 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_ACTIONS_ACTION_HANDLER_FACTORY_HPP_
 
 #include <memory>
-#include <random>
 #include <vector>
 
 #include "actions/action_handler.hpp"
 
 // Forward declarations
-class Grid;
 struct GameConfig;
 
 struct ActionHandlerResult {
@@ -18,6 +16,6 @@ struct ActionHandlerResult {
 };
 
 // Creates all action handlers based on game config
-ActionHandlerResult create_action_handlers(const GameConfig& game_config, Grid* grid, std::mt19937* rng);
+ActionHandlerResult create_action_handlers(const GameConfig& game_config);
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_ACTIONS_ACTION_HANDLER_FACTORY_HPP_

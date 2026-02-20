@@ -1,5 +1,6 @@
 #include <cassert>
 #include <iostream>
+#include <random>
 #include <string>
 
 #include "core/grid_object.hpp"
@@ -29,6 +30,16 @@ public:
   }
 };
 
+// Helper: create a minimal HandlerContext with tag_index (and optional rng)
+static HandlerContext make_ctx(TagIndex* index, GridObject* obj = nullptr, std::mt19937* rng = nullptr) {
+  HandlerContext ctx;
+  ctx.tag_index = index;
+  ctx.rng = rng;
+  ctx.actor = obj;
+  ctx.target = obj;
+  return ctx;
+}
+
 // ============================================================================
 // TagIndex::on_tag_added / on_tag_removed unit tests
 // ============================================================================
@@ -45,7 +56,7 @@ void test_on_tag_added_basic() {
   assert(index.get_objects_with_tag(5).size() == 1);
   assert(index.get_objects_with_tag(5)[0] == &obj);
 
-  std::cout << "✓ TagIndex::on_tag_added basic passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_on_tag_removed_basic() {
@@ -61,7 +72,7 @@ void test_on_tag_removed_basic() {
   assert(index.count_objects_with_tag(5) == 0);
   assert(index.get_objects_with_tag(5).empty());
 
-  std::cout << "✓ TagIndex::on_tag_removed basic passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_on_tag_added_multiple_objects() {
@@ -88,7 +99,7 @@ void test_on_tag_added_multiple_objects() {
   }
   assert(has_a && has_c);
 
-  std::cout << "✓ TagIndex::on_tag_added multiple objects passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_on_tag_removed_nonexistent_is_safe() {
@@ -97,11 +108,11 @@ void test_on_tag_removed_nonexistent_is_safe() {
   TagIndex index;
   TagTestObject obj;
 
-  // Remove from a tag that was never added — should not crash
+  // Remove from a tag that was never added -- should not crash
   index.on_tag_removed(&obj, 99);
   assert(index.count_objects_with_tag(99) == 0);
 
-  std::cout << "✓ TagIndex::on_tag_removed on empty tag passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_on_tag_added_null_is_safe() {
@@ -111,7 +122,7 @@ void test_on_tag_added_null_is_safe() {
   index.on_tag_added(nullptr, 5);
   assert(index.count_objects_with_tag(5) == 0);
 
-  std::cout << "✓ TagIndex::on_tag_added with nullptr passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_on_tag_removed_null_is_safe() {
@@ -121,7 +132,7 @@ void test_on_tag_removed_null_is_safe() {
   index.on_tag_removed(nullptr, 5);
   assert(index.count_objects_with_tag(5) == 0);
 
-  std::cout << "✓ TagIndex::on_tag_removed with nullptr passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_count_ptr_syncs_with_on_tag_added_removed() {
@@ -145,7 +156,7 @@ void test_count_ptr_syncs_with_on_tag_added_removed() {
   index.on_tag_removed(&b, 7);
   assert(*ptr == 0.0f);
 
-  std::cout << "✓ get_count_ptr stays in sync passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_multiple_tags_independent() {
@@ -167,88 +178,87 @@ void test_multiple_tags_independent() {
   assert(index.count_objects_with_tag(2) == 0);
   assert(index.count_objects_with_tag(3) == 1);
 
-  std::cout << "✓ multiple tags are independent passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 // ============================================================================
-// GridObject::add_tag / remove_tag with TagIndex integration
+// GridObject::add_tag / remove_tag with HandlerContext
 // ============================================================================
 
 void test_grid_object_add_tag_updates_index() {
-  std::cout << "Testing GridObject::add_tag updates TagIndex..." << std::endl;
+  std::cout << "Testing add_tag(ctx) updates TagIndex..." << std::endl;
 
   TagIndex index;
   TagTestObject obj;
-  obj.set_tag_index(&index);
+  auto ctx = make_ctx(&index, &obj);
 
   assert(index.count_objects_with_tag(5) == 0);
 
-  obj.add_tag(5);
+  obj.add_tag(5, ctx);
   assert(obj.has_tag(5));
   assert(index.count_objects_with_tag(5) == 1);
 
-  std::cout << "✓ GridObject::add_tag updates TagIndex passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_grid_object_remove_tag_updates_index() {
-  std::cout << "Testing GridObject::remove_tag updates TagIndex..." << std::endl;
+  std::cout << "Testing remove_tag(ctx) updates TagIndex..." << std::endl;
 
   TagIndex index;
   TagTestObject obj;
-  obj.set_tag_index(&index);
+  auto ctx = make_ctx(&index, &obj);
 
-  obj.add_tag(5);
+  obj.add_tag(5, ctx);
   assert(index.count_objects_with_tag(5) == 1);
 
-  obj.remove_tag(5);
+  obj.remove_tag(5, ctx);
   assert(!obj.has_tag(5));
   assert(index.count_objects_with_tag(5) == 0);
 
-  std::cout << "✓ GridObject::remove_tag updates TagIndex passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_grid_object_add_tag_idempotent_index() {
-  std::cout << "Testing GridObject::add_tag idempotent wrt index..." << std::endl;
+  std::cout << "Testing add_tag(ctx) idempotent wrt index..." << std::endl;
 
   TagIndex index;
   TagTestObject obj;
-  obj.set_tag_index(&index);
+  auto ctx = make_ctx(&index, &obj);
 
-  obj.add_tag(5);
-  obj.add_tag(5);  // second add should be no-op
+  obj.add_tag(5, ctx);
+  obj.add_tag(5, ctx);  // second add should be no-op
   assert(index.count_objects_with_tag(5) == 1);
 
-  std::cout << "✓ GridObject::add_tag idempotent wrt index passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_grid_object_remove_tag_idempotent_index() {
-  std::cout << "Testing GridObject::remove_tag idempotent wrt index..." << std::endl;
+  std::cout << "Testing remove_tag(ctx) idempotent wrt index..." << std::endl;
 
   TagIndex index;
   TagTestObject obj;
-  obj.set_tag_index(&index);
+  auto ctx = make_ctx(&index, &obj);
 
-  obj.add_tag(5);
-  obj.remove_tag(5);
-  obj.remove_tag(5);  // second remove should be no-op
+  obj.add_tag(5, ctx);
+  obj.remove_tag(5, ctx);
+  obj.remove_tag(5, ctx);  // second remove should be no-op
   assert(index.count_objects_with_tag(5) == 0);
 
-  std::cout << "✓ GridObject::remove_tag idempotent wrt index passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 // ============================================================================
-// GridObject::add_tag / remove_tag with HandlerContext — lifecycle handlers
+// Lifecycle handlers (on_tag_add / on_tag_remove)
 // ============================================================================
 
-void test_add_tag_with_context_fires_on_tag_add_handler() {
+void test_add_tag_fires_on_tag_add_handler() {
   std::cout << "Testing add_tag(ctx) fires on_tag_add handler..." << std::endl;
 
   TagIndex index;
   TagTestObject obj;
-  obj.set_tag_index(&index);
   obj.inventory.update(0, 0);
 
-  // Create a handler that adds 42 to resource 0 on the actor (which is the object itself)
+  // Create a handler that adds 42 to resource 0 on the actor
   HandlerConfig hcfg("on_tag_add_test");
   ResourceDeltaMutationConfig delta;
   delta.entity = EntityRef::actor;
@@ -260,7 +270,7 @@ void test_add_tag_with_context_fires_on_tag_add_handler() {
   on_tag_add[10].push_back(std::make_shared<Handler>(hcfg));
   obj.set_on_tag_add(std::move(on_tag_add));
 
-  HandlerContext ctx(&obj, &obj, nullptr, &index);
+  auto ctx = make_ctx(&index, &obj);
 
   assert(obj.inventory.amount(0) == 0);
   obj.add_tag(10, ctx);
@@ -268,15 +278,14 @@ void test_add_tag_with_context_fires_on_tag_add_handler() {
   assert(obj.inventory.amount(0) == 42);
   assert(index.count_objects_with_tag(10) == 1);
 
-  std::cout << "✓ add_tag(ctx) fires on_tag_add handler passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
-void test_remove_tag_with_context_fires_on_tag_remove_handler() {
+void test_remove_tag_fires_on_tag_remove_handler() {
   std::cout << "Testing remove_tag(ctx) fires on_tag_remove handler..." << std::endl;
 
   TagIndex index;
   TagTestObject obj;
-  obj.set_tag_index(&index);
   obj.inventory.update(0, 100);
 
   // Create a handler that subtracts 50 from resource 0
@@ -291,26 +300,25 @@ void test_remove_tag_with_context_fires_on_tag_remove_handler() {
   on_tag_remove[10].push_back(std::make_shared<Handler>(hcfg));
   obj.set_on_tag_remove(std::move(on_tag_remove));
 
-  // Give the object the tag first
-  obj.add_tag(10);
+  // Add the tag first
+  auto ctx = make_ctx(&index, &obj);
+  obj.add_tag(10, ctx);
   assert(index.count_objects_with_tag(10) == 1);
 
-  HandlerContext ctx(&obj, &obj, nullptr, &index);
   obj.remove_tag(10, ctx);
 
   assert(!obj.has_tag(10));
   assert(obj.inventory.amount(0) == 50);
   assert(index.count_objects_with_tag(10) == 0);
 
-  std::cout << "✓ remove_tag(ctx) fires on_tag_remove handler passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_add_tag_idempotent_does_not_refire_handler() {
-  std::cout << "Testing add_tag(ctx) idempotent — no handler re-fire..." << std::endl;
+  std::cout << "Testing add_tag(ctx) idempotent -- no handler re-fire..." << std::endl;
 
   TagIndex index;
   TagTestObject obj;
-  obj.set_tag_index(&index);
   obj.inventory.update(0, 0);
 
   HandlerConfig hcfg("on_tag_add_test");
@@ -324,23 +332,22 @@ void test_add_tag_idempotent_does_not_refire_handler() {
   on_tag_add[5].push_back(std::make_shared<Handler>(hcfg));
   obj.set_on_tag_add(std::move(on_tag_add));
 
-  HandlerContext ctx(&obj, &obj, nullptr, &index);
+  auto ctx = make_ctx(&index, &obj);
   obj.add_tag(5, ctx);
   assert(obj.inventory.amount(0) == 10);
 
-  // Adding again should be a no-op — handler should not fire again
+  // Adding again should be a no-op -- handler should not fire again
   obj.add_tag(5, ctx);
   assert(obj.inventory.amount(0) == 10);
 
-  std::cout << "✓ add_tag(ctx) idempotent — no handler re-fire passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_remove_tag_idempotent_does_not_refire_handler() {
-  std::cout << "Testing remove_tag(ctx) idempotent — no handler re-fire..." << std::endl;
+  std::cout << "Testing remove_tag(ctx) idempotent -- no handler re-fire..." << std::endl;
 
   TagIndex index;
   TagTestObject obj;
-  obj.set_tag_index(&index);
   obj.inventory.update(0, 100);
 
   HandlerConfig hcfg("on_tag_remove_test");
@@ -354,17 +361,17 @@ void test_remove_tag_idempotent_does_not_refire_handler() {
   on_tag_remove[5].push_back(std::make_shared<Handler>(hcfg));
   obj.set_on_tag_remove(std::move(on_tag_remove));
 
-  obj.add_tag(5);
+  auto ctx = make_ctx(&index, &obj);
+  obj.add_tag(5, ctx);
 
-  HandlerContext ctx(&obj, &obj, nullptr, &index);
   obj.remove_tag(5, ctx);
   assert(obj.inventory.amount(0) == 75);
 
-  // Removing again should be a no-op — handler should not fire again
+  // Removing again should be a no-op -- handler should not fire again
   obj.remove_tag(5, ctx);
   assert(obj.inventory.amount(0) == 75);
 
-  std::cout << "✓ remove_tag(ctx) idempotent — no handler re-fire passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_skip_on_update_trigger_suppresses_handlers() {
@@ -372,7 +379,6 @@ void test_skip_on_update_trigger_suppresses_handlers() {
 
   TagIndex index;
   TagTestObject obj;
-  obj.set_tag_index(&index);
   obj.inventory.update(0, 0);
 
   HandlerConfig hcfg("on_tag_add_test");
@@ -386,7 +392,7 @@ void test_skip_on_update_trigger_suppresses_handlers() {
   on_tag_add[5].push_back(std::make_shared<Handler>(hcfg));
   obj.set_on_tag_add(std::move(on_tag_add));
 
-  HandlerContext ctx(&obj, &obj, nullptr, &index);
+  auto ctx = make_ctx(&index, &obj);
   ctx.skip_on_update_trigger = true;
 
   obj.add_tag(5, ctx);
@@ -395,7 +401,7 @@ void test_skip_on_update_trigger_suppresses_handlers() {
   assert(obj.inventory.amount(0) == 0);
   assert(index.count_objects_with_tag(5) == 1);
 
-  std::cout << "✓ skip_on_update_trigger suppresses tag handlers passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_add_tag_handler_cascading() {
@@ -403,10 +409,9 @@ void test_add_tag_handler_cascading() {
 
   TagIndex index;
   TagTestObject obj;
-  obj.set_tag_index(&index);
   obj.inventory.update(0, 0);
 
-  // Handler for tag 10: adds resource (so we can verify it fired)
+  // Handler for tag 10: adds resource 0
   HandlerConfig hcfg_a("on_tag_10");
   ResourceDeltaMutationConfig delta_a;
   delta_a.entity = EntityRef::actor;
@@ -414,7 +419,7 @@ void test_add_tag_handler_cascading() {
   delta_a.delta = 100;
   hcfg_a.mutations.push_back(delta_a);
 
-  // Handler for tag 20: adds resource too
+  // Handler for tag 20: adds resource 1
   HandlerConfig hcfg_b("on_tag_20");
   ResourceDeltaMutationConfig delta_b;
   delta_b.entity = EntityRef::actor;
@@ -427,7 +432,7 @@ void test_add_tag_handler_cascading() {
   on_tag_add[20].push_back(std::make_shared<Handler>(hcfg_b));
   obj.set_on_tag_add(std::move(on_tag_add));
 
-  HandlerContext ctx(&obj, &obj, nullptr, &index);
+  auto ctx = make_ctx(&index, &obj);
 
   obj.add_tag(10, ctx);
   assert(obj.inventory.amount(0) == 100);
@@ -438,7 +443,7 @@ void test_add_tag_handler_cascading() {
   assert(index.count_objects_with_tag(10) == 1);
   assert(index.count_objects_with_tag(20) == 1);
 
-  std::cout << "✓ add_tag handler cascading passed" << std::endl;
+  std::cout << "  passed" << std::endl;
 }
 
 void test_mixed_add_remove_lifecycle() {
@@ -446,7 +451,6 @@ void test_mixed_add_remove_lifecycle() {
 
   TagIndex index;
   TagTestObject obj;
-  obj.set_tag_index(&index);
   obj.inventory.update(0, 50);
 
   // on_tag_add for tag 5: +30
@@ -473,7 +477,7 @@ void test_mixed_add_remove_lifecycle() {
   on_tag_remove[5].push_back(std::make_shared<Handler>(rm_cfg));
   obj.set_on_tag_remove(std::move(on_tag_remove));
 
-  HandlerContext ctx(&obj, &obj, nullptr, &index);
+  auto ctx = make_ctx(&index, &obj);
 
   // Add tag: 50 + 30 = 80
   obj.add_tag(5, ctx);
@@ -490,7 +494,99 @@ void test_mixed_add_remove_lifecycle() {
   assert(obj.inventory.amount(0) == 100);
   assert(index.count_objects_with_tag(5) == 1);
 
-  std::cout << "✓ mixed add/remove lifecycle passed" << std::endl;
+  std::cout << "  passed" << std::endl;
+}
+
+void test_context_propagates_rng_to_lifecycle_handlers() {
+  std::cout << "Testing context propagates rng to lifecycle handlers..." << std::endl;
+
+  TagIndex index;
+  TagTestObject obj;
+  std::mt19937 rng(42);
+
+  // Handler that just adds resource (verifying it fires with a full context)
+  HandlerConfig hcfg("rng_test");
+  ResourceDeltaMutationConfig delta;
+  delta.entity = EntityRef::actor;
+  delta.resource_id = 0;
+  delta.delta = 1;
+  hcfg.mutations.push_back(delta);
+
+  std::unordered_map<int, std::vector<std::shared_ptr<Handler>>> on_tag_add;
+  on_tag_add[5].push_back(std::make_shared<Handler>(hcfg));
+  obj.set_on_tag_add(std::move(on_tag_add));
+
+  auto ctx = make_ctx(&index, &obj, &rng);
+
+  obj.add_tag(5, ctx);
+  assert(obj.inventory.amount(0) == 1);
+
+  std::cout << "  passed" << std::endl;
+}
+
+void test_apply_on_tag_add_handlers_fires_without_adding() {
+  std::cout << "Testing apply_on_tag_add_handlers fires handlers for existing tag..." << std::endl;
+
+  TagIndex index;
+  TagTestObject obj;
+  obj.inventory.update(0, 0);
+
+  HandlerConfig hcfg("add_handler");
+  ResourceDeltaMutationConfig delta;
+  delta.entity = EntityRef::actor;
+  delta.resource_id = 0;
+  delta.delta = 77;
+  hcfg.mutations.push_back(delta);
+
+  std::unordered_map<int, std::vector<std::shared_ptr<Handler>>> on_tag_add;
+  on_tag_add[5].push_back(std::make_shared<Handler>(hcfg));
+  obj.set_on_tag_add(std::move(on_tag_add));
+
+  // Add tag with skip to avoid firing handler
+  auto ctx = make_ctx(&index, &obj);
+  ctx.skip_on_update_trigger = true;
+  obj.add_tag(5, ctx);
+  assert(obj.inventory.amount(0) == 0);
+
+  // Now explicitly fire the add handlers
+  ctx.skip_on_update_trigger = false;
+  obj.apply_on_tag_add_handlers(5, ctx);
+  assert(obj.inventory.amount(0) == 77);
+
+  std::cout << "  passed" << std::endl;
+}
+
+void test_apply_on_tag_remove_handlers_fires_without_removing() {
+  std::cout << "Testing apply_on_tag_remove_handlers fires handlers for removed tag..." << std::endl;
+
+  TagIndex index;
+  TagTestObject obj;
+  obj.inventory.update(0, 100);
+
+  HandlerConfig hcfg("remove_handler");
+  ResourceDeltaMutationConfig delta;
+  delta.entity = EntityRef::actor;
+  delta.resource_id = 0;
+  delta.delta = -33;
+  hcfg.mutations.push_back(delta);
+
+  std::unordered_map<int, std::vector<std::shared_ptr<Handler>>> on_tag_remove;
+  on_tag_remove[5].push_back(std::make_shared<Handler>(hcfg));
+  obj.set_on_tag_remove(std::move(on_tag_remove));
+
+  // Add and remove tag with skip to avoid firing handler
+  auto ctx = make_ctx(&index, &obj);
+  ctx.skip_on_update_trigger = true;
+  obj.add_tag(5, ctx);
+  obj.remove_tag(5, ctx);
+  assert(obj.inventory.amount(0) == 100);
+
+  // Now explicitly fire the remove handlers
+  ctx.skip_on_update_trigger = false;
+  obj.apply_on_tag_remove_handlers(5, ctx);
+  assert(obj.inventory.amount(0) == 67);
+
+  std::cout << "  passed" << std::endl;
 }
 
 int main() {
@@ -507,23 +603,28 @@ int main() {
   test_count_ptr_syncs_with_on_tag_added_removed();
   test_multiple_tags_independent();
 
-  // GridObject::add_tag / remove_tag with TagIndex
+  // GridObject::add_tag / remove_tag with HandlerContext
   test_grid_object_add_tag_updates_index();
   test_grid_object_remove_tag_updates_index();
   test_grid_object_add_tag_idempotent_index();
   test_grid_object_remove_tag_idempotent_index();
 
-  // GridObject::add_tag / remove_tag with HandlerContext (lifecycle handlers)
-  test_add_tag_with_context_fires_on_tag_add_handler();
-  test_remove_tag_with_context_fires_on_tag_remove_handler();
+  // Lifecycle handlers (on_tag_add / on_tag_remove)
+  test_add_tag_fires_on_tag_add_handler();
+  test_remove_tag_fires_on_tag_remove_handler();
   test_add_tag_idempotent_does_not_refire_handler();
   test_remove_tag_idempotent_does_not_refire_handler();
   test_skip_on_update_trigger_suppresses_handlers();
   test_add_tag_handler_cascading();
   test_mixed_add_remove_lifecycle();
 
+  // Context propagation
+  test_context_propagates_rng_to_lifecycle_handlers();
+  test_apply_on_tag_add_handlers_fires_without_adding();
+  test_apply_on_tag_remove_handlers_fires_without_removing();
+
   std::cout << "================================================" << std::endl;
-  std::cout << "All Tag Lifecycle tests passed! ✓" << std::endl;
+  std::cout << "All Tag Lifecycle tests passed!" << std::endl;
 
   return 0;
 }

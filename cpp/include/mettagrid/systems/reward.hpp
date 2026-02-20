@@ -7,10 +7,11 @@
 #include <type_traits>
 #include <vector>
 
-#include "core/query_system.hpp"
+#include "core/query_config.hpp"
 #include "core/resolved_game_value.hpp"
 #include "core/tag_index.hpp"
 #include "core/types.hpp"
+#include "handler/handler_context.hpp"
 #include "objects/reward_config.hpp"
 #include "systems/stats_tracker.hpp"
 
@@ -51,28 +52,16 @@ public:
   // Initialize resolved entries from config.entries
   void init_entries(StatsTracker* agent_stats_tracker,
                     StatsTracker* collective_stats_tracker,
-                    StatsTracker* game_stats_tracker,
-                    mettagrid::TagIndex* tag_index,
-                    mettagrid::QuerySystem* query_system,
+                    const mettagrid::HandlerContext* game_ctx,
                     const std::vector<std::string>* resource_names) {
     _resolved_entries.clear();
     for (const auto& entry : config.entries) {
       ResolvedEntry re;
-      re.numerator = resolve_game_value(entry.numerator,
-                                        agent_stats_tracker,
-                                        collective_stats_tracker,
-                                        game_stats_tracker,
-                                        tag_index,
-                                        query_system,
-                                        resource_names);
+      re.numerator =
+          resolve_game_value(entry.numerator, agent_stats_tracker, collective_stats_tracker, game_ctx, resource_names);
       for (const auto& denom : entry.denominators) {
-        re.denominators.push_back(resolve_game_value(denom,
-                                                     agent_stats_tracker,
-                                                     collective_stats_tracker,
-                                                     game_stats_tracker,
-                                                     tag_index,
-                                                     query_system,
-                                                     resource_names));
+        re.denominators.push_back(
+            resolve_game_value(denom, agent_stats_tracker, collective_stats_tracker, game_ctx, resource_names));
       }
       re.weight = entry.weight;
       re.max_value = entry.max_value;
@@ -134,9 +123,7 @@ private:
   ResolvedGameValue resolve_game_value(const GameValueConfig& gvc,
                                        StatsTracker* agent_stats,
                                        StatsTracker* collective_stats,
-                                       StatsTracker* game_stats,
-                                       mettagrid::TagIndex* tag_index,
-                                       mettagrid::QuerySystem* query_system,
+                                       const mettagrid::HandlerContext* game_ctx,
                                        const std::vector<std::string>* resource_names) {
     return std::visit(
         [&](auto&& c) -> ResolvedGameValue {
@@ -145,16 +132,16 @@ private:
 
           if constexpr (std::is_same_v<T, TagCountValueConfig>) {
             rgv.mutable_ = false;
-            if (tag_index) {
-              rgv.value_ptr = tag_index->get_count_ptr(c.id);
+            if (game_ctx && game_ctx->tag_index) {
+              rgv.value_ptr = game_ctx->tag_index->get_count_ptr(c.id);
             }
           } else if constexpr (std::is_same_v<T, QueryInventoryValueConfig>) {
             rgv.mutable_ = false;
             auto query = c.query;
             auto resource_id = c.id;
-            rgv.compute_fn = [query, resource_id, query_system]() -> float {
-              if (!query || !query_system) return 0.0f;
-              auto results = query->evaluate(*query_system);
+            rgv.compute_fn = [query, resource_id, game_ctx]() -> float {
+              if (!query || !game_ctx) return 0.0f;
+              auto results = query->evaluate(*game_ctx);
               float total = 0.0f;
               for (auto* obj : results) {
                 total += static_cast<float>(obj->inventory.amount(resource_id));
@@ -166,7 +153,8 @@ private:
             float val = c.value;
             rgv.compute_fn = [val]() -> float { return val; };
           } else if constexpr (std::is_same_v<T, InventoryValueConfig>) {
-            StatsTracker* tracker = resolve_tracker(c.scope, agent_stats, collective_stats, game_stats);
+            StatsTracker* tracker =
+                resolve_tracker(c.scope, agent_stats, collective_stats, game_ctx ? game_ctx->game_stats : nullptr);
             if (tracker != nullptr && resource_names != nullptr && c.id < resource_names->size()) {
               std::string stat_name = (*resource_names)[c.id] + ".amount";
               uint16_t sid = tracker->get_or_create_id(stat_name);
@@ -174,7 +162,8 @@ private:
             }
           } else if constexpr (std::is_same_v<T, StatValueConfig>) {
             rgv.delta = c.delta;
-            StatsTracker* tracker = resolve_tracker(c.scope, agent_stats, collective_stats, game_stats);
+            StatsTracker* tracker =
+                resolve_tracker(c.scope, agent_stats, collective_stats, game_ctx ? game_ctx->game_stats : nullptr);
             if (tracker != nullptr) {
               if (!c.stat_name.empty()) {
                 uint16_t sid = tracker->get_or_create_id(c.stat_name);

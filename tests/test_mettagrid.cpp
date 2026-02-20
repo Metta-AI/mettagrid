@@ -12,6 +12,7 @@
 #include "core/game_value_config.hpp"
 #include "core/grid.hpp"
 #include "core/types.hpp"
+#include "handler/handler_context.hpp"
 #include "objects/agent.hpp"
 #include "objects/agent_config.hpp"
 #include "objects/collective.hpp"
@@ -168,7 +169,7 @@ TEST_F(MettaGridCppTest, DISABLED_AgentRewardsFromCollectiveStats) {
 
   // Attach agent to collective and init reward entries
   agent->setCollective(&collective);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, nullptr, nullptr, &resource_names);
+  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, &resource_names);
 
   // Deposit resources to the collective
   collective.inventory.update(TestItems::ORE, 10);
@@ -203,7 +204,7 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate) {
 
   float agent_reward = 0.0f;
   agent->init(&agent_reward);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, nullptr, nullptr, &resource_names);
+  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, &resource_names);
 
   // Test adding items
   int delta = agent->inventory.update(TestItems::ORE, 5);
@@ -343,7 +344,7 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate_RewardCappingBehavior) {
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
   float agent_reward = 0.0f;
   agent->init(&agent_reward);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, nullptr, nullptr, &resource_names);
+  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, &resource_names);
 
   // Test 1: Add items up to the cap
   // 16 ORE * 0.125 = 2.0 (exactly at cap)
@@ -411,7 +412,7 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate_MultipleItemCaps) {
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
   float agent_reward = 0.0f;
   agent->init(&agent_reward);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, nullptr, nullptr, &resource_names);
+  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, &resource_names);
 
   // Add ORE beyond its cap
   agent->inventory.update(TestItems::ORE, 50);  // 50 * 0.125 = 6.25, capped at 2.0
@@ -567,10 +568,14 @@ TEST_F(MettaGridCppTest, ActionTracking) {
   ActionConfig noop_cfg({}, {});
   Noop noop(noop_cfg);
   std::mt19937 rng(42);
-  noop.init(&grid, &rng);
+  noop.init();
+
+  mettagrid::HandlerContext ctx;
+  ctx.grid = &grid;
+  ctx.rng = &rng;
 
   EXPECT_FLOAT_EQ(agent->stats.get("status.max_steps_without_motion"), 0.0f);
-  noop.handle_action(*agent, 0);  // count 1, max 1
+  noop.handle_action(*agent, 0, ctx);  // count 1, max 1
   EXPECT_EQ(agent->location.r, 5);
   EXPECT_EQ(agent->location.c, 5);
   EXPECT_EQ(agent->prev_location.r, 5);
@@ -579,29 +584,29 @@ TEST_F(MettaGridCppTest, ActionTracking) {
   EXPECT_FLOAT_EQ(agent->stats.get("status.max_steps_without_motion"), 1.0f);
   agent->location.r = 6;
   agent->location.c = 6;
-  noop.handle_action(*agent, 0);  // count 0, max 1
+  noop.handle_action(*agent, 0, ctx);  // count 0, max 1
   EXPECT_EQ(agent->location.r, 6);
   EXPECT_EQ(agent->location.c, 6);
   EXPECT_EQ(agent->prev_location.r, 6);
   EXPECT_EQ(agent->prev_location.c, 6);
   EXPECT_FLOAT_EQ(agent->stats.get("status.max_steps_without_motion"), 1.0f);
-  noop.handle_action(*agent, 0);  // count 1, max 1
+  noop.handle_action(*agent, 0, ctx);  // count 1, max 1
   EXPECT_FLOAT_EQ(agent->stats.get("status.max_steps_without_motion"), 1.0f);
-  noop.handle_action(*agent, 0);  // count 2, max 2
-  noop.handle_action(*agent, 0);  // count 3, max 3
+  noop.handle_action(*agent, 0, ctx);  // count 2, max 2
+  noop.handle_action(*agent, 0, ctx);  // count 3, max 3
   EXPECT_FLOAT_EQ(agent->stats.get("status.max_steps_without_motion"), 3.0f);
   agent->location.r = 7;
   agent->location.c = 7;
-  noop.handle_action(*agent, 0);  // count 0, max 3
+  noop.handle_action(*agent, 0, ctx);  // count 0, max 3
   EXPECT_EQ(agent->location.r, 7);
   EXPECT_EQ(agent->location.c, 7);
   EXPECT_EQ(agent->prev_location.r, 7);
   EXPECT_EQ(agent->prev_location.c, 7);
-  noop.handle_action(*agent, 0);  // count 1, max 3
-  noop.handle_action(*agent, 0);  // count 2, max 3
+  noop.handle_action(*agent, 0, ctx);  // count 1, max 3
+  noop.handle_action(*agent, 0, ctx);  // count 2, max 3
   EXPECT_FLOAT_EQ(agent->stats.get("status.max_steps_without_motion"), 3.0f);
-  noop.handle_action(*agent, 0);  // count 3, max 3
-  noop.handle_action(*agent, 0);  // count 4, max 4
+  noop.handle_action(*agent, 0, ctx);  // count 3, max 3
+  noop.handle_action(*agent, 0, ctx);  // count 4, max 4
   EXPECT_FLOAT_EQ(agent->stats.get("status.max_steps_without_motion"), 4.0f);
 }
 

@@ -4,7 +4,7 @@
 #include <cassert>
 
 #include "core/grid_object.hpp"
-#include "core/query_system.hpp"
+#include "core/query_config.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
 #include "handler/mutations/mutation.hpp"
@@ -23,10 +23,7 @@ public:
   explicit QueryInventoryMutation(const QueryInventoryMutationConfig& config) : _config(config) {}
 
   void apply(HandlerContext& ctx) override {
-    assert(_config.query && "QueryInventoryMutation requires a non-null query");
-    assert(ctx.query_system && "QuerySystem must be set");
-
-    auto results = _config.query->evaluate(*ctx.query_system);
+    auto results = _config.query->evaluate(ctx);
 
     if (_config.has_source) {
       auto* source = ctx.resolve_inventory(_config.source);

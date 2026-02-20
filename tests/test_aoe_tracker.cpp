@@ -15,6 +15,11 @@
 
 using namespace mettagrid;
 
+// Default context for tests (no system pointers needed for basic AOE mutation tests)
+static HandlerContext make_test_ctx() {
+  return HandlerContext();
+}
+
 // Resource names for testing
 static std::vector<std::string> test_resource_names = {"health", "energy", "gold"};
 
@@ -124,7 +129,7 @@ TEST_F(AOETrackerTest, FixedAOEApplyMutation) {
   AOEConfig config = create_aoe_config(1, 0, 10, true, false);  // +10 health
 
   tracker->register_source(source, config);
-  tracker->apply_fixed(target);
+  tracker->apply_fixed(target, make_test_ctx());
 
   // Target should have gained 10 health
   EXPECT_EQ(110, target.inventory.amount(0));
@@ -137,7 +142,7 @@ TEST_F(AOETrackerTest, FixedAOEEffectSelfFalse) {
   AOEConfig config = create_aoe_config(1, 0, 10, true, false);  // effect_self=false
 
   tracker->register_source(source, config);
-  tracker->apply_fixed(source);
+  tracker->apply_fixed(source, make_test_ctx());
 
   // Source should NOT be affected by its own AOE
   EXPECT_EQ(100, source.inventory.amount(0));
@@ -150,7 +155,7 @@ TEST_F(AOETrackerTest, FixedAOEEffectSelfTrue) {
   AOEConfig config = create_aoe_config(1, 0, 10, true, true);  // effect_self=true
 
   tracker->register_source(source, config);
-  tracker->apply_fixed(source);
+  tracker->apply_fixed(source, make_test_ctx());
 
   // Source should be affected by its own AOE
   EXPECT_EQ(110, source.inventory.amount(0));
@@ -177,7 +182,7 @@ TEST_F(AOETrackerTest, FixedAOEOutOfRange) {
   AOEConfig config = create_aoe_config(1, 0, 10, true, false);
 
   tracker->register_source(source, config);
-  tracker->apply_fixed(target);
+  tracker->apply_fixed(target, make_test_ctx());
 
   // Target should NOT be affected (out of range)
   EXPECT_EQ(100, target.inventory.amount(0));
@@ -236,7 +241,7 @@ TEST_F(MobileAOETest, MobileAOEApplyToAgents) {
 
   // Apply mobile AOE
   std::vector<Agent*> agents = {&agent1, &agent2};
-  tracker->apply_mobile(agents);
+  tracker->apply_mobile(agents, make_test_ctx());
 
   // Agent1 should NOT be affected (effect_self=false)
   EXPECT_EQ(100, agent1.inventory.amount(0));
@@ -255,7 +260,7 @@ TEST_F(MobileAOETest, MobileAOEEffectSelfTrue) {
 
   // Apply mobile AOE
   std::vector<Agent*> agents = {&agent1};
-  tracker->apply_mobile(agents);
+  tracker->apply_mobile(agents, make_test_ctx());
 
   // Agent1 should be affected by its own AOE
   EXPECT_EQ(110, agent1.inventory.amount(0));
@@ -273,7 +278,7 @@ TEST_F(MobileAOETest, MobileAOEOutOfRange) {
 
   // Apply mobile AOE
   std::vector<Agent*> agents = {&agent1, &agent2};
-  tracker->apply_mobile(agents);
+  tracker->apply_mobile(agents, make_test_ctx());
 
   // Agent2 should NOT be affected (out of range)
   EXPECT_EQ(100, agent2.inventory.amount(0));
@@ -294,7 +299,7 @@ TEST_F(MobileAOETest, MobileAOEMutualEffect) {
 
   // Apply mobile AOE
   std::vector<Agent*> agents = {&agent1, &agent2};
-  tracker->apply_mobile(agents);
+  tracker->apply_mobile(agents, make_test_ctx());
 
   // Both agents should affect each other
   EXPECT_EQ(105, agent1.inventory.amount(0));  // Agent2's AOE affects Agent1
@@ -315,13 +320,13 @@ TEST_F(AOETrackerTest, FixedAOEPresenceDeltaEnter) {
   tracker->register_source(source, config);
 
   // First apply - target enters AOE
-  tracker->apply_fixed(target);
+  tracker->apply_fixed(target, make_test_ctx());
 
   // Target should have presence delta applied
   EXPECT_EQ(150, target.inventory.amount(0));
 
   // Second apply - target stays in AOE (no change)
-  tracker->apply_fixed(target);
+  tracker->apply_fixed(target, make_test_ctx());
   EXPECT_EQ(150, target.inventory.amount(0));
 }
 
@@ -337,7 +342,7 @@ TEST_F(AOETrackerTest, FixedAOEPresenceDeltaExit) {
   tracker->register_source(source, config);
 
   // Enter AOE
-  tracker->apply_fixed(target);
+  tracker->apply_fixed(target, make_test_ctx());
   EXPECT_EQ(150, target.inventory.amount(0));
 
   // Move target out of range
@@ -345,7 +350,7 @@ TEST_F(AOETrackerTest, FixedAOEPresenceDeltaExit) {
   target.location.c = 0;
 
   // Apply - target exits AOE
-  tracker->apply_fixed(target);
+  tracker->apply_fixed(target, make_test_ctx());
 
   // Exit delta should be applied (-50)
   EXPECT_EQ(100, target.inventory.amount(0));

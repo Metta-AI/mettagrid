@@ -131,7 +131,7 @@ protected:
   std::vector<ObservationType> _vibes;
   std::unordered_map<ObservationType, int> _vibe_bonus;
 
-  bool _handle_action(Agent& /*actor*/, ActionArg /*arg*/) override {
+  bool _handle_action(Agent& /*actor*/, ActionArg /*arg*/, const mettagrid::HandlerContext& /*ctx*/) override {
     // Attack only triggers via move onto target, not as standalone action
     return false;
   }

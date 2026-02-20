@@ -1,7 +1,6 @@
 #include "handler/event.hpp"
 
 #include <algorithm>
-#include <cassert>
 
 #include "core/tag_index.hpp"
 #include "handler/filters/filter_factory.hpp"
@@ -31,9 +30,7 @@ Event::Event(const EventConfig& config)
   }
 }
 
-int Event::execute(std::mt19937* rng, const HandlerContext& ctx) {
-  assert(ctx.tag_index != nullptr && "Event::execute requires tag_index in HandlerContext");
-
+int Event::execute(const HandlerContext& ctx) {
   // Find targets by tag
   std::vector<GridObject*> targets;
   const auto& objects = ctx.tag_index->get_objects_with_tag(_target_tag_id);
@@ -42,8 +39,8 @@ int Event::execute(std::mt19937* rng, const HandlerContext& ctx) {
   }
 
   // If max_targets is limited and we have more candidates than needed, shuffle
-  if (_max_targets > 0 && targets.size() > static_cast<size_t>(_max_targets) && rng != nullptr) {
-    std::shuffle(targets.begin(), targets.end(), *rng);
+  if (_max_targets > 0 && targets.size() > static_cast<size_t>(_max_targets)) {
+    std::shuffle(targets.begin(), targets.end(), *ctx.rng);
   }
 
   // Apply to targets, respecting max_targets limit
@@ -59,7 +56,7 @@ int Event::execute(std::mt19937* rng, const HandlerContext& ctx) {
 
   // If no targets matched and we have a fallback, execute it instead
   if (targets_applied == 0 && _fallback_event != nullptr) {
-    return _fallback_event->execute(rng, ctx);
+    return _fallback_event->execute(ctx);
   }
 
   return targets_applied;
@@ -69,8 +66,6 @@ bool Event::try_apply(GridObject* target, const HandlerContext& ctx) {
   HandlerContext target_ctx = ctx;
   target_ctx.actor = target;
   target_ctx.target = target;
-  target_ctx.collectives = _collectives;
-  target_ctx.grid = _grid;
 
   if (!check_filters(target, target_ctx)) {
     return false;
@@ -87,8 +82,6 @@ bool Event::check_filters(GridObject* target, const HandlerContext& ctx) const {
   HandlerContext target_ctx = ctx;
   target_ctx.actor = target;
   target_ctx.target = target;
-  target_ctx.collectives = _collectives;
-  target_ctx.grid = _grid;
 
   for (const auto& filter : _filters) {
     if (!filter->passes(target_ctx)) {

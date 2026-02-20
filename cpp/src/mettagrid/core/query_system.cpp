@@ -19,11 +19,7 @@
 
 namespace mettagrid {
 
-QuerySystem::QuerySystem(Grid* grid,
-                         TagIndex* tag_index,
-                         std::mt19937* rng,
-                         const std::vector<MaterializedQueryTag>& configs)
-    : _grid(grid), _tag_index(tag_index), _rng(rng) {
+QuerySystem::QuerySystem(const std::vector<MaterializedQueryTag>& configs) {
   _query_tags.reserve(configs.size());
 
   for (const auto& cfg : configs) {
@@ -34,21 +30,20 @@ QuerySystem::QuerySystem(Grid* grid,
   }
 }
 
-bool QuerySystem::matches_filters(GridObject* obj, const std::vector<FilterConfig>& filter_configs) const {
+bool QuerySystem::matches_filters(GridObject* obj,
+                                  const std::vector<FilterConfig>& filter_configs,
+                                  const HandlerContext& ctx) {
   if (filter_configs.empty()) {
     return true;
   }
 
-  HandlerContext ctx;
-  ctx.actor = obj;
-  ctx.target = obj;
-  ctx.tag_index = _tag_index;
-  ctx.grid = _grid;
-  ctx.query_system = const_cast<QuerySystem*>(this);
+  HandlerContext filter_ctx = ctx;
+  filter_ctx.actor = obj;
+  filter_ctx.target = obj;
 
   for (const auto& filter_cfg : filter_configs) {
     auto f = create_filter(filter_cfg);
-    if (f && !f->passes(ctx)) {
+    if (f && !f->passes(filter_ctx)) {
       return false;
     }
   }
@@ -57,9 +52,10 @@ bool QuerySystem::matches_filters(GridObject* obj, const std::vector<FilterConfi
 
 std::vector<GridObject*> QuerySystem::apply_limits(std::vector<GridObject*> results,
                                                    int max_items,
-                                                   QueryOrderBy order_by) const {
-  if (order_by == QueryOrderBy::random && _rng != nullptr) {
-    std::shuffle(results.begin(), results.end(), *_rng);
+                                                   QueryOrderBy order_by,
+                                                   const HandlerContext& ctx) {
+  if (order_by == QueryOrderBy::random) {
+    std::shuffle(results.begin(), results.end(), *ctx.rng);
   }
 
   if (max_items > 0 && static_cast<int>(results.size()) > max_items) {
@@ -69,44 +65,38 @@ std::vector<GridObject*> QuerySystem::apply_limits(std::vector<GridObject*> resu
   return results;
 }
 
-void QuerySystem::compute_all() {
+void QuerySystem::compute_all(const HandlerContext& ctx) {
   _computing = true;
   // Build a context for tag operations (skip handlers during query computation)
-  HandlerContext ctx;
-  ctx.tag_index = _tag_index;
-  ctx.grid = _grid;
-  ctx.query_system = this;
-  ctx.skip_on_update_trigger = true;
+  HandlerContext tag_ctx = ctx;
+  tag_ctx.skip_on_update_trigger = true;
 
   for (const auto& def : _query_tags) {
     // Remove existing tag from all objects that have it
-    auto tagged_objects = _tag_index->get_objects_with_tag(def.tag_id);
+    auto tagged_objects = ctx.tag_index->get_objects_with_tag(def.tag_id);
     for (auto* obj : tagged_objects) {
-      ctx.actor = obj;
-      ctx.target = obj;
-      obj->remove_tag(def.tag_id, ctx);
+      tag_ctx.actor = obj;
+      tag_ctx.target = obj;
+      obj->remove_tag(def.tag_id, tag_ctx);
     }
 
     // Evaluate query and apply tag
     if (def.query) {
-      auto result = def.query->evaluate(*this);
+      auto result = def.query->evaluate(ctx);
       for (auto* obj : result) {
-        ctx.actor = obj;
-        ctx.target = obj;
-        obj->add_tag(def.tag_id, ctx);
+        tag_ctx.actor = obj;
+        tag_ctx.target = obj;
+        obj->add_tag(def.tag_id, tag_ctx);
       }
     }
   }
   _computing = false;
 }
 
-void QuerySystem::recompute(int tag_id) {
+void QuerySystem::recompute(int tag_id, const HandlerContext& ctx) {
   _computing = true;
-  HandlerContext ctx;
-  ctx.tag_index = _tag_index;
-  ctx.grid = _grid;
-  ctx.query_system = this;
-  ctx.skip_on_update_trigger = true;
+  HandlerContext tag_ctx = ctx;
+  tag_ctx.skip_on_update_trigger = true;
 
   std::vector<GridObject*> objects_that_lost_tag;
   std::unordered_set<GridObject*> objects_that_keep_tag;
@@ -114,22 +104,22 @@ void QuerySystem::recompute(int tag_id) {
   for (const auto& def : _query_tags) {
     if (def.tag_id == tag_id) {
       // Remove existing tag from all objects that have it (skip on_tag_remove during recompute)
-      auto tagged_objects = _tag_index->get_objects_with_tag(def.tag_id);
+      auto tagged_objects = ctx.tag_index->get_objects_with_tag(def.tag_id);
       objects_that_lost_tag.assign(tagged_objects.begin(), tagged_objects.end());
       for (auto* obj : tagged_objects) {
-        ctx.actor = obj;
-        ctx.target = obj;
-        obj->remove_tag(def.tag_id, ctx);
+        tag_ctx.actor = obj;
+        tag_ctx.target = obj;
+        obj->remove_tag(def.tag_id, tag_ctx);
       }
 
       // Evaluate query and apply tag
       if (def.query) {
-        auto result = def.query->evaluate(*this);
+        auto result = def.query->evaluate(ctx);
         for (auto* obj : result) {
           objects_that_keep_tag.insert(obj);
-          ctx.actor = obj;
-          ctx.target = obj;
-          obj->add_tag(def.tag_id, ctx);
+          tag_ctx.actor = obj;
+          tag_ctx.target = obj;
+          obj->add_tag(def.tag_id, tag_ctx);
         }
       }
       break;
@@ -138,43 +128,43 @@ void QuerySystem::recompute(int tag_id) {
   _computing = false;
 
   // Fire on_tag_remove for objects that lost the tag and did NOT get it back
-  ctx.skip_on_update_trigger = false;
+  tag_ctx.skip_on_update_trigger = false;
   std::unordered_set<GridObject*> original_set(objects_that_lost_tag.begin(), objects_that_lost_tag.end());
   for (auto* obj : objects_that_lost_tag) {
     if (objects_that_keep_tag.count(obj) == 0) {
-      ctx.actor = obj;
-      ctx.target = obj;
-      obj->apply_on_tag_remove_handlers(tag_id, ctx);
+      tag_ctx.actor = obj;
+      tag_ctx.target = obj;
+      obj->apply_on_tag_remove_handlers(tag_id, tag_ctx);
     }
   }
 
   // Fire on_tag_add for objects that newly gained the tag
   for (auto* obj : objects_that_keep_tag) {
     if (original_set.count(obj) == 0) {
-      ctx.actor = obj;
-      ctx.target = obj;
-      obj->apply_on_tag_add_handlers(tag_id, ctx);
+      tag_ctx.actor = obj;
+      tag_ctx.target = obj;
+      obj->apply_on_tag_add_handlers(tag_id, tag_ctx);
     }
   }
 }
 
 // TagQueryConfig::evaluate - find objects with tag, apply filters and limits
-std::vector<GridObject*> TagQueryConfig::evaluate(const QuerySystem& system) const {
+std::vector<GridObject*> TagQueryConfig::evaluate(const HandlerContext& ctx) const {
   std::vector<GridObject*> result;
-  const auto& candidates = system.tag_index()->get_objects_with_tag(tag_id);
+  const auto& candidates = ctx.tag_index->get_objects_with_tag(tag_id);
   for (auto* obj : candidates) {
-    if (system.matches_filters(obj, filters)) {
+    if (QuerySystem::matches_filters(obj, filters, ctx)) {
       result.push_back(obj);
     }
   }
-  return system.apply_limits(std::move(result), max_items, order_by);
+  return QuerySystem::apply_limits(std::move(result), max_items, order_by, ctx);
 }
 
 // ClosureQueryConfig::evaluate - BFS from source through edge_filter
-std::vector<GridObject*> ClosureQueryConfig::evaluate(const QuerySystem& system) const {
+std::vector<GridObject*> ClosureQueryConfig::evaluate(const HandlerContext& ctx) const {
   assert(source && "ClosureQueryConfig requires a non-null source query");
 
-  auto roots = source->evaluate(system);
+  auto roots = source->evaluate(ctx);
 
   int max_distance = (radius == 0) ? std::numeric_limits<int>::max() : static_cast<int>(radius);
   std::unordered_map<GridObject*, int> distances;
@@ -187,7 +177,7 @@ std::vector<GridObject*> ClosureQueryConfig::evaluate(const QuerySystem& system)
     }
   }
 
-  Grid* grid = system.grid();
+  Grid* grid = ctx.grid;
 
   while (!frontier.empty()) {
     GridObject* current = frontier.front();
@@ -212,7 +202,7 @@ std::vector<GridObject*> ClosureQueryConfig::evaluate(const QuerySystem& system)
         // Empty edge_filter means no expansion (only roots get the tag);
         // otherwise matches_filters would return true for all neighbors and
         // incorrectly include agents/other objects.
-        if (!edge_filter.empty() && system.matches_filters(neighbor, edge_filter)) {
+        if (!edge_filter.empty() && QuerySystem::matches_filters(neighbor, edge_filter, ctx)) {
           distances[neighbor] = current_dist + 1;
           frontier.push(neighbor);
         }
@@ -230,14 +220,14 @@ std::vector<GridObject*> ClosureQueryConfig::evaluate(const QuerySystem& system)
   if (!result_filters.empty()) {
     std::vector<GridObject*> filtered;
     for (auto* obj : visited) {
-      if (system.matches_filters(obj, result_filters)) {
+      if (QuerySystem::matches_filters(obj, result_filters, ctx)) {
         filtered.push_back(obj);
       }
     }
     visited = std::move(filtered);
   }
 
-  return system.apply_limits(std::move(visited), max_items, order_by);
+  return QuerySystem::apply_limits(std::move(visited), max_items, order_by, ctx);
 }
 
 }  // namespace mettagrid

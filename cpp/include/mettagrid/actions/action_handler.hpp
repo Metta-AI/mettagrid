@@ -6,7 +6,6 @@
 #include <pybind11/stl.h>
 
 #include <cassert>
-#include <random>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -14,6 +13,7 @@
 #include "core/grid.hpp"
 #include "core/grid_object.hpp"
 #include "core/types.hpp"
+#include "handler/handler_context.hpp"
 #include "objects/agent.hpp"
 #include "objects/constants.hpp"
 
@@ -36,7 +36,7 @@ class Action {
 public:
   Action(ActionHandler* handler, const std::string& name, ActionArg arg) : _handler(handler), _name(name), _arg(arg) {}
 
-  bool handle(Agent& actor);
+  bool handle(Agent& actor, const mettagrid::HandlerContext& ctx);
 
   std::string name() const {
     return _name;
@@ -59,7 +59,6 @@ private:
 class ActionHandler {
 public:
   unsigned char priority;
-  Grid* _grid{};
 
   ActionHandler(const ActionConfig& cfg, const std::string& action_name)
       : priority(0),
@@ -84,10 +83,7 @@ public:
 
   virtual ~ActionHandler() {}
 
-  void init(Grid* grid, std::mt19937* rng) {
-    this->_grid = grid;
-    _rng = rng;
-
+  void init() {
     // Create actions after construction, when the derived class vtable is set up
     if (_actions.empty()) {
       _actions = create_actions();
@@ -96,7 +92,7 @@ public:
 
   // Returns true if the action was executed, false otherwise. In particular, a result of false should have no impact
   // on the environment, and should imply that the agent effectively took a noop action.
-  bool handle_action(Agent& actor, ActionArg arg) {
+  bool handle_action(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& ctx) {
     // Handle frozen status
     if (actor.frozen != 0) {
       actor.stats.incr("status.frozen.ticks");
@@ -116,7 +112,7 @@ public:
     }
 
     // Execute the action
-    bool success = has_needed_resources && _handle_action(actor, arg);
+    bool success = has_needed_resources && _handle_action(actor, arg, ctx);
 
     // The intention here is to provide a metric that reports when an agent has stayed in one location for a long
     // period, perhaps spinning in circles. We think this could be a good indicator that a policy has collapsed.
@@ -169,18 +165,17 @@ protected:
   // Subclasses override this to create their specific action instances
   virtual std::vector<Action> create_actions() = 0;
 
-  virtual bool _handle_action(Agent& actor, ActionArg arg) = 0;
+  virtual bool _handle_action(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& ctx) = 0;
 
   std::string _action_name;
   std::unordered_map<InventoryItem, InventoryQuantity> _required_resources;
   std::unordered_map<InventoryItem, InventoryQuantity> _consumed_resources;
-  std::mt19937* _rng{};
   std::vector<Action> _actions;
 };
 
 // Implement Action::handle() inline after ActionHandler is fully defined
-inline bool Action::handle(Agent& actor) {
-  return _handler->handle_action(actor, _arg);
+inline bool Action::handle(Agent& actor, const mettagrid::HandlerContext& ctx) {
+  return _handler->handle_action(actor, _arg, ctx);
 }
 
 namespace py = pybind11;
