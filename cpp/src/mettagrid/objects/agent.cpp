@@ -87,6 +87,11 @@ void Agent::on_inventory_change(InventoryItem item, InventoryDelta delta) {
     }
     this->stats.set(this->stats.resource_name(item) + ".amount", amount);
 
+    // Emit death stat when HP drops to 0
+    if (amount == 0 && delta < 0 && this->stats.resource_name(item) == "hp") {
+      this->stats.add("death", 1);
+    }
+
     auto it = _item_to_log_sum_indices.find(item);
     if (it != _item_to_log_sum_indices.end()) {
       for (size_t idx : it->second) {
