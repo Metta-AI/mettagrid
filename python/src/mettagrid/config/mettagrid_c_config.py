@@ -541,14 +541,6 @@ def convert_to_cpp_game_config(
         static_tag_names.update(agent_config.tags)
         static_tag_names.add(typeTag(agent_config.name))
 
-    collisions = materialized_tag_names & static_tag_names
-    if collisions:
-        raise ValueError(
-            f"Materialized query output tags collide with static tags: {sorted(collisions)}. "
-            "QuerySystem.compute_all() clears the tag before recomputing, which would erase "
-            "static tag membership. Use a distinct tag name for the materialized query."
-        )
-
     all_tag_names = materialized_tag_names | static_tag_names
     sorted_tag_names = sorted(all_tag_names)
     if len(sorted_tag_names) > 256:

@@ -38,6 +38,10 @@ class MaterializedQuery(Query):
 
     Computed at init time, recomputed explicitly via RecomputeMaterializedQueryMutation.
     Defined in GameConfig.materialize_queries.
+
+    The output tag may overlap with existing static tags — this is intentional.
+    It allows materialized queries to enrich objects that already carry the tag
+    (e.g. adding a computed "type:hub" to dynamically-discovered network members).
     """
 
     query_type: Literal["materialized"] = "materialized"

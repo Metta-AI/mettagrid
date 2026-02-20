@@ -62,6 +62,7 @@ public:
 // Forward declarations for GridObjectConfig
 namespace mettagrid {
 class Handler;
+class QuerySystem;
 }  // namespace mettagrid
 
 struct GridObjectConfig {
@@ -161,6 +162,11 @@ public:
     _tag_index = index;
   }
 
+  // Set the query system reference (called by MettaGrid)
+  void set_query_system(mettagrid::QuerySystem* qs) {
+    _query_system = qs;
+  }
+
   // Set observation encoder for inventory token encoding
   void set_obs_encoder(const ObservationEncoder* encoder) {
     obs_encoder = encoder;
@@ -198,6 +204,7 @@ protected:
 
 private:
   mettagrid::TagIndex* _tag_index = nullptr;
+  mettagrid::QuerySystem* _query_system = nullptr;
   std::unordered_map<int, std::vector<std::shared_ptr<mettagrid::Handler>>> _on_tag_add;
   std::unordered_map<int, std::vector<std::shared_ptr<mettagrid::Handler>>> _on_tag_remove;
 };

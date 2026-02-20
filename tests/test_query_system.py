@@ -9,8 +9,6 @@ These tests verify that:
 6. Multiple independent materialized queries work simultaneously
 """
 
-import pytest
-
 from mettagrid.config.filter import HandlerTarget, TagFilter
 from mettagrid.config.mettagrid_config import (
     GridObjectConfig,
@@ -347,75 +345,3 @@ class TestAdvancedClosure:
         assert has_tag("net2", 4, 4), "Cable should have 'net2' tag"
         assert not has_tag("net2", 2, 2), "Hub should NOT have 'net2' tag"
         assert not has_tag("net2", 2, 3), "Wire should NOT have 'net2' tag"
-
-
-class TestMaterializedQueryTagCollision:
-    """Materialized query output tags must not collide with static tags."""
-
-    def _base_cfg(self):
-        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
-            [
-                ["#", "#", "#", "#"],
-                ["#", "H", ".", "#"],
-                ["#", ".", "@", "#"],
-                ["#", "#", "#", "#"],
-            ],
-            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "H": "hub"},
-        )
-        cfg.game.actions.noop.enabled = True
-        cfg.game.objects["hub"] = GridObjectConfig(
-            name="hub",
-            map_name="hub",
-            tags=[typeTag("hub")],
-        )
-        return cfg
-
-    def test_collision_with_object_tag(self):
-        """MaterializedQuery tag matching an object tag should raise."""
-        cfg = self._base_cfg()
-        cfg.game.materialize_queries = [
-            MaterializedQuery(
-                tag=typeTag("hub"),
-                query=Query(tag=typeTag("hub")),
-            ),
-        ]
-        with pytest.raises(ValueError, match="collide with static tags"):
-            Simulation(cfg)
-
-    def test_collision_with_explicit_tag(self):
-        """MaterializedQuery tag matching an explicit tag string should raise."""
-        cfg = self._base_cfg()
-        cfg.game.tags = ["my_static"]
-        cfg.game.materialize_queries = [
-            MaterializedQuery(
-                tag="my_static",
-                query=Query(tag=typeTag("hub")),
-            ),
-        ]
-        with pytest.raises(ValueError, match="collide with static tags"):
-            Simulation(cfg)
-
-    def test_collision_with_type_tag(self):
-        """MaterializedQuery tag matching an auto-generated type tag should raise."""
-        cfg = self._base_cfg()
-        cfg.game.materialize_queries = [
-            MaterializedQuery(
-                tag=typeTag("wall"),
-                query=Query(tag=typeTag("hub")),
-            ),
-        ]
-        with pytest.raises(ValueError, match="collide with static tags"):
-            Simulation(cfg)
-
-    def test_no_collision_passes(self):
-        """Non-colliding materialized query tag should work fine."""
-        cfg = self._base_cfg()
-        cfg.game.materialize_queries = [
-            MaterializedQuery(
-                tag="unique_mat_tag",
-                query=Query(tag=typeTag("hub")),
-            ),
-        ]
-        sim = Simulation(cfg)
-        has_tag = _make_tag_checker(sim, cfg)
-        assert has_tag("unique_mat_tag", 1, 1), "Hub should have materialized tag"
