@@ -137,7 +137,7 @@ class IdMap:
         - GameConfig.tags (explicit tag strings)
         - GameConfig.materialize_queries (materialized query output tags)
         - Object/agent tags (obj.tags)
-        - Auto-generated type tags (typeTag(dict_key) for objects, typeTag(name) for agents)
+        - Auto-generated type tags (typeTag(name) for objects and agents)
 
         Note: Must match the logic in mettagrid_c_config.py to ensure tag IDs are consistent
         between Python and C++.
@@ -145,9 +145,9 @@ class IdMap:
         materialized_tags: set[str] = {mq.tag for mq in self._config.materialize_queries}
         static_tags: set[str] = set(self._config.tags)
 
-        for obj_key, obj_config in self._config.objects.items():
+        for obj_config in self._config.objects.values():
             static_tags.update(obj_config.tags)
-            static_tags.add(typeTag(obj_key))
+            static_tags.add(typeTag(obj_config.name))
 
         if self._config.agents:
             for agent in self._config.agents:
