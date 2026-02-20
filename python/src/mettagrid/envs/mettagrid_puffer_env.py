@@ -110,6 +110,12 @@ class MettaGridPufferEnv(PufferEnv):
         self.single_observation_space: Box = self._policy_env_info.observation_space
         self.single_action_space: Discrete = self._policy_env_info.action_space
         self.single_vibe_action_space: Discrete = self._policy_env_info.vibe_action_space
+        num_vibe_actions = len(self._policy_env_info.vibe_action_names)
+        if num_vibe_actions > 0:
+            num_transport_actions = int(self.single_action_space.n) * (num_vibe_actions + 1)
+            self.single_transport_action_space: Discrete = Discrete(num_transport_actions)
+        else:
+            self.single_transport_action_space = self.single_action_space
 
         self._sim: Optional[Simulation] = None
         self._sim = self._init_simulation()

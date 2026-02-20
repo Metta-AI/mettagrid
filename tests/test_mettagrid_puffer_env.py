@@ -20,7 +20,9 @@ from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.simulator import Simulator
 from mettagrid.simulator.interface import AgentObservation
 from mettagrid.types import Action
+from pufferlib import APIUsageError
 from pufferlib.emulation import GymnasiumPufferEnv
+from pufferlib.vector import Serial
 
 
 @pytest.fixture
@@ -76,6 +78,15 @@ class TestMettaGridPufferEnvCreation:
         assert action_space.n > 0
         # Should have at least noop and move actions
         assert action_space.n >= 5  # noop + 4 cardinal directions
+
+    def test_transport_action_space_includes_encoded_vibe_actions(self, simulator, puffer_sim_config):
+        """Transport action space should include both primary and encoded primary+vibe ids."""
+        env = MettaGridPufferEnv(simulator, puffer_sim_config)
+
+        num_non_vibe_actions = env.single_action_space.n
+        num_vibe_actions = env.single_vibe_action_space.n
+        expected_transport_actions = num_non_vibe_actions * (num_vibe_actions + 1)
+        assert env.single_transport_action_space.n == expected_transport_actions
 
     def test_metadata_present(self, simulator, puffer_sim_config):
         """Ensure Gymnasium vector wrappers can read env metadata."""
@@ -163,6 +174,42 @@ class TestMettaGridPufferEnvReset:
             obs, info = env.reset()
             assert obs is not None
             assert obs.shape == (2, 50, 3)
+
+
+class TestMettaGridPufferEnvVectorValidation:
+    """Tests for vecenv action validation with encoded primary+vibe payloads."""
+
+    def test_serial_vecenv_accepts_encoded_actions_on_first_send(self, simulator, puffer_sim_config):
+        def create_env(*args, **kwargs):
+            return MettaGridPufferEnv(simulator, puffer_sim_config, *args, **kwargs)
+
+        vecenv = Serial([create_env], [()], [{}], num_envs=1)
+        try:
+            vecenv.async_reset(seed=0)
+            vecenv.recv()
+
+            encoded_change_vibe_default = np.full(
+                vecenv.num_envs, vecenv.driver_env.single_action_space.n, dtype=np.int32
+            )
+            vecenv.send(encoded_change_vibe_default)
+            vecenv.recv()
+        finally:
+            vecenv.close()
+
+    def test_serial_vecenv_rejects_out_of_range_encoded_actions(self, simulator, puffer_sim_config):
+        def create_env(*args, **kwargs):
+            return MettaGridPufferEnv(simulator, puffer_sim_config, *args, **kwargs)
+
+        vecenv = Serial([create_env], [()], [{}], num_envs=1)
+        try:
+            vecenv.async_reset(seed=0)
+            vecenv.recv()
+
+            out_of_range = np.full(vecenv.num_envs, vecenv.driver_env.single_transport_action_space.n, dtype=np.int32)
+            with pytest.raises(APIUsageError, match="Actions do not match action space"):
+                vecenv.send(out_of_range)
+        finally:
+            vecenv.close()
 
 
 class TestMettaGridPufferEnvStep:
