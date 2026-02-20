@@ -377,8 +377,8 @@ TEST_F(AOETrackerTest, FixedAOEBoundaryEffects) {
 
 // ==================== Range Calculation Tests ====================
 
-TEST_F(AOETrackerTest, ChebyshevDistance) {
-  // Verify Euclidean distance is used
+TEST_F(AOETrackerTest, L2Distance) {
+  // Verify L2 (Euclidean) distance is used
   TestObject source("healer", 5, 5);
 
   AOEConfig config = create_aoe_config(2, 0, 10, true, false);

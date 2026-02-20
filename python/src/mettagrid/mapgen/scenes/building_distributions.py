@@ -130,8 +130,10 @@ def _sample_positions_by_distribution(
         # Heuristic: scale minimum separation with average per-point area.
         min_dist = max(1, int(np.sqrt(area / max(1, count)) * 0.6))
 
-        def chebyshev(a: tuple[int, int], b: tuple[int, int]) -> int:
-            return max(abs(a[0] - b[0]), abs(a[1] - b[1]))
+        def dist_sq(a: tuple[int, int], b: tuple[int, int]) -> int:
+            dr = a[0] - b[0]
+            dc = a[1] - b[1]
+            return dr * dr + dc * dc
 
         positions: list[tuple[int, int]] = []
         tries_per_point = 200
@@ -140,12 +142,13 @@ def _sample_positions_by_distribution(
             remaining = count - len(positions)
             max_tries = remaining * tries_per_point
             tries = 0
+            min_dist_sq = current_min_dist * current_min_dist
             while len(positions) < count and tries < max_tries:
                 tries += 1
                 row = int(rng.integers(row_min, row_max + 1))
                 col = int(rng.integers(col_min, col_max + 1))
                 cand = (row, col)
-                if all(chebyshev(cand, p) >= current_min_dist for p in positions):
+                if all(dist_sq(cand, p) >= min_dist_sq for p in positions):
                     positions.append(cand)
 
             # If we can't place enough points at this separation, relax by 1 and try again.

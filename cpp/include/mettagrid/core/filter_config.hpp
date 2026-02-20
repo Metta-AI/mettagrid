@@ -101,7 +101,7 @@ struct OrFilterConfig {
 struct MaxDistanceFilterConfig {
   EntityRef entity = EntityRef::target;  // Entity to check distance from (handler context)
   std::shared_ptr<QueryConfig> source;   // Source query to check distance from
-  unsigned int radius = 0;               // Max Chebyshev distance (0 = unlimited)
+  unsigned int radius = 0;               // Max L2 distance, compared as sum of squares (0 = unlimited)
 };
 
 // QueryResourceFilterConfig: Checks if objects found by query have minimum total resources.

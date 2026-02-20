@@ -21,7 +21,7 @@ def dither_edges(
     wall = grid == "wall"
     empty = ~wall
 
-    # Edge cells: 8-neighbor (Chebyshev) difference.
+    # Edge cells: 8-neighbor difference.
     def _expand(mask: np.ndarray) -> np.ndarray:
         up = np.zeros_like(mask, dtype=bool)
         down = np.zeros_like(mask, dtype=bool)

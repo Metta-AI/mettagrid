@@ -30,7 +30,7 @@ def test_aoe_uses_euclidean_distance() -> None:
         )
         return cfg
 
-    # Agent at Chebyshev distance 2 (dr=1, dc=2) but Euclidean distance > 2, so AOE should not apply.
+    # Agent at L2 distance sqrt(5) ≈ 2.24 (dr=1, dc=2), which is > radius 2, so AOE should not apply.
     cfg_out = make_cfg(["#######", "#.....#", "#.....#", "#..S..#", "#....@#", "#.....#", "#######"])
     sim_out = Simulation(cfg_out)
     sim_out.agent(0).set_action("noop")
