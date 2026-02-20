@@ -155,7 +155,7 @@ class GridObjectConfig(Config):
             collective_tag = f"collective:{self.collective}"
             if collective_tag not in self.tags:
                 self.tags = self.tags + [collective_tag]
-        # Type tags are auto-generated during C++ conversion via typeTag(object_type)
+        # Type tags are auto-generated during C++ conversion via typeTag(object.name)
         return self
 
 

@@ -507,7 +507,7 @@ def convert_to_cpp_game_config(
     resource_names = list(game_config.resource_names)
     resource_name_to_id = {name: i for i, name in enumerate(resource_names)}
 
-    type_names = set(game_config.objects.keys())
+    type_names = {cfg.name for cfg in game_config.objects.values()}
     for agent_config in game_config.agents:
         type_names.add(agent_config.name)
     type_names_sorted = sorted(type_names)
@@ -534,9 +534,9 @@ def convert_to_cpp_game_config(
 
     materialized_tag_names: set[str] = {mq.tag for mq in game_config.materialize_queries}
     static_tag_names: set[str] = set(game_config.tags)
-    for obj_name, obj_config in game_config.objects.items():
+    for obj_config in game_config.objects.values():
         static_tag_names.update(obj_config.tags)
-        static_tag_names.add(typeTag(obj_name))
+        static_tag_names.add(typeTag(obj_config.name))
     for agent_config in game_config.agents:
         static_tag_names.update(agent_config.tags)
         static_tag_names.add(typeTag(agent_config.name))
@@ -713,17 +713,19 @@ def convert_to_cpp_game_config(
 
     # --- Build objects ---
 
-    for object_type, object_config in game_config.objects.items():
+    for object_key, object_config in game_config.objects.items():
         cpp_config = None
 
-        type_id = type_id_by_type_name[object_type]
-        object_tag_names = list(object_config.tags) + [typeTag(object_type)]
+        type_id = type_id_by_type_name[object_config.name]
+        object_tag_names = list(object_config.tags) + [typeTag(object_config.name)]
         tag_ids = [tag_name_to_id[name] for name in object_tag_names]
 
         if isinstance(object_config, WallConfig):
-            cpp_config = CppWallConfig(type_id=type_id, type_name=object_type, initial_vibe=object_config.vibe)
+            cpp_config = CppWallConfig(type_id=type_id, type_name=object_config.name, initial_vibe=object_config.vibe)
         elif isinstance(object_config, GridObjectConfig):
-            cpp_config = CppGridObjectConfig(type_id=type_id, type_name=object_type, initial_vibe=object_config.vibe)
+            cpp_config = CppGridObjectConfig(
+                type_id=type_id, type_name=object_config.name, initial_vibe=object_config.vibe
+            )
 
             if object_config.inventory and object_config.inventory.initial:
                 initial_inventory_cpp = {}
@@ -749,7 +751,7 @@ def convert_to_cpp_game_config(
                 inventory_config.limit_defs = limit_defs
                 cpp_config.inventory_config = inventory_config
         else:
-            raise ValueError(f"Unknown object type: {object_type}")
+            raise ValueError(f"Unknown object type: {object_config.name} (key={object_key})")
 
         if cpp_config is not None:
             cpp_config.tag_ids = tag_ids
@@ -770,7 +772,7 @@ def convert_to_cpp_game_config(
                     label="on_tag_remove",
                 )
 
-            objects_cpp_params[object_config.map_name or object_type] = cpp_config
+            objects_cpp_params[object_config.map_name] = cpp_config
 
     # --- Build top-level game params ---
 

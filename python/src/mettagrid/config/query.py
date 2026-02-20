@@ -66,14 +66,14 @@ class ClosureQuery(Query):
 AnyQuery = Annotated[Union[Query, MaterializedQuery, ClosureQuery], Discriminator("query_type")]
 
 
-def query(tag: str, filters: list[AnyFilter] | None = None) -> Query:
+def query(tag: str, filters: AnyFilter | list[AnyFilter] | None = None) -> Query:
     """Create a Query for finding objects by tag with optional filters.
 
     Examples:
         query(typeTag("junction"))
         query(typeTag("agent"), [hasTag("collective:cogs")])
     """
-    return Query(tag=tag, filters=filters or [])
+    return Query(tag=tag, filters=filters if isinstance(filters, list) else [filters] if filters else [])
 
 
 def materializedQuery(tag: str, q: "AnyQuery") -> MaterializedQuery:
