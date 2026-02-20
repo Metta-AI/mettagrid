@@ -10,7 +10,6 @@ from mettagrid.config.filter import (
 from mettagrid.config.handler_config import AOEConfig
 from mettagrid.config.mettagrid_config import GridObjectConfig, MettaGridConfig, ResourceLimitsConfig
 from mettagrid.config.mutation import EntityTarget, ResourceDeltaMutation
-from mettagrid.config.tag import tag
 from mettagrid.simulator import Simulation
 
 
@@ -52,7 +51,7 @@ def _aoe(filters):
 class TestTagPrefixFilter:
     def test_passes_when_target_has_matching_prefix_tag(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source", map_name="aoe_source", aoes=_aoe([hasTagPrefix("team")])
@@ -61,7 +60,7 @@ class TestTagPrefixFilter:
 
     def test_fails_when_target_has_no_prefix_tag(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source", map_name="aoe_source", aoes=_aoe([hasTagPrefix("team")])
         )
@@ -70,7 +69,7 @@ class TestTagPrefixFilter:
     def test_passes_with_any_tag_in_prefix_group(self):
         """Agent has team:blue — filter matches any tag with prefix 'team'."""
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.agent.tags = ["team:blue"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source", map_name="aoe_source", aoes=_aoe([hasTagPrefix("team")])
@@ -80,7 +79,7 @@ class TestTagPrefixFilter:
     def test_checks_actor_when_target_is_actor(self):
         """TagPrefixFilter with target=ACTOR checks the actor (aoe source), not the target."""
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
             map_name="aoe_source",
@@ -91,7 +90,7 @@ class TestTagPrefixFilter:
 
     def test_actor_check_fails_when_actor_has_no_prefix_tag(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
@@ -104,7 +103,7 @@ class TestTagPrefixFilter:
 class TestTagPrefixFilterWithNot:
     def test_not_prefix_passes_when_no_matching_tag(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source", map_name="aoe_source", aoes=_aoe([isNot(hasTagPrefix("team"))])
         )
@@ -112,7 +111,7 @@ class TestTagPrefixFilterWithNot:
 
     def test_not_prefix_fails_when_has_matching_tag(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source", map_name="aoe_source", aoes=_aoe([isNot(hasTagPrefix("team"))])
@@ -123,7 +122,7 @@ class TestTagPrefixFilterWithNot:
 class TestTagPrefixFilterWithOr:
     def test_or_prefix_passes_via_first_branch(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue"), tag("role:warrior"), tag("role:mage")]
+        cfg.game.tags = ["team:red", "team:blue", "role:warrior", "role:mage"]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
@@ -134,7 +133,7 @@ class TestTagPrefixFilterWithOr:
 
     def test_or_prefix_fails_when_no_branch_matches(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue"), tag("role:warrior"), tag("role:mage")]
+        cfg.game.tags = ["team:red", "team:blue", "role:warrior", "role:mage"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
             map_name="aoe_source",

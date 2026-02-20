@@ -22,7 +22,7 @@ from mettagrid.config.mettagrid_config import (
 )
 from mettagrid.config.mutation import alignTo, logStat
 from mettagrid.config.query import query
-from mettagrid.config.tag import tag, typeTag
+from mettagrid.config.tag import typeTag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Simulation
@@ -37,7 +37,7 @@ class TestFallbackConfig:
             name="test_event",
             target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(tag("test:target"))],
+            filters=[hasTag("test:target")],
             mutations=[logStat("test.stat")],
         )
         assert event.fallback is None
@@ -48,7 +48,7 @@ class TestFallbackConfig:
             name="test_event",
             target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(tag("test:target"))],
+            filters=[hasTag("test:target")],
             mutations=[logStat("test.stat")],
             fallback="other_event",
         )
@@ -60,7 +60,7 @@ class TestFallbackConfig:
             name="test_event",
             target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(tag("test:target"))],
+            filters=[hasTag("test:target")],
             mutations=[logStat("test.stat")],
             fallback="fallback_event",
         )
@@ -74,7 +74,7 @@ class TestFallbackConfig:
             name="test_event",
             target_query=query("test:target"),
             timesteps=[10],
-            filters=[hasTag(tag("test:target"))],
+            filters=[hasTag("test:target")],
             mutations=[logStat("test.stat")],
             fallback=None,
         )
@@ -120,14 +120,14 @@ class TestFallbackSimulation:
                     "clips": CollectiveConfig(),
                 },
                 # Register "category:special" tag so it's valid for events
-                tags=[tag("category:special")],
+                tags=["category:special"],
                 events={
                     # Primary event targets "category:special" (no objects have this tag)
                     "primary_event": EventConfig(
                         name="primary_event",
                         target_query=query("category:special"),
                         timesteps=[5],
-                        filters=[hasTag(tag("category:special"))],
+                        filters=[hasTag("category:special")],
                         mutations=[alignTo("clips")],
                         max_targets=1,
                         fallback="fallback_event",  # Fall back to this

@@ -13,11 +13,16 @@
 namespace mettagrid {
 
 /**
- * MaxDistanceFilter: Check if entity is within Chebyshev distance of any
- * object returned by a source query.
+ * MaxDistanceFilter: Chebyshev distance check.
  *
- * Evaluates the source query via QuerySystem to get candidate objects,
- * then checks if the resolved entity is within Chebyshev distance.
+ * radius=0 means unlimited (always passes, no distance constraint).
+ *
+ * Two modes:
+ * - Unary (source query set): entity is within radius of any query result.
+ *   With radius=0, passes if source query returns any results (distance unchecked).
+ * - Binary (source=nullptr): Chebyshev distance(actor, entity) <= radius,
+ *   or unconditionally when radius=0.
+ *   Used in ClosureQuery edge_filters where actor=net_member, entity=candidate.
  */
 class MaxDistanceFilter : public Filter {
 public:
@@ -29,12 +34,18 @@ public:
       return false;
     }
 
-    if (!_config.source) return true;
+    if (!_config.source) {
+      // Binary mode: check distance from actor to entity
+      if (ctx.actor == nullptr) return false;
+      if (_config.radius == 0) return true;  // 0 = unlimited range
+      int dr = std::abs(static_cast<int>(entity->location.r) - static_cast<int>(ctx.actor->location.r));
+      int dc = std::abs(static_cast<int>(entity->location.c) - static_cast<int>(ctx.actor->location.c));
+      return std::max(dr, dc) <= static_cast<int>(_config.radius);
+    }
 
     auto source_objects = _config.source->evaluate(ctx);
 
-    // radius=0 means unlimited (always matches if source exists)
-    if (_config.radius == 0) {
+    if (_config.radius == 0) {  // 0 = unlimited range, skip distance check
       return !source_objects.empty();
     }
 

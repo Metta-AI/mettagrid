@@ -18,7 +18,6 @@ from mettagrid.config.mutation import (
     addTag,
     removeTag,
 )
-from mettagrid.config.tag import tag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.mettagrid_c import TagIndex
@@ -415,7 +414,7 @@ class TestOnTagAddedIntegration:
                 "default": AOEConfig(
                     radius=2,
                     filters=[],
-                    mutations=[addTag(tag("marked"))],
+                    mutations=[addTag("marked")],
                 )
             },
         )
@@ -458,7 +457,7 @@ class TestOnTagAddedIntegration:
                 "default": AOEConfig(
                     radius=2,
                     filters=[],
-                    mutations=[addTag(tag("buff"))],
+                    mutations=[addTag("buff")],
                 )
             },
         )
@@ -511,7 +510,7 @@ class TestOnTagRemovedIntegration:
                 "default": AOEConfig(
                     radius=2,
                     filters=[],
-                    mutations=[removeTag(tag("cursed"))],
+                    mutations=[removeTag("cursed")],
                 )
             },
         )
@@ -564,7 +563,7 @@ class TestOnTagRemovedIntegration:
                 "default": AOEConfig(
                     radius=2,
                     filters=[],
-                    mutations=[removeTag(tag("enchanted"))],
+                    mutations=[removeTag("enchanted")],
                 )
             },
         )

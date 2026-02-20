@@ -50,23 +50,43 @@ class MaterializedQuery(Query):
     query: "AnyQuery" = Field(description="Query that determines which objects get this tag")
 
 
-class ClosureQuery(Query):
-    """BFS from source through bridges. Expands source set transitively.
+class ClosureQuery(Config):
+    """BFS from source through candidates connected by edge filters.
 
-    Starting from objects matching `source`, expands through neighbors that
-    pass the `bridge` filters within `radius` Chebyshev distance. All reachable
-    objects (roots + bridges) are included, then filtered by `filters` if set.
+    Evaluates ``source`` to get seed objects, ``candidates`` to get the
+    candidate pool, then BFS-expands: for each frontier node, candidates
+    passing all ``edge_filters`` (evaluated with source=frontier,
+    target=candidate) are added to the net. Repeats until convergence.
+    Final set is post-filtered by ``filters`` if set.
+
+    Example::
+
+        ClosureQuery(
+            source=query(typeTag("hub"), [hasTag("collective:cogs")]),
+            candidates=query(typeTag("junction"), [hasTag("collective:cogs")]),
+            edge_filters=[maxDistance(10)],
+        )
     """
 
     query_type: Literal["closure"] = "closure"
-    bridge: list["AnyFilter"] = Field(description="Filters applied to neighbors for bridge expansion")
-    radius: int = Field(default=1, description="Chebyshev expansion distance")
+    source: "str | AnyQuery" = Field(description="Seed objects for BFS")
+    candidates: "str | AnyQuery" = Field(description="Objects that can join the network")
+    edge_filters: list["AnyFilter"] = Field(
+        default_factory=list,
+        description="Binary filters: (net_member, candidate) -> bool",
+    )
+    filters: list["AnyFilter"] = Field(
+        default_factory=list,
+        description="Unary filters applied to final result set",
+    )
+    max_items: Optional[int] = Field(default=None, description="Max objects to return (None = unlimited)")
+    order_by: Optional[Literal["random"]] = Field(default=None, description="Order results before applying max_items")
 
 
 AnyQuery = Annotated[Union[Query, MaterializedQuery, ClosureQuery], Discriminator("query_type")]
 
 
-def query(source: "str | AnyQuery", filters: AnyFilter | list[AnyFilter] | None = None) -> Query:
+def query(source: "str | AnyQuery", filters: "AnyFilter | list[AnyFilter] | None" = None) -> Query:
     """Create a Query for finding objects by tag with optional filters.
 
     Examples:
@@ -74,6 +94,25 @@ def query(source: "str | AnyQuery", filters: AnyFilter | list[AnyFilter] | None 
         query(typeTag("agent"), [hasTag("collective:cogs")])
     """
     return Query(source=source, filters=filters if isinstance(filters, list) else [filters] if filters else [])
+
+
+def closureQuery(
+    source: "str | AnyQuery",
+    candidates: "str | AnyQuery",
+    edge_filters: "AnyFilter | list[AnyFilter] | None" = None,
+    filters: "AnyFilter | list[AnyFilter] | None" = None,
+) -> ClosureQuery:
+    """Create a ClosureQuery for BFS network expansion.
+
+    Examples:
+        closureQuery(typeTag("hub"), query(typeTag("junction")), [maxDistance(10)])
+    """
+    return ClosureQuery(
+        source=source,
+        candidates=candidates,
+        edge_filters=edge_filters if isinstance(edge_filters, list) else [edge_filters] if edge_filters else [],
+        filters=filters if isinstance(filters, list) else [filters] if filters else [],
+    )
 
 
 def materializedQuery(tag: str, q: "AnyQuery") -> MaterializedQuery:

@@ -43,12 +43,14 @@ struct TagQueryConfig : public QueryConfig {
   std::vector<GridObject*> evaluate(const HandlerContext& ctx) const override;
 };
 
-// ClosureQueryConfig: BFS from source through edge_filter-filtered neighbors.
+// ClosureQueryConfig: BFS from source through candidates connected by edge filters.
+// Source query finds seed objects, candidates query finds the pool, edge_filters
+// are binary filters evaluated with (net_member, candidate) context per hop.
 struct ClosureQueryConfig : public QueryConfig {
-  std::shared_ptr<QueryConfig> source;       // root query
-  std::vector<FilterConfig> edge_filter;     // filters applied to neighbors for BFS expansion
-  std::vector<FilterConfig> result_filters;  // filters applied to result set (e.g. junction-only)
-  unsigned int radius = 0;                   // Chebyshev expansion distance (0 = unlimited)
+  std::shared_ptr<QueryConfig> source;       // seed query
+  std::shared_ptr<QueryConfig> candidates;   // candidate pool query
+  std::vector<FilterConfig> edge_filters;    // binary: (net_member, candidate)
+  std::vector<FilterConfig> result_filters;  // unary: applied to final result set
   std::vector<GridObject*> evaluate(const HandlerContext& ctx) const override;
 };
 

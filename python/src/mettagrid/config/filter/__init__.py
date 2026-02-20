@@ -23,7 +23,7 @@ from mettagrid.config.filter.alignment_filter import (
 )
 from mettagrid.config.filter.filter import Filter, HandlerTarget, NotFilter, OrFilter, anyOf, isNot
 from mettagrid.config.filter.game_value_filter import GameValueFilter
-from mettagrid.config.filter.max_distance_filter import MaxDistanceFilter, isNear
+from mettagrid.config.filter.max_distance_filter import MaxDistanceFilter, isNear, maxDistance
 from mettagrid.config.filter.resource_filter import (
     ResourceFilter,
     actorCollectiveHas,
@@ -40,7 +40,15 @@ from mettagrid.config.filter.shared_tag_prefix_filter import (
 from mettagrid.config.filter.tag_filter import TagFilter, actorHasTag, hasTag, isA
 from mettagrid.config.filter.tag_prefix_filter import TagPrefixFilter, hasTagPrefix
 from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVibe
-from mettagrid.config.query import AnyQuery, ClosureQuery, MaterializedQuery, Query, materializedQuery, query
+from mettagrid.config.query import (
+    AnyQuery,
+    ClosureQuery,
+    MaterializedQuery,
+    Query,
+    closureQuery,
+    materializedQuery,
+    query,
+)
 from mettagrid.config.tag import typeTag
 
 AnyFilter = Annotated[
@@ -106,6 +114,7 @@ __all__ = [
     "isA",
     "typeTag",
     "isNear",
+    "maxDistance",
     "actorHas",
     "targetHas",
     "actorCollectiveHas",
@@ -122,5 +131,6 @@ __all__ = [
     "ClosureQuery",
     "AnyQuery",
     "query",
+    "closureQuery",
     "materializedQuery",
 ]

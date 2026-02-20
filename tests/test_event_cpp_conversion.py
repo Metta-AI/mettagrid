@@ -28,7 +28,7 @@ from mettagrid.config.mettagrid_config import (
 )
 from mettagrid.config.mutation import alignTo
 from mettagrid.config.query import query
-from mettagrid.config.tag import tag, typeTag
+from mettagrid.config.tag import typeTag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 
@@ -266,7 +266,7 @@ class TestConvertEventsFunction:
                 name="event1",
                 target_query=query(typeTag("wall")),
                 timesteps=[10],
-                filters=[hasTag(tag("target_wall"))],
+                filters=[hasTag("target_wall")],
                 mutations=[alignTo("cogs")],
                 max_targets=1,
             ),
@@ -274,7 +274,7 @@ class TestConvertEventsFunction:
                 name="event2",
                 target_query=query(typeTag("wall")),
                 timesteps=[20],
-                filters=[hasTag(tag("target_wall"))],
+                filters=[hasTag("target_wall")],
                 mutations=[alignTo("cogs")],
                 max_targets=10,
             ),

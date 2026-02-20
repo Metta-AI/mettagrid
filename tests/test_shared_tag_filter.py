@@ -9,7 +9,6 @@ from mettagrid.config.filter import (
 from mettagrid.config.handler_config import AOEConfig
 from mettagrid.config.mettagrid_config import GridObjectConfig, MettaGridConfig, ResourceLimitsConfig
 from mettagrid.config.mutation import EntityTarget, ResourceDeltaMutation
-from mettagrid.config.tag import tag
 from mettagrid.simulator import Simulation
 
 
@@ -51,7 +50,7 @@ def _aoe(filters):
 class TestSharedTagPrefixFilter:
     def test_passes_when_actor_and_target_share_tag(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source", map_name="aoe_source", tags=["team:red"], aoes=_aoe([sharedTagPrefix("team:")])
@@ -60,7 +59,7 @@ class TestSharedTagPrefixFilter:
 
     def test_fails_when_different_tags(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source", map_name="aoe_source", tags=["team:blue"], aoes=_aoe([sharedTagPrefix("team:")])
@@ -69,7 +68,7 @@ class TestSharedTagPrefixFilter:
 
     def test_fails_when_target_has_no_prefix_tag(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source", map_name="aoe_source", tags=["team:red"], aoes=_aoe([sharedTagPrefix("team:")])
         )
@@ -77,7 +76,7 @@ class TestSharedTagPrefixFilter:
 
     def test_fails_when_source_has_no_prefix_tag(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source", map_name="aoe_source", aoes=_aoe([sharedTagPrefix("team:")])
@@ -88,7 +87,7 @@ class TestSharedTagPrefixFilter:
 class TestSharedTagPrefixFilterWithNot:
     def test_not_share_tag_passes_for_different_teams(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
@@ -100,7 +99,7 @@ class TestSharedTagPrefixFilterWithNot:
 
     def test_not_share_tag_fails_for_same_team(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue")]
+        cfg.game.tags = ["team:red", "team:blue"]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
@@ -114,7 +113,7 @@ class TestSharedTagPrefixFilterWithNot:
 class TestSharedTagPrefixFilterWithOr:
     def test_or_share_tag_passes_via_first_branch(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue"), tag("role:warrior"), tag("role:mage")]
+        cfg.game.tags = ["team:red", "team:blue", "role:warrior", "role:mage"]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
@@ -135,7 +134,7 @@ class TestSharedTagPrefixFilterWithOr:
 
     def test_or_share_tag_fails_when_no_branch_matches(self):
         cfg = _base_cfg()
-        cfg.game.tags = [tag("team:red"), tag("team:blue"), tag("role:warrior"), tag("role:mage")]
+        cfg.game.tags = ["team:red", "team:blue", "role:warrior", "role:mage"]
         cfg.game.agent.tags = ["team:red"]
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",

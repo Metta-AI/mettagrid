@@ -40,10 +40,16 @@ public:
                                                QueryOrderBy order_by,
                                                const HandlerContext& ctx);
 
-  // Check if an object passes all filter configs
+  // Check if an object passes all filter configs (unary: actor=target=obj)
   static bool matches_filters(GridObject* obj,
                               const std::vector<FilterConfig>& filter_configs,
                               const HandlerContext& ctx);
+
+  // Check if a (source, target) pair passes all edge filter configs (binary: actor=source, target=candidate)
+  static bool matches_edge_filters(GridObject* source,
+                                   GridObject* candidate,
+                                   const std::vector<FilterConfig>& filter_configs,
+                                   const HandlerContext& ctx);
 
 private:
   struct QueryTagDef {

@@ -134,16 +134,24 @@ def _convert_tag_query(query, id_maps: CppIdMaps, context: str = ""):
 def _convert_closure_query(query, id_maps: CppIdMaps, context: str = ""):
     """Convert a ClosureQuery to a C++ ClosureQueryConfig."""
     cpp_source = _convert_tag_query(query.source, id_maps, context=f"{context} closure.source")
+    cpp_candidates = _convert_tag_query(query.candidates, id_maps, context=f"{context} closure.candidates")
 
     cpp_q = CppClosureQueryConfig()
     cpp_q.set_source(cpp_source)
-    cpp_q.radius = query.radius
+    cpp_q.set_candidates(cpp_candidates)
     if query.max_items is not None:
         cpp_q.max_items = query.max_items
     if query.order_by == "random":
         cpp_q.order_by = CppQueryOrderBy.random
 
-    _convert_filters(query.bridge, cpp_q, id_maps, context=f"{context} closure.bridge")
+    if query.edge_filters:
+        _convert_filters(
+            query.edge_filters,
+            cpp_q,
+            id_maps,
+            context=f"{context} closure.edge_filters",
+            method_prefix="edge_",
+        )
 
     if query.filters:
         _convert_filters(query.filters, cpp_q, id_maps, context=f"{context} closure.filters", method_prefix="result_")
@@ -245,15 +253,16 @@ def _convert_one_filter(filter_config, id_maps: CppIdMaps, context: str) -> tupl
         return ("shared_tag_prefix", CppSharedTagPrefixFilterConfig(tag_ids=tag_ids))
 
     if ft == "max_distance":
-        source = _convert_tag_query(
-            filter_config.query,
-            id_maps,
-            context=f"{context} max_distance source" if context else "max_distance source",
-        )
         cpp_filter = CppMaxDistanceFilterConfig()
         cpp_filter.entity = convert_entity_ref(filter_config.target)
         cpp_filter.radius = filter_config.radius
-        cpp_filter.set_source(source)
+        if filter_config.query is not None:
+            source = _convert_tag_query(
+                filter_config.query,
+                id_maps,
+                context=f"{context} max_distance source" if context else "max_distance source",
+            )
+            cpp_filter.set_source(source)
         return ("max_distance", cpp_filter)
 
     if ft == "game_value":
