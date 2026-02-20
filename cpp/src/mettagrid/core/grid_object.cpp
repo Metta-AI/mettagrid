@@ -64,6 +64,7 @@ bool GridObject::onUse(Agent& actor, ActionArg /*arg*/) {
     return false;
   }
   mettagrid::HandlerContext ctx(&actor, this, nullptr, _tag_index);
+  ctx.query_system = _query_system;
   ctx.grid = _grid;
   return _on_use_handler->try_apply(ctx);
 }

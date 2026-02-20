@@ -157,14 +157,6 @@ class IdMap:
             static_tags.update(self._config.agent.tags)
             static_tags.add(typeTag(self._config.agent.name))
 
-        collisions = materialized_tags & static_tags
-        if collisions:
-            raise ValueError(
-                f"Materialized query output tags collide with static tags: {sorted(collisions)}. "
-                "QuerySystem.compute_all() clears the tag before recomputing, which would erase "
-                "static tag membership. Use a distinct tag name for the materialized query."
-            )
-
         return sorted(materialized_tags | static_tags)
 
     def _compute_features(self) -> list[ObservationFeatureSpec]:

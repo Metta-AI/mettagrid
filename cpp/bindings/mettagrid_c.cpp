@@ -174,6 +174,9 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   // Initialize QuerySystem — always created so inline queries in filters/mutations work
   _query_system = std::make_unique<mettagrid::QuerySystem>(_grid.get(), &_tag_index, &_rng, game_config.materialized_queries);
   _aoe_tracker->set_query_system(_query_system.get());
+  for (auto& obj : _grid->objects) {
+    if (obj) obj->set_query_system(_query_system.get());
+  }
   _query_system->compute_all();
 
   // Initialize EventScheduler from config
