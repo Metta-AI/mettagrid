@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "core/grid_object.hpp"
-#include "core/query_system.hpp"
+#include "core/query_config.hpp"
 #include "handler/filters/filter.hpp"
 #include "handler/handler_config.hpp"
 
@@ -24,9 +24,7 @@ public:
   }
 
   bool passes(const HandlerContext& ctx) const override {
-    assert(ctx.query_system && "QueryResourceFilter requires query_system in HandlerContext");
-
-    auto results = _config.query->evaluate(*ctx.query_system);
+    auto results = _config.query->evaluate(ctx);
 
     for (const auto& [resource_id, min_amount] : _config.requirements) {
       uint32_t total = 0;

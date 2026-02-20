@@ -140,11 +140,14 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
       obj_dict["tag_ids"] = tag_id_list;
     }
 
-    // Add tag mutation methods (capture obj pointer and self_ref to prevent use-after-free)
+    // Add tag mutation methods (capture obj pointer, game_ctx, and self_ref to prevent use-after-free)
     // self_ref keeps the MettaGrid alive as long as these lambdas exist
+    const auto* game_ctx = &_game_ctx;
     obj_dict["has_tag"] = py::cpp_function([obj, self_ref](int tag_id) { return obj->has_tag(tag_id); });
-    obj_dict["add_tag"] = py::cpp_function([obj, self_ref](int tag_id) { obj->add_tag(tag_id); });
-    obj_dict["remove_tag"] = py::cpp_function([obj, self_ref](int tag_id) { obj->remove_tag(tag_id); });
+    obj_dict["add_tag"] =
+        py::cpp_function([obj, game_ctx, self_ref](int tag_id) { obj->add_tag(tag_id, *game_ctx); });
+    obj_dict["remove_tag"] =
+        py::cpp_function([obj, game_ctx, self_ref](int tag_id) { obj->remove_tag(tag_id, *game_ctx); });
 
     objects[py::int_(obj_id)] = obj_dict;
   }

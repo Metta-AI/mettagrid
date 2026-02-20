@@ -59,14 +59,14 @@ const std::vector<mettagrid::AOEConfig>& GridObject::aoe_configs() const {
   return _aoe_configs;
 }
 
-bool GridObject::onUse(Agent& actor, ActionArg /*arg*/) {
+bool GridObject::onUse(Agent& actor, ActionArg /*arg*/, const mettagrid::HandlerContext& ctx) {
   if (!_on_use_handler) {
     return false;
   }
-  mettagrid::HandlerContext ctx(&actor, this, nullptr, _tag_index);
-  ctx.query_system = _query_system;
-  ctx.grid = _grid;
-  return _on_use_handler->try_apply(ctx);
+  mettagrid::HandlerContext use_ctx = ctx;
+  use_ctx.actor = &actor;
+  use_ctx.target = this;
+  return _on_use_handler->try_apply(use_ctx);
 }
 
 bool GridObject::has_tag(int tag_id) const {
@@ -74,36 +74,11 @@ bool GridObject::has_tag(int tag_id) const {
   return tag_bits.test(tag_id);
 }
 
-void GridObject::add_tag(int tag_id) {
-  if (tag_id < 0 || static_cast<size_t>(tag_id) >= kMaxTags) return;
-  if (!tag_bits.test(tag_id)) {
-    tag_bits.set(tag_id);
-    if (_tag_index != nullptr) {
-      _tag_index->on_tag_added(this, tag_id);
-    }
-  }
-}
-
-void GridObject::remove_tag(int tag_id) {
-  if (tag_id < 0 || static_cast<size_t>(tag_id) >= kMaxTags) return;
-  if (tag_bits.test(tag_id)) {
-    tag_bits.reset(tag_id);
-    if (_tag_index != nullptr) {
-      _tag_index->on_tag_removed(this, tag_id);
-    }
-  }
-}
-
-// Build a handler context for tag lifecycle dispatch, propagating all fields from the outer context
+// Build a handler context for tag lifecycle dispatch
 static mettagrid::HandlerContext make_tag_handler_ctx(GridObject* obj, const mettagrid::HandlerContext& ctx) {
-  mettagrid::HandlerContext handler_ctx;
+  mettagrid::HandlerContext handler_ctx = ctx;
   handler_ctx.actor = obj;
   handler_ctx.target = obj;
-  handler_ctx.game_stats = ctx.game_stats;
-  handler_ctx.tag_index = ctx.tag_index;
-  handler_ctx.grid = ctx.grid;
-  handler_ctx.collectives = ctx.collectives;
-  handler_ctx.query_system = ctx.query_system;
   handler_ctx.skip_on_update_trigger = false;
   return handler_ctx;
 }
@@ -111,7 +86,6 @@ static mettagrid::HandlerContext make_tag_handler_ctx(GridObject* obj, const met
 void GridObject::add_tag(int tag_id, const mettagrid::HandlerContext& ctx) {
   if (tag_id < 0 || static_cast<size_t>(tag_id) >= kMaxTags) return;
   if (tag_bits.test(tag_id)) return;  // already present
-  assert(ctx.tag_index != nullptr && "GridObject::add_tag requires HandlerContext.tag_index");
   tag_bits.set(tag_id);
   ctx.tag_index->on_tag_added(this, tag_id);
   if (!ctx.skip_on_update_trigger) {
@@ -128,7 +102,6 @@ void GridObject::add_tag(int tag_id, const mettagrid::HandlerContext& ctx) {
 void GridObject::remove_tag(int tag_id, const mettagrid::HandlerContext& ctx) {
   if (tag_id < 0 || static_cast<size_t>(tag_id) >= kMaxTags) return;
   if (!tag_bits.test(tag_id)) return;  // not present
-  assert(ctx.tag_index != nullptr && "GridObject::remove_tag requires HandlerContext.tag_index");
   tag_bits.reset(tag_id);
   ctx.tag_index->on_tag_removed(this, tag_id);
   if (!ctx.skip_on_update_trigger) {
@@ -143,7 +116,6 @@ void GridObject::remove_tag(int tag_id, const mettagrid::HandlerContext& ctx) {
 }
 
 void GridObject::apply_on_tag_add_handlers(int tag_id, const mettagrid::HandlerContext& ctx) {
-  assert(ctx.tag_index != nullptr && "GridObject::apply_on_tag_add_handlers requires HandlerContext.tag_index");
   auto it = _on_tag_add.find(tag_id);
   if (it != _on_tag_add.end()) {
     auto handler_ctx = make_tag_handler_ctx(this, ctx);
@@ -154,7 +126,6 @@ void GridObject::apply_on_tag_add_handlers(int tag_id, const mettagrid::HandlerC
 }
 
 void GridObject::apply_on_tag_remove_handlers(int tag_id, const mettagrid::HandlerContext& ctx) {
-  assert(ctx.tag_index != nullptr && "GridObject::apply_on_tag_remove_handlers requires HandlerContext.tag_index");
   auto it = _on_tag_remove.find(tag_id);
   if (it != _on_tag_remove.end()) {
     auto handler_ctx = make_tag_handler_ctx(this, ctx);

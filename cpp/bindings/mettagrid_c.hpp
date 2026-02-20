@@ -23,6 +23,7 @@
 
 #include "config/mettagrid_config.hpp"
 #include "core/aoe_tracker.hpp"
+#include "handler/handler_context.hpp"
 #include "core/game_value_config.hpp"
 #include "core/grid_object.hpp"
 #include "core/query_system.hpp"
@@ -208,6 +209,9 @@ private:
 
   // Tag index for efficient tag-based object lookup
   mettagrid::TagIndex _tag_index;
+
+  // Base HandlerContext with all system pointers — copied and specialized per interaction
+  mettagrid::HandlerContext _game_ctx;
 
   // Pre-computed goal_obs tokens per agent (when enabled)
   std::vector<std::vector<PartialObservationToken>> _agent_goal_obs_tokens;

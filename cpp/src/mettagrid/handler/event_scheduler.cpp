@@ -1,12 +1,11 @@
 #include "handler/event_scheduler.hpp"
 
 #include <algorithm>
-#include <random>
 #include <utility>
 
 namespace mettagrid {
 
-EventScheduler::EventScheduler(const std::map<std::string, EventConfig>& event_configs, std::mt19937* rng) : _rng(rng) {
+EventScheduler::EventScheduler(const std::map<std::string, EventConfig>& event_configs) {
   // Create events and build the schedule
   for (const auto& [name, config] : event_configs) {
     auto event = std::make_unique<Event>(config);
@@ -41,7 +40,7 @@ int EventScheduler::process_timestep(int timestep, const HandlerContext& ctx) {
     Event* event = _schedule[_next_idx].second;
 
     // Execute event (handles fallback internally if no targets match)
-    int targets_applied = event->execute(_rng, ctx);
+    int targets_applied = event->execute(ctx);
     if (targets_applied > 0) {
       ++events_fired;
     }
@@ -58,18 +57,6 @@ Event* EventScheduler::get_event(const std::string& name) {
     return it->second.get();
   }
   return nullptr;
-}
-
-void EventScheduler::set_collectives(const std::vector<std::unique_ptr<Collective>>* collectives) {
-  for (auto& [name, event] : _events) {
-    event->set_collectives(collectives);
-  }
-}
-
-void EventScheduler::set_grid(Grid* grid) {
-  for (auto& [name, event] : _events) {
-    event->set_grid(grid);
-  }
 }
 
 }  // namespace mettagrid

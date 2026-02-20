@@ -89,11 +89,6 @@ bool Handler::try_apply(HandlerContext& ctx) {
   return true;
 }
 
-bool Handler::try_apply(GridObject* actor, GridObject* target) {
-  HandlerContext ctx(actor, target);
-  return try_apply(ctx);
-}
-
 bool Handler::check_filters(const HandlerContext& ctx) const {
   assert(ctx.actor != nullptr && "Handler::check_filters requires actor");
   assert(ctx.target != nullptr && "Handler::check_filters requires target");
@@ -104,11 +99,6 @@ bool Handler::check_filters(const HandlerContext& ctx) const {
   }
 
   return true;
-}
-
-bool Handler::check_filters(GridObject* actor, GridObject* target) const {
-  HandlerContext ctx(actor, target);
-  return check_filters(ctx);
 }
 
 }  // namespace mettagrid

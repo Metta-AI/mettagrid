@@ -24,8 +24,6 @@ public:
   explicit MaxDistanceFilter(const MaxDistanceFilterConfig& config) : _config(config) {}
 
   bool passes(const HandlerContext& ctx) const override {
-    assert(ctx.query_system != nullptr && "MaxDistanceFilter requires query_system");
-
     GridObject* entity = dynamic_cast<GridObject*>(ctx.resolve(_config.entity));
     if (entity == nullptr) {
       return false;
@@ -33,7 +31,7 @@ public:
 
     if (!_config.source) return true;
 
-    auto source_objects = _config.source->evaluate(*ctx.query_system);
+    auto source_objects = _config.source->evaluate(ctx);
 
     // radius=0 means unlimited (always matches if source exists)
     if (_config.radius == 0) {

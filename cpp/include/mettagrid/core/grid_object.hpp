@@ -62,7 +62,6 @@ public:
 // Forward declarations for GridObjectConfig
 namespace mettagrid {
 class Handler;
-class QuerySystem;
 }  // namespace mettagrid
 
 struct GridObjectConfig {
@@ -140,12 +139,10 @@ public:
   const std::vector<mettagrid::AOEConfig>& aoe_configs() const;
 
   // Override onUse to try on_use handlers
-  bool onUse(Agent& actor, ActionArg arg) override;
+  bool onUse(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& ctx) override;
 
   // Tag mutation methods
   bool has_tag(int tag_id) const;
-  void add_tag(int tag_id);
-  void remove_tag(int tag_id);
 
   // Tag mutation with lifecycle handlers (fires on_tag_add/on_tag_remove handlers)
   void add_tag(int tag_id, const mettagrid::HandlerContext& ctx);
@@ -156,16 +153,6 @@ public:
 
   /** Run on_tag_remove handlers for a tag that was already removed. Used after recompute. */
   void apply_on_tag_remove_handlers(int tag_id, const mettagrid::HandlerContext& ctx);
-
-  // Set the tag index reference (called by MettaGrid)
-  void set_tag_index(mettagrid::TagIndex* index) {
-    _tag_index = index;
-  }
-
-  // Set the query system reference (called by MettaGrid)
-  void set_query_system(mettagrid::QuerySystem* qs) {
-    _query_system = qs;
-  }
 
   // Set observation encoder for inventory token encoding
   void set_obs_encoder(const ObservationEncoder* encoder) {
@@ -187,24 +174,11 @@ public:
 
   const ObservationEncoder* obs_encoder = nullptr;
 
-  // Set grid access (used for removing depleted objects from grid)
-  void set_grid(class Grid* grid_ptr) {
-    _grid = grid_ptr;
-  }
-
-  // Get grid pointer
-  class Grid* grid() const {
-    return _grid;
-  }
-
 protected:
   std::shared_ptr<mettagrid::Handler> _on_use_handler;
   std::vector<mettagrid::AOEConfig> _aoe_configs;
-  class Grid* _grid = nullptr;
 
 private:
-  mettagrid::TagIndex* _tag_index = nullptr;
-  mettagrid::QuerySystem* _query_system = nullptr;
   std::unordered_map<int, std::vector<std::shared_ptr<mettagrid::Handler>>> _on_tag_add;
   std::unordered_map<int, std::vector<std::shared_ptr<mettagrid::Handler>>> _on_tag_remove;
 };

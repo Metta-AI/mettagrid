@@ -63,7 +63,7 @@ public:
   }
 
 protected:
-  bool _handle_action(Agent& actor, ActionArg arg) override {
+  bool _handle_action(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& ctx) override {
     // Get the orientation from the action argument
     Orientation move_direction = static_cast<Orientation>(arg);
 
@@ -84,12 +84,12 @@ protected:
     target_location.r = static_cast<GridCoord>(static_cast<int>(target_location.r) + dr);
     target_location.c = static_cast<GridCoord>(static_cast<int>(target_location.c) + dc);
 
-    if (!_grid->is_valid_location(target_location)) {
+    if (!ctx.grid->is_valid_location(target_location)) {
       return false;
     }
 
     // Get target object (may be nullptr if empty)
-    GridObject* target_object = _grid->object_at(target_location);
+    GridObject* target_object = ctx.grid->object_at(target_location);
 
     // Check if vibe-specific action override applies (from handler's vibes)
     auto vibe_handler_it = _vibe_handlers.find(actor.vibe);
@@ -103,14 +103,14 @@ protected:
     }
 
     // If location is empty, move
-    if (_grid->is_empty(target_location.r, target_location.c)) {
-      return _grid->move_object(actor, target_location);
+    if (ctx.grid->is_empty(target_location.r, target_location.c)) {
+      return ctx.grid->move_object(actor, target_location);
     }
 
     // Swap with frozen agents (must check before usable since Agent is Usable)
     Agent* target_agent = dynamic_cast<Agent*>(target_object);
     if (target_agent && target_agent->frozen > 0) {
-      bool swapped = _grid->swap_objects(actor, *target_agent);
+      bool swapped = ctx.grid->swap_objects(actor, *target_agent);
       if (swapped) {
         actor.stats.incr("actions.swap");
       }
@@ -121,7 +121,7 @@ protected:
     if (target_object) {
       Usable* usable_object = dynamic_cast<Usable*>(target_object);
       if (usable_object) {
-        return usable_object->onUse(actor, arg);
+        return usable_object->onUse(actor, arg, ctx);
       }
     }
 

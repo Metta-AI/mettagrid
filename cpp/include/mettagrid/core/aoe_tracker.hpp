@@ -7,13 +7,9 @@
 #include <vector>
 
 #include "core/grid_object.hpp"
-#include "core/tag_index.hpp"
 #include "handler/handler_config.hpp"
+#include "handler/handler_context.hpp"
 #include "objects/agent.hpp"
-
-// Forward declarations
-class StatsTracker;
-class Collective;
 
 namespace mettagrid {
 
@@ -27,15 +23,12 @@ struct HandlerContext;
  * Used for both fixed (cell-based) and mobile AOE tracking.
  */
 struct AOESource {
-  GridObject* source;                                                     // The object emitting this AOE
-  AOEConfig config;                                                       // The AOE configuration
-  std::vector<std::unique_ptr<Filter>> filters;                           // Instantiated filters
-  std::vector<std::unique_ptr<Mutation>> mutations;                       // Instantiated mutations
-  const std::vector<std::unique_ptr<Collective>>* collectives = nullptr;  // Collectives for alignment filter lookups
+  GridObject* source;                                // The object emitting this AOE
+  AOEConfig config;                                  // The AOE configuration
+  std::vector<std::unique_ptr<Filter>> filters;      // Instantiated filters
+  std::vector<std::unique_ptr<Mutation>> mutations;  // Instantiated mutations
 
-  AOESource(GridObject* src,
-            const AOEConfig& cfg,
-            const std::vector<std::unique_ptr<Collective>>* collectives = nullptr);
+  AOESource(GridObject* src, const AOEConfig& cfg);
   ~AOESource();
 
   // Move-only (due to unique_ptr members)
@@ -86,23 +79,8 @@ struct AOESource {
  */
 class AOETracker {
 public:
-  AOETracker(GridCoord height, GridCoord width, StatsTracker* game_stats = nullptr, TagIndex* tag_index = nullptr);
+  AOETracker(GridCoord height, GridCoord width);
   ~AOETracker() = default;
-
-  // Set the game stats tracker (for StatsMutation support)
-  void set_game_stats(StatsTracker* stats) {
-    _game_stats = stats;
-  }
-
-  // Set the collectives pointer for alignment filter lookups in AOE handlers
-  void set_collectives(const std::vector<std::unique_ptr<Collective>>* collectives) {
-    _collectives = collectives;
-  }
-
-  // Set query system pointer for query-backed filters (e.g. max_distance)
-  void set_query_system(QuerySystem* query_system) {
-    _query_system = query_system;
-  }
 
   // Register an AOE source - routes to fixed or mobile based on config.is_static
   void register_source(GridObject& source, const AOEConfig& config);
@@ -112,11 +90,11 @@ public:
 
   // Apply all fixed AOE effects at the target's location
   // Handles enter/exit tracking for presence_deltas
-  void apply_fixed(GridObject& target);
+  void apply_fixed(GridObject& target, const HandlerContext& ctx);
 
   // Apply all mobile AOE effects (checks all mobile sources against all agents)
   // Handles enter/exit tracking for presence_deltas
-  void apply_mobile(const std::vector<Agent*>& agents);
+  void apply_mobile(const std::vector<Agent*>& agents, const HandlerContext& ctx);
 
   // Get number of fixed effect sources at a location (for testing/debugging)
   size_t fixed_effect_count_at(const GridLocation& loc) const;
@@ -128,13 +106,9 @@ public:
   // - 1 = friendly territory/influence
   // - 2 = enemy territory/influence
   // - neutral contests encode as 0
-  //
-  // out_territory is kept for historical compatibility; it receives the same
-  // collapsed territory value when requested.
-  //
-  // Writes 0 for any requested output that has no signal at loc.
   void fixed_observability_at(const GridLocation& loc,
                               GridObject& observer,
+                              const HandlerContext& ctx,
                               ObservationType* out_aoe_mask,
                               ObservationType* out_territory) const;
 
@@ -170,11 +144,6 @@ private:
 
   GridCoord _height;
   GridCoord _width;
-  StatsTracker* _game_stats = nullptr;  // Game-level stats tracker (for StatsMutation)
-  TagIndex* _tag_index = nullptr;       // Tag index for tag lookups
-  const std::vector<std::unique_ptr<Collective>>* _collectives = nullptr;  // Collectives for alignment filter lookups
-  // Query system for query-backed filters
-  QuerySystem* _query_system = nullptr;
 
   // Fixed AOE: 2D array from cell location to list of sources affecting that cell
   // Indexed as _cell_effects[row][col]

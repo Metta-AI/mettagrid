@@ -4,21 +4,14 @@
 #include <algorithm>
 #include <map>
 #include <memory>
-#include <random>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "handler/event.hpp"
-#include "handler/filters/filter.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
-#include "objects/collective.hpp"
-
-// Forward declarations
-class Collective;
-class Grid;
 
 namespace mettagrid {
 
@@ -37,8 +30,8 @@ namespace mettagrid {
  */
 class EventScheduler {
 public:
-  // Constructor that takes events and RNG for random target selection
-  EventScheduler(const std::map<std::string, EventConfig>& event_configs, std::mt19937* rng);
+  // Constructor that takes event configs
+  explicit EventScheduler(const std::map<std::string, EventConfig>& event_configs);
 
   // Process all events scheduled for this timestep using the provided context.
   // Returns the number of events that fired.
@@ -46,12 +39,6 @@ public:
 
   // Get event by name (for stats logging, etc.)
   Event* get_event(const std::string& name);
-
-  // Set collectives vector for context-based resolution in all events
-  void set_collectives(const std::vector<std::unique_ptr<Collective>>* collectives);
-
-  // Set grid pointer for context-based grid removal in all events
-  void set_grid(Grid* grid);
 
   // Check if there are any events scheduled
   bool has_events() const {
@@ -72,9 +59,6 @@ private:
 
   // Index of next event in schedule
   size_t _next_idx = 0;
-
-  // Random number generator for random target selection
-  std::mt19937* _rng{nullptr};
 };
 
 }  // namespace mettagrid

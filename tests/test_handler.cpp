@@ -69,7 +69,9 @@ void test_vibe_filter_matches() {
   TestActivationObject actor("actor", 1);    // vibe = 1
   TestActivationObject target("target", 2);  // vibe = 2
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   // Filter for target with vibe_id = 2
   VibeFilterConfig config;
@@ -88,7 +90,9 @@ void test_vibe_filter_no_match() {
   TestActivationObject actor("actor", 1);
   TestActivationObject target("target", 3);  // vibe = 3
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   // Filter for target with vibe_id = 2 (doesn't match)
   VibeFilterConfig config;
@@ -107,7 +111,9 @@ void test_vibe_filter_actor() {
   TestActivationObject actor("actor", 5);  // vibe = 5
   TestActivationObject target("target", 0);
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   // Filter for actor with vibe_id = 5
   VibeFilterConfig config;
@@ -127,7 +133,9 @@ void test_resource_filter_passes() {
   TestActivationObject target("target");
   target.inventory.update(0, 100);  // 100 health
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   ResourceFilterConfig config;
   config.entity = EntityRef::target;
@@ -147,7 +155,9 @@ void test_resource_filter_fails() {
   TestActivationObject target("target");
   target.inventory.update(0, 25);  // Only 25 health
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   ResourceFilterConfig config;
   config.entity = EntityRef::target;
@@ -172,7 +182,9 @@ void test_alignment_filter_same_collective() {
   actor.setCollective(&collective);
   target.setCollective(&collective);
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   AlignmentFilterConfig config;
   config.condition = AlignmentCondition::same_collective;
@@ -197,7 +209,9 @@ void test_alignment_filter_different_collective() {
   actor.setCollective(&collective_a);
   target.setCollective(&collective_b);
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   AlignmentFilterConfig config;
   config.condition = AlignmentCondition::different_collective;
@@ -215,7 +229,9 @@ void test_alignment_filter_unaligned() {
   TestActivationObject target("target");
   // Neither has a collective
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   AlignmentFilterConfig config;
   config.condition = AlignmentCondition::unaligned;
@@ -238,7 +254,9 @@ void test_alignment_filter_neg_same_collective() {
   actor.setCollective(&collective);
   target.setCollective(&collective);
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   // Without NegFilter, same_collective should pass
   AlignmentFilterConfig config;
@@ -269,7 +287,9 @@ void test_alignment_filter_neg_different_collective() {
   actor.setCollective(&collective_a);
   target.setCollective(&collective_b);
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   // Without NegFilter, same_collective should fail (they're in different collectives)
   AlignmentFilterConfig config;
@@ -292,7 +312,9 @@ void test_vibe_filter_neg() {
   TestActivationObject actor("actor", 1);    // vibe = 1
   TestActivationObject target("target", 2);  // vibe = 2
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   // Filter for target with vibe_id = 2 (should pass)
   VibeFilterConfig config;
@@ -329,7 +351,9 @@ void test_resource_filter_neg() {
   TestActivationObject target("target");
   target.inventory.update(0, 100);  // 100 health
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   // Filter requiring 50 health (should pass with 100)
   ResourceFilterConfig config;
@@ -366,9 +390,11 @@ void test_tag_filter_neg() {
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
-  target.add_tag(42);
+  target.tag_bits.set(42);
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   // Filter for tag 42 (should pass)
   TagPrefixFilterConfig config;
@@ -403,10 +429,12 @@ void test_tag_filter_matches() {
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
-  target.add_tag(42);
-  target.add_tag(100);
+  target.tag_bits.set(42);
+  target.tag_bits.set(100);
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   TagPrefixFilterConfig config;
   config.entity = EntityRef::target;
@@ -423,10 +451,12 @@ void test_tag_filter_no_match() {
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
-  target.add_tag(1);
-  target.add_tag(2);
+  target.tag_bits.set(1);
+  target.tag_bits.set(2);
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   TagPrefixFilterConfig config;
   config.entity = EntityRef::target;
@@ -443,9 +473,11 @@ void test_tag_filter_on_actor() {
 
   TestActivationObject actor("actor");
   TestActivationObject target("target");
-  actor.add_tag(99);
+  actor.tag_bits.set(99);
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   TagPrefixFilterConfig config;
   config.entity = EntityRef::actor;
@@ -468,7 +500,9 @@ void test_resource_delta_mutation_add() {
   TestActivationObject target("target");
   target.inventory.update(0, 100);  // Start with 100 health
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   ResourceDeltaMutationConfig config;
   config.entity = EntityRef::target;
@@ -490,7 +524,9 @@ void test_resource_delta_mutation_subtract() {
   TestActivationObject target("target");
   target.inventory.update(0, 100);
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   ResourceDeltaMutationConfig config;
   config.entity = EntityRef::target;
@@ -512,7 +548,9 @@ void test_resource_transfer_mutation() {
   TestActivationObject target("target");
   actor.inventory.update(1, 100);  // Actor has 100 energy
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   ResourceTransferMutationConfig config;
   config.source = EntityRef::actor;
@@ -536,7 +574,9 @@ void test_resource_transfer_mutation_all() {
   TestActivationObject target("target");
   actor.inventory.update(2, 75);  // Actor has 75 gold
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   ResourceTransferMutationConfig config;
   config.source = EntityRef::actor;
@@ -565,7 +605,9 @@ void test_alignment_mutation_to_actor_collective() {
   actor.setCollective(&collective);
   // Target has no collective initially
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   AlignmentMutationConfig config;
   config.align_to = AlignTo::actor_collective;
@@ -589,7 +631,9 @@ void test_alignment_mutation_to_none() {
 
   target.setCollective(&collective);
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   AlignmentMutationConfig config;
   config.align_to = AlignTo::none;
@@ -611,7 +655,9 @@ void test_clear_inventory_mutation_specific() {
   target.inventory.update(1, 50);   // energy
   target.inventory.update(2, 25);   // gold
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   ClearInventoryMutationConfig config;
   config.entity = EntityRef::target;
@@ -636,7 +682,9 @@ void test_clear_inventory_mutation_all() {
   target.inventory.update(1, 50);
   target.inventory.update(2, 25);
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   ClearInventoryMutationConfig config;
   config.entity = EntityRef::target;
@@ -662,7 +710,9 @@ void test_attack_mutation() {
   target.inventory.update(1, 3);   // Armor = 3
   target.inventory.update(2, 50);  // Health = 50
 
-  HandlerContext ctx(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
 
   AttackMutationConfig config;
   config.weapon_resource = 0;
@@ -717,7 +767,10 @@ void test_activation_handler_filters_pass() {
   handler_config.mutations.push_back(delta_mutation);
 
   Handler handler(handler_config);
-  bool result = handler.try_apply(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
+  bool result = handler.try_apply(ctx);
 
   assert(result == true);
   assert(target.inventory.amount(0) == 75);  // 100 - 25
@@ -753,7 +806,10 @@ void test_activation_handler_filters_fail() {
   handler_config.mutations.push_back(delta_mutation);
 
   Handler handler(handler_config);
-  bool result = handler.try_apply(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
+  bool result = handler.try_apply(ctx);
 
   assert(result == false);
   assert(target.inventory.amount(0) == 100);  // Unchanged
@@ -787,7 +843,10 @@ void test_activation_handler_multiple_mutations() {
   handler_config.mutations.push_back(heal);
 
   Handler handler(handler_config);
-  bool result = handler.try_apply(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
+  bool result = handler.try_apply(ctx);
 
   assert(result == true);
   assert(actor.inventory.amount(2) == 70);   // 100 - 30
@@ -821,7 +880,10 @@ void test_activation_handler_check_filters_only() {
   Handler handler(handler_config);
 
   // check_filters should pass but NOT apply mutations
-  bool can_apply = handler.check_filters(&actor, &target);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = &target;
+  bool can_apply = handler.check_filters(ctx);
   assert(can_apply == true);
   assert(target.inventory.amount(0) == 100);  // Still unchanged
 
@@ -848,7 +910,7 @@ void test_resource_transfer_remove_source_when_empty() {
   target->location.r = 1;
   target->location.c = 1;
   target->inventory.update(2, 10);  // 10 gold
-  target->add_tag(42);
+  target->tag_bits.set(42);
   grid.add_object(target);
   tag_index.register_object(target);
 
@@ -857,7 +919,10 @@ void test_resource_transfer_remove_source_when_empty() {
   assert(tag_index.count_objects_with_tag(42) == 1);
 
   // Transfer all gold from target to actor, with remove_source_when_empty=true
-  HandlerContext ctx(&actor, target, nullptr, &tag_index);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = target;
+  ctx.tag_index = &tag_index;
   ctx.grid = &grid;
 
   ResourceTransferMutationConfig config;
@@ -898,7 +963,10 @@ void test_resource_transfer_remove_source_not_empty_yet() {
   grid.add_object(target);
   tag_index.register_object(target);
 
-  HandlerContext ctx(&actor, target, nullptr, &tag_index);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = target;
+  ctx.tag_index = &tag_index;
   ctx.grid = &grid;
 
   // Transfer only 5 gold - target still has 5 remaining
@@ -937,7 +1005,10 @@ void test_resource_transfer_remove_source_flag_off() {
   target->inventory.update(2, 10);
   grid.add_object(target);
 
-  HandlerContext ctx(&actor, target, nullptr, &tag_index);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = target;
+  ctx.tag_index = &tag_index;
   ctx.grid = &grid;
 
   // Transfer all but without the flag
@@ -976,7 +1047,10 @@ void test_resource_transfer_remove_source_multiple_resources() {
   target->inventory.update(2, 10);  // 10 gold
   grid.add_object(target);
 
-  HandlerContext ctx(&actor, target, nullptr, &tag_index);
+  HandlerContext ctx;
+  ctx.actor = &actor;
+  ctx.target = target;
+  ctx.tag_index = &tag_index;
   ctx.grid = &grid;
 
   // Transfer all gold - but target still has energy

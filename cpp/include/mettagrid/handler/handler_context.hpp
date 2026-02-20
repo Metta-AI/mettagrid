@@ -2,6 +2,7 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_HANDLER_CONTEXT_HPP_
 
 #include <memory>
+#include <random>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -39,6 +40,7 @@ public:
   Grid* grid = nullptr;                // Grid for removing objects from cells
   const std::vector<std::unique_ptr<Collective>>* collectives = nullptr;  // Collectives indexed by ID (for events)
   QuerySystem* query_system = nullptr;                                    // For RecomputeMaterializedQueryMutation
+  std::mt19937* rng = nullptr;                                            // Random number generator
   bool skip_on_update_trigger = false;  // Skip triggering on_update handlers (prevent recursion)
 
   // Optional accumulator for ResourceDeltaMutation on the target entity.
@@ -49,12 +51,20 @@ public:
   std::unordered_set<InventoryItem>* deferred_target_resource_seen = nullptr;
 
   HandlerContext() = default;
-  HandlerContext(GridObject* act, GridObject* tgt, bool skip_update = false)
-      : actor(act), target(tgt), skip_on_update_trigger(skip_update) {}
-  HandlerContext(GridObject* act, GridObject* tgt, StatsTracker* stats, bool skip_update = false)
-      : actor(act), target(tgt), game_stats(stats), skip_on_update_trigger(skip_update) {}
-  HandlerContext(GridObject* act, GridObject* tgt, StatsTracker* stats, TagIndex* tags, bool skip_update = false)
-      : actor(act), target(tgt), game_stats(stats), tag_index(tags), skip_on_update_trigger(skip_update) {}
+
+  // Construct with all system-level pointers (set once in MettaGrid)
+  HandlerContext(TagIndex* tag_index,
+                 Grid* grid,
+                 StatsTracker* game_stats,
+                 const std::vector<std::unique_ptr<Collective>>* collectives,
+                 QuerySystem* query_system,
+                 std::mt19937* rng)
+      : tag_index(tag_index),
+        grid(grid),
+        game_stats(game_stats),
+        collectives(collectives),
+        query_system(query_system),
+        rng(rng) {}
 
   // Resolve an EntityRef to the corresponding GridObject*
   // Returns nullptr for collective refs (Collective is not a GridObject)

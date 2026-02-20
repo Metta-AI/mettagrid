@@ -45,7 +45,7 @@ protected:
   const ObservationType _number_of_vibes;
   const GameConfig* _game_config;
 
-  bool _handle_action(Agent& actor, ActionArg arg) override {
+  bool _handle_action(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& /*ctx*/) override {
     ObservationType new_vibe = static_cast<ObservationType>(arg);
     if (new_vibe != actor.vibe) {
       actor.vibe = new_vibe;

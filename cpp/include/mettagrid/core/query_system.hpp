@@ -2,7 +2,6 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_QUERY_SYSTEM_HPP_
 
 #include <memory>
-#include <random>
 #include <vector>
 
 #include "core/filter_config.hpp"
@@ -14,6 +13,7 @@ class GridObject;
 
 namespace mettagrid {
 
+class HandlerContext;
 class TagIndex;
 class Filter;
 
@@ -26,27 +26,24 @@ class Filter;
  */
 class QuerySystem {
 public:
-  QuerySystem(Grid* grid, TagIndex* tag_index, std::mt19937* rng, const std::vector<MaterializedQueryTag>& configs);
+  explicit QuerySystem(const std::vector<MaterializedQueryTag>& configs);
 
   // Compute all query tags from scratch (called at init)
-  void compute_all();
+  void compute_all(const HandlerContext& ctx);
 
   // Recompute a specific query tag (called by RecomputeMaterializedQueryMutation)
-  void recompute(int tag_id);
-
-  // Public accessors for use by QueryConfig::evaluate() implementations
-  Grid* grid() const {
-    return _grid;
-  }
-  TagIndex* tag_index() const {
-    return _tag_index;
-  }
+  void recompute(int tag_id, const HandlerContext& ctx);
 
   // Apply max_items / order_by post-processing
-  std::vector<GridObject*> apply_limits(std::vector<GridObject*> results, int max_items, QueryOrderBy order_by) const;
+  static std::vector<GridObject*> apply_limits(std::vector<GridObject*> results,
+                                               int max_items,
+                                               QueryOrderBy order_by,
+                                               const HandlerContext& ctx);
 
   // Check if an object passes all filter configs
-  bool matches_filters(GridObject* obj, const std::vector<FilterConfig>& filter_configs) const;
+  static bool matches_filters(GridObject* obj,
+                              const std::vector<FilterConfig>& filter_configs,
+                              const HandlerContext& ctx);
 
 private:
   struct QueryTagDef {
@@ -54,9 +51,6 @@ private:
     std::shared_ptr<QueryConfig> query;
   };
 
-  Grid* _grid;
-  TagIndex* _tag_index;
-  std::mt19937* _rng;
   std::vector<QueryTagDef> _query_tags;
   bool _computing = false;
 };

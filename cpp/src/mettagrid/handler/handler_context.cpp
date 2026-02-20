@@ -33,8 +33,8 @@ float HandlerContext::resolve_game_value(const GameValueConfig& cfg, EntityRef e
         } else if constexpr (std::is_same_v<T, ConstValueConfig>) {
           return c.value;
         } else if constexpr (std::is_same_v<T, QueryInventoryValueConfig>) {
-          if (!c.query || !query_system) return 0.0f;
-          auto results = c.query->evaluate(*query_system);
+          if (!c.query) return 0.0f;
+          auto results = c.query->evaluate(*this);
           float total = 0.0f;
           for (auto* obj : results) {
             total += static_cast<float>(obj->inventory.amount(c.id));

@@ -88,9 +88,6 @@ public:
     if (_config.remove_source_when_empty && source->inventory.is_empty()) {
       GridObject* grid_obj = dynamic_cast<GridObject*>(source);
       if (grid_obj != nullptr) {
-        assert(ctx.grid != nullptr && "HandlerContext.grid must be set when remove_source_when_empty is used");
-        assert(ctx.tag_index != nullptr &&
-               "HandlerContext.tag_index must be set when remove_source_when_empty is used");
         ctx.grid->remove_from_grid(*grid_obj);
         ctx.tag_index->unregister_object(grid_obj);
       }

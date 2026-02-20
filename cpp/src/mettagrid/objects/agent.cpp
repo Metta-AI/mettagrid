@@ -35,11 +35,9 @@ void Agent::init(RewardType* reward_ptr) {
 }
 
 void Agent::init_reward(StatsTracker* collective_stats,
-                        StatsTracker* game_stats,
-                        mettagrid::TagIndex* tag_index,
-                        mettagrid::QuerySystem* query_system,
+                        const mettagrid::HandlerContext* game_ctx,
                         const std::vector<std::string>* resource_names) {
-  this->reward_helper.init_entries(&this->stats, collective_stats, game_stats, tag_index, query_system, resource_names);
+  this->reward_helper.init_entries(&this->stats, collective_stats, game_ctx, resource_names);
 }
 
 void Agent::set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers) {
@@ -107,11 +105,12 @@ void Agent::_recompute_log_sum(const LogSumStatConfig& cfg) {
   stats.set(cfg.stat_name, sum);
 }
 
-bool Agent::onUse(Agent& actor, ActionArg arg) {
+bool Agent::onUse(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& ctx) {
   // Agent-to-agent transfers are now handled by the Transfer action handler.
   // This method returns false to indicate no default use action.
   (void)actor;
   (void)arg;
+  (void)ctx;
   return false;
 }
 
