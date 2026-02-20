@@ -1,11 +1,13 @@
 #ifndef PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_HANDLER_CONFIG_HPP_
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_HANDLER_CONFIG_HPP_
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "core/filter_config.hpp"
 #include "core/mutation_config.hpp"
+#include "core/query_config.hpp"
 
 namespace mettagrid {
 
@@ -75,13 +77,13 @@ struct AOEConfig : public HandlerConfig {
  * or AOE (triggered by proximity), events are triggered by the game clock.
  */
 struct EventConfig {
-  std::string name;                       // Unique name for this event
-  int target_tag_id = -1;                 // Tag ID for finding targets via TagIndex (required)
-  std::vector<int> timesteps;             // Timesteps when this event fires
-  std::vector<FilterConfig> filters;      // All must pass for event to affect object
-  std::vector<MutationConfig> mutations;  // Applied to matching objects
-  int max_targets = 0;                    // Maximum targets to apply to (0 = unlimited)
-  std::string fallback;                   // Event name to fire if no targets match (optional)
+  std::string name;                           // Unique name for this event
+  std::shared_ptr<QueryConfig> target_query;  // Query for finding targets (required)
+  std::vector<int> timesteps;                 // Timesteps when this event fires
+  std::vector<FilterConfig> filters;          // All must pass for event to affect object
+  std::vector<MutationConfig> mutations;      // Applied to matching objects
+  int max_targets = 0;                        // Maximum targets to apply to (0 = unlimited)
+  std::string fallback;                       // Event name to fire if no targets match (optional)
 
   EventConfig() = default;
   explicit EventConfig(const std::string& event_name) : name(event_name) {}

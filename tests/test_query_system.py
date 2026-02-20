@@ -68,7 +68,7 @@ class TestBasicClosure:
             MaterializedQuery(
                 tag="connected",
                 query=ClosureQuery(
-                    source=Query(tag=typeTag("hub")),
+                    source=typeTag("hub"),
                     bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=1,
                 ),
@@ -113,7 +113,7 @@ class TestBasicClosure:
             MaterializedQuery(
                 tag="connected",
                 query=ClosureQuery(
-                    source=Query(tag=typeTag("hub")),
+                    source=typeTag("hub"),
                     bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=1,
                 ),
@@ -156,7 +156,7 @@ class TestBasicClosure:
             MaterializedQuery(
                 tag="connected",
                 query=ClosureQuery(
-                    source=Query(tag=typeTag("hub")),
+                    source=typeTag("hub"),
                     bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=1,
                 ),
@@ -194,7 +194,7 @@ class TestBasicClosure:
             MaterializedQuery(
                 tag="connected",
                 query=ClosureQuery(
-                    source=Query(tag=typeTag("hub")),
+                    source=typeTag("hub"),
                     bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=1,
                 ),
@@ -241,7 +241,7 @@ class TestAdvancedClosure:
             MaterializedQuery(
                 tag="r1",
                 query=ClosureQuery(
-                    source=Query(tag=typeTag("hub")),
+                    source=typeTag("hub"),
                     bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=1,
                 ),
@@ -249,7 +249,7 @@ class TestAdvancedClosure:
             MaterializedQuery(
                 tag="r2",
                 query=ClosureQuery(
-                    source=Query(tag=typeTag("hub")),
+                    source=typeTag("hub"),
                     bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=2,
                 ),
@@ -267,7 +267,7 @@ class TestAdvancedClosure:
         # radius=2: hub expands 2 hops through bridge wires
         assert has_tag("r2", 2, 2), "Hub should have 'r2' tag"
         assert has_tag("r2", 2, 3), "Wire at hop 1 should have 'r2' tag"
-        assert has_tag("r2", 2, 4), "Wire at hop 2 should have 'r2' tag with radius=2"
+        assert has_tag("r2", 2, 4), "Wire at distance 2 should have 'r2' tag (radius=2)"
 
     def test_multiple_closures(self):
         """Two independent MaterializedQuery entries should work simultaneously."""
@@ -318,7 +318,7 @@ class TestAdvancedClosure:
             MaterializedQuery(
                 tag="net1",
                 query=ClosureQuery(
-                    source=Query(tag=typeTag("hub")),
+                    source=typeTag("hub"),
                     bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("wire"))],
                     radius=1,
                 ),
@@ -326,7 +326,7 @@ class TestAdvancedClosure:
             MaterializedQuery(
                 tag="net2",
                 query=ClosureQuery(
-                    source=Query(tag=typeTag("power")),
+                    source=typeTag("power"),
                     bridge=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("cable"))],
                     radius=1,
                 ),
@@ -345,3 +345,68 @@ class TestAdvancedClosure:
         assert has_tag("net2", 4, 4), "Cable should have 'net2' tag"
         assert not has_tag("net2", 2, 2), "Hub should NOT have 'net2' tag"
         assert not has_tag("net2", 2, 3), "Wire should NOT have 'net2' tag"
+
+
+class TestNestedQueryConstraints:
+    """Outer query constraints must be preserved when source is a sub-query."""
+
+    def _make_alpha_beta_config(self):
+        """Two object types sharing a 'selectable' tag on a small grid."""
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+            [
+                ["#", "#", "#", "#", "#", "#", "#"],
+                ["#", ".", ".", ".", ".", ".", "#"],
+                ["#", ".", "A", ".", "B", ".", "#"],
+                ["#", ".", ".", ".", ".", ".", "#"],
+                ["#", ".", ".", "@", ".", ".", "#"],
+                ["#", "#", "#", "#", "#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "A": "alpha", "B": "beta"},
+        )
+        cfg.game.actions.noop.enabled = True
+        cfg.game.tags = ["selectable"]
+
+        cfg.game.objects["alpha"] = GridObjectConfig(
+            name="alpha",
+            map_name="alpha",
+            tags=[typeTag("alpha"), "selectable"],
+        )
+        cfg.game.objects["beta"] = GridObjectConfig(
+            name="beta",
+            map_name="beta",
+            tags=[typeTag("beta"), "selectable"],
+        )
+        return cfg
+
+    def test_nested_query_filters_applied(self):
+        """query(inner_query, filters=[...]) must apply the outer filters."""
+        cfg = self._make_alpha_beta_config()
+        inner = Query(source="selectable")
+        outer = Query(
+            source=inner,
+            filters=[TagFilter(target=HandlerTarget.TARGET, tag=typeTag("alpha"))],
+        )
+        cfg.game.materialize_queries = [
+            MaterializedQuery(tag="chosen", query=outer),
+        ]
+
+        sim = Simulation(cfg)
+        has_tag = _make_tag_checker(sim, cfg)
+
+        assert has_tag("chosen", 2, 2), "Alpha should have 'chosen' tag"
+        assert not has_tag("chosen", 2, 4), "Beta should NOT have 'chosen' (outer filter requires type:alpha)"
+
+    def test_nested_query_max_items_applied(self):
+        """query(inner_query, max_items=N) must limit results to N."""
+        cfg = self._make_alpha_beta_config()
+        inner = Query(source="selectable")
+        outer = Query(source=inner, max_items=1)
+        cfg.game.materialize_queries = [
+            MaterializedQuery(tag="chosen", query=outer),
+        ]
+
+        sim = Simulation(cfg)
+        has_tag = _make_tag_checker(sim, cfg)
+
+        tagged_count = sum(1 for r, c in [(2, 2), (2, 4)] if has_tag("chosen", r, c))
+        assert tagged_count == 1, f"max_items=1 should tag exactly 1 object, got {tagged_count}"

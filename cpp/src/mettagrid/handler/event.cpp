@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "core/query_system.hpp"
 #include "core/tag_index.hpp"
 #include "handler/filters/filter_factory.hpp"
 #include "handler/mutations/mutation_factory.hpp"
@@ -10,7 +11,7 @@ namespace mettagrid {
 
 Event::Event(const EventConfig& config)
     : _name(config.name),
-      _target_tag_id(config.target_tag_id),
+      _target_query(config.target_query),
       _max_targets(config.max_targets),
       _fallback_name(config.fallback) {
   // Create filters from config using shared factory
@@ -31,12 +32,11 @@ Event::Event(const EventConfig& config)
 }
 
 int Event::execute(const HandlerContext& ctx) {
-  // Find targets by tag
-  std::vector<GridObject*> targets;
-  const auto& objects = ctx.tag_index->get_objects_with_tag(_target_tag_id);
-  for (auto* obj : objects) {
-    targets.push_back(obj);
-  }
+  assert(_target_query != nullptr && "Event::execute requires target_query to be set");
+  assert(ctx.query_system != nullptr && "Event::execute requires query_system in HandlerContext");
+
+  // Find targets via query
+  std::vector<GridObject*> targets = _target_query->evaluate(ctx);
 
   // If max_targets is limited and we have more candidates than needed, shuffle
   if (_max_targets > 0 && targets.size() > static_cast<size_t>(_max_targets)) {

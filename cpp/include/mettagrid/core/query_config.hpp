@@ -52,6 +52,14 @@ struct ClosureQueryConfig : public QueryConfig {
   std::vector<GridObject*> evaluate(const HandlerContext& ctx) const override;
 };
 
+// FilteredQueryConfig: Evaluate a sub-query, then apply filters and limits to its results.
+// This is the recursive composition primitive: Query(source=inner_query, filters=[...]).
+struct FilteredQueryConfig : public QueryConfig {
+  std::shared_ptr<QueryConfig> source;  // inner query to evaluate first
+  std::vector<FilterConfig> filters;    // filters applied to inner query results
+  std::vector<GridObject*> evaluate(const HandlerContext& ctx) const override;
+};
+
 // ============================================================================
 // Materialized Query Tag - Tags computed by queries
 // ============================================================================

@@ -230,6 +230,51 @@ inline void bind_query_config(py::module& m) {
           [](ClosureQueryConfig& self, const MaxDistanceFilterConfig& cfg) { self.result_filters.push_back(cfg); },
           py::arg("filter"));
 
+  py::class_<FilteredQueryConfig>(m, "FilteredQueryConfig")
+      .def(py::init<>())
+      .def_readwrite("max_items", &FilteredQueryConfig::max_items)
+      .def_readwrite("order_by", &FilteredQueryConfig::order_by)
+      .def(
+          "set_source",
+          [](FilteredQueryConfig& self, const QueryConfigHolder& src) { self.source = src.config; },
+          py::arg("source"))
+      .def(
+          "add_tag_prefix_filter",
+          [](FilteredQueryConfig& self, const TagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_shared_tag_prefix_filter",
+          [](FilteredQueryConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_vibe_filter",
+          [](FilteredQueryConfig& self, const VibeFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_resource_filter",
+          [](FilteredQueryConfig& self, const ResourceFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_max_distance_filter",
+          [](FilteredQueryConfig& self, const MaxDistanceFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_neg_filter",
+          [](FilteredQueryConfig& self, const NegFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_or_filter",
+          [](FilteredQueryConfig& self, const OrFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_game_value_filter",
+          [](FilteredQueryConfig& self, const GameValueFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_alignment_filter",
+          [](FilteredQueryConfig& self, const AlignmentFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"));
+
   py::class_<MaxDistanceFilterConfig>(m, "MaxDistanceFilterConfig")
       .def(py::init<>())
       .def_readwrite("entity", &MaxDistanceFilterConfig::entity)
@@ -245,6 +290,8 @@ inline void bind_query_config(py::module& m) {
         [](const TagQueryConfig& q) { return QueryConfigHolder{std::make_shared<TagQueryConfig>(q)}; });
   m.def("make_query_config",
         [](const ClosureQueryConfig& q) { return QueryConfigHolder{std::make_shared<ClosureQueryConfig>(q)}; });
+  m.def("make_query_config",
+        [](const FilteredQueryConfig& q) { return QueryConfigHolder{std::make_shared<FilteredQueryConfig>(q)}; });
 
   py::class_<MaterializedQueryTag>(m, "MaterializedQueryTag")
       .def(py::init<>())

@@ -26,6 +26,7 @@ from mettagrid.mettagrid_c import ChangeVibeActionConfig as CppChangeVibeActionC
 from mettagrid.mettagrid_c import ClosureQueryConfig as CppClosureQueryConfig
 from mettagrid.mettagrid_c import CollectiveConfig as CppCollectiveConfig
 from mettagrid.mettagrid_c import EventConfig as CppEventConfig
+from mettagrid.mettagrid_c import FilteredQueryConfig as CppFilteredQueryConfig
 from mettagrid.mettagrid_c import GameConfig as CppGameConfig
 from mettagrid.mettagrid_c import GameValueFilterConfig as CppGameValueFilterConfig
 from mettagrid.mettagrid_c import GlobalObsConfig as CppGlobalObsConfig
@@ -89,16 +90,30 @@ def _convert_tag_query(query, id_maps: CppIdMaps, context: str = ""):
 
     Used by MaxDistanceFilter (proximity), QueryInventoryMutation, and QueryTags.
     """
+    if isinstance(query, str):
+        return _convert_tag_query(Query(source=query), id_maps, context)
 
     query_type = getattr(query, "query_type", "query")
 
     if query_type == "materialized":
-        return _convert_tag_query(Query(tag=query.tag), id_maps, context)
+        return _convert_tag_query(Query(source=query.tag), id_maps, context)
 
     if query_type == "closure":
         return _convert_closure_query(query, id_maps, context)
 
-    query_tag = query.tag
+    source = query.source
+    if not isinstance(source, str):
+        inner_cpp = _convert_tag_query(source, id_maps, f"{context} inner")
+        cpp_q = CppFilteredQueryConfig()
+        cpp_q.set_source(inner_cpp)
+        if query.max_items is not None:
+            cpp_q.max_items = query.max_items
+        if query.order_by == "random":
+            cpp_q.order_by = CppQueryOrderBy.random
+        _convert_filters(query.filters, cpp_q, id_maps, context=context)
+        return make_query_config(cpp_q)
+
+    query_tag = source
     if query_tag not in id_maps.tag_name_to_id:
         raise ValueError(
             f"Tag query in {context} references unknown tag '{query_tag}'. Add it to GameConfig.tags or object tags."
@@ -361,13 +376,9 @@ def _convert_event_configs(events: dict, id_maps: CppIdMaps) -> dict:
         cpp_event.max_targets = event.max_targets if event.max_targets is not None else 0
         cpp_event.fallback = event.fallback or ""
 
-        target_tag_name = event.target_query.tag
-        if target_tag_name not in id_maps.tag_name_to_id:
-            raise ValueError(
-                f"Event '{event_name}' has target_query tag '{target_tag_name}' not found in tag mappings. "
-                f"Available tags: {sorted(id_maps.tag_name_to_id.keys())}"
-            )
-        cpp_event.target_tag_id = id_maps.tag_name_to_id[target_tag_name]
+        cpp_event.set_target_query(
+            _convert_tag_query(event.target_query, id_maps, context=f"event '{event_name}' target_query")
+        )
 
         _convert_filters(event.filters, cpp_event, id_maps, context=f"event '{event_name}'")
         _convert_event_mutations(event.mutations, cpp_event, id_maps, context=f"event '{event_name}'")
