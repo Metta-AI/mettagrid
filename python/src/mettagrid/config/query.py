@@ -24,7 +24,7 @@ class Query(Config):
     """Find objects by tag with optional filters."""
 
     query_type: Literal["query"] = "query"
-    tag: str = Field(description="Tag name for spatial lookup via TagIndex")
+    source: "str | AnyQuery" = Field(description="Tag name or sub-query for spatial lookup via TagIndex")
     filters: list["AnyFilter"] = Field(
         default_factory=list,
         description="Filters that matched objects must pass (all must match)",
@@ -45,6 +45,8 @@ class MaterializedQuery(Query):
     """
 
     query_type: Literal["materialized"] = "materialized"
+    source: str = Field(default="", description="Unused for materialized queries")
+    tag: str = Field(description="Output tag name that matched objects receive")
     query: "AnyQuery" = Field(description="Query that determines which objects get this tag")
 
 
@@ -57,8 +59,6 @@ class ClosureQuery(Query):
     """
 
     query_type: Literal["closure"] = "closure"
-    tag: str = Field(default="", description="Unused for closure queries (lookup is via source BFS)")
-    source: "AnyQuery" = Field(description="Root objects to start BFS from")
     bridge: list["AnyFilter"] = Field(description="Filters applied to neighbors for bridge expansion")
     radius: int = Field(default=1, description="Chebyshev expansion distance")
 
@@ -66,14 +66,14 @@ class ClosureQuery(Query):
 AnyQuery = Annotated[Union[Query, MaterializedQuery, ClosureQuery], Discriminator("query_type")]
 
 
-def query(tag: str, filters: AnyFilter | list[AnyFilter] | None = None) -> Query:
+def query(source: "str | AnyQuery", filters: AnyFilter | list[AnyFilter] | None = None) -> Query:
     """Create a Query for finding objects by tag with optional filters.
 
     Examples:
         query(typeTag("junction"))
         query(typeTag("agent"), [hasTag("collective:cogs")])
     """
-    return Query(tag=tag, filters=filters if isinstance(filters, list) else [filters] if filters else [])
+    return Query(source=source, filters=filters if isinstance(filters, list) else [filters] if filters else [])
 
 
 def materializedQuery(tag: str, q: "AnyQuery") -> MaterializedQuery:

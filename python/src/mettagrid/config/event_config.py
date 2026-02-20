@@ -21,7 +21,7 @@ from typing import Optional
 from pydantic import Field
 
 from mettagrid.config.handler_config import Handler
-from mettagrid.config.query import Query
+from mettagrid.config.query import AnyQuery
 
 
 def periodic(start: int, period: int, end: Optional[int] = None, end_period: Optional[int] = None) -> list[int]:
@@ -89,7 +89,7 @@ class EventConfig(Handler):
 
     Attributes:
         name: Unique name for this event (used in stat logging as event.<name>)
-        target_query: Query used to find candidate target objects via TagIndex for efficient lookup
+        target_query: Tag name or query for finding candidate target objects
         timesteps: List of timesteps when this event fires
         filters: (inherited) List of filters to select target objects (all must pass)
         mutations: (inherited) List of mutations to apply to matching objects
@@ -102,8 +102,8 @@ class EventConfig(Handler):
     """
 
     name: str = Field(description="Unique name for this event")
-    target_query: Query = Field(
-        description="Query used to find candidate target objects via TagIndex for efficient lookup",
+    target_query: "str | AnyQuery" = Field(
+        description="Tag name or query for finding candidate target objects",
     )
     timesteps: list[int] = Field(
         default_factory=list,

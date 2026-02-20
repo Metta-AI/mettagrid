@@ -60,10 +60,10 @@ public:
 
 private:
   std::string _name;
-  int _target_tag_id = -1;           // Tag ID for finding targets (required)
-  int _max_targets = 0;              // 0 = unlimited
-  std::string _fallback_name;        // Fallback event name (for initialization)
-  Event* _fallback_event = nullptr;  // Pointer to fallback event (resolved at init)
+  std::shared_ptr<QueryConfig> _target_query;  // Query for finding targets (required)
+  int _max_targets = 0;                        // 0 = unlimited
+  std::string _fallback_name;                  // Fallback event name (for initialization)
+  Event* _fallback_event = nullptr;            // Pointer to fallback event (resolved at init)
   std::vector<std::unique_ptr<Filter>> _filters;
   std::vector<std::unique_ptr<Mutation>> _mutations;
 };

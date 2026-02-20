@@ -230,4 +230,21 @@ std::vector<GridObject*> ClosureQueryConfig::evaluate(const HandlerContext& ctx)
   return QuerySystem::apply_limits(std::move(visited), max_items, order_by, ctx);
 }
 
+// FilteredQueryConfig::evaluate - evaluate inner query, filter results, apply limits
+std::vector<GridObject*> FilteredQueryConfig::evaluate(const HandlerContext& ctx) const {
+  assert(source && "FilteredQueryConfig requires a non-null source query");
+
+  auto candidates = source->evaluate(ctx);
+
+  std::vector<GridObject*> result;
+  result.reserve(candidates.size());
+  for (auto* obj : candidates) {
+    if (QuerySystem::matches_filters(obj, filters, ctx)) {
+      result.push_back(obj);
+    }
+  }
+
+  return QuerySystem::apply_limits(std::move(result), max_items, order_by, ctx);
+}
+
 }  // namespace mettagrid

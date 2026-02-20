@@ -4,6 +4,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include "core/query_config.hpp"
 #include "handler/handler_config.hpp"
 
 namespace py = pybind11;
@@ -16,7 +17,10 @@ inline void bind_event_config(py::module& m) {
       .def(py::init<>())
       .def(py::init<const std::string&>(), py::arg("name"))
       .def_readwrite("name", &EventConfig::name)
-      .def_readwrite("target_tag_id", &EventConfig::target_tag_id)
+      .def(
+          "set_target_query",
+          [](EventConfig& self, const QueryConfigHolder& holder) { self.target_query = holder.config; },
+          py::arg("query"))
       .def_readwrite("timesteps", &EventConfig::timesteps)
       .def_readwrite("max_targets", &EventConfig::max_targets)
       .def_readwrite("fallback", &EventConfig::fallback)
