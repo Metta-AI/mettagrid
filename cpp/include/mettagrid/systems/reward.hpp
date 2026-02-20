@@ -94,8 +94,8 @@ public:
         total_delta += val;
       } else {
         total_delta += val - entry.prev_value;
-        entry.prev_value = val;
       }
+      entry.prev_value = val;
     }
 
     if (total_delta != 0.0f && reward_ptr != nullptr) {

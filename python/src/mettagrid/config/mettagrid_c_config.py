@@ -605,6 +605,7 @@ def convert_to_cpp_game_config(
             if agent_reward.max is not None:
                 entry.max_value = agent_reward.max
                 entry.has_max = True
+            entry.accumulate = agent_reward.per_tick
             reward_entries.append(entry)
 
         inv_config = agent_props.get("inventory", {})

@@ -30,6 +30,7 @@ class AgentReward(Config):
     denoms: list[AnyGameValue] = Field(default_factory=list)
     weight: float = 1.0
     max: float | None = None  # Cap on final reward value
+    per_tick: bool = False  # Accumulate value each tick instead of delta at end of episode
 
 
 # ===== Helper functions for concise reward definitions =====
@@ -41,6 +42,7 @@ def reward(
     weight: float = 1.0,
     max: float | None = None,
     denoms: list[AnyGameValue] | None = None,
+    per_tick: bool = False,
 ) -> AgentReward:
     """Create an AgentReward with a single numerator value.
 
@@ -50,7 +52,7 @@ def reward(
         numObjectsReward("junction", weight=0.1)
         numTaggedReward("vibe:aligned", weight=0.5)
     """
-    return AgentReward(nums=[value], denoms=denoms or [], weight=weight, max=max)
+    return AgentReward(nums=[value], denoms=denoms or [], weight=weight, max=max, per_tick=per_tick)
 
 
 def stat(
@@ -68,6 +70,7 @@ def inventoryReward(
     weight: float = 1.0,
     max: float | None = None,
     denoms: list[AnyGameValue] | None = None,
+    per_tick: bool = False,
 ) -> AgentReward:
     """Create an AgentReward from an inventory item count.
 
@@ -75,7 +78,13 @@ def inventoryReward(
         inventoryReward("heart", weight=0.5)
         inventoryReward("ore_red", max=10)
     """
-    return AgentReward(nums=[InventoryValue(item=item, scope=Scope.AGENT)], denoms=denoms or [], weight=weight, max=max)
+    return AgentReward(
+        nums=[InventoryValue(item=item, scope=Scope.AGENT)],
+        denoms=denoms or [],
+        weight=weight,
+        max=max,
+        per_tick=per_tick,
+    )
 
 
 def collectiveInventoryReward(
@@ -84,6 +93,7 @@ def collectiveInventoryReward(
     weight: float = 1.0,
     max: float | None = None,
     denoms: list[AnyGameValue] | None = None,
+    per_tick: bool = False,
 ) -> AgentReward:
     """Create an AgentReward from a collective inventory item count.
 
@@ -91,7 +101,11 @@ def collectiveInventoryReward(
         collectiveInventoryReward("heart", weight=0.5)
     """
     return AgentReward(
-        nums=[InventoryValue(item=item, scope=Scope.COLLECTIVE)], denoms=denoms or [], weight=weight, max=max
+        nums=[InventoryValue(item=item, scope=Scope.COLLECTIVE)],
+        denoms=denoms or [],
+        weight=weight,
+        max=max,
+        per_tick=per_tick,
     )
 
 
@@ -110,13 +124,16 @@ def numObjectsReward(
     weight: float = 1.0,
     max: float | None = None,
     denoms: list[AnyGameValue] | None = None,
+    per_tick: bool = False,
 ) -> AgentReward:
     """Create an AgentReward from object count.
 
     Examples:
         numObjectsReward("junction", weight=0.1)
     """
-    return AgentReward(nums=[NumObjectsValue(object_type=object_type)], denoms=denoms or [], weight=weight, max=max)
+    return AgentReward(
+        nums=[NumObjectsValue(object_type=object_type)], denoms=denoms or [], weight=weight, max=max, per_tick=per_tick
+    )
 
 
 def numTaggedReward(
@@ -125,13 +142,14 @@ def numTaggedReward(
     weight: float = 1.0,
     max: float | None = None,
     denoms: list[AnyGameValue] | None = None,
+    per_tick: bool = False,
 ) -> AgentReward:
     """Create an AgentReward from tagged object count.
 
     Examples:
         numTaggedReward("vibe:aligned", weight=0.5)
     """
-    return AgentReward(nums=[TagCountValue(tag=tag)], denoms=denoms or [], weight=weight, max=max)
+    return AgentReward(nums=[TagCountValue(tag=tag)], denoms=denoms or [], weight=weight, max=max, per_tick=per_tick)
 
 
 def statReward(
@@ -142,6 +160,7 @@ def statReward(
     weight: float = 1.0,
     max: float | None = None,
     denoms: list[AnyGameValue] | None = None,
+    per_tick: bool = False,
 ) -> AgentReward:
     """Create an AgentReward from a stat name. Shorthand for reward(stat(...)).
 
@@ -154,4 +173,5 @@ def statReward(
         denoms=denoms or [],
         weight=weight,
         max=max,
+        per_tick=per_tick,
     )
