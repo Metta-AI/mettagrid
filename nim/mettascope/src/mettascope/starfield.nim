@@ -14,6 +14,11 @@ type
     texW: float32
     texH: float32
 
+const
+  ParallaxStarsStrength* = 0.08f
+  ParallaxCloudsStrength* = 0.32f
+  ParallaxMotionSpeed* = 1.0f
+
 var
   # Shader uniforms for the fullscreen textured quad.
   starfieldScreenSize: Uniform[Vec2]
@@ -70,8 +75,8 @@ proc loadLayer(imagePath: string): BackgroundLayer {.measure.} =
   )
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR.GLint)
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR.GLint)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE.GLint)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE.GLint)
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT.GLint)
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT.GLint)
   glBindTexture(GL_TEXTURE_2D, 0)
 
 proc initStarfield() =
@@ -128,22 +133,26 @@ proc drawStarfield*() {.measure.} =
     screenSize = vec2(r.w.float32, r.h.float32)
   glViewport(r.x, window.size.y - r.y - r.h, r.w, r.h)
 
-  # Draw starfield: static background, fills screen with cover mapping.
-  drawLayer(bgStarfield, screenSize, vec2(0, 0), 1.0)
-
-  # Calculate parallax offset for clouds based on camera position over the map.
+  # Calculate camera-driven parallax offsets from world pan/drag plus slow drift.
   let
     z = worldMapZoomInfo.zoom * worldMapZoomInfo.zoom
     cx = (screenSize.x / 2.0 - worldMapZoomInfo.pos.x) / z
     cy = (screenSize.y / 2.0 - worldMapZoomInfo.pos.y) / z
     mapW = max(1.0, replay.mapSize[0].float32)
     mapH = max(1.0, replay.mapSize[1].float32)
-    parallaxStrength = 0.08
-    offsetX = (cx / mapW - 0.5) * parallaxStrength
-    offsetY = (cy / mapH - 0.5) * parallaxStrength
+    baseOffsetX = (cx / mapW - 0.5)
+    baseOffsetY = (cy / mapH - 0.5)
+    motionDrift = stepFloat.float32 * 0.0005f * ParallaxMotionSpeed
+    starOffsetX = baseOffsetX * ParallaxStarsStrength + motionDrift
+    starOffsetY = baseOffsetY * ParallaxStarsStrength + motionDrift
+    cloudOffsetX = baseOffsetX * ParallaxCloudsStrength + motionDrift
+    cloudOffsetY = baseOffsetY * ParallaxCloudsStrength + motionDrift
 
-  # Draw clouds: slightly larger (scale 1.2) with parallax offset, blended on top.
-  drawLayer(bgClouds, screenSize, vec2(offsetX, offsetY), 1.2)
+  # Draw starfield with subtle parallax.
+  drawLayer(bgStarfield, screenSize, vec2(starOffsetX, starOffsetY), 1.0)
+
+  # Draw clouds tiled and zoomed out 2x from the previous scale (1.2 -> 0.6).
+  drawLayer(bgClouds, screenSize, vec2(cloudOffsetX, cloudOffsetY), 0.6)
 
   # Restore viewport.
   glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3])
