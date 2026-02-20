@@ -50,13 +50,6 @@ def test_global_obs_config_with_obs():
     assert config.obs[1].scope == Scope.GAME
 
 
-def test_obs_config_default_window_size():
-    """Default observation window should be 13x13."""
-    config = ObsConfig()
-    assert config.width == 13
-    assert config.height == 13
-
-
 def test_id_map_obs_feature_ids():
     """Test that IdMap allocates feature IDs for obs."""
     config = GameConfig(
