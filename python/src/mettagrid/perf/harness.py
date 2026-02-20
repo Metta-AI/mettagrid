@@ -339,3 +339,34 @@ def generate_phase_report(results_dir: str, current_stats: dict, current_phase: 
         total_improvement = ((phases[-1]["agent_sps"] - phases[0]["agent_sps"]) / phases[0]["agent_sps"]) * 100
         print("-" * 54)
         print(f"{'Total improvement':<20} {'':<12} {total_improvement:>+11.1f}%")
+
+
+def print_scorecard_reminder(
+    stats: dict,
+    *,
+    config_label: str,
+    runs_label: str,
+    num_rounds: int,
+    phase: str = "",
+    baseline_paths: list[str] | None = None,
+    output_path: str | None = None,
+) -> None:
+    """Print a scorecard-ready row and reminder to update the perf scorecard."""
+    agent_sps = stats["agent_sps_mean"]
+    delta = ""
+    if baseline_paths:
+        first_baseline = Path(baseline_paths[0])
+        if first_baseline.exists():
+            with open(first_baseline) as f:
+                baseline = json.load(f)
+            base_sps = baseline["metrics"]["agent_sps_mean"]
+            pct = ((agent_sps - base_sps) / base_sps) * 100
+            delta = f"{pct:+.0f}% agent SPS"
+
+    print(f"\n{'=' * 60}")
+    print("Scorecard row (paste into docs/perf/scorecard.md):")
+    print(f"| #???? | {config_label} | {phase or 'main'} | {runs_label} | {num_rounds} | {delta or 'TBD'} | TBD | |")
+    if output_path:
+        print(f"\nUpdate perf scorecard → /tr.perf-scorecard {output_path}")
+    else:
+        print("\nUpdate perf scorecard → /tr.perf-scorecard")

@@ -20,6 +20,7 @@ from mettagrid.perf.harness import (
     compare_multiple,
     generate_phase_report,
     print_comparison,
+    print_scorecard_reminder,
     run_performance,
     save_results,
 )
@@ -197,6 +198,20 @@ Examples:
             result["comparisons"] = comparisons
             with open(args.output, "w") as f:
                 json.dump(result, f, indent=2)
+
+    if args.config:
+        config_label = f"env-only ({args.config}, {env.num_agents}a)"
+    else:
+        config_label = f"env-only ({args.agents}a, {args.map_size}x{args.map_size})"
+    print_scorecard_reminder(
+        stats,
+        config_label=config_label,
+        runs_label=f"{args.rounds}x{args.iterations // 1000}K steps",
+        num_rounds=args.rounds,
+        phase=args.phase,
+        baseline_paths=args.baseline,
+        output_path=args.output,
+    )
 
     if stats["cv"] > 0.20:
         print("\nPerformance measurement unstable!")
