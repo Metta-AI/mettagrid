@@ -19,6 +19,24 @@ from mettagrid.util.uri_resolvers.schemes import localize_uri, resolve_uri
 
 logger = logging.getLogger(__name__)
 
+MAX_POLICY_LOG_BYTES = 100 * 1024 * 1024  # 100MB
+
+
+def _read_log_with_limit(path: Path, max_bytes: int = MAX_POLICY_LOG_BYTES) -> bytes:
+    """Read log file, truncating to tail if over max_bytes."""
+    if not path.exists():
+        return b""
+    size = path.stat().st_size
+    if size == 0:
+        return b""
+    if size <= max_bytes:
+        return path.read_bytes()
+    header = f"[truncated: showing last {max_bytes // (1024 * 1024)}MB of {size // (1024 * 1024)}MB]\n".encode()
+    with open(path, "rb") as f:
+        f.seek(size - max_bytes + len(header))
+        f.readline()  # Skip to next newline for clean truncation
+        return header + f.read()
+
 
 def _to_file_uri(path: Path) -> str:
     return path.resolve().as_uri()
@@ -103,11 +121,20 @@ def run_episode_isolated(
     *,
     replay_path: Path | None = None,
     debug_dir: Path | None = None,
+    policy_log_dir: Path | None = None,
 ) -> PureSingleEpisodeResult:
     """Run a single episode in a sandboxed subprocess with process-level isolation.
 
     Policies are downloaded/localized, served over HTTP via policy servers, and
     the actual simulation runs in a child process (episode_subprocess).
+
+    Args:
+        spec: Episode specification including policy URIs and assignments.
+        results_path: Path to write episode results.
+        replay_path: Optional path to write replay data.
+        debug_dir: Optional directory for debug output.
+        policy_log_dir: Optional directory for per-agent policy server logs.
+            If provided, logs are copied as {agent_idx}.log after the episode completes.
     """
     servers: list[LocalPolicyServerHandle] = []
     policy_temp_dirs: list[Path] = []
@@ -122,6 +149,7 @@ def run_episode_isolated(
             spec.assignments,
             spec.env.game.num_agents,
         )
+
         servers, http_policy_uris = _spawn_policy_servers(per_agent_policy_uris)
         logger.info(f"Policy servers spawned in {time.monotonic() - t1:.1f}s for {len(spec.assignments)} agents")
 
@@ -179,6 +207,12 @@ def run_episode_isolated(
                 code = proc.returncode
                 detail = f"signal {-code}" if code < 0 else f"exit {code}"
                 raise RuntimeError(f"episode_subprocess failed ({detail})")
+
+        # Copy policy logs to output directory if requested
+        if policy_log_dir is not None:
+            policy_log_dir.mkdir(parents=True, exist_ok=True)
+            for i, server in enumerate(servers):
+                shutil.copy(server._log_file, policy_log_dir / f"{i}.log")
 
         return PureSingleEpisodeResult.model_validate_json(read(local_results_uri))
 
