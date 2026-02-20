@@ -127,7 +127,11 @@ class TestBasicClosure:
         assert not has_tag("connected", 2, 5), "Disconnected wire should NOT have 'connected' tag"
 
     def test_diagonal_adjacency(self):
-        """Wire diagonally adjacent to hub should get tagged (Chebyshev distance 1)."""
+        """Wire diagonally adjacent to hub should get tagged with sufficient L2 radius.
+
+        Diagonal L2 distance = sqrt(2), so radius=1 (r^2=1) is too small.
+        radius=2 (r^2=4) covers diagonals (dr^2+dc^2 = 2 <= 4).
+        """
         cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
             [
                 ["#", "#", "#", "#", "#", "#"],
@@ -158,7 +162,7 @@ class TestBasicClosure:
                 query=ClosureQuery(
                     source=typeTag("hub"),
                     candidates=query(typeTag("wire")),
-                    edge_filters=[maxDistance(1)],
+                    edge_filters=[maxDistance(2)],
                 ),
             ),
         ]
@@ -214,7 +218,7 @@ class TestAdvancedClosure:
         """maxDistance radius in edge_filters controls how far BFS expands per hop.
 
         Map: H . W (hub at (2,2), empty at (2,3), wire at (2,4))
-        radius=1: wire is at Chebyshev distance 2 from hub — unreachable in 1 hop
+        radius=1: wire is at L2 distance 2 from hub — unreachable in 1 hop
         radius=2: wire is within reach — hub can reach wire directly
         """
         cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(

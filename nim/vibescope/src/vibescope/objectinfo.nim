@@ -209,11 +209,11 @@ proc getAoeSourcesAffectingAgent(agent: Entity): seq[AoeSourceEffect] =
     let aoeConfigs = getAoeConfigs(obj.typeName)
     if aoeConfigs.isNil:
       continue
-    # Check distance once for this object (Chebyshev/square)
+    # Check L2 distance (sum of squares) for this object.
     let sourcePos = obj.location.at(step).xy
-    let dx = abs(agentPos.x - sourcePos.x)
-    let dy = abs(agentPos.y - sourcePos.y)
-    let distance = max(dx, dy)
+    let dx = agentPos.x - sourcePos.x
+    let dy = agentPos.y - sourcePos.y
+    let distSq = dx * dx + dy * dy
     # Check each AOE config from this source
     for aoeConfig in aoeConfigs:
       # Get AOE range
@@ -225,7 +225,7 @@ proc getAoeSourcesAffectingAgent(agent: Entity): seq[AoeSourceEffect] =
           aoeRange = aoeConfig["range"].getFloat.int
       if aoeRange <= 0:
         continue
-      if distance > aoeRange:
+      if distSq > aoeRange * aoeRange:
         continue
       # Check effect_self - skip if this is the same agent and effect_self is false
       if obj.id == agent.id:

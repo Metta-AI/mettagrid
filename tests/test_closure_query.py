@@ -488,7 +488,7 @@ class TestClosureQueryIntegration:
             # . . . . @ . . #
             # # # # # # # # #
 
-        With maxDistance(1), wire is NOT reachable (Chebyshev distance 2).
+        With maxDistance(1), wire is NOT reachable (L2 distance 2).
         With maxDistance(2), wire IS reachable.
         """
 

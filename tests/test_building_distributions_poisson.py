@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 from mettagrid.mapgen.scenes.building_distributions import (
@@ -5,6 +7,12 @@ from mettagrid.mapgen.scenes.building_distributions import (
     DistributionType,
     _sample_positions_by_distribution,
 )
+
+
+def _l2_dist(a: tuple[int, int], b: tuple[int, int]) -> float:
+    dr = a[0] - b[0]
+    dc = a[1] - b[1]
+    return math.sqrt(dr * dr + dc * dc)
 
 
 def test_poisson_distribution_enforces_min_separation() -> None:
@@ -35,21 +43,15 @@ def test_poisson_distribution_enforces_min_separation() -> None:
 
     assert len(positions) == count
 
-    def chebyshev(a: tuple[int, int], b: tuple[int, int]) -> int:
-        return max(abs(a[0] - b[0]), abs(a[1] - b[1]))
-
     for i in range(len(positions)):
         for j in range(i + 1, len(positions)):
-            assert chebyshev(positions[i], positions[j]) >= min_dist
+            assert _l2_dist(positions[i], positions[j]) >= min_dist
 
 
 def test_poisson_distribution_cogsguard_min_separation_targets() -> None:
-    def _min_pairwise_chebyshev(positions: list[tuple[int, int]]) -> int:
-        def chebyshev(a: tuple[int, int], b: tuple[int, int]) -> int:
-            return max(abs(a[0] - b[0]), abs(a[1] - b[1]))
-
+    def _min_pairwise_l2(positions: list[tuple[int, int]]) -> float:
         return min(
-            chebyshev(positions[i], positions[j]) for i in range(len(positions)) for j in range(i + 1, len(positions))
+            _l2_dist(positions[i], positions[j]) for i in range(len(positions)) for j in range(i + 1, len(positions))
         )
 
     dist = DistributionConfig(type=DistributionType.POISSON)
@@ -67,7 +69,7 @@ def test_poisson_distribution_cogsguard_min_separation_targets() -> None:
         rng=np.random.default_rng(0),
     )
     assert len(arena_positions) == 84
-    assert _min_pairwise_chebyshev(arena_positions) >= 3
+    assert _min_pairwise_l2(arena_positions) >= 3
 
     # 86x86 interior with count=158 corresponds to the current CogsGuard Machina1 junction group.
     machina_positions = _sample_positions_by_distribution(
@@ -82,4 +84,4 @@ def test_poisson_distribution_cogsguard_min_separation_targets() -> None:
         rng=np.random.default_rng(0),
     )
     assert len(machina_positions) == 158
-    assert _min_pairwise_chebyshev(machina_positions) >= 4
+    assert _min_pairwise_l2(machina_positions) >= 4

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
@@ -13,9 +14,9 @@
 
 namespace mettagrid {
 namespace {
-int distance_sq(const GridLocation& a, const GridLocation& b) {
-  int dr = std::abs(static_cast<int>(a.r) - static_cast<int>(b.r));
-  int dc = std::abs(static_cast<int>(a.c) - static_cast<int>(b.c));
+int64_t distance_sq(const GridLocation& a, const GridLocation& b) {
+  int64_t dr = static_cast<int64_t>(a.r) - static_cast<int64_t>(b.r);
+  int64_t dc = static_cast<int64_t>(a.c) - static_cast<int64_t>(b.c);
   return dr * dr + dc * dc;
 }
 
@@ -32,10 +33,10 @@ enum class TerritoryOwner {
 struct TerritoryContest {
   bool friendly_present = false;
   bool enemy_present = false;
-  int friendly_best_key = std::numeric_limits<int>::max();
-  int enemy_best_key = std::numeric_limits<int>::max();
+  int64_t friendly_best_key = std::numeric_limits<int64_t>::max();
+  int64_t enemy_best_key = std::numeric_limits<int64_t>::max();
 
-  void consider(bool is_friendly, int key) {
+  void consider(bool is_friendly, int64_t key) {
     if (is_friendly) {
       friendly_present = true;
       if (key < friendly_best_key) {
@@ -169,7 +170,7 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
   int range = config.radius;
 
   // Register at all cells within Euclidean radius.
-  int range_sq = range * range;
+  int64_t range_sq = static_cast<int64_t>(range) * range;
   for (int dr = -range; dr <= range; ++dr) {
     int cell_r = static_cast<int>(source_loc.r) + dr;
     if (cell_r < 0 || cell_r >= static_cast<int>(_height)) {
@@ -180,7 +181,7 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
       if (cell_c < 0 || cell_c >= static_cast<int>(_width)) {
         continue;
       }
-      int dist_sq = dr * dr + dc * dc;
+      int64_t dist_sq = static_cast<int64_t>(dr) * dr + static_cast<int64_t>(dc) * dc;
       if (dist_sq > range_sq) {
         continue;
       }
@@ -481,9 +482,9 @@ void AOETracker::apply_mobile(const std::vector<Agent*>& agents, const HandlerCo
 }
 
 bool AOETracker::in_range(const GridLocation& source_loc, const GridLocation& target_loc, int range) {
-  int dr = std::abs(static_cast<int>(source_loc.r) - static_cast<int>(target_loc.r));
-  int dc = std::abs(static_cast<int>(source_loc.c) - static_cast<int>(target_loc.c));
-  return (dr * dr + dc * dc) <= (range * range);
+  int64_t dr = static_cast<int64_t>(source_loc.r) - static_cast<int64_t>(target_loc.r);
+  int64_t dc = static_cast<int64_t>(source_loc.c) - static_cast<int64_t>(target_loc.c);
+  return (dr * dr + dc * dc) <= (static_cast<int64_t>(range) * range);
 }
 
 size_t AOETracker::fixed_effect_count_at(const GridLocation& loc) const {

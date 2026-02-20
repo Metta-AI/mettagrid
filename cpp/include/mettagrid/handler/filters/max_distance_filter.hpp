@@ -2,7 +2,7 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_HANDLER_FILTERS_MAX_DISTANCE_FILTER_HPP_
 
 #include <cassert>
-#include <cstdlib>
+#include <cstdint>
 #include <memory>
 
 #include "core/grid_object.hpp"
@@ -13,14 +13,14 @@
 namespace mettagrid {
 
 /**
- * MaxDistanceFilter: Chebyshev distance check.
+ * MaxDistanceFilter: L2 distance check (sum of squares, no sqrt).
  *
  * radius=0 means unlimited (always passes, no distance constraint).
  *
  * Two modes:
  * - Unary (source query set): entity is within radius of any query result.
  *   With radius=0, passes if source query returns any results (distance unchecked).
- * - Binary (source=nullptr): Chebyshev distance(actor, entity) <= radius,
+ * - Binary (source=nullptr): L2 distance(actor, entity) <= radius,
  *   or unconditionally when radius=0.
  *   Used in ClosureQuery edge_filters where actor=net_member, entity=candidate.
  */
@@ -37,10 +37,11 @@ public:
     if (!_config.source) {
       // Binary mode: check distance from actor to entity
       if (ctx.actor == nullptr) return false;
-      if (_config.radius == 0) return true;  // 0 = unlimited range
-      int dr = std::abs(static_cast<int>(entity->location.r) - static_cast<int>(ctx.actor->location.r));
-      int dc = std::abs(static_cast<int>(entity->location.c) - static_cast<int>(ctx.actor->location.c));
-      return std::max(dr, dc) <= static_cast<int>(_config.radius);
+      if (_config.radius == 0) return true;
+      int64_t dr = static_cast<int64_t>(entity->location.r) - static_cast<int64_t>(ctx.actor->location.r);
+      int64_t dc = static_cast<int64_t>(entity->location.c) - static_cast<int64_t>(ctx.actor->location.c);
+      int64_t r = static_cast<int64_t>(_config.radius);
+      return dr * dr + dc * dc <= r * r;
     }
 
     auto source_objects = _config.source->evaluate(ctx);
@@ -49,10 +50,12 @@ public:
       return !source_objects.empty();
     }
 
+    int64_t r = static_cast<int64_t>(_config.radius);
+    int64_t r2 = r * r;
     for (auto* src : source_objects) {
-      int dr = std::abs(static_cast<int>(entity->location.r) - static_cast<int>(src->location.r));
-      int dc = std::abs(static_cast<int>(entity->location.c) - static_cast<int>(src->location.c));
-      if (std::max(dr, dc) <= static_cast<int>(_config.radius)) {
+      int64_t dr = static_cast<int64_t>(entity->location.r) - static_cast<int64_t>(src->location.r);
+      int64_t dc = static_cast<int64_t>(entity->location.c) - static_cast<int64_t>(src->location.c);
+      if (dr * dr + dc * dc <= r2) {
         return true;
       }
     }
