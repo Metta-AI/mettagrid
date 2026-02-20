@@ -1,4 +1,5 @@
 import io
+import json
 import logging
 import os
 import shutil
@@ -11,7 +12,7 @@ from contextlib import nullcontext
 from pathlib import Path
 
 from mettagrid.base_config import LENIENT_CONTEXT
-from mettagrid.runner.episode_runner import run_episode_isolated
+from mettagrid.runner.episode_runner import _read_log_with_limit, run_episode_isolated
 from mettagrid.runner.types import RuntimeInfo, SingleEpisodeJob
 from mettagrid.util.file import copy_data, read, write_data
 from mettagrid.util.tracer import Tracer
@@ -38,6 +39,37 @@ def _upload_debug_dir(local_debug_dir: str | None, debug_uri: str | None) -> Non
         logger.warning(f"Failed to upload debug.zip: {e}")
 
 
+def _upload_policy_logs(
+    policy_log_dir: Path | None,
+    policy_log_urls: dict[str, str] | None,
+) -> None:
+    """Upload policy logs using presigned URLs.
+
+    Args:
+        policy_log_dir: Directory containing policy log files named like "{agent_idx}.log"
+        policy_log_urls: Dict mapping "{agent_idx}" to presigned PUT URLs
+    """
+    if policy_log_dir is None or policy_log_urls is None:
+        return
+    if not policy_log_dir.is_dir():
+        return
+    for log_file in policy_log_dir.iterdir():
+        if not log_file.is_file():
+            continue
+        # Extract key from filename: "0_stdout.log" -> "0_stdout"
+        key = log_file.stem
+        presigned_url = policy_log_urls.get(key)
+        if presigned_url is None:
+            logger.warning(f"No presigned URL for policy log {log_file.name}, skipping")
+            continue
+        try:
+            content = _read_log_with_limit(log_file)
+            write_data(presigned_url, content, content_type="text/plain")
+            logger.info(f"Uploaded policy log {log_file.name} ({len(content)} bytes)")
+        except Exception as e:
+            logger.warning(f"Failed to upload policy log {log_file.name}: {e}")
+
+
 def _upload_results(
     results_path: Path,
     replay_path: Path | None,
@@ -45,6 +77,8 @@ def _upload_results(
     replay_uri: str | None,
     debug_dir: Path | None,
     debug_uri: str | None,
+    policy_log_dir: Path | None = None,
+    policy_log_urls: dict[str, str] | None = None,
 ) -> None:
     if results_uri and results_path.exists():
         copy_data(results_path.as_uri(), results_uri, content_type="application/json")
@@ -55,6 +89,7 @@ def _upload_results(
         logger.info(f"Uploaded replay to {replay_uri}")
 
     _upload_debug_dir(str(debug_dir) if debug_dir else None, debug_uri)
+    _upload_policy_logs(policy_log_dir, policy_log_urls)
 
 
 def _collect_runtime_info(git_commit: str | None, cogames_version: str | None) -> RuntimeInfo:
@@ -101,11 +136,14 @@ def main() -> None:
     logger.info(f"Job spec loaded in {time.monotonic() - t0:.1f}s")
 
     debug_uri = os.environ.get("DEBUG_URI")
+    policy_log_urls_json = os.environ.get("POLICY_LOG_URLS")
+    policy_log_urls: dict[str, str] | None = json.loads(policy_log_urls_json) if policy_log_urls_json else None
     capture_replay = replay_uri is not None
 
     with tempfile.TemporaryDirectory() as output_dir_str:
         output_dir = Path(output_dir_str)
         debug_dir = Path(tempfile.mkdtemp()) if debug_uri else None
+        policy_log_dir = Path(tempfile.mkdtemp(prefix="policy-logs-")) if policy_log_urls else None
 
         tracer: Tracer | None = None
         if debug_dir:
@@ -139,6 +177,7 @@ def main() -> None:
                     results_path,
                     replay_path=replay_path,
                     debug_dir=debug_dir,
+                    policy_log_dir=policy_log_dir,
                 )
             logger.info(f"Episode run completed in {time.monotonic() - t_episode:.1f}s")
 
@@ -146,7 +185,16 @@ def main() -> None:
                 tracer.flush()
 
             t_upload = time.monotonic()
-            _upload_results(results_path, replay_path, results_uri, replay_uri, debug_dir, debug_uri)
+            _upload_results(
+                results_path,
+                replay_path,
+                results_uri,
+                replay_uri,
+                debug_dir,
+                debug_uri,
+                policy_log_dir,
+                policy_log_urls,
+            )
             logger.info(f"Upload completed in {time.monotonic() - t_upload:.1f}s")
 
             logger.info(f"Job completed successfully, total time {time.monotonic() - t0:.1f}s")
@@ -155,6 +203,8 @@ def main() -> None:
                 tracer.flush()
             if debug_dir:
                 shutil.rmtree(debug_dir, ignore_errors=True)
+            if policy_log_dir:
+                shutil.rmtree(policy_log_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":
