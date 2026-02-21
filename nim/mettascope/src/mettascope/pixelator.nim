@@ -208,6 +208,13 @@ proc contains*(px: Pixelator, name: string): bool =
   ## Checks if the given sprite is in the atlas.
   name in px.atlas.entries
 
+proc spriteSize*(px: Pixelator, name: string): IVec2 =
+  ## Returns sprite dimensions from the atlas, or (0, 0) if missing.
+  if name notin px.atlas.entries:
+    return ivec2(0, 0)
+  let uv = px.atlas.entries[name]
+  ivec2(uv.width.int32, uv.height.int32)
+
 proc clear*(px: Pixelator) =
   ## Clears the current instance queue.
   px.instanceData.setLen(0)

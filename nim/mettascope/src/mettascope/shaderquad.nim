@@ -114,3 +114,9 @@ proc draw*(
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
   glBindVertexArray(0)
   glUseProgram(0)
+
+proc imageSize*(sq: ShaderQuad): IVec2 =
+  ## Returns underlying texture image size in pixels.
+  if sq.isNil:
+    return ivec2(0, 0)
+  ivec2(sq.image.width.int32, sq.image.height.int32)

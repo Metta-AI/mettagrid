@@ -8,6 +8,8 @@ type
     showFogOfWar*: bool
     showVisualRange*: bool
     showGrid*: bool
+    showMask*: bool = true
+    showSplats*: bool = true
     showResources*: bool
     showObservations*: int
     lockFocus*: bool
@@ -38,6 +40,8 @@ const DefaultConfig* = MettascopeConfig(
     showFogOfWar: false,
     showVisualRange: true,
     showGrid: true,
+    showMask: true,
+    showSplats: true,
     showResources: true,
     showObservations: -1,
     lockFocus: false,
@@ -148,6 +152,8 @@ proc applyUIState*(config: MettascopeConfig) =
   settings.showFogOfWar = config.settings.showFogOfWar
   settings.showVisualRange = config.settings.showVisualRange
   settings.showGrid = config.settings.showGrid
+  settings.showMask = config.settings.showMask
+  settings.showSplats = config.settings.showSplats
   settings.showResources = config.settings.showResources
   settings.showObservations = config.settings.showObservations
   settings.lockFocus = config.settings.lockFocus
@@ -175,6 +181,8 @@ proc saveUIState*() =
   config.settings.showFogOfWar = settings.showFogOfWar
   config.settings.showVisualRange = settings.showVisualRange
   config.settings.showGrid = settings.showGrid
+  config.settings.showMask = settings.showMask
+  config.settings.showSplats = settings.showSplats
   config.settings.showResources = settings.showResources
   config.settings.showObservations = settings.showObservations
   config.settings.lockFocus = settings.lockFocus

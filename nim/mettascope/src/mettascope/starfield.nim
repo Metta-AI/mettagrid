@@ -143,10 +143,10 @@ proc drawStarfield*() {.measure.} =
     baseOffsetX = (cx / mapW - 0.5)
     baseOffsetY = (cy / mapH - 0.5)
     motionDrift = stepFloat.float32 * 0.0005f * ParallaxMotionSpeed
-    starOffsetX = baseOffsetX * ParallaxStarsStrength + motionDrift
-    starOffsetY = baseOffsetY * ParallaxStarsStrength + motionDrift
-    cloudOffsetX = baseOffsetX * ParallaxCloudsStrength + motionDrift
-    cloudOffsetY = baseOffsetY * ParallaxCloudsStrength + motionDrift
+    starOffsetX = (baseOffsetX + motionDrift) * ParallaxStarsStrength
+    starOffsetY = (baseOffsetY + motionDrift) * ParallaxStarsStrength
+    cloudOffsetX = (baseOffsetX + motionDrift) * ParallaxCloudsStrength
+    cloudOffsetY = (baseOffsetY + motionDrift) * ParallaxCloudsStrength
 
   # Draw starfield with subtle parallax.
   drawLayer(bgStarfield, screenSize, vec2(starOffsetX, starOffsetY), 1.0)
