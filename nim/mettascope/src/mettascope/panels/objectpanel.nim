@@ -183,15 +183,15 @@ proc drawOnUseHandlers(objConfig: JsonNode) =
 proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) =
   ## Draws the object info panel using silky widgets.
   frame(frameId, contentPos, contentSize):
-    if selection.isNil:
-      text("No selection")
+    if selected.isNil:
+      text("Nothing selected")
       return
 
     if replay.isNil:
       text("Replay not loaded")
       return
 
-    let cur = selection
+    let cur = selected
 
     button("Open Config"):
       if cur.isNil:
@@ -410,7 +410,8 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
 proc selectObject*(obj: Entity) =
   if obj != nil and not obj.alive.at:
     return
-  selection = obj
+  selected = obj
+  settings.lockFocus = not obj.isNil
   if obj != nil:
     let cid = obj.collectiveId.at(step)
     if cid >= 0:

@@ -84,7 +84,7 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
     let currentStepFloat = currentStep.float32
     if playMode == Realtime:
       let delta = abs(currentStepFloat - stepFloat)
-      if delta > 0.0'f32 and delta <= RealtimeSmoothMaxStepDelta:
+      if delta > 0.0f and delta <= RealtimeSmoothMaxStepDelta:
         realtimeTransitionStart = stepFloat
         realtimeTransitionTarget = currentStepFloat
         realtimeTransitionStartTime = epochTime()

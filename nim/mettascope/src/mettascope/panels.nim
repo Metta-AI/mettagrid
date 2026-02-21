@@ -121,9 +121,9 @@ proc beginPanAndZoom*(zoomInfo: ZoomInfo) =
         scale(vec2(zoomInfo.zoom*zoomInfo.zoom, zoomInfo.zoom*zoomInfo.zoom))
 
       # Use agent position as focal point if lockFocus is enabled and agent is selected
-      let focalPoint = if settings.lockFocus and selection != nil:
+      let focalPoint = if settings.lockFocus and selected != nil:
         # Convert agent's world position to screen space
-        let agentWorldPos = vec2(selection.location.at(step).x.float32, selection.location.at(step).y.float32)
+        let agentWorldPos = vec2(selected.location.at(step).x.float32, selected.location.at(step).y.float32)
         oldMat * agentWorldPos
       else:
         localMousePos
@@ -236,7 +236,7 @@ proc insertPanel*(area: Area, panel: Panel, index: int) =
 
   area.panels.insert(panel, finalIndex)
   panel.parentArea = area
-  # Update selection to the new panel position
+  # Update selected to the new panel position
   area.selectedPanelNum = finalIndex
 
 proc getTabInsertInfo(area: Area, mousePos: Vec2): (int, Rect) =

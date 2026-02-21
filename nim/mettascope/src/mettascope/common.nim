@@ -97,7 +97,7 @@ proc scaleTransform*(s: Vec2) =
 
 var
   settings* = Settings()
-  selection*: Entity
+  selected*: Entity
   policyTarget*: Option[IVec2]  ## Target cell from policy_infos to highlight on map.
   activeCollective*: int = 1  ## Currently active faction (0 = Clips, 1 = Cogs). Defaults to Cogs.
 
