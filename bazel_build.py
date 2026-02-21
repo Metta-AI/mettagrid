@@ -343,10 +343,27 @@ def _run_nim_build(name: str, nim_dir: Path, package_dir: Path, *, copy_bindings
         _copy_nim_python_bindings(nim_dir, package_dir)
 
 
+def _iter_nim_packages() -> list[tuple[str, Path, Path]]:
+    """Return Nim renderers that still exist in this checkout."""
+    available: list[tuple[str, Path, Path]] = []
+    for name, (nim_dir, package_dir) in NIM_PACKAGES.items():
+        if nim_dir.exists():
+            available.append((name, nim_dir, package_dir))
+            continue
+
+        # A branch may intentionally remove a renderer; clean stale vendored
+        # bindings so old artifacts are not accidentally imported.
+        if package_dir.exists():
+            shutil.rmtree(package_dir)
+        print(f"Skipping Nim build for {name}; missing source directory: {nim_dir}")
+
+    return available
+
+
 def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     """Build a wheel, compiling the C++ extension with Bazel first, then Nim renderers."""
     _run_bazel_build()
-    for name, (nim_dir, package_dir) in NIM_PACKAGES.items():
+    for name, nim_dir, package_dir in _iter_nim_packages():
         _run_nim_build(name, nim_dir, package_dir)
     # Ensure wheel is tagged as non-pure (platform-specific) since we bundle a native extension
     # Setuptools/wheel derive purity from Distribution.has_ext_modules(). Monkeypatch to force True.
@@ -361,7 +378,7 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
 def build_editable(wheel_directory, config_settings=None, metadata_directory=None):
     """Build an editable install, compiling the C++ extension with Bazel first, then Nim renderers."""
     _run_bazel_build()
-    for name, (nim_dir, package_dir) in NIM_PACKAGES.items():
+    for name, nim_dir, package_dir in _iter_nim_packages():
         _run_nim_build(name, nim_dir, package_dir, copy_bindings=True)  # Editable installs use source directly
     return _build_editable(wheel_directory, config_settings, metadata_directory)
 

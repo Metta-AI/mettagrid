@@ -1,2 +1,0 @@
---path:"../src"
---define:ssl
