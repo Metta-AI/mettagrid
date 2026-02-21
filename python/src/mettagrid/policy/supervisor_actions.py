@@ -18,21 +18,21 @@ def split_supervisor_actions_inplace(
 
     Supported supervisor output formats:
     - Compact primary indices in range [0, len(supervisor_action_ids))
-    - Full action ids in range [0, len(action_names))
+    - Full action indices in range [0, len(action_names))
 
-    For compact outputs, teacher labels are mapped to full primary action ids and
-    vibe actions are set to 0.
+    For compact outputs, teacher labels are already primary indices; vibe actions
+    are set to 0.
 
-    For full-id outputs, teacher labels are preserved as-is. Vibe actions are set
-    only where the full action id is not in the primary id set.
+    For full-index outputs, teacher labels are preserved as-is. Vibe actions are
+    set only where the full action index is not in the primary range.
     """
 
     zero_action = dtype_actions.type(0)
     teacher_actions_i64 = teacher_actions.astype(np.int64, copy=False)
-    action_ids_i64 = supervisor_action_ids.astype(np.int64, copy=False)
+    num_primary = int(supervisor_action_ids.size)
 
-    if np.all((teacher_actions_i64 >= 0) & (teacher_actions_i64 < len(action_ids_i64))):
-        np.copyto(teacher_actions, action_ids_i64[teacher_actions_i64].astype(dtype_actions, copy=False))
+    if np.all((teacher_actions_i64 >= 0) & (teacher_actions_i64 < num_primary)):
+        np.copyto(teacher_actions, teacher_actions_i64.astype(dtype_actions, copy=False))
         vibe_actions.fill(zero_action)
         return
 
@@ -47,6 +47,6 @@ def split_supervisor_actions_inplace(
         )
 
     np.copyto(teacher_actions, teacher_actions_i64.astype(dtype_actions, copy=False))
-    primary_mask = np.isin(teacher_actions_i64, action_ids_i64)
+    primary_mask = teacher_actions_i64 < num_primary
     vibe_actions.fill(zero_action)
     vibe_actions[~primary_mask] = teacher_actions_i64[~primary_mask].astype(dtype_actions, copy=False)
