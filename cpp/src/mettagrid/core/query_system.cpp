@@ -185,11 +185,14 @@ std::vector<GridObject*> TagQueryConfig::evaluate(const HandlerContext& ctx) con
 // Edge filters are binary: evaluated with actor=net_member, target=candidate.
 std::vector<GridObject*> ClosureQueryConfig::evaluate(const HandlerContext& ctx) const {
   assert(source && "ClosureQueryConfig requires a non-null source query");
-  assert(candidates && "ClosureQueryConfig requires a non-null candidates query");
 
   auto roots = source->evaluate(ctx);
-  auto candidate_pool = candidates->evaluate(ctx);
 
+  if (!candidates) {
+    return QuerySystem::apply_limits(std::move(roots), max_items, order_by, ctx);
+  }
+
+  auto candidate_pool = candidates->evaluate(ctx);
   std::unordered_set<GridObject*> visited;
   std::queue<GridObject*> frontier;
 

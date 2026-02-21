@@ -127,11 +127,7 @@ class TestBasicClosure:
         assert not has_tag("connected", 2, 5), "Disconnected wire should NOT have 'connected' tag"
 
     def test_diagonal_adjacency(self):
-        """Wire diagonally adjacent to hub should get tagged with sufficient L2 radius.
-
-        Diagonal L2 distance = sqrt(2), so radius=1 (r^2=1) is too small.
-        radius=2 (r^2=4) covers diagonals (dr^2+dc^2 = 2 <= 4).
-        """
+        """Wire diagonally adjacent to hub should get tagged (L2 distance sqrt(2))."""
         cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
             [
                 ["#", "#", "#", "#", "#", "#"],

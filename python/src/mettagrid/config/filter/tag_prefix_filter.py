@@ -27,3 +27,8 @@ class TagPrefixFilter(Filter):
 def hasTagPrefix(prefix: str, target: HandlerTarget = HandlerTarget.TARGET) -> TagPrefixFilter:
     """Filter: entity has at least one tag with the given prefix."""
     return TagPrefixFilter(target=target, tag_prefix=prefix)
+
+
+def actorHasTagPrefix(prefix: str) -> TagPrefixFilter:
+    """Filter: actor has at least one tag with the given prefix."""
+    return TagPrefixFilter(target=HandlerTarget.ACTOR, tag_prefix=prefix)

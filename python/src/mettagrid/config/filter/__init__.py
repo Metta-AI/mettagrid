@@ -38,7 +38,7 @@ from mettagrid.config.filter.shared_tag_prefix_filter import (
     sharedTagPrefix,
 )
 from mettagrid.config.filter.tag_filter import TagFilter, actorHasTag, hasTag, isA
-from mettagrid.config.filter.tag_prefix_filter import TagPrefixFilter, hasTagPrefix
+from mettagrid.config.filter.tag_prefix_filter import TagPrefixFilter, actorHasTagPrefix, hasTagPrefix
 from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVibe
 from mettagrid.config.query import (
     AnyQuery,
@@ -124,6 +124,7 @@ __all__ = [
     "actorVibe",
     "targetVibe",
     "hasTagPrefix",
+    "actorHasTagPrefix",
     "sharedTagPrefix",
     # Query
     "Query",

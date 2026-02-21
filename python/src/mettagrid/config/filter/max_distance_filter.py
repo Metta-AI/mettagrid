@@ -36,10 +36,13 @@ class MaxDistanceFilter(Filter):
         default=HandlerTarget.TARGET,
         description="Entity to check the filter against",
     )
-    query: Optional["AnyQuery"] = Field(default=None, description="Query to find nearby objects (None = binary mode)")
+    query: Optional["AnyQuery"] = Field(
+        default=None,
+        description="Query to find nearby objects (None = binary mode)",
+    )
     radius: int = Field(
         default=1,
-        description="L2 distance radius (compared as sum of squares). 0 means unlimited.",
+        description="L2 distance radius to check (compared as sum of squares). 0 means unlimited.",
     )
 
 
