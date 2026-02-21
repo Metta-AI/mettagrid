@@ -5,7 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
@@ -26,6 +26,7 @@
 #include "config/observation_features.hpp"
 #include "core/grid.hpp"
 #include "core/grid_object_factory.hpp"
+#include "core/observation_shape.hpp"
 #include "core/types.hpp"
 #include "handler/handler_bindings.hpp"
 #include "handler/handler_context.hpp"
@@ -42,6 +43,24 @@
 #include "systems/stats_tracker.hpp"
 
 namespace py = pybind11;
+
+namespace {
+
+std::vector<std::pair<int, int>> compute_observation_offsets(ObservationCoord observation_height,
+                                                             ObservationCoord observation_width) {
+  auto observation_shape = mettagrid::make_observation_shape(observation_height, observation_width);
+  std::vector<std::pair<int, int>> observation_offsets;
+  observation_offsets.reserve(static_cast<size_t>(observation_height) * static_cast<size_t>(observation_width));
+  for (const auto& offset : PackedCoordinate::ObservationPattern{observation_height, observation_width}) {
+    if (!mettagrid::within_observation_shape(offset.first, offset.second, observation_shape)) {
+      continue;
+    }
+    observation_offsets.push_back(offset);
+  }
+  return observation_offsets;
+}
+
+}  // namespace
 
 MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned int seed)
     : obs_width(game_config.obs_width),
@@ -71,11 +90,8 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
                              std::to_string(obs_height) + ") exceeds maximum packable size");
   }
 
-  // Pre-compute observation pattern offsets (Manhattan distance order)
-  _observation_offsets.reserve(static_cast<size_t>(obs_height) * static_cast<size_t>(obs_width));
-  for (const auto& offset : PackedCoordinate::ObservationPattern{obs_height, obs_width}) {
-    _observation_offsets.push_back(offset);
-  }
+  // Pre-compute in-vision observation offsets (Manhattan distance order).
+  _observation_offsets = compute_observation_offsets(obs_height, obs_width);
 
   // Parallel observation dispatch is opt-in until validated on production
   // EPYC hardware. Set METTAGRID_OBS_THREADS to enable:
@@ -419,7 +435,7 @@ void MettaGrid::_emit_tile_observability_tokens(size_t agent_idx,
     return;
   }
 
-  _aoe_tracker->fixed_observability_at(object_loc, *_agents[agent_idx], _game_ctx, aoe_mask_ptr, nullptr);
+  _aoe_tracker->fixed_observability_at(object_loc, *_agents[agent_idx], _game_ctx, aoe_mask_ptr);
 
   if (aoe_mask != 0) {
     attempted_tokens_written += 1;
@@ -647,8 +663,8 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
   attempted_tokens_written += _emit_obs_value_tokens(agent_idx, tokens_written, global_location);
   tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
 
-  // Process locations in increasing manhattan distance order
-  for (const auto& [r_offset, c_offset] : PackedCoordinate::ObservationPattern{observable_height, observable_width}) {
+  // Process locations in increasing manhattan distance order (using pre-computed offsets)
+  for (const auto& [r_offset, c_offset] : _observation_offsets) {
     int r = static_cast<int>(observer_row) + r_offset;
     int c = static_cast<int>(observer_col) + c_offset;
 

@@ -300,7 +300,7 @@ class TestTags:
                     map_data=[
                         [".", ".", "."],
                         [".", "@", "."],
-                        [".", ".", "#"],  # Wall in bottom-right
+                        [".", "#", "."],  # Wall in bottom-center (inside circular 3x3 mask)
                     ],
                     char_to_map_name=DEFAULT_CHAR_TO_NAME,
                 ),
@@ -323,7 +323,7 @@ class TestTags:
                     map_data=[
                         [".", ".", "."],
                         [".", "@", "."],
-                        [".", ".", "#"],  # Wall in bottom-right
+                        [".", "#", "."],  # Wall in bottom-center (inside circular 3x3 mask)
                     ],
                     char_to_map_name=DEFAULT_CHAR_TO_NAME,
                 ),
@@ -349,10 +349,12 @@ class TestTags:
 
         # Extract tag IDs from both environments
         def get_wall_tag_ids(sim, obs):
-            wall_locations = _positions_with_char(sim, "#")
+            # Agent is at the center of a 3x3 local view, and the wall is at
+            # bottom-center in that local frame.
+            wall_location = PackedCoordinate.pack(2, 1)
             tag_ids = set()
             for token in obs:
-                if token[0] in wall_locations and token[1] == tag_feature_id:
+                if token[0] == wall_location and token[1] == tag_feature_id:
                     tag_ids.add(token[2])
             return tag_ids
 

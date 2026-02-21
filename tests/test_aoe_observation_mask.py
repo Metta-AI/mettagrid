@@ -38,7 +38,6 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
         aoes={
             "friendly": AOEConfig(
                 radius=2,
-                controls_territory=True,
                 filters=[
                     AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.SAME_COLLECTIVE),
                 ],
@@ -52,7 +51,6 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
         aoes={
             "enemy": AOEConfig(
                 radius=2,
-                controls_territory=True,
                 filters=[
                     AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.DIFFERENT_COLLECTIVE),
                 ],
@@ -62,14 +60,13 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
 
     sim = Simulation(cfg)
     obs = sim._c_sim.observations()[0]
-    aoe_feature_id = sim.config.game.id_map().feature_id("aoe_mask")
+    aoe_mask_feature_id = sim.config.game.id_map().feature_id("aoe_mask")
 
-    # Center cell is in range of both AOEs: friendly (cogs) and enemy (clips).
-    # With collapsed territory semantics, this tile is neutral (no token).
+    # Center cell is in range of both territory AOEs: contested => neutral => no token.
     assert (
         len(
             ObservationHelper.find_token_values(
-                obs, location=Location(2, 2), feature_id=aoe_feature_id, is_global=False
+                obs, location=Location(2, 2), feature_id=aoe_mask_feature_id, is_global=False
             )
         )
         == 0
@@ -79,7 +76,7 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
     assert (
         len(
             ObservationHelper.find_token_values(
-                obs, location=Location(4, 4), feature_id=aoe_feature_id, is_global=False
+                obs, location=Location(4, 4), feature_id=aoe_mask_feature_id, is_global=False
             )
         )
         == 0
@@ -87,6 +84,8 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
 
     # (4,3) is in range of the friendly source at (3,2) but out of range of the enemy at (1,2).
     assert (
-        ObservationHelper.find_token_values(obs, location=Location(4, 3), feature_id=aoe_feature_id, is_global=False)
+        ObservationHelper.find_token_values(
+            obs, location=Location(4, 3), feature_id=aoe_mask_feature_id, is_global=False
+        )
         == 0x01
     )

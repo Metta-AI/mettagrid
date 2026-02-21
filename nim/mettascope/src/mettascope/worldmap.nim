@@ -35,8 +35,8 @@ var
   # so that it's not reallocated every time and cause GC pressure.
   reuseableCoverageMap: seq[bool]
   reuseableOwnershipMap: seq[uint8]
-  reuseableFriendlyDistMap: seq[int]
-  reuseableEnemyDistMap: seq[int]
+  reuseableFriendlyScoreMap: seq[float32]
+  reuseableEnemyScoreMap: seq[float32]
 
   px*: Pixelator
   pxMini*: Pixelator
@@ -73,6 +73,16 @@ const patternToTile = @[
   1, 34, 34, 0, 0, 34, 34, 0, 0
 ]
 
+proc withinAgentVisionMask(dx: int32, dy: int32, radius: int, radiusSq: int): bool =
+  let
+    dxInt = int(dx)
+    dyInt = int(dy)
+    distSq = dxInt * dxInt + dyInt * dyInt
+  if distSq <= radiusSq:
+    return true
+  # Expand pure cardinal tips from 1 tile to 3 tiles for radius >= 2.
+  radius >= 2 and distSq == radiusSq + 1 and
+    (abs(dxInt) == radius or abs(dyInt) == radius)
 proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
   ## Rebuild the visibility map.
   let
@@ -93,9 +103,15 @@ proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
 
   for obj in agentsToProcess:
     let center = ivec2(int32(obj.visionSize div 2), int32(obj.visionSize div 2))
+    let visionRadius = obj.visionSize div 2
+    let visionRadiusSq = visionRadius * visionRadius
     let pos = obj.location.at
     for i in 0 ..< obj.visionSize:
       for j in 0 ..< obj.visionSize:
+        let dx = int32(i) - center.x
+        let dy = int32(j) - center.y
+        if not withinAgentVisionMask(dx, dy, visionRadius, visionRadiusSq):
+          continue
         let gridPos = pos.xy + ivec2(int32(i), int32(j)) - center
         if gridPos.x >= 0 and gridPos.x < width and
           gridPos.y >= 0 and gridPos.y < height:
@@ -178,10 +194,16 @@ proc rebuildExplorationFogMap*(explorationFogMap: TileMap) {.measure.} =
   # increase memory use (potentially map-size data across many timesteps).
   for obj in agentsToProcess:
     let center = ivec2(int32(obj.visionSize div 2), int32(obj.visionSize div 2))
+    let visionRadius = obj.visionSize div 2
+    let visionRadiusSq = visionRadius * visionRadius
     for historyStep in 0 .. step:
       let pos = obj.location.at(historyStep)
       for i in 0 ..< obj.visionSize:
         for j in 0 ..< obj.visionSize:
+          let dx = int32(i) - center.x
+          let dy = int32(j) - center.y
+          if not withinAgentVisionMask(dx, dy, visionRadius, visionRadiusSq):
+            continue
           let gridPos = pos.xy + ivec2(int32(i), int32(j)) - center
           if gridPos.x >= 0 and gridPos.x < width and
             gridPos.y >= 0 and gridPos.y < height:
@@ -259,16 +281,38 @@ proc aoeRadius(aoeConfig: JsonNode): int =
     return aoeConfig["radius"].getFloat.int
   return 0
 
-proc aoeControlsTerritory(aoeConfig: JsonNode): bool =
-  if "controls_territory" in aoeConfig and aoeConfig["controls_territory"].kind == JBool:
-    return aoeConfig["controls_territory"].getBool
+proc withinTerritoryInfluenceRadius(dx: int, dy: int, aoeRange: int): bool =
+  ## Must match territory-mask inclusion in AOETracker::register_fixed:
+  ## inside Euclidean radius, excluding exact cardinal boundary points.
+  let
+    distSq = dx * dx + dy * dy
+    rangeSq = aoeRange * aoeRange
+  if distSq > rangeSq:
+    return false
+  if aoeRange >= 2 and distSq == rangeSq and (dx == 0 or dy == 0):
+    return false
+  return true
+
+proc aoeHasMutations(aoeConfig: JsonNode): bool =
+  if "mutations" notin aoeConfig or aoeConfig["mutations"].kind != JArray:
+    return false
+  return aoeConfig["mutations"].len > 0
+
+proc aoeHasPresenceDeltas(aoeConfig: JsonNode): bool =
+  if "presence_deltas" notin aoeConfig:
+    return false
+  if aoeConfig["presence_deltas"].kind == JObject:
+    return aoeConfig["presence_deltas"].len > 0
+  if aoeConfig["presence_deltas"].kind == JArray:
+    return aoeConfig["presence_deltas"].len > 0
   return false
 
 proc isInfluenceAoeConfig(aoeConfig: JsonNode): bool =
-  ## Influence AOEs are fixed circular fields marked as territory-controlling.
+  ## Influence AOEs are fixed circular fields with no mutations/presence-deltas
+  ## and positive radius.
   if aoeRadius(aoeConfig) <= 0:
     return false
-  return aoeControlsTerritory(aoeConfig)
+  return not aoeHasMutations(aoeConfig) and not aoeHasPresenceDeltas(aoeConfig)
 
 proc alignmentFilterPasses(filterConfig: JsonNode, sourceCollectiveId: int, observerCollectiveId: int): bool =
   if observerCollectiveId < 0 or observerCollectiveId >= getNumCollectives():
@@ -351,30 +395,35 @@ proc collectiveToSlot*(collectiveId: int): int =
   else:
     collectiveId
 
+type TerritoryAoeSpec = object
+  radius: int
+
+proc territoryInfluenceScore(aoeSpec: TerritoryAoeSpec, distSq: int): float32 =
+  max(0.0f, aoeSpec.radius.float32 - sqrt(distSq.float32))
+
 proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
   ## Rebuild the AoE map for a specific slot (0=Clips, 1=Cogs, 2=Neutral).
   let
     width = aoeMap.width
     height = aoeMap.height
-    maxDist = high(int) div 4
 
   reuseableCoverageMap.setLen(width * height)
   reuseableOwnershipMap.setLen(width * height)
-  reuseableFriendlyDistMap.setLen(width * height)
-  reuseableEnemyDistMap.setLen(width * height)
+  reuseableFriendlyScoreMap.setLen(width * height)
+  reuseableEnemyScoreMap.setLen(width * height)
   # Ownership encoding:
   # 0 = neutral/no ownership, 1 = friendly ownership, 2 = enemy ownership.
   for i in 0 ..< reuseableCoverageMap.len:
     reuseableCoverageMap[i] = true
     reuseableOwnershipMap[i] = 0'u8
-    reuseableFriendlyDistMap[i] = maxDist
-    reuseableEnemyDistMap[i] = maxDist
+    reuseableFriendlyScoreMap[i] = 0.0f
+    reuseableEnemyScoreMap[i] = 0.0f
 
   # Check if this collective is visible (not hidden). Neutral slot is never shown in combined mode.
   let isEnabled = slotId < getNumCollectives() and slotId notin settings.hiddenCollectiveAoe
 
-  proc influenceRangesForSlot(obj: Entity, observerSlot: int): seq[int] =
-    ## Return all influence AOE radii that affect this observer slot.
+  proc influenceAoesForSlot(obj: Entity, observerSlot: int): seq[TerritoryAoeSpec] =
+    ## Return all influence AOEs that affect this observer slot.
     result = @[]
     if obj.typeName == "agent":
       return
@@ -404,62 +453,70 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
       if not aoePassesForCollective(aoeConfig, sourceSlot, observerSlot):
         continue
       let aoeRange = aoeRadius(aoeConfig)
-      if aoeRange > 0:
-        result.add(aoeRange)
+      result.add(
+        TerritoryAoeSpec(
+          radius: aoeRange
+        )
+      )
 
   # Mark AoE coverage directly (used for selected-object mode).
   proc markSelectedCoverage(obj: Entity) =
     if collectiveToSlot(obj.collectiveId.at(step)) != slotId:
       return
 
-    let ranges = influenceRangesForSlot(obj, slotId)
-    if ranges.len == 0:
+    let aoeSpecs = influenceAoesForSlot(obj, slotId)
+    if aoeSpecs.len == 0:
       return
 
     let pos = obj.location.at(step).xy
-    for aoeRange in ranges:
-      let rangeSq = aoeRange * aoeRange
+    for aoeSpec in aoeSpecs:
+      let aoeRange = aoeSpec.radius
       for dx in -aoeRange .. aoeRange:
         for dy in -aoeRange .. aoeRange:
           let
             tx = pos.x + dx.int32
             ty = pos.y + dy.int32
-          if dx * dx + dy * dy > rangeSq:
+            distSq = dx * dx + dy * dy
+          if not withinTerritoryInfluenceRadius(dx, dy, aoeRange):
+            continue
+          let score = territoryInfluenceScore(aoeSpec, distSq)
+          if score <= 0.0f:
             continue
           if tx >= 0 and tx < width and ty >= 0 and ty < height:
             reuseableOwnershipMap[ty * width + tx] = 1'u8
 
-  # Accumulate nearest distances for friendly/enemy influence (territory-style collapse).
-  proc accumulateTerritoryDistances(obj: Entity) =
+  # Accumulate friendly/enemy weighted influence from AOEs.
+  proc accumulateTerritoryInfluence(obj: Entity) =
     let objSlot = collectiveToSlot(obj.collectiveId.at(step))
     if objSlot >= getNumCollectives() or objSlot in settings.hiddenCollectiveAoe:
       return
 
-    let ranges = influenceRangesForSlot(obj, slotId)
-    if ranges.len == 0:
+    let aoeSpecs = influenceAoesForSlot(obj, slotId)
+    if aoeSpecs.len == 0:
       return
 
     let isFriendly = objSlot == slotId
     let pos = obj.location.at(step).xy
 
-    for aoeRange in ranges:
-      let rangeSq = aoeRange * aoeRange
+    for aoeSpec in aoeSpecs:
+      let aoeRange = aoeSpec.radius
       for dx in -aoeRange .. aoeRange:
         for dy in -aoeRange .. aoeRange:
           let
             tx = pos.x + dx.int32
             ty = pos.y + dy.int32
           let distSq = dx * dx + dy * dy
-          if distSq > rangeSq:
+          if not withinTerritoryInfluenceRadius(dx, dy, aoeRange):
             continue
           if tx >= 0 and tx < width and ty >= 0 and ty < height:
             let idx = ty * width + tx
+            let score = territoryInfluenceScore(aoeSpec, distSq)
+            if score <= 0.0f:
+              continue
             if isFriendly:
-              if distSq < reuseableFriendlyDistMap[idx]:
-                reuseableFriendlyDistMap[idx] = distSq
+              reuseableFriendlyScoreMap[idx] += score
             else:
-              if distSq < reuseableEnemyDistMap[idx]:
-                reuseableEnemyDistMap[idx] = distSq
+              reuseableEnemyScoreMap[idx] += score
 
   # If a selected object has influence AoE, show only its AoE.
   # Otherwise show combined AoE for all objects in enabled collectives.
@@ -470,30 +527,23 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
     if collectiveToSlot(selected.collectiveId.at(step)) == slotId:
       markSelectedCoverage(selected)
   else:
-    # Show combined AoE with territory-style collapse:
-    # winner per tile by nearest distance, ties are neutral.
+    # Show combined AoE with weighted territory influence collapse.
     if isEnabled:
       for obj in replay.objects:
         if not obj.alive.at:
           continue
-        accumulateTerritoryDistances(obj)
+        accumulateTerritoryInfluence(obj)
 
       for i in 0 ..< reuseableOwnershipMap.len:
         let
-          friendlyDist = reuseableFriendlyDistMap[i]
-          enemyDist = reuseableEnemyDistMap[i]
-        if friendlyDist == maxDist and enemyDist == maxDist:
-          reuseableOwnershipMap[i] = 0'u8
-        elif enemyDist == maxDist:
+          friendlyScore = reuseableFriendlyScoreMap[i]
+          enemyScore = reuseableEnemyScoreMap[i]
+          epsilon = 1e-6f
+        if friendlyScore > enemyScore + epsilon:
           reuseableOwnershipMap[i] = 1'u8
-        elif friendlyDist == maxDist:
-          reuseableOwnershipMap[i] = 2'u8
-        elif friendlyDist < enemyDist:
-          reuseableOwnershipMap[i] = 1'u8
-        elif enemyDist < friendlyDist:
+        elif enemyScore > friendlyScore + epsilon:
           reuseableOwnershipMap[i] = 2'u8
         else:
-          # Midpoint tie => neutral ownership.
           reuseableOwnershipMap[i] = 0'u8
 
   for i in 0 ..< reuseableCoverageMap.len:

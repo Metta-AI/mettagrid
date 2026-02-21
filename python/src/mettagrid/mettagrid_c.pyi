@@ -409,7 +409,6 @@ class AOEConfig(HandlerConfig):
     radius: int
     is_static: bool
     effect_self: bool
-    controls_territory: bool
     presence_deltas: list[ResourceDelta]
 
 class EventConfig(HandlerConfig):

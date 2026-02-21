@@ -1,9 +1,8 @@
 #include "core/aoe_tracker.hpp"
 
 #include <algorithm>
-#include <cmath>
+#include <cassert>
 #include <cstdint>
-#include <limits>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -21,55 +20,38 @@ int64_t distance_sq(const GridLocation& a, const GridLocation& b) {
 }
 
 bool is_territory_aoe(const AOESource* aoe_source) {
-  return aoe_source != nullptr && aoe_source->config.controls_territory;
+  return aoe_source != nullptr && !aoe_source->has_mutations() && !aoe_source->has_presence_deltas() &&
+         aoe_source->config.radius > 0;
 }
 
-enum class TerritoryOwner {
-  Neutral,
-  Friendly,
-  Enemy,
-};
-
-struct TerritoryContest {
-  bool friendly_present = false;
-  bool enemy_present = false;
-  int64_t friendly_best_key = std::numeric_limits<int64_t>::max();
-  int64_t enemy_best_key = std::numeric_limits<int64_t>::max();
-
-  void consider(bool is_friendly, int64_t key) {
-    if (is_friendly) {
-      friendly_present = true;
-      if (key < friendly_best_key) {
-        friendly_best_key = key;
-      }
-      return;
-    }
-
-    enemy_present = true;
-    if (key < enemy_best_key) {
-      enemy_best_key = key;
-    }
+uint64_t floor_sqrt_u64(uint64_t value) {
+  uint64_t root = 0;
+  uint64_t bit = 1ULL << 62;
+  while (bit > value) {
+    bit >>= 2;
   }
-
-  TerritoryOwner owner() const {
-    if (friendly_present && enemy_present) {
-      if (friendly_best_key < enemy_best_key) {
-        return TerritoryOwner::Friendly;
-      }
-      if (enemy_best_key < friendly_best_key) {
-        return TerritoryOwner::Enemy;
-      }
-      return TerritoryOwner::Neutral;
+  while (bit != 0) {
+    if (value >= root + bit) {
+      value -= root + bit;
+      root = (root >> 1) + bit;
+    } else {
+      root >>= 1;
     }
-    if (friendly_present) {
-      return TerritoryOwner::Friendly;
-    }
-    if (enemy_present) {
-      return TerritoryOwner::Enemy;
-    }
-    return TerritoryOwner::Neutral;
+    bit >>= 2;
   }
-};
+  return root;
+}
+
+int64_t territory_influence_score(const AOEConfig& config, int64_t dist_sq) {
+  assert(config.radius > 0 && "radius must be positive for territory AOEs");
+  assert(dist_sq >= 0 && "distance squared cannot be negative");
+  constexpr uint64_t kInfluenceScale = 1024;
+  uint64_t scaled_dist_sq = static_cast<uint64_t>(dist_sq) * kInfluenceScale * kInfluenceScale;
+  uint64_t scaled_distance = floor_sqrt_u64(scaled_dist_sq);
+  int64_t score = static_cast<int64_t>(config.radius) * static_cast<int64_t>(kInfluenceScale) -
+                  static_cast<int64_t>(scaled_distance);
+  return score > 0 ? score : 0;
+}
 }  // namespace
 
 // AOESource implementation
@@ -168,6 +150,7 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
 
   const GridLocation& source_loc = source.location;
   int range = config.radius;
+  bool territory_boundary = is_territory_aoe(aoe_source.get());
 
   // Register at all cells within Euclidean radius.
   int64_t range_sq = static_cast<int64_t>(range) * range;
@@ -183,6 +166,13 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
       }
       int64_t dist_sq = static_cast<int64_t>(dr) * dr + static_cast<int64_t>(dc) * dc;
       if (dist_sq > range_sq) {
+        continue;
+      }
+      // Territory circles intentionally exclude exact cardinal boundary points
+      // so the mask shape is smooth and matches Mettascope overlays.
+      // Keep full coverage for tiny radii (0/1), where trimming would collapse
+      // the territory footprint.
+      if (territory_boundary && range >= 2 && dist_sq == range_sq && (dr == 0 || dc == 0)) {
         continue;
       }
       _cell_effects[cell_r][cell_c].push_back(aoe_source);
@@ -279,7 +269,6 @@ void AOETracker::apply_fixed(GridObject& target, const HandlerContext& ctx) {
 
   Collective* target_collective = target.getCollective();
   int target_collective_id = target_collective != nullptr ? target_collective->id : -1;
-  bool territory_collapse_enabled = (target_collective_id >= 0);
 
   // Get the set of fixed AOEs the target was previously inside
   auto& prev_inside = _target_fixed_inside[&target];
@@ -330,38 +319,6 @@ void AOETracker::apply_fixed(GridObject& target, const HandlerContext& ctx) {
     }
   }
 
-  // Territory selection: collapse to a single winning side per tile/target.
-  TerritoryContest territory_contest;
-
-  if (territory_collapse_enabled) {
-    auto consider_territory = [&](AOESource* aoe_source, bool is_friendly) {
-      if (!is_territory_aoe(aoe_source) || aoe_source->source == nullptr) {
-        return;
-      }
-
-      Collective* source_collective = aoe_source->source->getCollective();
-      if (source_collective == nullptr) {
-        return;
-      }
-
-      bool skip_self = (!aoe_source->config.effect_self && aoe_source->source == &target);
-      if (skip_self || !aoe_source->passes_filters(&target, target_ctx)) {
-        return;
-      }
-
-      territory_contest.consider(is_friendly, distance_sq(aoe_source->source->location, target.location));
-    };
-
-    for (AOESource* aoe_source : _scratch_friendly_sources) {
-      consider_territory(aoe_source, true);
-    }
-    for (AOESource* aoe_source : _scratch_enemy_sources) {
-      consider_territory(aoe_source, false);
-    }
-  }
-
-  TerritoryOwner territory_owner = territory_collapse_enabled ? territory_contest.owner() : TerritoryOwner::Neutral;
-
   auto process_source = [&](AOESource* aoe_source) {
     if (!aoe_source->has_mutations() && !aoe_source->has_presence_deltas()) {
       return;
@@ -371,25 +328,13 @@ void AOETracker::apply_fixed(GridObject& target, const HandlerContext& ctx) {
     bool now_passes = (!skip_self && aoe_source->passes_filters(&target, target_ctx));
     bool effective_passes = now_passes;
 
-    if (territory_collapse_enabled && is_territory_aoe(aoe_source) && aoe_source->source != nullptr) {
-      Collective* source_collective = aoe_source->source->getCollective();
-      if (source_collective == nullptr) {
-        effective_passes = false;
-      } else {
-        bool source_is_friendly = (source_collective->id == target_collective_id);
-        bool territory_matches_source = (territory_owner == TerritoryOwner::Friendly && source_is_friendly) ||
-                                        (territory_owner == TerritoryOwner::Enemy && !source_is_friendly);
-        effective_passes = now_passes && territory_matches_source;
-      }
-    }
-
     bool was_inside = prev_inside.contains(aoe_source);
     if (effective_passes && !was_inside) {
       _inside[aoe_source].insert(&target);
       aoe_source->apply_presence_deltas(&target, +1);
       prev_inside.insert(aoe_source);
     } else if (!effective_passes && was_inside) {
-      // Exit event (filter no longer passes, or lost a territory "fight")
+      // Exit event (filter no longer passes).
       _inside[aoe_source].erase(&target);
       aoe_source->apply_presence_deltas(&target, -1);
       prev_inside.erase(aoe_source);
@@ -497,16 +442,12 @@ size_t AOETracker::fixed_effect_count_at(const GridLocation& loc) const {
 void AOETracker::fixed_observability_at(const GridLocation& loc,
                                         GridObject& observer,
                                         const HandlerContext& ctx,
-                                        ObservationType* out_aoe_mask,
-                                        ObservationType* out_territory) const {
+                                        ObservationType* out_aoe_mask) const {
   if (out_aoe_mask != nullptr) {
     *out_aoe_mask = 0;
   }
-  if (out_territory != nullptr) {
-    *out_territory = 0;
-  }
 
-  if ((out_aoe_mask == nullptr && out_territory == nullptr) || loc.r >= _height || loc.c >= _width) {
+  if (out_aoe_mask == nullptr || loc.r >= _height || loc.c >= _width) {
     return;
   }
 
@@ -524,7 +465,8 @@ void AOETracker::fixed_observability_at(const GridLocation& loc,
   obs_ctx.actor = nullptr;
   obs_ctx.target = &observer;
 
-  TerritoryContest territory_contest;
+  int64_t friendly_score = 0;
+  int64_t enemy_score = 0;
 
   for (const auto& aoe_source : cell_effects) {
     GridObject* source = aoe_source->source;
@@ -546,23 +488,21 @@ void AOETracker::fixed_observability_at(const GridLocation& loc,
     }
 
     bool is_friendly = (source_collective->id == observer_collective->id);
-    territory_contest.consider(is_friendly, distance_sq(source->location, loc));
+    int64_t score = territory_influence_score(aoe_source->config, distance_sq(source->location, loc));
+    if (is_friendly) {
+      friendly_score += score;
+    } else {
+      enemy_score += score;
+    }
   }
 
-  ObservationType aoe_value = 0;
-  TerritoryOwner owner = territory_contest.owner();
-  if (owner == TerritoryOwner::Friendly) {
-    aoe_value = 1;
-  } else if (owner == TerritoryOwner::Enemy) {
-    aoe_value = 2;
+  ObservationType aoe_mask_value = 0;
+  if (friendly_score > enemy_score) {
+    aoe_mask_value = 1;
+  } else if (enemy_score > friendly_score) {
+    aoe_mask_value = 2;
   }
-
-  if (out_aoe_mask != nullptr) {
-    *out_aoe_mask = aoe_value;
-  }
-  if (out_territory != nullptr) {
-    *out_territory = aoe_value;
-  }
+  *out_aoe_mask = aoe_mask_value;
 }
 
 }  // namespace mettagrid
