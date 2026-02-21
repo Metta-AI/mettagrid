@@ -2,6 +2,7 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_SYSTEMS_REWARD_HPP_
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <string>
 #include <type_traits>
@@ -30,12 +31,13 @@ public:
   }
 
   struct ResolvedEntry {
-    ResolvedGameValue numerator;
+    std::vector<ResolvedGameValue> numerators;
     std::vector<ResolvedGameValue> denominators;
     float weight = 1.0f;
     float max_value = 0.0f;
     bool has_max = false;
     bool accumulate = false;
+    AggregationMode aggregation_mode = AggregationMode::SUM;
     float prev_value = 0.0f;
   };
 
@@ -57,8 +59,10 @@ public:
     _resolved_entries.clear();
     for (const auto& entry : config.entries) {
       ResolvedEntry re;
-      re.numerator =
-          resolve_game_value(entry.numerator, agent_stats_tracker, collective_stats_tracker, game_ctx, resource_names);
+      for (const auto& num : entry.numerators) {
+        re.numerators.push_back(
+            resolve_game_value(num, agent_stats_tracker, collective_stats_tracker, game_ctx, resource_names));
+      }
       for (const auto& denom : entry.denominators) {
         re.denominators.push_back(
             resolve_game_value(denom, agent_stats_tracker, collective_stats_tracker, game_ctx, resource_names));
@@ -67,6 +71,7 @@ public:
       re.max_value = entry.max_value;
       re.has_max = entry.has_max;
       re.accumulate = entry.accumulate;
+      re.aggregation_mode = entry.aggregation_mode;
       _resolved_entries.push_back(std::move(re));
     }
   }
@@ -77,7 +82,20 @@ public:
 
     float total_delta = 0.0f;
     for (auto& entry : _resolved_entries) {
-      float val = entry.numerator.read() * entry.weight;
+      float raw = 0.0f;
+      switch (entry.aggregation_mode) {
+        case AggregationMode::SUM:
+          for (auto& num : entry.numerators) {
+            raw += num.read();
+          }
+          break;
+        case AggregationMode::SUM_LOGS:
+          for (auto& num : entry.numerators) {
+            raw += std::log(num.read() + 1.0f);
+          }
+          break;
+      }
+      float val = raw * entry.weight;
 
       for (auto& denom : entry.denominators) {
         float d = denom.read();

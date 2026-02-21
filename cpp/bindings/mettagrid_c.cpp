@@ -389,16 +389,18 @@ void MettaGrid::_compute_agent_goal_obs_tokens(size_t agent_idx) {
 
   // Extract resource info from reward entries for goal observation tokens
   for (const auto& entry : agent->reward_helper.config.entries) {
-    std::visit(
-        [&](auto&& c) {
-          using T = std::decay_t<decltype(c)>;
-          if constexpr (std::is_same_v<T, InventoryValueConfig>) {
-            if (c.id < resource_names.size()) {
-              add_resource_goal(resource_names[c.id]);
+    for (const auto& num : entry.numerators) {
+      std::visit(
+          [&](auto&& c) {
+            using T = std::decay_t<decltype(c)>;
+            if constexpr (std::is_same_v<T, InventoryValueConfig>) {
+              if (c.id < resource_names.size()) {
+                add_resource_goal(resource_names[c.id]);
+              }
             }
-          }
-        },
-        entry.numerator);
+          },
+          num);
+    }
   }
 
   _agent_goal_obs_tokens[agent_idx] = std::move(goal_tokens);

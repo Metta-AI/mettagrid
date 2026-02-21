@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from mettagrid.config.game_value import stat as game_stat
@@ -12,7 +14,7 @@ from mettagrid.config.mettagrid_config import (
     NoopActionConfig,
     WallConfig,
 )
-from mettagrid.config.reward_config import inventoryReward, reward, statReward
+from mettagrid.config.reward_config import AgentReward, Aggregation, inventoryReward, reward, statReward
 from mettagrid.simulator import Action, Simulation
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
 
@@ -313,3 +315,164 @@ class TestDeltaStatReward:
         sim.step()
 
         assert agent.episode_reward == 0.0, f"Initial wealth is not a deposit, got {agent.episode_reward}"
+
+
+class TestSumLogsAggregation:
+    """Test that SUM_LOGS aggregation computes sum(log(val + 1)) across numerators."""
+
+    def test_sum_logs_computes_log_sum_of_inventory_amounts(self):
+        """SUM_LOGS with inventory values should give sum(log(amount + 1))."""
+        game_map = [
+            ["wall", "wall", "wall"],
+            ["wall", "agent.red", "wall"],
+            ["wall", "wall", "wall"],
+        ]
+
+        game_config = GameConfig(
+            max_steps=100,
+            num_agents=1,
+            resource_names=["gold", "silver"],
+            actions=ActionsConfig(noop=NoopActionConfig(enabled=True)),
+            collectives={"team": CollectiveConfig(inventory=InventoryConfig())},
+            objects={"wall": WallConfig()},
+            agent=AgentConfig(
+                collective="team",
+                inventory=InventoryConfig(initial={"gold": 10, "silver": 5}),
+                rewards={
+                    "diversity": reward(
+                        [game_stat("gold.amount"), game_stat("silver.amount")],
+                        aggregation=Aggregation.SUM_LOGS,
+                        weight=1.0,
+                    ),
+                },
+            ),
+        )
+
+        cfg = MettaGridConfig(game=game_config)
+        cfg.game.map_builder = ObjectNameMapBuilder.Config(map_data=game_map)
+        sim = Simulation(cfg, seed=42)
+        agent = sim.agent(0)
+
+        agent.set_action(Action(name="noop"))
+        sim.step()
+
+        # Expected: log(10 + 1) + log(5 + 1) = log(11) + log(6)
+        expected = math.log(11) + math.log(6)
+        assert abs(agent.episode_reward - expected) < 0.01, (
+            f"Expected reward ~{expected:.4f}, got {agent.episode_reward:.4f}"
+        )
+
+    def test_sum_logs_zero_values_contribute_zero(self):
+        """log(0 + 1) = 0, so zero-valued stats don't contribute."""
+        game_map = [
+            ["wall", "wall", "wall"],
+            ["wall", "agent.red", "wall"],
+            ["wall", "wall", "wall"],
+        ]
+
+        game_config = GameConfig(
+            max_steps=100,
+            num_agents=1,
+            resource_names=["gold", "silver"],
+            actions=ActionsConfig(noop=NoopActionConfig(enabled=True)),
+            collectives={"team": CollectiveConfig(inventory=InventoryConfig())},
+            objects={"wall": WallConfig()},
+            agent=AgentConfig(
+                collective="team",
+                inventory=InventoryConfig(initial={"gold": 0, "silver": 0}),
+                rewards={
+                    "diversity": reward(
+                        [game_stat("gold.amount"), game_stat("silver.amount")],
+                        aggregation=Aggregation.SUM_LOGS,
+                        weight=1.0,
+                    ),
+                },
+            ),
+        )
+
+        cfg = MettaGridConfig(game=game_config)
+        cfg.game.map_builder = ObjectNameMapBuilder.Config(map_data=game_map)
+        sim = Simulation(cfg, seed=42)
+        agent = sim.agent(0)
+
+        agent.set_action(Action(name="noop"))
+        sim.step()
+
+        # log(0+1) + log(0+1) = 0 + 0 = 0
+        assert agent.episode_reward == 0.0, f"Expected 0 reward for zero stats, got {agent.episode_reward}"
+
+
+class TestMultiNumeratorSum:
+    """Test that multi-numerator SUM aggregation sums values."""
+
+    def test_multi_numerator_sum(self):
+        """Multiple numerators with SUM should add their values."""
+        game_map = [
+            ["wall", "wall", "wall"],
+            ["wall", "agent.red", "wall"],
+            ["wall", "wall", "wall"],
+        ]
+
+        game_config = GameConfig(
+            max_steps=100,
+            num_agents=1,
+            resource_names=["gold", "silver"],
+            actions=ActionsConfig(noop=NoopActionConfig(enabled=True)),
+            collectives={"team": CollectiveConfig(inventory=InventoryConfig())},
+            objects={"wall": WallConfig()},
+            agent=AgentConfig(
+                collective="team",
+                inventory=InventoryConfig(initial={"gold": 10, "silver": 5}),
+                rewards={
+                    "total": reward(
+                        [game_stat("gold.amount"), game_stat("silver.amount")],
+                        aggregation=Aggregation.SUM,
+                        weight=0.5,
+                    ),
+                },
+            ),
+        )
+
+        cfg = MettaGridConfig(game=game_config)
+        cfg.game.map_builder = ObjectNameMapBuilder.Config(map_data=game_map)
+        sim = Simulation(cfg, seed=42)
+        agent = sim.agent(0)
+
+        agent.set_action(Action(name="noop"))
+        sim.step()
+
+        # Expected: (10 + 5) * 0.5 = 7.5
+        expected = (10 + 5) * 0.5
+        assert abs(agent.episode_reward - expected) < 0.01, f"Expected reward ~{expected}, got {agent.episode_reward}"
+
+
+class TestEmptyNumeratorsRejected:
+    """Reward entries with no numerators must fail fast during conversion."""
+
+    def test_empty_numerators_raises(self):
+        game_map = [
+            ["wall", "wall", "wall"],
+            ["wall", "agent.red", "wall"],
+            ["wall", "wall", "wall"],
+        ]
+
+        game_config = GameConfig(
+            max_steps=100,
+            num_agents=1,
+            resource_names=["gold"],
+            actions=ActionsConfig(noop=NoopActionConfig(enabled=True)),
+            collectives={"team": CollectiveConfig(inventory=InventoryConfig())},
+            objects={"wall": WallConfig()},
+            agent=AgentConfig(
+                collective="team",
+                rewards={
+                    "broken": AgentReward(nums=[], weight=1.0),
+                },
+            ),
+        )
+
+        cfg = MettaGridConfig(game=game_config)
+        cfg.game.map_builder = ObjectNameMapBuilder.Config(map_data=game_map)
+
+        with pytest.raises(ValueError, match="no numerators"):
+            Simulation(cfg, seed=42)

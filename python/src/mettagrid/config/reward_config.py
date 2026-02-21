@@ -3,6 +3,8 @@
 Provides GameValue types and helper functions for defining rewards.
 """
 
+from enum import Enum
+
 from pydantic import Field
 
 from mettagrid.base_config import Config
@@ -14,6 +16,11 @@ from mettagrid.config.game_value import (
     StatValue,
     TagCountValue,
 )
+
+
+class Aggregation(str, Enum):
+    SUM = "sum"
+    SUM_LOGS = "sum_logs"
 
 
 class AgentReward(Config):
@@ -30,6 +37,7 @@ class AgentReward(Config):
     denoms: list[AnyGameValue] = Field(default_factory=list)
     weight: float = 1.0
     max: float | None = None  # Cap on final reward value
+    aggregation: Aggregation = Aggregation.SUM
     per_tick: bool = False  # Accumulate value each tick instead of delta at end of episode
 
 
@@ -37,14 +45,15 @@ class AgentReward(Config):
 
 
 def reward(
-    value: AnyGameValue,
+    value: AnyGameValue | list[AnyGameValue],
     *,
     weight: float = 1.0,
     max: float | None = None,
     denoms: list[AnyGameValue] | None = None,
+    aggregation: Aggregation = Aggregation.SUM,
     per_tick: bool = False,
 ) -> AgentReward:
-    """Create an AgentReward with a single numerator value.
+    """Create an AgentReward from one or more numerator values.
 
     For simpler cases, prefer the dedicated helper functions:
         statReward("a.b.c", max=10)
@@ -52,7 +61,10 @@ def reward(
         numObjectsReward("junction", weight=0.1)
         numTaggedReward("vibe:aligned", weight=0.5)
     """
-    return AgentReward(nums=[value], denoms=denoms or [], weight=weight, max=max, per_tick=per_tick)
+    nums = value if isinstance(value, list) else [value]
+    return AgentReward(
+        nums=nums, denoms=denoms or [], weight=weight, max=max, aggregation=aggregation, per_tick=per_tick
+    )
 
 
 def stat(

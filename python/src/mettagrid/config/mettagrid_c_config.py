@@ -12,9 +12,11 @@ from mettagrid.config.mettagrid_config import (
 )
 from mettagrid.config.mutation import AlignmentMutation
 from mettagrid.config.query import Query
+from mettagrid.config.reward_config import Aggregation
 from mettagrid.config.tag import typeTag
 from mettagrid.mettagrid_c import ActionConfig as CppActionConfig
 from mettagrid.mettagrid_c import AgentConfig as CppAgentConfig
+from mettagrid.mettagrid_c import AggregationMode as CppAggregationMode
 from mettagrid.mettagrid_c import AlignmentCondition as CppAlignmentCondition
 from mettagrid.mettagrid_c import AlignmentFilterConfig as CppAlignmentFilterConfig
 from mettagrid.mettagrid_c import AlignmentMutationConfig as CppAlignmentMutationConfig
@@ -36,7 +38,6 @@ from mettagrid.mettagrid_c import HandlerConfig as CppHandlerConfig
 from mettagrid.mettagrid_c import HandlerMode as CppHandlerMode
 from mettagrid.mettagrid_c import InventoryConfig as CppInventoryConfig
 from mettagrid.mettagrid_c import LimitDef as CppLimitDef
-from mettagrid.mettagrid_c import LogSumStatConfig as CppLogSumStatConfig
 from mettagrid.mettagrid_c import (
     MaterializedQueryTag as CppMaterializedQueryTag,  # pyright: ignore[reportAttributeAccessIssue]
 )
@@ -69,6 +70,11 @@ _ALIGNMENT_CONDITION_TO_CPP = {
     AlignmentCondition.UNALIGNED: CppAlignmentCondition.unaligned,
     AlignmentCondition.SAME_COLLECTIVE: CppAlignmentCondition.same_collective,
     AlignmentCondition.DIFFERENT_COLLECTIVE: CppAlignmentCondition.different_collective,
+}
+
+_AGGREGATION_TO_CPP = {
+    Aggregation.SUM: CppAggregationMode.SUM,
+    Aggregation.SUM_LOGS: CppAggregationMode.SUM_LOGS,
 }
 
 
@@ -593,15 +599,13 @@ def convert_to_cpp_game_config(
 
         reward_entries = []
         for reward_name, agent_reward in agent_cfg.rewards.items():
+            if not agent_reward.nums:
+                raise ValueError(f"Reward '{reward_name}' has no numerators.")
             entry = CppRewardEntry()
-            if len(agent_reward.nums) != 1:
-                raise ValueError(
-                    f"Reward '{reward_name}' has {len(agent_reward.nums)} numerators, "
-                    "but only a single numerator per reward is supported."
-                )
-            entry.numerator = resolve_game_value(agent_reward.nums[0], id_maps)
+            entry.numerators = [resolve_game_value(n, id_maps) for n in agent_reward.nums]
             entry.denominators = [resolve_game_value(d, id_maps) for d in agent_reward.denoms]
             entry.weight = agent_reward.weight
+            entry.aggregation_mode = _AGGREGATION_TO_CPP[agent_reward.aggregation]
             if agent_reward.max is not None:
                 entry.max_value = agent_reward.max
                 entry.has_max = True
@@ -669,16 +673,6 @@ def convert_to_cpp_game_config(
 
         if agent_cfg.on_tick:
             cpp_agent_config.on_tick = _convert_handlers(agent_cfg.on_tick, id_maps)
-
-        if agent_cfg.log_sum_stats:
-            cpp_log_sum_stats = []
-            for ls_cfg in agent_cfg.log_sum_stats:
-                cpp_ls = CppLogSumStatConfig()
-                cpp_ls.stat_name = ls_cfg.stat_name
-                cpp_ls.stat_suffix = ls_cfg.stat_suffix
-                cpp_ls.items = [resource_name_to_id[r] for r in ls_cfg.resources]
-                cpp_log_sum_stats.append(cpp_ls)
-            cpp_agent_config.log_sum_stats = cpp_log_sum_stats
 
         return cpp_agent_config
 
