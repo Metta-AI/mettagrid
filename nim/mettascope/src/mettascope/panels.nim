@@ -583,16 +583,23 @@ proc drawTutorialOverlay*() =
     bodyWidth = overlayWidth - 36.0f
     bodyHeight = overlayHeight - 150.0f
     nextButtonSize = vec2(240.0f, 42.0f)
-    nextButtonPos = overlayPos + vec2(overlayWidth - nextButtonSize.x - 16.0f, overlayHeight - nextButtonSize.y - 14.0f)
+    nextButtonPos = overlayPos + vec2(overlayWidth - nextButtonSize.x - 16.0f, overlayHeight - nextButtonSize.y - 24.0f)
     nextButtonRect = rect(nextButtonPos.x, nextButtonPos.y, nextButtonSize.x, nextButtonSize.y)
     nextButtonHovered = window.mousePos.vec2.overlaps(nextButtonRect)
+  let advanceOrClosePressed = window.buttonPressed[KeyEnter] or (nextButtonHovered and window.buttonPressed[MouseLeft])
   var canAdvance = phaseCount > 0 and replay.tutorialOverlayPhase < phaseCount - 1
 
-  if canAdvance and (window.buttonPressed[KeyEnter] or (nextButtonHovered and window.buttonPressed[MouseLeft])):
-    replay.tutorialOverlayPhase = min(replay.tutorialOverlayPhase + 1, phaseCount - 1)
-    replay.tutorialOverlay = replay.tutorialOverlayPhases[replay.tutorialOverlayPhase]
-    overlayText = replay.tutorialOverlay
-    canAdvance = replay.tutorialOverlayPhase < phaseCount - 1
+  if advanceOrClosePressed:
+    if canAdvance:
+      replay.tutorialOverlayPhase = min(replay.tutorialOverlayPhase + 1, phaseCount - 1)
+      replay.tutorialOverlay = replay.tutorialOverlayPhases[replay.tutorialOverlayPhase]
+      overlayText = replay.tutorialOverlay
+      canAdvance = replay.tutorialOverlayPhase < phaseCount - 1
+    else:
+      replay.tutorialOverlay = ""
+      replay.tutorialOverlayPhases = @[]
+      replay.tutorialOverlayPhase = 0
+      return
 
   var
     titleText = overlayText
@@ -624,14 +631,13 @@ proc drawTutorialOverlay*() =
     discard sk.drawText(
       "H1",
       phaseLabel,
-      overlayPos + vec2(overlayWidth - 190.0f, 12.0f),
+      overlayPos + vec2(overlayWidth - 190.0f, 2.0f),
       rgbx(218, 235, 218, 255)
     )
 
-  let buttonText = if canAdvance: "Next (Enter)" else: "Final Phase"
+  let buttonText = if canAdvance: "Next (Enter)" else: "Close"
   let nextButtonPatch =
-    if not canAdvance: "panel.tab.9patch"
-    elif nextButtonHovered: "panel.tab.hover.9patch"
+    if nextButtonHovered: "panel.tab.hover.9patch"
     else: "panel.tab.selected.9patch"
   sk.draw9Patch(nextButtonPatch, 3, nextButtonPos, nextButtonSize, rgbx(255, 255, 255, 255))
   discard sk.drawText(
