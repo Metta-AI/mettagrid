@@ -1,7 +1,7 @@
 import
   std/[times, math],
   chroma, vmath, windy, silky,
-  common, actions, gameplayer, timelineslider
+  common, actions, gameplayer, timelineslider, configs
 
 const
   ScrubberColor = parseHtmlColor("#1D1D1D").rgbx

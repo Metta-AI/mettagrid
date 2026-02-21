@@ -7,7 +7,7 @@ import
 proc onReplayLoaded*() =
   ## Called when a replay is loaded.
   # Clear cached maps that depend on the old replay
-  terrainMap = nil
+  resetTerrainCaches()
   visibilityMap = nil
   visibilityMapStep = -1
   visibilityMapSelectionId = -1
@@ -34,6 +34,7 @@ proc onReplayLoaded*() =
 
   let config = loadConfig()
   applyUIState(config)
+  rebuildSplats()
 
   # Update zoom info rect based on game mode (same logic as switchGameMode)
   if gameMode == Game:

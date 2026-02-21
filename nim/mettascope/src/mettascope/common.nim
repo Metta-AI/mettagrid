@@ -39,6 +39,8 @@ type
     showFogOfWar* = false
     showVisualRange* = true
     showGrid* = true
+    showMask* = true
+    showSplats* = true
     showResources* = true
     showHeatmap* = false
     showObservations* = -1

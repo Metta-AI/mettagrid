@@ -31,6 +31,7 @@ proc buildPixelAtlas*() =
       dataDir / "agents",
       dataDir / "objects",
       dataDir / "view",
+      dataDir / "terrain",
     ],
     outputImagePath = dataDir / "atlas.png",
     outputJsonPath = dataDir / "atlas.json",

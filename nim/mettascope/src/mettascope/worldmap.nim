@@ -1,8 +1,8 @@
 import
-  std/[algorithm, math, os, tables, random, json, sets, options, strutils],
+  std/[algorithm, math, os, tables, json, sets, options, strutils],
   chroma, vmath, windy, silky,
   common, actions, replays,
-  pathfinding, tilemap, pixelator, shaderquad, starfield,
+  pathfinding, tilemap, pixelator, shaderquad, terrains, starfield,
   panels, heatmap, heatmapshader, collectives, colors,
   panels/objectpanel
 
@@ -18,7 +18,6 @@ const
   SelectionRadiusPixels = 100.0f # Screen-space click radius for selecting nearby objects.
 
 var
-  terrainMap*: TileMap
   visibilityMapStep*: int = -1
   visibilityMapSelectionId*: int = -1
   visibilityMap*: TileMap
@@ -58,16 +57,6 @@ proc ensureHeatmapReady*() =
     initHeatmapShader()
     heatmapShaderInitialized = true
 
-proc weightedRandomInt*(weights: seq[int]): int =
-  ## Return a random integer between 0 and 7, with a weighted distribution.
-  var r = rand(sum(weights))
-  var acc = 0
-  for i, w in weights:
-    acc += w
-    if r <= acc:
-      return i
-  doAssert false, "should not happen"
-
 const patternToTile = @[
   18, 17, 4, 4, 12, 22, 4, 4, 30, 13, 41, 41, 30, 13, 41, 41, 19, 23, 5, 5, 37,
   9, 5, 5, 30, 13, 41, 41, 30, 13, 41, 41, 24, 43, 39, 39, 44, 45, 39, 39, 48,
@@ -84,74 +73,6 @@ const patternToTile = @[
   1, 34, 34, 0, 0, 34, 34, 0, 0
 ]
 
-proc generateTerrainMap(): TileMap {.measure.} =
-  ## Generate a 1024x1024 texture where each pixel is a byte index into the 16x16 tile map.
-  let
-    width = ceil(replay.mapSize[0].float32 / 32.0f).int * 32
-    height = ceil(replay.mapSize[1].float32 / 32.0f).int * 32
-
-  var terrainMap = newTileMap(
-    width = width,
-    height = height,
-    tileSize = 128,
-    atlasPath = dataDir / "terrain/blob7x8.png"
-  )
-
-  var asteroidMap: seq[bool] = newSeq[bool](width * height)
-  # Fill the asteroid map with ground (true).
-  for y in 0 ..< height:
-    for x in 0 ..< width:
-      if x >= replay.mapSize[0] or y >= replay.mapSize[1]:
-        # Clear the margins.
-        asteroidMap[y * width + x] = true
-      else:
-        asteroidMap[y * width + x] = false
-
-  # Walk the walls and generate a map of which tiles are present.
-  for obj in replay.objects:
-    if obj.typeName == "wall":
-      let pos = obj.location.at(0)
-      asteroidMap[pos.y * width + pos.x] = true
-
-
-  # Generate the tile edges.
-  for i in 0 ..< terrainMap.indexData.len:
-    let x = i mod width
-    let y = i div width
-
-    proc get(map: seq[bool], x: int, y: int): int =
-      if x < 0 or y < 0 or x >= width or y >= height:
-        return 1
-      if map[y * width + x]:
-        return 1
-      return 0
-
-    var tile: uint8 = 0
-    if asteroidMap[y * width + x]:
-      tile = 49
-    else:
-      let
-        pattern = (
-          1 * asteroidMap.get(x-1, y-1) + # NW
-          2 * asteroidMap.get(x, y-1) + # N
-          4 * asteroidMap.get(x+1, y-1) + # NE
-          8 * asteroidMap.get(x+1, y) + # E
-          16 * asteroidMap.get(x+1, y+1) + # SE
-          32 * asteroidMap.get(x, y+1) + # S
-          64 * asteroidMap.get(x-1, y+1) + # SW
-          128 * asteroidMap.get(x-1, y) # W
-        )
-      tile = patternToTile[pattern].uint8
-    terrainMap.indexData[i] = tile
-
-    # Randomize the solid tiles:
-    for i in 0 ..< terrainMap.indexData.len:
-      if terrainMap.indexData[i] == 29 or terrainMap.indexData[i] == 18:
-        terrainMap.indexData[i] = (50 + weightedRandomInt(@[100, 50, 25, 10, 5, 2])).uint8
-
-  terrainMap.setupGPU()
-  return terrainMap
-
 proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
   ## Rebuild the visibility map.
   let
@@ -159,8 +80,8 @@ proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
     height = visibilityMap.height
 
   var fogOfWarMap: seq[bool] = newSeq[bool](width * height)
-  for y in 0 ..< replay.mapSize[1]:
-    for x in 0 ..< replay.mapSize[0]:
+  for y in 1 ..< replay.mapSize[1] - 1:
+    for x in 1 ..< replay.mapSize[0] - 1:
       fogOfWarMap[y * width + x] = true
 
   # Walk the agents and clear the visibility map.
@@ -238,9 +159,10 @@ proc rebuildExplorationFogMap*(explorationFogMap: TileMap) {.measure.} =
     height = explorationFogMap.height
 
   var fogOfWarMap: seq[bool] = newSeq[bool](width * height)
-  for y in 0 ..< replay.mapSize[1]:
-    for x in 0 ..< replay.mapSize[0]:
+  for y in 1 ..< replay.mapSize[1] - 1:
+    for x in 1 ..< replay.mapSize[0] - 1:
       fogOfWarMap[y * width + x] = true
+
 
   # Selection-aware source:
   # - one selected agent => only that agent's historical exploration
@@ -1265,19 +1187,22 @@ proc applyOrientationOffset*(x: int, y: int, orientation: int): (int, int) =
     return (x, y)
 
 proc drawTerrain*() {.measure.} =
-  ## Draw the terrain, space and asteroid tiles using the terrainMap tilemap.
-  if terrainMap == nil:
-    terrainMap = generateTerrainMap()
-    px = newPixelator(
-      dataDir / "atlas.png",
-      dataDir / "atlas.json"
-    )
-    pxMini = newPixelator(
-      dataDir / "atlas_mini.png",
-      dataDir / "atlas_mini.json"
-    )
+  terrains.drawTerrain(getProjectionView(), px, pxMini)
 
-  terrainMap.draw(getProjectionView(), 2.0f, 1.5f)
+proc drawMask*() {.measure.} =
+  terrains.drawMask(getProjectionView())
+
+proc rebuildSplats*() =
+  terrains.rebuildSplats()
+
+proc resetTerrainCaches*() =
+  terrains.resetTerrainCaches()
+
+proc drawSplats*() {.measure.} =
+  terrains.drawSplats(getProjectionView(), px)
+
+proc drawMaskedSplatComposite*() {.measure.} =
+  terrains.drawMaskedSplatComposite(getProjectionView(), px)
 
 proc drawObjectPips*() {.measure.} =
   ## Draw the pips for the objects on the minimap using the mini pixelator.
@@ -1310,6 +1235,7 @@ proc drawObjectPips*() {.measure.} =
 proc drawWorldMini*() {.measure.} =
   ## Draw the world map at minimap zoom level using pxMini.
   drawTerrain()
+  drawMaskedSplatComposite()
   drawAoeMaps()
 
   # Draw heatmap if enabled.
@@ -1387,6 +1313,7 @@ proc drawWorldMain*() {.measure.} =
 
   drawStarfield()
   drawTerrain()
+  drawMaskedSplatComposite()
   drawAoeMaps()
 
   # Draw heatmap if enabled.
