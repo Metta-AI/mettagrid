@@ -230,7 +230,7 @@ class _NimAgentPolicy(AgentPolicy):
     def step(self, obs: AgentObservation) -> Action:
         action_index = self._parent.step_single(self._agent_id, obs)
         # Optional per-step metadata for renderers/debugging.
-        # Only some Nim policies (e.g. Planky) implement this.
+        # Only some Nim policies (e.g. nlanky) implement this.
         get_infos_json = getattr(self._parent._nim_policy, "get_infos_json", None)
         if get_infos_json is not None:
             raw = get_infos_json(self._agent_id)
