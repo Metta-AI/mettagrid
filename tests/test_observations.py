@@ -110,7 +110,7 @@ class TestObservations:
         assert (obs[1, -1, :] == TokenTypes.EMPTY_TOKEN).all()
 
     def test_detailed_wall_observations(self, basic_sim):
-        """Test detailed wall observations for both agents."""
+        """Test detailed wall observations for both agents with circular local vision."""
         obs = basic_sim._c_sim.observations()
         tag_feature_id = basic_sim.config.game.id_map().feature_id("tag")
         # Find tag id for 'wall'
@@ -134,17 +134,14 @@ class TestObservations:
         # Agent 0 is at grid position (1,1)
         # Agent 0 should see walls at these relative positions:
         #
-        #   W W W
+        #   . W .
         #   W A .
-        #   W . .
+        #   . . .
         #
-        # The bottom wall is outside the 3x3 observation window
+        # Diagonal cells are outside the circular 3x3 local-vision mask.
         wall_positions_agent0 = [
-            xy(0, 0),  # top-left
             xy(1, 0),  # top-center
-            xy(2, 0),  # top-right
             xy(0, 1),  # middle-left
-            xy(0, 2),  # bottom-left
         ]
 
         agent0_wall_tokens = helper.find_tokens(agent0_obs, feature_id=tag_feature_id, value=wall_tag_id)
@@ -154,7 +151,7 @@ class TestObservations:
         )
 
         # Verify wall count
-        assert len(agent0_wall_tokens) == 5, "Agent 0 should see exactly 5 walls"
+        assert len(agent0_wall_tokens) == 2, "Agent 0 should see exactly 2 walls"
 
         # Test Agent 1 observation
         agent1_obs = obs[1]
@@ -164,12 +161,10 @@ class TestObservations:
         #
         #   . . .
         #   . A .
-        #   W W W
+        #   . W .
         #
         wall_positions_agent1 = [
-            xy(0, 2),  # bottom-left
             xy(1, 2),  # bottom-center
-            xy(2, 2),  # bottom-right
         ]
 
         agent1_wall_tokens = helper.find_tokens(agent1_obs, feature_id=tag_feature_id, value=wall_tag_id)
@@ -179,7 +174,7 @@ class TestObservations:
         )
 
         # Verify wall count
-        assert len(agent1_wall_tokens) == 3, "Agent 1 should see exactly 3 walls"
+        assert len(agent1_wall_tokens) == 1, "Agent 1 should see exactly 1 wall"
 
     def test_agents_see_each_other(self, adjacent_agents_sim):
         """Test that adjacent agents can see each other."""

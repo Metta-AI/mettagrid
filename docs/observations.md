@@ -52,7 +52,7 @@ Coordinates are packed into a single byte using a nibble-based encoding scheme:
 - **Lower 4 bits (low nibble)**: Column coordinate (0-14)
 - **Special value `0xFF`**: Empty/invalid coordinate
 - **Special value `0xFE`**: Global token (non-spatial observation)
-- Observation windows are typically 11x11 centered on the agent; so the agent is at `0x55`.
+- Observation windows are typically 13x13 centered on the agent; so the agent is at `0x66`.
 - Coordinates are **egocentric** (relative to the agent's position)
 
 ### Coordinate System

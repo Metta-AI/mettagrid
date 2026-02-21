@@ -34,7 +34,6 @@ public:
     _lp_south = has("lp:south") ? get("lp:south") : 0;
     _agent_id = has("agent_id") ? get("agent_id") : 0;
     _aoe_mask = has("aoe_mask") ? get("aoe_mask") : 0;
-    _territory = has("territory") ? get("territory") : 0;
 
     // Initialize public members (must be done AFTER private members are set above)
     Group = _group;
@@ -55,7 +54,6 @@ public:
     LpSouth = _lp_south;
     AgentId = _agent_id;
     AoeMask = _aoe_mask;
-    Territory = _territory;
   }
 
   // Get feature ID by name (throws if not found)
@@ -91,7 +89,6 @@ public:
   ObservationType LpSouth;
   ObservationType AgentId;
   ObservationType AoeMask;
-  ObservationType Territory;
 
 private:
   std::unordered_map<std::string, ObservationType> _name_to_id;
@@ -115,7 +112,6 @@ private:
   ObservationType _lp_south;
   ObservationType _agent_id;
   ObservationType _aoe_mask;
-  ObservationType _territory;
 };
 
 // Global singleton instance
@@ -146,7 +142,6 @@ extern ObservationType LpNorth;
 extern ObservationType LpSouth;
 extern ObservationType AgentId;
 extern ObservationType AoeMask;
-extern ObservationType Territory;
 }  // namespace ObservationFeature
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CONFIG_OBSERVATION_FEATURES_HPP_
