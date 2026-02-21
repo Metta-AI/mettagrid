@@ -133,8 +133,8 @@ proc processActions*() =
 
 proc agentControls*() =
   ## Manual controls with WASD for selected agent.
-  if selection != nil and selection.isAgent:
-    let agent = selection
+  if selected != nil and selected.isAgent:
+    let agent = selected
 
     # Move
     if window.buttonPressed[KeyW] or window.buttonPressed[KeyUp]:

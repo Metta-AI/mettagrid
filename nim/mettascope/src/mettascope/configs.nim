@@ -162,7 +162,7 @@ proc applyUIState*(config: MettascopeConfig) =
         settings.hiddenCollectiveAoe.incl(i)
         break
   if replay != nil and config.selectedAgentId >= 0 and config.selectedAgentId < replay.agents.len:
-    selection = replay.agents[config.selectedAgentId]
+    selected = replay.agents[config.selectedAgentId]
 
 proc saveUIState*() =
   ## Save the current UI state to config.
@@ -188,8 +188,8 @@ proc saveUIState*() =
       let name = getCollectiveName(id)
       if name.len > 0:
         config.settings.hiddenCollectiveAoeNames.add(name)
-  if selection != nil and selection.isAgent:
-    config.selectedAgentId = selection.agentId
+  if selected != nil and selected.isAgent:
+    config.selectedAgentId = selected.agentId
   saveConfig(config)
 
 proc savePanelLayout*() =

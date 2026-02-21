@@ -25,7 +25,7 @@ proc drawVibes*(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Ve
       let vibeName = vibe.split("/")[1]
 
       iconButton(vibe):
-        if selection == nil or not selection.isAgent:
+        if selected == nil or not selected.isAgent:
           return
 
         let vibeActionId = replay.actionNames.find("change_vibe_" & vibeName)
@@ -38,26 +38,26 @@ proc drawVibes*(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Ve
         if shiftDown:
           # Queue the vibe action as an objective.
           let objective = Objective(kind: Vibe, vibeActionId: vibeActionId, repeat: false)
-          if not agentObjectives.hasKey(selection.agentId) or agentObjectives[
-              selection.agentId].len == 0:
-            agentObjectives[selection.agentId] = @[objective]
+          if not agentObjectives.hasKey(selected.agentId) or agentObjectives[
+              selected.agentId].len == 0:
+            agentObjectives[selected.agentId] = @[objective]
             # Append vibe action directly to path queue.
-            agentPaths[selection.agentId] = @[
+            agentPaths[selected.agentId] = @[
               PathAction(kind: Vibe, vibeActionId: vibeActionId)
             ]
           else:
-            agentObjectives[selection.agentId].add(objective)
+            agentObjectives[selected.agentId].add(objective)
             # Push the vibe action to the end of the current path.
-            if agentPaths.hasKey(selection.agentId):
-              agentPaths[selection.agentId].add(
+            if agentPaths.hasKey(selected.agentId):
+              agentPaths[selected.agentId].add(
                 PathAction(kind: Vibe, vibeActionId: vibeActionId)
               )
             else:
-              agentPaths[selection.agentId] = @[
+              agentPaths[selected.agentId] = @[
                 PathAction(kind: Vibe, vibeActionId: vibeActionId)
               ]
         else:
           # Execute immediately.
-          sendAction(selection.agentId, replay.actionNames[vibeActionId])
+          sendAction(selected.agentId, replay.actionNames[vibeActionId])
       if sk.shouldShowTooltip:
         tooltip(vibeName)

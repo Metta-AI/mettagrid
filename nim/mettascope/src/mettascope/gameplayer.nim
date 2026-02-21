@@ -153,8 +153,8 @@ proc drawVibeButton(
     mousePos = window.mousePos.vec2
 
   # Check if this vibe is currently active on the selected agent.
-  let isActive = selection != nil and selection.isAgent and
-    selection.vibeId.at == vibeIndex
+  let isActive = selected != nil and selected.isAgent and
+    selected.vibeId.at == vibeIndex
 
   if isActive:
     sk.drawImage("ui/button_main.down", pos - vec2(16, 16))
@@ -166,7 +166,7 @@ proc drawVibeButton(
     sk.hover = true
     if window.buttonReleased[MouseLeft]:
       worldMapZoomInfo.hasMouse = false
-      if selection != nil and selection.isAgent:
+      if selected != nil and selected.isAgent:
         let vibeActionId = replay.actionNames.find("change_vibe_" & vibeName)
         if vibeActionId >= 0:
           let shiftDown = window.buttonDown[KeyLeftShift] or
@@ -177,24 +177,24 @@ proc drawVibeButton(
               vibeActionId: vibeActionId,
               repeat: false
             )
-            if not agentObjectives.hasKey(selection.agentId) or
-                agentObjectives[selection.agentId].len == 0:
-              agentObjectives[selection.agentId] = @[objective]
-              agentPaths[selection.agentId] = @[
+            if not agentObjectives.hasKey(selected.agentId) or
+                agentObjectives[selected.agentId].len == 0:
+              agentObjectives[selected.agentId] = @[objective]
+              agentPaths[selected.agentId] = @[
                 PathAction(kind: Vibe, vibeActionId: vibeActionId)
               ]
             else:
-              agentObjectives[selection.agentId].add(objective)
-              if agentPaths.hasKey(selection.agentId):
-                agentPaths[selection.agentId].add(
+              agentObjectives[selected.agentId].add(objective)
+              if agentPaths.hasKey(selected.agentId):
+                agentPaths[selected.agentId].add(
                   PathAction(kind: Vibe, vibeActionId: vibeActionId)
                 )
               else:
-                agentPaths[selection.agentId] = @[
+                agentPaths[selected.agentId] = @[
                   PathAction(kind: Vibe, vibeActionId: vibeActionId)
                 ]
           else:
-            sendAction(selection.agentId, replay.actionNames[vibeActionId])
+            sendAction(selected.agentId, replay.actionNames[vibeActionId])
 
   drawIconScaled(icon, pos, iconSize)
 
@@ -525,16 +525,16 @@ proc drawStatBar(panelPos: Vec2, label: string, value: int, maxValue: int, divis
 
 proc centerPanel(winW: float32, winH: float32) =
   ## Draw bottom-center selected agent info panel.
-  if selection.isNil:
+  if selected.isNil:
     return
 
   let bcSize = sk.getImageSize("ui/panel_center")
   let bcPos = vec2((winW - bcSize.x) / 2.0, winH - bcSize.y - 20)
   sk.drawImage("ui/panel_center", bcPos)
 
-  if selection.isAgent:
+  if selected.isAgent:
     let profilePos = bcPos + vec2(424, 32)
-    let rig = getAgentRigName(selection)
+    let rig = getAgentRigName(selected)
     let profileName =
       if rig == "agent":
         "profiles/cog"
@@ -544,8 +544,8 @@ proc centerPanel(winW: float32, winH: float32) =
 
     let
       textPos = bcPos + vec2(69, 32)
-      collectiveName = getCollectiveName(selection.collectiveId.at(step))
-      cogName = getCogName(selection.agentId)
+      collectiveName = getCollectiveName(selected.collectiveId.at(step))
+      cogName = getCogName(selected.agentId)
       displayName =
         if collectiveName.len > 0 and cogName.len > 0:
           collectiveName & " " & cogName
@@ -560,7 +560,7 @@ proc centerPanel(winW: float32, winH: float32) =
       health = 0
       energy = 0
     let prevStep = max(0, step - 1)
-    let inv = selection.inventory.at
+    let inv = selected.inventory.at
     for item in inv:
       if item.itemId >= 0 and item.itemId < replay.itemNames.len:
         if replay.itemNames[item.itemId] == "hp":
@@ -568,8 +568,8 @@ proc centerPanel(winW: float32, winH: float32) =
         elif replay.itemNames[item.itemId] == "energy":
           energy = item.count
     let
-      prevHealth = getInventoryItem(selection, "hp", prevStep)
-      prevEnergy = getInventoryItem(selection, "energy", prevStep)
+      prevHealth = getInventoryItem(selected, "hp", prevStep)
+      prevEnergy = getInventoryItem(selected, "energy", prevStep)
       deltaHealth = health - prevHealth
       deltaEnergy = energy - prevEnergy
 
@@ -591,7 +591,7 @@ proc centerPanel(winW: float32, winH: float32) =
       ResourceCols = 3
     var visibleResourceCells = 0
     for (icon, name) in agentResources:
-      let amount = getInventoryItem(selection, name)
+      let amount = getInventoryItem(selected, name)
       if amount <= 0:
         continue
       let
@@ -608,7 +608,7 @@ proc centerPanel(winW: float32, winH: float32) =
   else:
     # Building info panel.
     let
-      normalized = normalizeTypeName(selection.typeName)
+      normalized = normalizeTypeName(selected.typeName)
       iconName = "icons/objects/" & normalized
       profilePos = bcPos + vec2(424, 32)
       profileSize = sk.getImageSize("profiles/cog")
@@ -620,7 +620,7 @@ proc centerPanel(winW: float32, winH: float32) =
 
     let
       textPos = bcPos + vec2(69, 32)
-      collectiveName = getCollectiveName(selection.collectiveId.at(step))
+      collectiveName = getCollectiveName(selected.collectiveId.at(step))
       displayName =
         if collectiveName.len > 0:
           collectiveName & " " & normalized
@@ -630,7 +630,7 @@ proc centerPanel(winW: float32, winH: float32) =
     discard sk.drawText("pixelated", displayName, textPos, Yellow, clip = false)
 
     # Building inventory.
-    let inv = selection.inventory.at
+    let inv = selected.inventory.at
     const
       ResourceGridOrigin = vec2(59, 156)
       ResourceColSpacing = 20.0f

@@ -51,24 +51,24 @@ proc drawPolicyInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
   frame(frameId, contentPos, contentSize):
     policyTarget = none(IVec2)
 
-    if selection.isNil:
-      text("No selection")
+    if selected.isNil:
+      text("No selected")
       return
 
     if replay.isNil:
       text("Replay not loaded")
       return
 
-    if not selection.isAgent:
+    if not selected.isAgent:
       text("Select an agent")
       return
 
-    let policyInfo = selection.policyInfos.at()
+    let policyInfo = selected.policyInfos.at()
     if policyInfo.isNil or policyInfo.kind != JObject or policyInfo.len == 0:
       text("No policy info")
       return
 
-    let agentPos = selection.location.at(step)
+    let agentPos = selected.location.at(step)
 
     for key, value in policyInfo.pairs:
       if key == "target":

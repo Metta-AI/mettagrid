@@ -17,8 +17,6 @@ const
   ZoomOutMargin = 1.5f # Panel may show at most this multiple of the map's linear extent when zoomed out.
   SelectionRadiusPixels = 100.0f # Screen-space click radius for selecting nearby objects.
 
-proc centerAt*(zoomInfo: ZoomInfo, entity: Entity)
-
 var
   terrainMap*: TileMap
   visibilityMapStep*: int = -1
@@ -167,8 +165,8 @@ proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
 
   # Walk the agents and clear the visibility map.
   # If an agent is selected, only show that agent's vision. Otherwise show all agents.
-  let agentsToProcess = if selection != nil and selection.isAgent:
-    @[selection]
+  let agentsToProcess = if selected != nil and selected.isAgent:
+    @[selected]
   else:
     replay.agents
 
@@ -247,8 +245,8 @@ proc rebuildExplorationFogMap*(explorationFogMap: TileMap) {.measure.} =
   # Selection-aware source:
   # - one selected agent => only that agent's historical exploration
   # - no selected agent => all agents
-  let agentsToProcess = if selection != nil and selection.isAgent:
-    @[selection]
+  let agentsToProcess = if selected != nil and selected.isAgent:
+    @[selected]
   else:
     replay.agents
 
@@ -543,12 +541,12 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
 
   # If a selected object has influence AoE, show only its AoE.
   # Otherwise show combined AoE for all objects in enabled collectives.
-  let selectionHasInfluence = selection != nil and hasInfluenceAoe(selection)
+  let selectionHasInfluence = selected != nil and hasInfluenceAoe(selected)
 
   if selectionHasInfluence:
     # Only show the selected object's influence AoE
-    if collectiveToSlot(selection.collectiveId.at(step)) == slotId:
-      markSelectedCoverage(selection)
+    if collectiveToSlot(selected.collectiveId.at(step)) == slotId:
+      markSelectedCoverage(selected)
   else:
     # Show combined AoE with territory-style collapse:
     # winner per tile by nearest distance, ties are neutral.
@@ -660,8 +658,8 @@ proc drawAoeMaps*() {.measure.} =
   if aoeMaps.len != expectedCount:
     initAoeMaps()
 
-  # Check if we need to rebuild (including when selection changes)
-  let currentSelectionId = if selection != nil: selection.id else: -1
+  # Check if we need to rebuild (including when selected changes)
+  let currentSelectionId = if selected != nil: selected.id else: -1
   let needsRebuild = aoeMapStep != step or
     aoeMapHiddenCollectives != settings.hiddenCollectiveAoe or
     aoeMapSelectionId != currentSelectionId
@@ -669,15 +667,15 @@ proc drawAoeMaps*() {.measure.} =
     updateAoeMaps()
     aoeMapSelectionId = currentSelectionId
 
-  # Determine if selection has influence AoE to decide what to draw
-  let selectionHasInfluence = selection != nil and hasInfluenceAoe(selection)
+  # Determine if selected has influence AoE to decide what to draw
+  let selectionHasInfluence = selected != nil and hasInfluenceAoe(selected)
   let numCollectives = getNumCollectives()
 
   # Draw each map with its tint color
   for slotId in 0 ..< aoeMaps.len:
     let shouldDraw = if selectionHasInfluence:
       # Only draw the selected object's slot
-      collectiveToSlot(selection.collectiveId.at(step)) == slotId
+      collectiveToSlot(selected.collectiveId.at(step)) == slotId
     else:
       # Draw visible collectives; neutral slot is never shown in combined mode
       slotId < numCollectives and slotId notin settings.hiddenCollectiveAoe
@@ -711,8 +709,8 @@ proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
   else:
     window.buttonDown[KeyLeftControl] or window.buttonDown[KeyRightControl]
 
-  if not selection.isNil and not selection.alive.at:
-    selection = nil
+  if not selected.isNil and not selected.alive.at:
+    selectObject(nil)
 
   let shiftDown = window.buttonDown[KeyLeftShift] or window.buttonDown[KeyRightShift]
   let rDown = window.buttonDown[KeyR]
@@ -721,18 +719,15 @@ proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
   if window.buttonPressed[MouseLeft] and not modifierDown:
     mouseDownPos = window.mousePos.vec2
 
-  # Focus agent on double-click.
+  # Toggle pin on double-click.
   if window.buttonPressed[DoubleClick] and not modifierDown:
     settings.lockFocus = not settings.lockFocus
-    if settings.lockFocus and selection != nil:
-      centerAt(zoomInfo, selection)
 
   # Only select on mouse up, and only if we didn't drag much.
   if window.buttonReleased[MouseLeft] and not modifierDown:
     let mouseDragDistance = (window.mousePos.vec2 - mouseDownPos).length
     const maxClickDragDistance = 5.0
     if mouseDragDistance < maxClickDragDistance:
-      selection = nil
       let
         mouseScreenPos = window.mousePos.vec2
         clickRadiusSq = SelectionRadiusPixels * SelectionRadiusPixels
@@ -753,17 +748,16 @@ proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
         if obj.isNil or distSq < closestDistSq or (sameDistance and candidate.id < obj.id):
           obj = candidate
           closestDistSq = distSq
-      if obj != nil:
-        selectObject(obj)
+      selectObject(obj)
 
   if window.buttonPressed[MouseRight] or (window.buttonPressed[MouseLeft] and modifierDown):
-    if selection != nil and selection.isAgent:
+    if selected != nil and selected.isAgent:
       let
         mousePos = getTransform().inverse * window.mousePos.vec2
         gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
       if gridPos.x >= 0 and gridPos.x < replay.mapSize[0] and
         gridPos.y >= 0 and gridPos.y < replay.mapSize[1]:
-        let startPos = selection.location.at(step).xy
+        let startPos = selected.location.at(step).xy
 
         # Determine if this is a Bump or Move objective.
         let targetObj = getObjectAtLocation(gridPos)
@@ -802,19 +796,19 @@ proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
 
         if shiftDown:
           # Queue up additional objectives.
-          if not agentObjectives.hasKey(selection.agentId) or agentObjectives[selection.agentId].len == 0:
+          if not agentObjectives.hasKey(selected.agentId) or agentObjectives[selected.agentId].len == 0:
             # No existing objectives, start fresh.
-            agentObjectives[selection.agentId] = @[objective]
-            recomputePath(selection.agentId, startPos)
+            agentObjectives[selected.agentId] = @[objective]
+            recomputePath(selected.agentId, startPos)
           else:
             # Append to existing objectives.
-            agentObjectives[selection.agentId].add(objective)
+            agentObjectives[selected.agentId].add(objective)
             # Recompute path to include all objectives.
-            recomputePath(selection.agentId, startPos)
+            recomputePath(selected.agentId, startPos)
         else:
           # Replace the entire objective queue.
-          agentObjectives[selection.agentId] = @[objective]
-          recomputePath(selection.agentId, startPos)
+          agentObjectives[selected.agentId] = @[objective]
+          recomputePath(selected.agentId, startPos)
 
 proc inferOrientation*(agent: Entity, step: int): Orientation =
   ## Get the orientation of the agent based on position changes.
@@ -961,11 +955,11 @@ proc drawVisualRanges*(alpha = 0.5) {.measure.} =
 
   if visibilityMap == nil:
     visibilityMapStep = step
-    visibilityMapSelectionId = if selection != nil: selection.id else: -1
+    visibilityMapSelectionId = if selected != nil: selected.id else: -1
     visibilityMap = generateVisibilityMap()
 
   let
-    currentSelectionId = if selection != nil: selection.id else: -1
+    currentSelectionId = if selected != nil: selected.id else: -1
     needsRebuild = visibilityMapStep != step or visibilityMapSelectionId != currentSelectionId
 
   if needsRebuild:
@@ -984,11 +978,11 @@ proc drawFogOfWar*() {.measure.} =
   ## Draw exploration fog of war.
   if explorationFogMap == nil:
     explorationFogMapStep = step
-    explorationFogMapSelectionId = if selection != nil: selection.id else: -1
+    explorationFogMapSelectionId = if selected != nil: selected.id else: -1
     explorationFogMap = generateExplorationFogMap()
 
   let
-    currentSelectionId = if selection != nil: selection.id else: -1
+    currentSelectionId = if selected != nil: selected.id else: -1
     needsRebuild = explorationFogMapStep != step or explorationFogMapSelectionId != currentSelectionId
 
   if needsRebuild:
@@ -1005,12 +999,12 @@ proc drawFogOfWar*() {.measure.} =
 
 proc drawTrajectory*() {.measure.} =
   ## Draw the trajectory of the selected object, with footprints or a future arrow.
-  if selection != nil and selection.location.len > 1:
+  if selected != nil and selected.location.len > 1:
     var prevDirection = S
     for i in 1 ..< replay.maxSteps:
       let
-        loc0 = selection.location.at(i - 1)
-        loc1 = selection.location.at(i)
+        loc0 = selected.location.at(i - 1)
+        loc1 = selected.location.at(i)
         cx0 = loc0.x.int
         cy0 = loc0.y.int
         cx1 = loc1.x.int
@@ -1202,23 +1196,23 @@ proc drawPlannedPath*() {.measure.} =
           )
 
 proc drawSelection*() {.measure.} =
-  # Draw selection.
-  if selection != nil:
+  # Draw selected.
+  if selected != nil:
     px.drawSprite(
       "objects/selection",
-      (selection.smoothPos * TileSize.float32).ivec2,
+      (selected.smoothPos * TileSize.float32).ivec2,
     )
 
 proc drawPolicyTarget*() {.measure.} =
   ## Draw the policy target highlight and a path from the selected agent to that target.
   if not isSome(policyTarget):
     return
-  if selection.isNil or not selection.isAgent:
+  if selected.isNil or not selected.isAgent:
     return
 
   let
     targetPos = get(policyTarget)
-    agentPos = selection.location.at(step).xy.ivec2
+    agentPos = selected.location.at(step).xy.ivec2
     greenTint = rgbx(100, 255, 100, 200)
     dx = abs(targetPos.x - agentPos.x)
     dy = abs(targetPos.y - agentPos.y)
@@ -1344,22 +1338,9 @@ proc drawWorldMini*() {.measure.} =
   if settings.showVisualRange:
     drawVisualRanges()
 
-proc centerAt*(zoomInfo: ZoomInfo, entity: Entity) =
-  ## Center the map on the given entity.
-  if entity.isNil:
-    return
-  let location = entity.smoothPos
-  let rectW = zoomInfo.rect.w.float32
-  let rectH = zoomInfo.rect.h.float32
-  if rectW <= 0 or rectH <= 0:
-    return
-  let z = zoomInfo.zoom * zoomInfo.zoom
-  zoomInfo.pos.x = rectW / 2.0f - location.x * z
-  zoomInfo.pos.y = rectH / 2.0f - location.y * z
-
-proc keepSelectedAgentInView*(zoomInfo: ZoomInfo) =
-  ## Keep selected agent inside a zoom-aware safe margin.
-  if selection.isNil or not selection.isAgent:
+proc keepSelectionInView*(zoomInfo: ZoomInfo) =
+  ## Keep selected inside a zoom-aware safe margin.
+  if selected.isNil:
     return
 
   let
@@ -1370,32 +1351,32 @@ proc keepSelectedAgentInView*(zoomInfo: ZoomInfo) =
     return
 
   let
-    agentPos = selection.smoothPos
+    selectionPos = selected.smoothPos
     maxMarginPx = FollowMarginMaxWorldTiles * z
     marginX = min(rectW * FollowMarginScreenFraction, maxMarginPx)
     marginY = min(rectH * FollowMarginScreenFraction, maxMarginPx)
     minX = marginX
     maxX = rectW - marginX
     minY = marginY
-    maxY = rectH - marginY
+    maxY = rectH - marginY - 200.0f
 
   var
-    agentScreenX = agentPos.x * z + zoomInfo.pos.x
-    agentScreenY = agentPos.y * z + zoomInfo.pos.y
+    selectionScreenX = selectionPos.x * z + zoomInfo.pos.x
+    selectionScreenY = selectionPos.y * z + zoomInfo.pos.y
     moved = false
 
-  if agentScreenX < minX:
-    zoomInfo.pos.x = minX - agentPos.x * z
+  if selectionScreenX < minX:
+    zoomInfo.pos.x = minX - selectionPos.x * z
     moved = true
-  elif agentScreenX > maxX:
-    zoomInfo.pos.x = maxX - agentPos.x * z
+  elif selectionScreenX > maxX:
+    zoomInfo.pos.x = maxX - selectionPos.x * z
     moved = true
 
-  if agentScreenY < minY:
-    zoomInfo.pos.y = minY - agentPos.y * z
+  if selectionScreenY < minY:
+    zoomInfo.pos.y = minY - selectionPos.y * z
     moved = true
-  elif agentScreenY > maxY:
-    zoomInfo.pos.y = maxY - agentPos.y * z
+  elif selectionScreenY > maxY:
+    zoomInfo.pos.y = maxY - selectionPos.y * z
     moved = true
 
   if moved:
@@ -1575,9 +1556,7 @@ proc drawWorldMap*(zoomInfo: ZoomInfo) {.measure.} =
 
   ## Draw the world map.
   if settings.lockFocus:
-    centerAt(zoomInfo, selection)
-
-  keepSelectedAgentInView(zoomInfo)
+    keepSelectionInView(zoomInfo)
 
   zoomInfo.beginPanAndZoom()
 
