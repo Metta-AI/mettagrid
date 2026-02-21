@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cmath>
 #include <random>
 #include <string>
 #include <unordered_map>
@@ -78,21 +77,8 @@ public:
     this->current_step_ptr = step_ptr;
   }
 
-  // Trigger log-sum recompute for a specific item (e.g. after deposit tracking).
-  void on_log_sum_item_change(InventoryItem item) {
-    auto it = _item_to_log_sum_indices.find(item);
-    if (it != _item_to_log_sum_indices.end()) {
-      for (size_t idx : it->second) {
-        _recompute_log_sum(_log_sum_stats[idx]);
-      }
-    }
-  }
-
 private:
   const ObservationEncoder* obs_encoder = nullptr;
-  std::vector<LogSumStatConfig> _log_sum_stats;
-  std::unordered_map<InventoryItem, std::vector<size_t>> _item_to_log_sum_indices;
-  void _recompute_log_sum(const LogSumStatConfig& cfg);
 };
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_OBJECTS_AGENT_HPP_

@@ -179,23 +179,10 @@ class AgentConfig(GridObjectConfig):
     team_id: int = Field(default=0, ge=0, description="Team ID for grouping agents")
     rewards: dict[str, AgentReward] = Field(default_factory=dict)
     freeze_duration: int = Field(default=10, ge=-1)
-    log_sum_stats: list[LogSumStatConfig] = Field(default_factory=list, description="Agent-level log-sum derived stats")
     on_tick: dict[str, Handler] = Field(
         default_factory=dict,
         description="Handlers run every tick with actor=target=this agent (name -> handler)",
     )
-
-
-class LogSumStatConfig(Config):
-    """Derived stat tracking sum(log(value[r] + 1)) across resources.
-
-    Recomputes whenever any tracked resource changes. Gives diminishing marginal
-    returns per resource, creating strong pressure to diversify gathering.
-    """
-
-    stat_name: str = Field(description="Name of the derived stat on the agent")
-    stat_suffix: str = Field(default=".gained", description="Stat suffix to read, e.g. '.gained'")
-    resources: list[str] = Field(description="Resource names to track")
 
 
 class CollectiveConfig(Config):

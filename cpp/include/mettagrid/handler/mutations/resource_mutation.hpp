@@ -75,12 +75,11 @@ public:
                                                                   false  // Don't destroy untransferred resources
     );
 
-    // Track per-agent deposit stats for log-sum diversity rewards
+    // Track per-agent deposit stats
     if (transferred > 0) {
       Agent* source_agent = dynamic_cast<Agent*>(source);
       if (source_agent) {
         source_agent->stats.add(source_agent->stats.resource_name(_config.resource_id) + ".deposited", transferred);
-        source_agent->on_log_sum_item_change(_config.resource_id);
       }
     }
 

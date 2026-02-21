@@ -531,14 +531,19 @@ class InventoryConfig:
     def __init__(self) -> None: ...
     limit_defs: list[LimitDef]
 
+class AggregationMode(Enum):
+    SUM = ...
+    SUM_LOGS = ...
+
 class RewardEntry:
     def __init__(self) -> None: ...
-    numerator: GameValueConfig
+    numerators: list[GameValueConfig]
     denominators: list[GameValueConfig]
     weight: float
     max_value: float
     has_max: bool
     accumulate: bool
+    aggregation_mode: AggregationMode
 
 class RewardConfig:
     def __init__(self) -> None: ...
@@ -576,13 +581,6 @@ class AgentConfig(GridObjectConfig):
     reward_config: RewardConfig
     initial_inventory: dict[int, int]
     on_tick: list[HandlerConfig]
-    log_sum_stats: list[LogSumStatConfig]
-
-class LogSumStatConfig:
-    def __init__(self) -> None: ...
-    stat_name: str
-    stat_suffix: str
-    items: list[int]
 
 class ActionConfig:
     def __init__(

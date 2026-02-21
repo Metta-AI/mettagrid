@@ -100,7 +100,7 @@ protected:
     StatValueConfig stat_cfg;
     stat_cfg.scope = scope;
     stat_cfg.stat_name = stat_name;
-    entry.numerator = stat_cfg;
+    entry.numerators = {stat_cfg};
     entry.weight = weight;
     if (max_val > 0.0f) {
       entry.max_value = max_val;

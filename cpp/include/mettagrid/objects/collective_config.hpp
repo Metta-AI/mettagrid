@@ -6,19 +6,9 @@
 
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 #include "core/types.hpp"
 #include "objects/inventory_config.hpp"
-
-// Tracks sum(log(stat[r] + 1)) across a set of resources.
-// Recomputes when any tracked resource changes, giving diminishing marginal
-// returns per resource and strong pressure to diversify.
-struct LogSumStatConfig {
-  std::string stat_name;             // name of the derived stat
-  std::string stat_suffix;           // suffix to read, e.g. ".gained"
-  std::vector<InventoryItem> items;  // resource IDs to track
-};
 
 struct CollectiveConfig {
   std::string name;
@@ -32,12 +22,6 @@ struct CollectiveConfig {
 namespace py = pybind11;
 
 inline void bind_collective_config(py::module& m) {
-  py::class_<LogSumStatConfig>(m, "LogSumStatConfig")
-      .def(py::init<>())
-      .def_readwrite("stat_name", &LogSumStatConfig::stat_name)
-      .def_readwrite("stat_suffix", &LogSumStatConfig::stat_suffix)
-      .def_readwrite("items", &LogSumStatConfig::items);
-
   py::class_<CollectiveConfig, std::shared_ptr<CollectiveConfig>>(m, "CollectiveConfig")
       .def(py::init<>())
       .def(py::init<const std::string&>(), py::arg("name"))
