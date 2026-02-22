@@ -13,6 +13,14 @@
 
 namespace mettagrid {
 namespace {
+// AOE model overview:
+// - Every source owns one or more AOE configs (radius + filters + mutations).
+// - Fixed sources (is_static=true) are pre-registered into _cell_effects so apply_fixed() is O(k) per tile.
+// - Mobile sources are checked each tick in apply_mobile(), since their coverage moves.
+// - Presence deltas are edge-triggered with _inside tracking (enter => +1, exit => -1).
+// - Territory AOEs are a special fixed-only read path used for observability masks: they have no mutations or
+//   presence deltas and contribute weighted influence by distance. Cardinal boundary trimming keeps circle edges
+//   visually smooth for radius >= 2 while preserving small-radius coverage.
 int64_t distance_sq(const GridLocation& a, const GridLocation& b) {
   int64_t dr = static_cast<int64_t>(a.r) - static_cast<int64_t>(b.r);
   int64_t dc = static_cast<int64_t>(a.c) - static_cast<int64_t>(b.c);
