@@ -51,13 +51,14 @@ class MapComponent(MiniscopeComponent):
         self._map_buffer._symbol_map = self.state.symbol_map or {}
 
     def _build_aoe_type_ranges(self) -> dict[str, int]:
-        """Build a map of object type -> max AOE radius for rendering."""
+        """Build a map of object type -> max territory control radius for rendering."""
         ranges: dict[str, int] = {}
         objects = self._sim.config.game.objects
         for type_name, obj_cfg in objects.items():
             max_range = 0
-            for aoe in obj_cfg.aoes.values():
-                max_range = max(max_range, aoe.radius)
+            for tc in obj_cfg.territory_controls:
+                decay = tc.decay if tc.decay > 0 else 1
+                max_range = max(max_range, tc.strength // decay)
             if max_range > 0:
                 ranges[type_name] = max_range
         return ranges

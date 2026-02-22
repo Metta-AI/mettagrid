@@ -2,6 +2,7 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GRID_HPP_
 
 #include <algorithm>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -19,6 +20,9 @@ public:
   const GridCoord width;
   vector<std::unique_ptr<GridObject>> objects;
   vector<std::unique_ptr<GridObject>> removed;
+
+  // Called after an object moves with (moved_object, old_location).
+  std::function<void(GridObject&, const GridLocation&)> on_object_moved;
 
 private:
   GridType grid;
@@ -77,9 +81,11 @@ public:
       return false;
     }
 
+    GridLocation old_loc = obj.location;
     grid[loc.r][loc.c] = &obj;
-    grid[obj.location.r][obj.location.c] = nullptr;
+    grid[old_loc.r][old_loc.c] = nullptr;
     obj.location = loc;
+    if (on_object_moved) on_object_moved(obj, old_loc);
     return true;
   }
 
@@ -91,6 +97,10 @@ public:
     grid[loc2.r][loc2.c] = &obj1;
     obj1.location = loc2;
     obj2.location = loc1;
+    if (on_object_moved) {
+      on_object_moved(obj1, loc1);
+      on_object_moved(obj2, loc2);
+    }
     return true;
   }
 

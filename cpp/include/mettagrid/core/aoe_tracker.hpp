@@ -99,16 +99,6 @@ public:
   // Get number of fixed effect sources at a location (for testing/debugging)
   size_t fixed_effect_count_at(const GridLocation& loc) const;
 
-  // Compute per-tile collapsed territory observability for empty tiles.
-  // - 0 = no influence
-  // - 1 = friendly territory/influence
-  // - 2 = enemy territory/influence
-  // - neutral contests encode as 0
-  void fixed_observability_at(const GridLocation& loc,
-                              GridObject& observer,
-                              const HandlerContext& ctx,
-                              ObservationType* out_aoe_mask) const;
-
   // Get number of mobile sources (for testing/debugging)
   size_t mobile_source_count() const {
     return _mobile_sources.size();
@@ -159,11 +149,8 @@ private:
   // Reverse lookup: which fixed AOEs is each target inside (for efficient exit detection)
   std::unordered_map<GridObject*, std::unordered_set<AOESource*>> _target_fixed_inside;
 
-  // Scratch buffers reused across apply_fixed to avoid per-target allocations.
+  // Scratch buffer reused across apply_fixed to avoid per-target allocations.
   std::unordered_set<AOESource*> _scratch_current_cell_set;
-  std::vector<AOESource*> _scratch_enemy_sources;
-  std::vector<AOESource*> _scratch_friendly_sources;
-  std::vector<AOESource*> _scratch_other_sources;
 };
 
 }  // namespace mettagrid

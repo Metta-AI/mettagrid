@@ -272,98 +272,19 @@ proc getProjectionView*(): Mat4 {.measure.} =
   let projection = ortho(0.0f, window.size.x.float32, window.size.y.float32, 0.0f, -1.0f, 1.0f)
   projection * view
 
-proc aoeRadius(aoeConfig: JsonNode): int =
-  if "radius" notin aoeConfig:
-    return 0
-  if aoeConfig["radius"].kind == JInt:
-    return aoeConfig["radius"].getInt
-  if aoeConfig["radius"].kind == JFloat:
-    return aoeConfig["radius"].getFloat.int
-  return 0
-
-proc withinTerritoryInfluenceRadius(dx: int, dy: int, aoeRange: int): bool =
-  ## Must match territory-mask inclusion in AOETracker::register_fixed:
-  ## inside Euclidean radius, excluding exact cardinal boundary points.
+proc withinTerritoryInfluenceRadius(dx: int, dy: int, range: int): bool =
+  ## Inside Euclidean radius, excluding exact cardinal boundary points.
   let
     distSq = dx * dx + dy * dy
-    rangeSq = aoeRange * aoeRange
+    rangeSq = range * range
   if distSq > rangeSq:
     return false
-  if aoeRange >= 2 and distSq == rangeSq and (dx == 0 or dy == 0):
+  if range >= 2 and distSq == rangeSq and (dx == 0 or dy == 0):
     return false
-  return true
-
-proc aoeHasMutations(aoeConfig: JsonNode): bool =
-  if "mutations" notin aoeConfig or aoeConfig["mutations"].kind != JArray:
-    return false
-  return aoeConfig["mutations"].len > 0
-
-proc aoeHasPresenceDeltas(aoeConfig: JsonNode): bool =
-  if "presence_deltas" notin aoeConfig:
-    return false
-  if aoeConfig["presence_deltas"].kind == JObject:
-    return aoeConfig["presence_deltas"].len > 0
-  if aoeConfig["presence_deltas"].kind == JArray:
-    return aoeConfig["presence_deltas"].len > 0
-  return false
-
-proc isInfluenceAoeConfig(aoeConfig: JsonNode): bool =
-  ## Influence AOEs are fixed circular fields with no mutations/presence-deltas
-  ## and positive radius.
-  if aoeRadius(aoeConfig) <= 0:
-    return false
-  return not aoeHasMutations(aoeConfig) and not aoeHasPresenceDeltas(aoeConfig)
-
-proc alignmentFilterPasses(filterConfig: JsonNode, sourceCollectiveId: int, observerCollectiveId: int): bool =
-  if observerCollectiveId < 0 or observerCollectiveId >= getNumCollectives():
-    return false
-
-  let sourceIsFriendly = sourceCollectiveId == observerCollectiveId
-
-  if "collective" in filterConfig and filterConfig["collective"].kind == JString:
-    let observerCollectiveName = getCollectiveName(observerCollectiveId)
-    if observerCollectiveName.len == 0:
-      return false
-    return observerCollectiveName == filterConfig["collective"].getStr
-
-  if "alignment" notin filterConfig or filterConfig["alignment"].kind != JString:
-    return true
-
-  case filterConfig["alignment"].getStr
-  of "same_collective":
-    return sourceIsFriendly
-  of "different_collective", "not_same_collective":
-    return not sourceIsFriendly
-  of "aligned":
-    return true
-  of "unaligned":
-    return false
-  else:
-    return true
-
-proc aoePassesForCollective(aoeConfig: JsonNode, sourceCollectiveId: int, observerCollectiveId: int): bool =
-  if observerCollectiveId < 0 or observerCollectiveId >= getNumCollectives():
-    return false
-
-  if "filters" notin aoeConfig or aoeConfig["filters"].kind != JArray:
-    return true
-
-  for filterConfig in aoeConfig["filters"]:
-    if filterConfig.kind != JObject:
-      continue
-
-    if "target" in filterConfig and filterConfig["target"].kind == JString and filterConfig["target"].getStr != "target":
-      continue
-
-    if "filter_type" in filterConfig and filterConfig["filter_type"].kind == JString:
-      if filterConfig["filter_type"].getStr == "alignment":
-        if not alignmentFilterPasses(filterConfig, sourceCollectiveId, observerCollectiveId):
-          return false
-
   return true
 
 proc hasInfluenceAoe*(obj: Entity): bool =
-  ## Check if an object has influence (territory ownership) AoE in its config.
+  ## Check if an object has territory control in its config.
   if obj.isNil or obj.typeName == "agent":
     return false
   if replay.isNil or replay.mgConfig.isNil:
@@ -377,14 +298,16 @@ proc hasInfluenceAoe*(obj: Entity): bool =
   if obj.typeName notin objects:
     return false
   let objConfig = objects[obj.typeName]
-  if "aoes" notin objConfig:
+  if "territory_controls" notin objConfig:
     return false
-  let aoes = objConfig["aoes"]
-  if aoes.kind != JObject:
+  let controls = objConfig["territory_controls"]
+  if controls.kind != JArray or controls.len == 0:
     return false
-  for _, aoeConfig in aoes.pairs:
-    if isInfluenceAoeConfig(aoeConfig):
-      return true
+  for ctrl in controls:
+    if ctrl.kind == JObject and "strength" in ctrl:
+      let strength = ctrl["strength"].getInt(0)
+      if strength > 0:
+        return true
   return false
 
 proc collectiveToSlot*(collectiveId: int): int =
@@ -396,10 +319,16 @@ proc collectiveToSlot*(collectiveId: int): int =
     collectiveId
 
 type TerritoryAoeSpec = object
-  radius: int
+  strength: int
+  decay: int
 
-proc territoryInfluenceScore(aoeSpec: TerritoryAoeSpec, distSq: int): float32 =
-  max(0.0f, aoeSpec.radius.float32 - sqrt(distSq.float32))
+proc effectiveRadius(spec: TerritoryAoeSpec): int =
+  ## Matches C++ effective_radius: strength / decay.
+  if spec.decay > 0: spec.strength div spec.decay else: spec.strength
+
+proc territoryInfluenceScore(spec: TerritoryAoeSpec, distSq: int): float32 =
+  ## Matches C++ territory_influence_score: strength - decay * euclidean_distance.
+  max(0.0f, spec.strength.float32 - spec.decay.float32 * sqrt(distSq.float32))
 
 proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
   ## Rebuild the AoE map for a specific slot (0=Clips, 1=Cogs, 2=Neutral).
@@ -422,8 +351,8 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
   # Check if this collective is visible (not hidden). Neutral slot is never shown in combined mode.
   let isEnabled = slotId < getNumCollectives() and slotId notin settings.hiddenCollectiveAoe
 
-  proc influenceAoesForSlot(obj: Entity, observerSlot: int): seq[TerritoryAoeSpec] =
-    ## Return all influence AOEs that affect this observer slot.
+  proc territoryControlsForObj(obj: Entity): seq[TerritoryAoeSpec] =
+    ## Return territory control specs for an object.
     result = @[]
     if obj.typeName == "agent":
       return
@@ -437,80 +366,73 @@ proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
     let objects = game["objects"]
     if obj.typeName notin objects:
       return
-    let sourceSlot = collectiveToSlot(obj.collectiveId.at(step))
-    if sourceSlot >= getNumCollectives():
-      return
     let objConfig = objects[obj.typeName]
-    if "aoes" notin objConfig:
+    if "territory_controls" notin objConfig:
       return
-    let aoes = objConfig["aoes"]
-    if aoes.kind != JObject:
+    let controls = objConfig["territory_controls"]
+    if controls.kind != JArray:
       return
 
-    for _, aoeConfig in aoes.pairs:
-      if not isInfluenceAoeConfig(aoeConfig):
+    for ctrl in controls:
+      if ctrl.kind != JObject:
         continue
-      if not aoePassesForCollective(aoeConfig, sourceSlot, observerSlot):
-        continue
-      let aoeRange = aoeRadius(aoeConfig)
-      result.add(
-        TerritoryAoeSpec(
-          radius: aoeRange
-        )
-      )
+      let strength = ctrl.getOrDefault("strength").getInt(0)
+      let decay = ctrl.getOrDefault("decay").getInt(1)
+      if strength > 0 and decay > 0:
+        result.add(TerritoryAoeSpec(strength: strength, decay: decay))
 
-  # Mark AoE coverage directly (used for selected-object mode).
+  # Mark territory coverage directly (used for selected-object mode).
   proc markSelectedCoverage(obj: Entity) =
     if collectiveToSlot(obj.collectiveId.at(step)) != slotId:
       return
 
-    let aoeSpecs = influenceAoesForSlot(obj, slotId)
-    if aoeSpecs.len == 0:
+    let specs = territoryControlsForObj(obj)
+    if specs.len == 0:
       return
 
     let pos = obj.location.at(step).xy
-    for aoeSpec in aoeSpecs:
-      let aoeRange = aoeSpec.radius
-      for dx in -aoeRange .. aoeRange:
-        for dy in -aoeRange .. aoeRange:
+    for spec in specs:
+      let range = spec.effectiveRadius
+      for dx in -range .. range:
+        for dy in -range .. range:
           let
             tx = pos.x + dx.int32
             ty = pos.y + dy.int32
             distSq = dx * dx + dy * dy
-          if not withinTerritoryInfluenceRadius(dx, dy, aoeRange):
+          if not withinTerritoryInfluenceRadius(dx, dy, range):
             continue
-          let score = territoryInfluenceScore(aoeSpec, distSq)
+          let score = territoryInfluenceScore(spec, distSq)
           if score <= 0.0f:
             continue
           if tx >= 0 and tx < width and ty >= 0 and ty < height:
             reuseableOwnershipMap[ty * width + tx] = 1'u8
 
-  # Accumulate friendly/enemy weighted influence from AOEs.
+  # Accumulate friendly/enemy weighted influence from territory controls.
   proc accumulateTerritoryInfluence(obj: Entity) =
     let objSlot = collectiveToSlot(obj.collectiveId.at(step))
     if objSlot >= getNumCollectives() or objSlot in settings.hiddenCollectiveAoe:
       return
 
-    let aoeSpecs = influenceAoesForSlot(obj, slotId)
-    if aoeSpecs.len == 0:
+    let specs = territoryControlsForObj(obj)
+    if specs.len == 0:
       return
 
     let isFriendly = objSlot == slotId
     let pos = obj.location.at(step).xy
 
-    for aoeSpec in aoeSpecs:
-      let aoeRange = aoeSpec.radius
-      for dx in -aoeRange .. aoeRange:
-        for dy in -aoeRange .. aoeRange:
+    for spec in specs:
+      let range = spec.effectiveRadius
+      for dx in -range .. range:
+        for dy in -range .. range:
           let
             tx = pos.x + dx.int32
             ty = pos.y + dy.int32
           let distSq = dx * dx + dy * dy
-          if not withinTerritoryInfluenceRadius(dx, dy, aoeRange):
+          if not withinTerritoryInfluenceRadius(dx, dy, range):
             continue
           if tx >= 0 and tx < width and ty >= 0 and ty < height:
             let idx = ty * width + tx
-            let score = territoryInfluenceScore(aoeSpec, distSq)
+            let score = territoryInfluenceScore(spec, distSq)
             if score <= 0.0f:
               continue
             if isFriendly:
