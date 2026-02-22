@@ -9,6 +9,7 @@
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/multi_handler.hpp"
+#include "handler/territory_config.hpp"
 
 namespace py = pybind11;
 
@@ -564,6 +565,21 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("is_static", &AOEConfig::is_static)
       .def_readwrite("effect_self", &AOEConfig::effect_self)
       .def_readwrite("presence_deltas", &AOEConfig::presence_deltas);
+
+  // TerritoryConfig - game-level territory type definition
+  py::class_<TerritoryConfig>(m, "TerritoryConfig")
+      .def(py::init<>())
+      .def_readwrite("tag_prefix_ids", &TerritoryConfig::tag_prefix_ids)
+      .def_readwrite("on_enter", &TerritoryConfig::on_enter)
+      .def_readwrite("on_exit", &TerritoryConfig::on_exit)
+      .def_readwrite("presence", &TerritoryConfig::presence);
+
+  // TerritoryControlConfig - per-object influence on a territory type
+  py::class_<TerritoryControlConfig>(m, "TerritoryControlConfig")
+      .def(py::init<>())
+      .def_readwrite("strength", &TerritoryControlConfig::strength)
+      .def_readwrite("decay", &TerritoryControlConfig::decay)
+      .def_readwrite("territory_index", &TerritoryControlConfig::territory_index);
 
   // Handler - single handler with filters and mutations
   py::class_<Handler, std::shared_ptr<Handler>>(m, "Handler")

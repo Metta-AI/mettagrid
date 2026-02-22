@@ -47,6 +47,7 @@ from mettagrid.config.obs_config import (  # noqa: F401 - re-exported
 )
 from mettagrid.config.query import MaterializedQuery
 from mettagrid.config.reward_config import AgentReward
+from mettagrid.config.territory_config import TerritoryConfig, TerritoryControlConfig
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.map_builder.map_builder import AnyMapBuilderConfig
 from mettagrid.map_builder.random_map import RandomMapBuilder
@@ -125,6 +126,10 @@ class GridObjectConfig(Config):
     aoes: dict[str, AOEConfig] = Field(
         default_factory=dict,
         description="Named AOE configs this object emits to targets within range (name -> config)",
+    )
+    territory_controls: list[TerritoryControlConfig] = Field(
+        default_factory=list,
+        description="Territory influence controls this object emits (references game.territories keys)",
     )
     inventory: InventoryConfig = Field(default_factory=InventoryConfig)
 
@@ -266,6 +271,12 @@ class GameConfig(Config):
         description="Collectives (shared inventories) that grid objects can belong to (name -> config)",
     )
 
+    # Territories - game-level territory type definitions
+    territories: dict[str, TerritoryConfig] = Field(
+        default_factory=dict,
+        description="Territory types with tag_prefix and handlers (name -> config)",
+    )
+
     # Events - timestep-triggered effects that apply mutations to filtered objects
     events: dict[str, EventConfig] = Field(
         default_factory=dict,
@@ -296,7 +307,26 @@ class GameConfig(Config):
     @model_validator(mode="after")
     def _compute_feature_ids(self) -> "GameConfig":
         self.vibe_names = [vibe.name for vibe in self.actions.change_vibe.vibes]
+        self._validate_territory_controls()
         return self
+
+    def _validate_territory_controls(self) -> None:
+        territory_keys = set(self.territories.keys())
+        all_configs: list[tuple[str, list]] = []
+        for obj_name, obj_cfg in self.objects.items():
+            if hasattr(obj_cfg, "territory_controls") and obj_cfg.territory_controls:
+                all_configs.append((f"objects.{obj_name}", obj_cfg.territory_controls))
+        if self.agent.territory_controls:
+            all_configs.append(("agent", self.agent.territory_controls))
+        for i, agent_cfg in enumerate(self.agents):
+            if agent_cfg.territory_controls:
+                all_configs.append((f"agents[{i}]", agent_cfg.territory_controls))
+        for source, controls in all_configs:
+            for tc in controls:
+                assert tc.territory in territory_keys, (
+                    f"{source} territory_control references unknown territory '{tc.territory}'. "
+                    f"Available: {sorted(territory_keys)}"
+                )
 
     def id_map(self) -> "IdMap":
         """Get the observation feature ID map for this configuration."""

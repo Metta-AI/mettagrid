@@ -1,10 +1,5 @@
-from mettagrid.config.filter import AlignmentFilter
-from mettagrid.config.handler_config import (
-    AlignmentCondition,
-    AOEConfig,
-    HandlerTarget,
-)
-from mettagrid.config.mettagrid_config import CollectiveConfig, GridObjectConfig, InventoryConfig, MettaGridConfig
+from mettagrid.config.mettagrid_config import GridObjectConfig, MettaGridConfig
+from mettagrid.config.territory_config import TerritoryConfig, TerritoryControlConfig
 from mettagrid.simulator import Simulation
 from mettagrid.simulator.interface import Location
 from mettagrid.test_support.observation_helper import ObservationHelper
@@ -26,43 +21,31 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
     cfg.game.obs.num_tokens = 200
     cfg.game.obs.aoe_mask = True
     cfg.game.resource_names = []
-    cfg.game.agent.collective = "cogs"
-    cfg.game.collectives = {
-        "cogs": CollectiveConfig(inventory=InventoryConfig()),
-        "clips": CollectiveConfig(inventory=InventoryConfig()),
-    }
+    cfg.game.agent.tags = ["team:cogs"]
+    cfg.game.tags = ["team:cogs", "team:clips"]
+    cfg.game.territories = {"team_territory": TerritoryConfig(tag_prefix="team:")}
     cfg.game.objects["friendly_source"] = GridObjectConfig(
         name="friendly_source",
         map_name="friendly_source",
-        collective="cogs",
-        aoes={
-            "friendly": AOEConfig(
-                radius=2,
-                filters=[
-                    AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.SAME_COLLECTIVE),
-                ],
-            )
-        },
+        tags=["team:cogs"],
+        territory_controls=[
+            TerritoryControlConfig(territory="team_territory", strength=2),
+        ],
     )
     cfg.game.objects["enemy_source"] = GridObjectConfig(
         name="enemy_source",
         map_name="enemy_source",
-        collective="clips",
-        aoes={
-            "enemy": AOEConfig(
-                radius=2,
-                filters=[
-                    AlignmentFilter(target=HandlerTarget.TARGET, alignment=AlignmentCondition.DIFFERENT_COLLECTIVE),
-                ],
-            )
-        },
+        tags=["team:clips"],
+        territory_controls=[
+            TerritoryControlConfig(territory="team_territory", strength=2),
+        ],
     )
 
     sim = Simulation(cfg)
     obs = sim._c_sim.observations()[0]
     aoe_mask_feature_id = sim.config.game.id_map().feature_id("aoe_mask")
 
-    # Center cell is in range of both territory AOEs: contested => neutral => no token.
+    # Center cell (2,2) equidistant from both → tie → neutral → no token.
     assert (
         len(
             ObservationHelper.find_token_values(
@@ -72,7 +55,7 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
         == 0
     )
 
-    # (4,4) is outside Euclidean radius 2 from (3,2): no token.
+    # (4,4) is beyond effective radius from both sources: no token.
     assert (
         len(
             ObservationHelper.find_token_values(
@@ -82,7 +65,9 @@ def test_aoe_mask_observation_tokens_emitted_for_empty_cells() -> None:
         == 0
     )
 
-    # (4,3) is in range of the friendly source at (3,2) but out of range of the enemy at (1,2).
+    # (4,3) is distance ~1.4 from friendly source at (3,2) → score = max(0, 2-1.4) > 0.
+    # Enemy at (1,2), distance ~3.2 from (4,3) → score = max(0, 2-3.2) = 0.
+    # Friendly wins → mask = 1.
     assert (
         ObservationHelper.find_token_values(
             obs, location=Location(4, 3), feature_id=aoe_mask_feature_id, is_global=False

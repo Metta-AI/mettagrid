@@ -13,20 +13,10 @@ from mettagrid.config.mettagrid_config import (
     MettaGridConfig,
 )
 from mettagrid.config.mutation import updateTarget
+from mettagrid.config.territory_config import TerritoryConfig, TerritoryControlConfig
 from mettagrid.simulator import Simulation
 from mettagrid.simulator.interface import Location
 from mettagrid.test_support.observation_helper import ObservationHelper
-
-
-def _weighted_territory_aoe(
-    *,
-    radius: int,
-    alignment: AlignmentCondition,
-) -> AOEConfig:
-    return AOEConfig(
-        radius=radius,
-        filters=[AlignmentFilter(target=HandlerTarget.TARGET, alignment=alignment)],
-    )
 
 
 def _collective_map(*collectives: str) -> dict[str, CollectiveConfig]:
@@ -37,8 +27,8 @@ def _make_territory_cfg(
     *,
     map_data: list[str],
     char_to_map_name: dict[str, str],
-    agent_collective: str,
-    collectives: tuple[str, ...],
+    agent_team: str,
+    teams: tuple[str, ...] = (),
     num_tokens: int,
 ) -> MettaGridConfig:
     cfg = MettaGridConfig.EmptyRoom(
@@ -52,8 +42,9 @@ def _make_territory_cfg(
     cfg.game.obs.num_tokens = num_tokens
     cfg.game.obs.aoe_mask = True
     cfg.game.resource_names = []
-    cfg.game.agent.collective = agent_collective
-    cfg.game.collectives = _collective_map(*collectives)
+    cfg.game.agent.tags = [f"team:{agent_team}"]
+    cfg.game.tags = [f"team:{t}" for t in teams]
+    cfg.game.territories = {"team_territory": TerritoryConfig(tag_prefix="team:")}
     return cfg
 
 
@@ -61,21 +52,17 @@ def _territory_object(
     *,
     name: str,
     map_name: str,
-    collective: str,
-    radius: int,
-    alignment: AlignmentCondition,
-    aoe_name: str = "territory",
+    team: str,
+    strength: int,
+    tag_prefix: str = "team:",
 ) -> GridObjectConfig:
-    territory_aoe = _weighted_territory_aoe(
-        radius=radius,
-        alignment=alignment,
-    )
-
     return GridObjectConfig(
         name=name,
         map_name=map_name,
-        collective=collective,
-        aoes={aoe_name: territory_aoe},
+        tags=[f"team:{team}"],
+        territory_controls=[
+            TerritoryControlConfig(territory="team_territory", strength=strength),
+        ],
     )
 
 
@@ -96,8 +83,8 @@ def _territory_lookup(cfg: MettaGridConfig):
     return territory_at
 
 
-@pytest.mark.parametrize("enemy_collective", ["beta", "clips"])
-def test_territory_midpoint_tie_stays_neutral(enemy_collective: str) -> None:
+@pytest.mark.parametrize("enemy_team", ["beta", "clips"])
+def test_territory_midpoint_tie_stays_neutral(enemy_team: str) -> None:
     cfg = _make_territory_cfg(
         map_data=[
             ".....",
@@ -107,32 +94,29 @@ def test_territory_midpoint_tie_stays_neutral(enemy_collective: str) -> None:
             ".....",
         ],
         char_to_map_name={"E": "enemy_source", "F": "friendly_source"},
-        agent_collective="alpha",
-        collectives=("alpha", enemy_collective),
+        agent_team="alpha",
+        teams=("alpha", enemy_team),
         num_tokens=200,
     )
     cfg.game.objects["friendly_source"] = _territory_object(
         name="friendly_source",
         map_name="friendly_source",
-        collective="alpha",
-        radius=2,
-        alignment=AlignmentCondition.SAME_COLLECTIVE,
-        aoe_name="friendly",
+        team="alpha",
+        strength=2,
     )
     cfg.game.objects["enemy_source"] = _territory_object(
         name="enemy_source",
         map_name="enemy_source",
-        collective=enemy_collective,
-        radius=2,
-        alignment=AlignmentCondition.DIFFERENT_COLLECTIVE,
-        aoe_name="enemy",
+        team=enemy_team,
+        strength=2,
     )
 
     territory_at = _territory_lookup(cfg)
     assert territory_at(2, 2) is None
 
 
-def test_territory_excludes_exact_cardinal_radius_boundary_points() -> None:
+def test_territory_at_strength_boundary() -> None:
+    """Cells beyond effective radius (strength/decay) should be neutral."""
     cfg = _make_territory_cfg(
         map_data=[
             ".......",
@@ -144,37 +128,34 @@ def test_territory_excludes_exact_cardinal_radius_boundary_points() -> None:
             ".......",
         ],
         char_to_map_name={"F": "friendly_source"},
-        agent_collective="cogs",
-        collectives=("cogs",),
+        agent_team="cogs",
+        teams=("cogs",),
         num_tokens=300,
     )
     cfg.game.objects["friendly_source"] = _territory_object(
         name="friendly_source",
         map_name="friendly_source",
-        collective="cogs",
-        radius=2,
-        alignment=AlignmentCondition.SAME_COLLECTIVE,
-        aoe_name="friendly",
+        team="cogs",
+        strength=2,
     )
 
     territory_at = _territory_lookup(cfg)
+    # (3,3) is distance 1 from (3,4) → score = max(0, 2-1) = 1 → friendly
+    assert territory_at(3, 3) == 1
+    # (1,4) is distance 2 from (3,4) → score = max(0, 2-2) = 0 → neutral
     assert territory_at(1, 4) is None
-    assert territory_at(3, 2) is None
+    # (3,6) is distance 2 from (3,4) → score = 0 → neutral
     assert territory_at(3, 6) is None
-    assert territory_at(5, 4) is None
-    assert territory_at(2, 3) == 1
-    assert territory_at(4, 5) == 1
 
 
 @pytest.mark.parametrize(
-    ("radius", "expected_owned", "expected_neutral"),
+    ("strength", "expected_owned", "expected_neutral"),
     [
-        (0, [], [(2, 2), (2, 3)]),
         (1, [(2, 3)], [(2, 2)]),
     ],
 )
-def test_small_radius_territory_coverage(
-    radius: int,
+def test_small_strength_territory_coverage(
+    strength: int,
     expected_owned: list[tuple[int, int]],
     expected_neutral: list[tuple[int, int]],
 ) -> None:
@@ -187,17 +168,15 @@ def test_small_radius_territory_coverage(
             ".....",
         ],
         char_to_map_name={"F": "friendly_source"},
-        agent_collective="cogs",
-        collectives=("cogs",),
+        agent_team="cogs",
+        teams=("cogs",),
         num_tokens=200,
     )
     cfg.game.objects["friendly_source"] = _territory_object(
         name="friendly_source",
         map_name="friendly_source",
-        collective="cogs",
-        radius=radius,
-        alignment=AlignmentCondition.SAME_COLLECTIVE,
-        aoe_name="friendly",
+        team="cogs",
+        strength=strength,
     )
 
     territory_at = _territory_lookup(cfg)
@@ -219,30 +198,28 @@ def test_weighted_territory_influence_allows_multiple_sources_to_outcompete_one(
             ".......",
         ],
         char_to_map_name={"E": "enemy_source", "F": "friendly_source"},
-        agent_collective="cogs",
-        collectives=("cogs", "clips"),
+        agent_team="cogs",
+        teams=("cogs", "clips"),
         num_tokens=300,
     )
     cfg.game.objects["friendly_source"] = _territory_object(
         name="friendly_source",
         map_name="friendly_source",
-        collective="cogs",
-        radius=3,
-        alignment=AlignmentCondition.SAME_COLLECTIVE,
+        team="cogs",
+        strength=3,
     )
     cfg.game.objects["enemy_source"] = _territory_object(
         name="enemy_source",
         map_name="enemy_source",
-        collective="clips",
-        radius=3,
-        alignment=AlignmentCondition.DIFFERENT_COLLECTIVE,
+        team="clips",
+        strength=3,
     )
 
     territory_at = _territory_lookup(cfg)
     assert territory_at(3, 3) == 2
 
 
-def test_weighted_territory_influence_reaches_zero_on_radius_boundary() -> None:
+def test_weighted_territory_influence_reaches_zero_on_boundary() -> None:
     cfg = _make_territory_cfg(
         map_data=[
             ".......",
@@ -254,31 +231,31 @@ def test_weighted_territory_influence_reaches_zero_on_radius_boundary() -> None:
             ".......",
         ],
         char_to_map_name={"F": "friendly_source"},
-        agent_collective="cogs",
-        collectives=("cogs",),
+        agent_team="cogs",
+        teams=("cogs",),
         num_tokens=300,
     )
     cfg.game.objects["friendly_source"] = _territory_object(
         name="friendly_source",
         map_name="friendly_source",
-        collective="cogs",
-        radius=3,
-        alignment=AlignmentCondition.SAME_COLLECTIVE,
+        team="cogs",
+        strength=3,
     )
 
     territory_at = _territory_lookup(cfg)
+    # (0,4) is distance 3 from (3,4) → score = max(0, 3-3) = 0 → neutral
     assert territory_at(0, 4) is None
 
 
 @pytest.mark.parametrize(
-    ("friendly_radius", "expected_territory"),
+    ("friendly_strength", "expected_territory"),
     [
         (5, 1),
         (2, 2),
     ],
 )
-def test_weighted_territory_with_different_radii(
-    friendly_radius: int,
+def test_weighted_territory_with_different_strengths(
+    friendly_strength: int,
     expected_territory: int | None,
 ) -> None:
     cfg = _make_territory_cfg(
@@ -292,23 +269,21 @@ def test_weighted_territory_with_different_radii(
             ".......",
         ],
         char_to_map_name={"E": "enemy_source", "F": "friendly_source"},
-        agent_collective="cogs",
-        collectives=("cogs", "clips"),
+        agent_team="cogs",
+        teams=("cogs", "clips"),
         num_tokens=300,
     )
     cfg.game.objects["friendly_source"] = _territory_object(
         name="friendly_source",
         map_name="friendly_source",
-        collective="cogs",
-        radius=friendly_radius,
-        alignment=AlignmentCondition.SAME_COLLECTIVE,
+        team="cogs",
+        strength=friendly_strength,
     )
     cfg.game.objects["enemy_source"] = _territory_object(
         name="enemy_source",
         map_name="enemy_source",
-        collective="clips",
-        radius=3,
-        alignment=AlignmentCondition.DIFFERENT_COLLECTIVE,
+        team="clips",
+        strength=3,
     )
 
     territory_at = _territory_lookup(cfg)
@@ -384,12 +359,14 @@ def test_mutating_aoes_do_not_emit_territory_ownership_tokens() -> None:
             ".....",
         ],
         char_to_map_name={"E": "enemy_source"},
-        agent_collective="cogs",
-        collectives=("cogs", "clips"),
+        agent_team="cogs",
+        teams=("cogs", "clips"),
         num_tokens=200,
     )
     cfg.game.resource_names = ["hp"]
     cfg.game.agent.inventory.initial = {"hp": 10}
+    cfg.game.agent.collective = "cogs"
+    cfg.game.collectives = _collective_map("cogs", "clips")
     cfg.game.objects["enemy_source"] = GridObjectConfig(
         name="enemy_source",
         map_name="enemy_source",
@@ -417,7 +394,7 @@ def test_mutating_aoes_do_not_emit_territory_ownership_tokens() -> None:
     assert sim.agent(0).inventory.get("hp", 0) == 9
 
 
-def test_territory_ownership_comes_from_non_mutating_aoes() -> None:
+def test_territory_ownership_comes_from_territory_controls() -> None:
     cfg = _make_territory_cfg(
         map_data=[
             ".....",
@@ -427,18 +404,23 @@ def test_territory_ownership_comes_from_non_mutating_aoes() -> None:
             ".....",
         ],
         char_to_map_name={"E": "enemy_station", "F": "friendly_station"},
-        agent_collective="cogs",
-        collectives=("cogs", "clips"),
+        agent_team="cogs",
+        teams=("cogs", "clips"),
         num_tokens=200,
     )
     cfg.game.resource_names = ["hp"]
     cfg.game.agent.inventory.initial = {"hp": 10}
+    cfg.game.agent.collective = "cogs"
+    cfg.game.collectives = _collective_map("cogs", "clips")
     cfg.game.objects["enemy_station"] = GridObjectConfig(
         name="enemy_station",
         map_name="enemy_station",
+        tags=["team:clips"],
         collective="clips",
+        territory_controls=[
+            TerritoryControlConfig(territory="team_territory", strength=3),
+        ],
         aoes={
-            "territory": _weighted_territory_aoe(radius=3, alignment=AlignmentCondition.DIFFERENT_COLLECTIVE),
             "enemy_effect": AOEConfig(
                 radius=3,
                 filters=[
@@ -454,9 +436,12 @@ def test_territory_ownership_comes_from_non_mutating_aoes() -> None:
     cfg.game.objects["friendly_station"] = GridObjectConfig(
         name="friendly_station",
         map_name="friendly_station",
+        tags=["team:cogs"],
         collective="cogs",
+        territory_controls=[
+            TerritoryControlConfig(territory="team_territory", strength=3),
+        ],
         aoes={
-            "territory": _weighted_territory_aoe(radius=3, alignment=AlignmentCondition.SAME_COLLECTIVE),
             "friendly_effect": AOEConfig(
                 radius=3,
                 filters=[

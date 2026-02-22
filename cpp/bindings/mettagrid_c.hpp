@@ -23,6 +23,7 @@
 
 #include "config/mettagrid_config.hpp"
 #include "core/aoe_tracker.hpp"
+#include "core/territory_tracker.hpp"
 #include "handler/handler_context.hpp"
 #include "core/game_value_config.hpp"
 #include "core/grid_object.hpp"
@@ -199,6 +200,7 @@ private:
 
   // Global systems
   std::unique_ptr<mettagrid::AOETracker> _aoe_tracker;
+  std::unique_ptr<mettagrid::TerritoryTracker> _territory_tracker;
   std::unique_ptr<mettagrid::EventScheduler> _event_scheduler;
   std::unique_ptr<mettagrid::QuerySystem> _query_system;
 

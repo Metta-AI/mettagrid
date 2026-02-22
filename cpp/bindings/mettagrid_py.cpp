@@ -378,6 +378,7 @@ PYBIND11_MODULE(mettagrid_c, m) {
       .def_readwrite("collective_id", &GridObjectConfig::collective_id)
       .def_readwrite("on_use_handler", &GridObjectConfig::on_use_handler)
       .def_readwrite("aoe_configs", &GridObjectConfig::aoe_configs)
+      .def_readwrite("territory_controls", &GridObjectConfig::territory_controls)
       .def_readwrite("initial_inventory", &GridObjectConfig::initial_inventory)
       .def_readwrite("inventory_config", &GridObjectConfig::inventory_config)
       .def(

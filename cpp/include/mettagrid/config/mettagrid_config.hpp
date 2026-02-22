@@ -15,6 +15,7 @@
 #include "core/query_config.hpp"
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
+#include "handler/territory_config.hpp"
 #include "objects/collective_config.hpp"
 
 // Forward declarations
@@ -57,6 +58,9 @@ struct GameConfig {
 
   // Collective configurations - maps collective name to config
   std::unordered_map<std::string, std::shared_ptr<CollectiveConfig>> collectives;
+
+  // Territory type definitions (indexed by position in vector)
+  std::vector<mettagrid::TerritoryConfig> territories;
 
   // FEATURE FLAGS
   bool protocol_details_obs = true;
@@ -328,6 +332,9 @@ inline void bind_game_config(py::module& m) {
                     // Collectives
                     const std::unordered_map<std::string, std::shared_ptr<CollectiveConfig>>&,
 
+                    // Territories
+                    const std::vector<mettagrid::TerritoryConfig>&,
+
                     // FEATURE FLAGS
                     bool,
                     const std::unordered_map<std::string, float>&,
@@ -356,6 +363,9 @@ inline void bind_game_config(py::module& m) {
 
            // Collectives
            py::arg("collectives") = std::unordered_map<std::string, std::shared_ptr<CollectiveConfig>>(),
+
+           // Territories
+           py::arg("territories") = std::vector<mettagrid::TerritoryConfig>(),
 
            // FEATURE FLAGS
            py::arg("protocol_details_obs") = true,
@@ -390,6 +400,9 @@ inline void bind_game_config(py::module& m) {
 
       // Collectives
       .def_readwrite("collectives", &GameConfig::collectives)
+
+      // Territories
+      .def_readwrite("territories", &GameConfig::territories)
 
       // FEATURE FLAGS
       .def_readwrite("protocol_details_obs", &GameConfig::protocol_details_obs)

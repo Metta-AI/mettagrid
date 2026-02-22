@@ -43,6 +43,10 @@ void GridObject::set_aoe_configs(std::vector<mettagrid::AOEConfig> configs) {
   _aoe_configs = std::move(configs);
 }
 
+void GridObject::set_territory_controls(std::vector<mettagrid::TerritoryControlConfig> controls) {
+  _territory_controls = std::move(controls);
+}
+
 void GridObject::set_on_tag_add(std::unordered_map<int, std::vector<std::shared_ptr<mettagrid::Handler>>> handlers) {
   _on_tag_add = std::move(handlers);
 }
@@ -57,6 +61,10 @@ bool GridObject::has_on_use_handler() const {
 
 const std::vector<mettagrid::AOEConfig>& GridObject::aoe_configs() const {
   return _aoe_configs;
+}
+
+const std::vector<mettagrid::TerritoryControlConfig>& GridObject::territory_controls() const {
+  return _territory_controls;
 }
 
 bool GridObject::onUse(Agent& actor, ActionArg /*arg*/, const mettagrid::HandlerContext& ctx) {

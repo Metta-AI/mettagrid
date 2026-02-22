@@ -12,6 +12,7 @@
 
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
+#include "handler/territory_config.hpp"
 #include "objects/alignable.hpp"
 #include "objects/constants.hpp"
 #include "objects/has_inventory.hpp"
@@ -79,6 +80,7 @@ struct GridObjectConfig {
   // - aoe: Triggered per-tick for objects within radius (context: actor=this, target=affected)
   std::shared_ptr<mettagrid::Handler> on_use_handler;  // Handler created by Python
   std::vector<mettagrid::AOEConfig> aoe_configs;
+  std::vector<mettagrid::TerritoryControlConfig> territory_controls;
 
   // Tag lifecycle handlers: key = tag_id, value = handler configs to fire
   // Fired with actor=target=this_object when a tag is added/removed
@@ -129,6 +131,7 @@ public:
   // Set handler for on_use events (takes shared_ptr for Python interop)
   void set_on_use_handler(std::shared_ptr<mettagrid::Handler> handler);
   void set_aoe_configs(std::vector<mettagrid::AOEConfig> configs);
+  void set_territory_controls(std::vector<mettagrid::TerritoryControlConfig> controls);
   void set_on_tag_add(std::unordered_map<int, std::vector<std::shared_ptr<mettagrid::Handler>>> handlers);
   void set_on_tag_remove(std::unordered_map<int, std::vector<std::shared_ptr<mettagrid::Handler>>> handlers);
 
@@ -137,6 +140,7 @@ public:
 
   // Get AOE configs for AOE processing
   const std::vector<mettagrid::AOEConfig>& aoe_configs() const;
+  const std::vector<mettagrid::TerritoryControlConfig>& territory_controls() const;
 
   // Override onUse to try on_use handlers
   bool onUse(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& ctx) override;
@@ -177,6 +181,7 @@ public:
 protected:
   std::shared_ptr<mettagrid::Handler> _on_use_handler;
   std::vector<mettagrid::AOEConfig> _aoe_configs;
+  std::vector<mettagrid::TerritoryControlConfig> _territory_controls;
 
 private:
   std::unordered_map<int, std::vector<std::shared_ptr<mettagrid::Handler>>> _on_tag_add;

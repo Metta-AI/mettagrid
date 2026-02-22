@@ -22,6 +22,7 @@ namespace mettagrid {
 static void _set_up_handlers(GridObject* obj, const GridObjectConfig* config, [[maybe_unused]] TagIndex* tag_index) {
   obj->set_on_use_handler(config->on_use_handler);
   obj->set_aoe_configs(config->aoe_configs);
+  obj->set_territory_controls(config->territory_controls);
 
   // on_tag_add handlers
   if (!config->on_tag_add.empty()) {

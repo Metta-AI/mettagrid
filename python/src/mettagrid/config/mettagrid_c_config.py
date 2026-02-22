@@ -56,6 +56,10 @@ from mettagrid.mettagrid_c import (
 )
 from mettagrid.mettagrid_c import TagPrefixFilterConfig as CppTagPrefixFilterConfig
 from mettagrid.mettagrid_c import TagQueryConfig as CppTagQueryConfig
+from mettagrid.mettagrid_c import TerritoryConfig as CppTerritoryConfig  # pyright: ignore[reportAttributeAccessIssue]
+from mettagrid.mettagrid_c import (
+    TerritoryControlConfig as CppTerritoryControlConfig,  # pyright: ignore[reportAttributeAccessIssue]
+)
 from mettagrid.mettagrid_c import VibeFilterConfig as CppVibeFilterConfig
 from mettagrid.mettagrid_c import WallConfig as CppWallConfig
 from mettagrid.mettagrid_c import make_query_config
@@ -462,6 +466,55 @@ def _convert_aoe_configs(aoes: dict, id_maps: CppIdMaps) -> list:
     return cpp_aoe_configs
 
 
+def _convert_handler_to_cpp(handler, id_maps: CppIdMaps, context: str) -> CppHandlerConfig:
+    """Convert a Python Handler to a C++ HandlerConfig."""
+    cpp_handler = CppHandlerConfig(context)
+    _convert_filters(handler.filters, cpp_handler, id_maps, context=context)
+    convert_mutations(handler.mutations, cpp_handler, id_maps, context=context)
+    return cpp_handler
+
+
+def _convert_game_territory_configs(
+    territories: dict, id_maps: CppIdMaps, territory_name_to_index: dict[str, int]
+) -> list:
+    """Convert game-level Python TerritoryConfig dict to C++ TerritoryConfig list (ordered by index)."""
+    cpp_configs = [CppTerritoryConfig() for _ in range(len(territories))]
+    for name, territory_config in territories.items():
+        idx = territory_name_to_index[name]
+        cpp_tc = cpp_configs[idx]
+
+        cpp_tc.tag_prefix_ids = _resolve_tag_prefix(territory_config.tag_prefix, id_maps.tag_name_to_id)
+
+        ctx = f"territory '{name}'"
+        cpp_tc.on_enter = [
+            _convert_handler_to_cpp(h, id_maps, f"{ctx}.on_enter.{k}") for k, h in territory_config.on_enter.items()
+        ]
+        cpp_tc.on_exit = [
+            _convert_handler_to_cpp(h, id_maps, f"{ctx}.on_exit.{k}") for k, h in territory_config.on_exit.items()
+        ]
+        cpp_tc.presence = [
+            _convert_handler_to_cpp(h, id_maps, f"{ctx}.presence.{k}") for k, h in territory_config.presence.items()
+        ]
+    return cpp_configs
+
+
+def _convert_territory_controls(controls: list, id_maps: CppIdMaps, territory_name_to_index: dict[str, int]) -> list:
+    """Convert per-object Python TerritoryControlConfig list to C++ TerritoryControlConfig list."""
+    cpp_controls = []
+    for tc in controls:
+        if tc.territory not in territory_name_to_index:
+            raise ValueError(
+                f"TerritoryControlConfig references unknown territory '{tc.territory}'. "
+                f"Available: {sorted(territory_name_to_index.keys())}"
+            )
+        cpp_tc = CppTerritoryControlConfig()
+        cpp_tc.strength = tc.strength
+        cpp_tc.decay = tc.decay
+        cpp_tc.territory_index = territory_name_to_index[tc.territory]
+        cpp_controls.append(cpp_tc)
+    return cpp_controls
+
+
 # ---------------------------------------------------------------------------
 # Map rewriting
 # ---------------------------------------------------------------------------
@@ -578,6 +631,8 @@ def convert_to_cpp_game_config(
         limit_name_to_resource_ids=limit_name_to_resource_ids,
     )
 
+    territory_name_to_index: dict[str, int] = {name: i for i, name in enumerate(game_config.territories.keys())}
+
     # --- Build agents ---
 
     objects_cpp_params = {}
@@ -655,6 +710,11 @@ def convert_to_cpp_game_config(
 
         if agent_cfg.aoes:
             cpp_agent_config.aoe_configs = _convert_aoe_configs(agent_cfg.aoes, id_maps)
+
+        if agent_cfg.territory_controls:
+            cpp_agent_config.territory_controls = _convert_territory_controls(  # pyright: ignore[reportAttributeAccessIssue]
+                agent_cfg.territory_controls, id_maps, territory_name_to_index
+            )
 
         if agent_cfg.on_tag_remove:
             _convert_on_tag_lifecycle_handlers(
@@ -772,6 +832,10 @@ def convert_to_cpp_game_config(
                 cpp_config.on_use_handler = _create_on_use_handler(object_config.on_use_handlers, id_maps)
             if object_config.aoes:
                 cpp_config.aoe_configs = _convert_aoe_configs(object_config.aoes, id_maps)
+            if object_config.territory_controls:
+                cpp_config.territory_controls = _convert_territory_controls(  # pyright: ignore[reportAttributeAccessIssue]
+                    object_config.territory_controls, id_maps, territory_name_to_index
+                )
             if object_config.on_tag_remove:
                 _convert_on_tag_lifecycle_handlers(
                     object_config.on_tag_remove,
@@ -797,6 +861,8 @@ def convert_to_cpp_game_config(
         del game_cpp_params["tags"]
     if "materialize_queries" in game_cpp_params:
         del game_cpp_params["materialize_queries"]
+    if "territories" in game_cpp_params:
+        del game_cpp_params["territories"]
 
     if "obs" in game_cpp_params:
         obs_config = game_cpp_params.pop("obs")
@@ -916,6 +982,13 @@ def convert_to_cpp_game_config(
         collectives_cpp[collective_name] = cpp_collective_config
 
     game_cpp_params["collectives"] = collectives_cpp
+
+    # --- Territories ---
+
+    if game_config.territories:
+        game_cpp_params["territories"] = _convert_game_territory_configs(
+            game_config.territories, id_maps, territory_name_to_index
+        )
 
     # --- Events ---
 

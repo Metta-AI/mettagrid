@@ -107,8 +107,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
     _obs_thread_buffers.resize(_obs_thread_count);
     for (auto& buf : _obs_thread_buffers) {
       buf.global_tokens.reserve(32);
-      buf.obs_features_scratch.resize(
-          Agent::max_obs_features(max_tags, num_resources, tokens_per_item));
+      buf.obs_features_scratch.resize(Agent::max_obs_features(max_tags, num_resources, tokens_per_item));
     }
   }
 
@@ -117,6 +116,12 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   _grid = std::make_unique<Grid>(height, width);
   _aoe_tracker = std::make_unique<mettagrid::AOETracker>(height, width);
+  _territory_tracker = std::make_unique<mettagrid::TerritoryTracker>(height, width, game_config.territories);
+
+  auto* territory_tracker = _territory_tracker.get();
+  _grid->on_object_moved = [territory_tracker](GridObject& obj, const GridLocation& old_loc) {
+    territory_tracker->notify_source_moved(obj, old_loc);
+  };
   _obs_encoder = std::make_unique<ObservationEncoder>(
       game_config.protocol_details_obs, resource_names, game_config.feature_ids, game_config.token_value_base);
 
@@ -169,7 +174,8 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   _query_system = std::make_unique<mettagrid::QuerySystem>(game_config.materialized_queries);
 
   // Initialize base HandlerContext with all system pointers
-  _game_ctx = mettagrid::HandlerContext(&_tag_index, _grid.get(), _stats.get(), &_collectives, _query_system.get(), &_rng);
+  _game_ctx =
+      mettagrid::HandlerContext(&_tag_index, _grid.get(), _stats.get(), &_collectives, _query_system.get(), &_rng);
 
   // Compute initial query tags
   _query_system->compute_all(_game_ctx);
@@ -281,6 +287,11 @@ void MettaGrid::_init_grid(const GameConfig& game_config,
       // Register AOE configs for this object (possibly none)
       for (const auto& aoe_config : created_object->aoe_configs()) {
         _aoe_tracker->register_source(*created_object, aoe_config);
+      }
+
+      // Register territory controls for this object (possibly none)
+      for (const auto& control : created_object->territory_controls()) {
+        _territory_tracker->register_source(*created_object, control);
       }
 
       // Handle agent-specific setup (agent_id and registration)
@@ -417,7 +428,7 @@ void MettaGrid::_emit_tile_observability_tokens(size_t agent_idx,
     return;
   }
 
-  _aoe_tracker->fixed_observability_at(object_loc, *_agents[agent_idx], _game_ctx, aoe_mask_ptr);
+  _territory_tracker->compute_observability_at(object_loc, *_agents[agent_idx], aoe_mask_ptr);
 
   if (aoe_mask != 0) {
     attempted_tokens_written += 1;
@@ -615,7 +626,8 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
   }
 
   if (_global_obs_config.goal_obs) {
-    global_tokens.insert(global_tokens.end(), _agent_goal_obs_tokens[agent_idx].begin(), _agent_goal_obs_tokens[agent_idx].end());
+    global_tokens.insert(
+        global_tokens.end(), _agent_goal_obs_tokens[agent_idx].begin(), _agent_goal_obs_tokens[agent_idx].end());
   }
 
   if (_global_obs_config.local_position) {
@@ -710,8 +722,8 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
                                                ActionType action) {
   auto& buf = _obs_thread_buffers[0];
   buf.reset_stats();
-  _compute_observation_optimized(observer_row, observer_col, observable_width, observable_height,
-                                 agent_idx, action, buf);
+  _compute_observation_optimized(
+      observer_row, observer_col, observable_width, observable_height, agent_idx, action, buf);
   *_stats->get_ptr(_stat_tokens_written) += buf.tokens_written;
   *_stats->get_ptr(_stat_tokens_dropped) += buf.tokens_dropped;
   *_stats->get_ptr(_stat_tokens_free_space) += buf.tokens_free_space;
@@ -782,7 +794,8 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
   }
 
   if (_global_obs_config.goal_obs) {
-    global_tokens.insert(global_tokens.end(), _agent_goal_obs_tokens[agent_idx].begin(), _agent_goal_obs_tokens[agent_idx].end());
+    global_tokens.insert(
+        global_tokens.end(), _agent_goal_obs_tokens[agent_idx].begin(), _agent_goal_obs_tokens[agent_idx].end());
   }
 
   if (_global_obs_config.local_position) {
@@ -857,8 +870,8 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
     }
 
     if (tokens_written >= buffer_capacity) {
-      attempted_tokens_written += obj->write_obs_features(
-          buffers.obs_features_scratch.data(), buffers.obs_features_scratch.size());
+      attempted_tokens_written +=
+          obj->write_obs_features(buffers.obs_features_scratch.data(), buffers.obs_features_scratch.size());
       continue;
     }
 
@@ -880,8 +893,8 @@ void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_ac
   if (_validation_enabled) {
     // Serial — shadow validation not thread-safe
     for (size_t idx = 0; idx < _agents.size(); idx++) {
-      _compute_observation(_agents[idx]->location.r, _agents[idx]->location.c,
-          obs_width, obs_height, idx, executed_actions[idx]);
+      _compute_observation(
+          _agents[idx]->location.r, _agents[idx]->location.c, obs_width, obs_height, idx, executed_actions[idx]);
     }
     return;
   }
@@ -910,10 +923,13 @@ void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_ac
             size_t end = std::min(start + chunk, _agents.size());
 
             for (size_t idx = start; idx < end; idx++) {
-              _compute_observation_optimized(
-                  _agents[idx]->location.r, _agents[idx]->location.c,
-                  obs_width, obs_height, idx,
-                  (*_obs_current_actions)[idx], buf);
+              _compute_observation_optimized(_agents[idx]->location.r,
+                                             _agents[idx]->location.c,
+                                             obs_width,
+                                             obs_height,
+                                             idx,
+                                             (*_obs_current_actions)[idx],
+                                             buf);
             }
 
             // Signal done by resetting flag to 0
@@ -947,8 +963,8 @@ void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_ac
 
   // Serial fallback
   for (size_t idx = 0; idx < _agents.size(); idx++) {
-    _compute_observation(_agents[idx]->location.r, _agents[idx]->location.c,
-        obs_width, obs_height, idx, executed_actions[idx]);
+    _compute_observation(
+        _agents[idx]->location.r, _agents[idx]->location.c, obs_width, obs_height, idx, executed_actions[idx]);
   }
 }
 
@@ -1067,6 +1083,7 @@ void MettaGrid::_step() {
   if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   for (auto* agent : _agents) {
     _aoe_tracker->apply_fixed(*agent, _game_ctx);
+    _territory_tracker->apply_effects(*agent, _game_ctx);
   }
 
   // Apply mobile AOE effects (sources checked against all agents)
@@ -1158,7 +1175,7 @@ void MettaGrid::validate_buffers() {
   {
     auto truncations_info = _truncations.request();
     auto truncations_shape = truncations_info.shape;
-  if (truncations_info.ndim != 1 || truncations_shape[0] != static_cast<ssize_t>(num_agents)) {
+    if (truncations_info.ndim != 1 || truncations_shape[0] != static_cast<ssize_t>(num_agents)) {
       throw std::runtime_error("truncations has the wrong shape");
     }
   }
