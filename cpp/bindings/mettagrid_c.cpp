@@ -44,24 +44,6 @@
 
 namespace py = pybind11;
 
-namespace {
-
-std::vector<std::pair<int, int>> compute_observation_offsets(ObservationCoord observation_height,
-                                                             ObservationCoord observation_width) {
-  auto observation_shape = mettagrid::make_observation_shape(observation_height, observation_width);
-  std::vector<std::pair<int, int>> observation_offsets;
-  observation_offsets.reserve(static_cast<size_t>(observation_height) * static_cast<size_t>(observation_width));
-  for (const auto& offset : PackedCoordinate::ObservationPattern{observation_height, observation_width}) {
-    if (!mettagrid::within_observation_shape(offset.first, offset.second, observation_shape)) {
-      continue;
-    }
-    observation_offsets.push_back(offset);
-  }
-  return observation_offsets;
-}
-
-}  // namespace
-
 MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned int seed)
     : obs_width(game_config.obs_width),
       obs_height(game_config.obs_height),
@@ -91,7 +73,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   }
 
   // Pre-compute in-vision observation offsets (Manhattan distance order).
-  _observation_offsets = compute_observation_offsets(obs_height, obs_width);
+  mettagrid::compute_observation_offsets(obs_height, obs_width, _observation_offsets);
 
   // Parallel observation dispatch is opt-in until validated on production
   // EPYC hardware. Set METTAGRID_OBS_THREADS to enable:

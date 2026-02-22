@@ -3,6 +3,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include "systems/packed_coordinate.hpp"
+
 namespace mettagrid {
 
 ObservationShape make_observation_shape(ObservationType observation_height, ObservationType observation_width) {
@@ -47,6 +49,20 @@ bool within_observation_shape(int row_offset, int col_offset, const ObservationS
   // Elliptical mask for non-square observation windows.
   return row_sq * observation_shape.col_radius_sq + col_sq * observation_shape.row_radius_sq <=
          observation_shape.row_radius_sq * observation_shape.col_radius_sq;
+}
+
+void compute_observation_offsets(ObservationType observation_height,
+                                 ObservationType observation_width,
+                                 std::vector<std::pair<int, int>>& observation_offsets) {
+  auto observation_shape = make_observation_shape(observation_height, observation_width);
+  observation_offsets.clear();
+  observation_offsets.reserve(static_cast<size_t>(observation_height) * static_cast<size_t>(observation_width));
+  for (const auto& offset : PackedCoordinate::ObservationPattern{observation_height, observation_width}) {
+    if (!within_observation_shape(offset.first, offset.second, observation_shape)) {
+      continue;
+    }
+    observation_offsets.push_back(offset);
+  }
 }
 
 }  // namespace mettagrid
