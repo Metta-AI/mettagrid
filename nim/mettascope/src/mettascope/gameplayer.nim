@@ -2,7 +2,7 @@ import
   std/[strformat, tables],
   opengl,
   bumpy, vmath, windy, silky, silky/atlas, chroma,
-  common, worldmap, panels, configs,
+  common, worldmap, panels, configs, team,
   replays, colors, minimap, actions, cognames, timelineslider
 
 var
@@ -75,14 +75,15 @@ proc switchGameMode*(newMode: GameMode) =
   saveUIState()
 
 proc computeScore(): float =
-  ## Computes the average score for all agents.
+  ## Computes the average score for the active team's agents.
   if replay.isNil:
     return 0.0
+  let teamIdx = getActiveTeam()
   var
     totalScore = 0.0
     agentCount = 0
   for obj in replay.objects:
-    if obj.isAgent:
+    if obj.isAgent and (teamIdx < 0 or getEntityTeamIndex(obj) == teamIdx):
       totalScore += obj.totalReward.at
       agentCount += 1
   if agentCount > 0:
@@ -90,12 +91,14 @@ proc computeScore(): float =
   return 0.0
 
 proc computeJunctionCount(): int =
-  ## Computes the total number of junctions.
+  ## Computes the junction count for the active team.
   if replay.isNil:
     return 0
+  let teamIdx = getActiveTeam()
   var junctionCount = 0
   for obj in replay.objects:
-    if normalizeTypeName(obj.typeName) == "junction":
+    if normalizeTypeName(obj.typeName) == "junction" and
+        (teamIdx < 0 or getEntityTeamIndex(obj) == teamIdx):
       junctionCount += 1
   return junctionCount
 
@@ -267,13 +270,29 @@ proc topLeftPanel() =
   )
 
 proc topRightPanel(winW: float32) =
-  ## Draw top-right panel with resource counts.
+  ## Draw top-right panel with resource counts for the active team.
   let
     trSize = sk.getImageSize("ui/panel_topright")
     trPos = vec2(winW - trSize.x, 0)
   sk.drawImage("ui/panel_topright", trPos)
 
-  discard
+  if not replay.isNil:
+    let teamIdx = getActiveTeam()
+    const
+      CellSpacing = 32.0f
+      YPad = 42.0f
+      XPad = 52.0f
+    let globalResources = [
+      ("resources/carbon", "carbon"),
+      ("resources/oxygen", "oxygen"),
+      ("resources/germanium", "germanium"),
+      ("resources/silicon", "silicon"),
+    ]
+    var x = trPos.x + XPad
+    let y = trPos.y + YPad
+    for (icon, name) in globalResources:
+      resourceCell(vec2(x, y), icon, getTeamResourceCount(teamIdx, name))
+      x += ResourceCellWidth + CellSpacing
 
 proc bottomBarStretch(winW: float32, winH: float32) =
   ## Draw the stretch bar between the two bottom panels.
@@ -527,8 +546,13 @@ proc centerPanel(winW: float32, winH: float32) =
     let
       textPos = bcPos + vec2(69, 32)
       cogName = getCogName(selected.agentId)
+      teamName = getTeamName(getEntityTeamIndex(selected))
       displayName =
-        if cogName.len > 0:
+        if teamName.len > 0 and cogName.len > 0:
+          teamName & " " & cogName
+        elif teamName.len > 0:
+          teamName
+        elif cogName.len > 0:
           cogName
         else:
           rig
@@ -597,7 +621,12 @@ proc centerPanel(winW: float32, winH: float32) =
 
     let
       textPos = bcPos + vec2(69, 32)
-      displayName = normalized
+      teamName = getTeamName(getEntityTeamIndex(selected))
+      displayName =
+        if teamName.len > 0:
+          teamName & " " & normalized
+        else:
+          normalized
 
     discard sk.drawText("pixelated", displayName, textPos, Yellow, clip = false)
 

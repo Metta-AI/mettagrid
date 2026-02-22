@@ -47,7 +47,7 @@ const DefaultConfig* = MettascopeConfig(
     showHeatmap: false
   ),
   selectedAgentId: -1,
-  gameMode: Editor
+  gameMode: Game
 )
 
 proc serializeArea*(area: Area): AreaLayoutConfig =
@@ -144,7 +144,7 @@ proc applyUIState*(config: MettascopeConfig) =
     gameMode = forcedGameMode
   else:
     if config.gameMode == Auto:
-      gameMode = Editor
+      gameMode = Game
     else:
       gameMode = config.gameMode
 
@@ -165,7 +165,7 @@ proc saveUIState*() =
   var config = loadConfig()
   config.playSpeed = playSpeed
   if gameMode == Auto:
-    config.gameMode = Editor
+    config.gameMode = Game
   else:
     config.gameMode = gameMode
   config.settings.showFogOfWar = settings.showFogOfWar

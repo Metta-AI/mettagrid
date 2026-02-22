@@ -87,13 +87,10 @@ proc protocolCmp(a, b: Protocol): int =
 
 proc getObjConfig(cur: Entity): JsonNode =
   ## Get the object config from mg_config for the given entity.
-  if replay.isNil or replay.mgConfig.isNil:
+  if replay.isNil:
     return nil
-  if "game" notin replay.mgConfig or "objects" notin replay.mgConfig["game"]:
-    return nil
-  let objects = replay.mgConfig["game"]["objects"]
-  if cur.typeName in objects:
-    return objects[cur.typeName]
+  if cur.typeName in replay.objectConfigsByName:
+    return replay.objectConfigsByName[cur.typeName]
   return nil
 
 proc drawOnUseHandlers(objConfig: JsonNode) =
@@ -205,13 +202,10 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
             let agentConfig = replay.mgConfig["game"]["agent"]
             agentConfig.pretty
           else:
-            if "game" notin replay.mgConfig or "objects" notin replay.mgConfig["game"]:
-              "No object config found."
-            elif typeName notin replay.mgConfig["game"]["objects"]:
+            if typeName notin replay.objectConfigsByName:
               "Object config not found for type: " & typeName
             else:
-              let objConfig = replay.mgConfig["game"]["objects"][typeName]
-              objConfig.pretty
+              replay.objectConfigsByName[typeName].pretty
       openTempTextFile(cur.typeName & "_config.json", cfgText)
 
     # Basic identity
@@ -241,23 +235,12 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
       tagNames.sort()
       text("  Tags: " & tagNames.join(", "))
 
-    # Show AoE fields if this object type has them.
-    if not replay.mgConfig.isNil and "game" in replay.mgConfig:
-      let game = replay.mgConfig["game"]
-      if "objects" in game and cur.typeName in game["objects"]:
-        let objConfig = game["objects"][cur.typeName]
-        if "aoes" in objConfig and objConfig["aoes"].kind == JObject:
-          let aoes = objConfig["aoes"]
-          if aoes.len > 0:
-            text("  AOEs:")
-            for aoeName, aoeConfig in aoes.pairs:
-              var radius = 0
-              if "radius" in aoeConfig:
-                if aoeConfig["radius"].kind == JInt:
-                  radius = aoeConfig["radius"].getInt
-                elif aoeConfig["radius"].kind == JFloat:
-                  radius = aoeConfig["radius"].getFloat.int
-              text(&"    {aoeName} (radius: {radius})")
+    # Show territory controls if this object type has them.
+    let controls = replay.getTerritoryControls(cur.typeName)
+    if controls.len > 0:
+      text("  Territory:")
+      for control in controls:
+        text(&"    {control.territory} (strength: {control.strength}, decay: {control.decay})")
 
     if cur.isAgent:
       # Agent-specific info.
@@ -272,8 +255,6 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
         text("  Vibe: " & vibeName)
     else:
       # Building info.
-      let objConfig = getObjConfig(cur)
-
       if not cur.alive.at:
         text("  Dead")
 

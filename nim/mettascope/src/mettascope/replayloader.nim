@@ -1,7 +1,7 @@
 import
   std/tables,
   windy,
-  replays, worldmap, common, configs, panels
+  replays, worldmap, common, configs, panels, team
 
 
 proc onReplayLoaded*() =
@@ -30,6 +30,7 @@ proc onReplayLoaded*() =
   agentObjectives = initTable[int, seq[Objective]]()
 
   needsInitialFit = true
+  replay.discoverTeams()
 
   let config = loadConfig()
   applyUIState(config)
