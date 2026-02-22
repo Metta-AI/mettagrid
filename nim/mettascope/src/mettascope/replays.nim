@@ -1,5 +1,5 @@
-import std/[algorithm, json, os, tables, strutils],
-  zippy, vmath, jsony, silky,
+import std/[json, os, tables, strutils],
+  zippy, vmath, jsony, silky, chroma,
   ./validation
 
 # If you update this, also update REPLAY_FORMAT_VERSION in
@@ -20,12 +20,22 @@ type
 
   RecipeInfoConfig* = tuple[pattern: seq[string], protocol: Protocol]
 
+  TeamInfo* = object
+    name*: string
+    tagId*: int
+    color*: ColorRGBX
+
   ObsConfig* = object
     width*: int
     height*: int
     tokenDim*: int
     numTokens*: int
     tokenValueBase*: int
+
+  TerritoryControl* = object
+    territory*: string
+    strength*: int
+    decay*: int
 
   ObjectConfig* = object
     name*: string
@@ -36,6 +46,7 @@ type
     `type`*: string
     swappable*: bool
     recipes*: seq[RecipeInfoConfig]
+    territory_controls*: seq[TerritoryControl]
 
   GameConfig* = object
     resourceNames*: seq[string]
@@ -141,12 +152,16 @@ type
 
     agents*: seq[Entity]
 
+    teams*: seq[TeamInfo]
     drawnAgentActionMask*: uint64
     mgConfig*: JsonNode
     config*: Config
     tutorialOverlay*: string
     tutorialOverlayPhases*: seq[string]
     tutorialOverlayPhase*: int
+
+    objectConfigsByName*: Table[string, JsonNode]
+    territoryControlsByName*: Table[string, seq[TerritoryControl]]
 
     # Cached action IDs for common actions.
     noopActionId*: int
@@ -270,6 +285,69 @@ proc getMapSize*(obj: JsonNode, default: (int, int) = (0, 0)): (int, int) =
       let h = if mapSize[1].kind == JInt: mapSize[1].getInt else: 0
       return (w, h)
   default
+
+proc getTerritoryControls*(replay: Replay, typeName: string): seq[TerritoryControl] =
+  ## Return typed territory controls for a given object type.
+  if replay.isNil:
+    return @[]
+  if typeName notin replay.territoryControlsByName:
+    return @[]
+  replay.territoryControlsByName[typeName]
+
+proc parseTerritoryControls(objConfig: JsonNode, objectName: string): seq[TerritoryControl] =
+  ## Parse and validate territory_controls from object config.
+  if "territory_controls" notin objConfig:
+    return @[]
+  let controls = objConfig["territory_controls"]
+  if controls.kind != JArray:
+    raise newException(
+      ValueError,
+      "Invalid territory_controls for object '" & objectName & "': expected an array"
+    )
+  for i, controlNode in controls:
+    if controlNode.kind != JObject:
+      raise newException(
+        ValueError,
+        "Invalid territory_controls[" & $i & "] for object '" & objectName & "': expected an object"
+      )
+    var control = TerritoryControl(territory: "", strength: 1, decay: 1)
+    if "territory" in controlNode:
+      if controlNode["territory"].kind != JString:
+        raise newException(
+          ValueError,
+          "Invalid territory_controls[" & $i & "].territory for object '" & objectName & "': expected a string"
+        )
+      control.territory = controlNode["territory"].getStr
+    if "strength" in controlNode:
+      let strengthNode = controlNode["strength"]
+      if strengthNode.kind == JInt:
+        control.strength = strengthNode.getInt
+      elif strengthNode.kind == JFloat:
+        control.strength = strengthNode.getFloat.int
+      else:
+        raise newException(
+          ValueError,
+          "Invalid territory_controls[" & $i & "].strength for object '" & objectName & "': expected a number"
+        )
+    if "decay" in controlNode:
+      let decayNode = controlNode["decay"]
+      if decayNode.kind == JInt:
+        control.decay = decayNode.getInt
+      elif decayNode.kind == JFloat:
+        control.decay = decayNode.getFloat.int
+      else:
+        raise newException(
+          ValueError,
+          "Invalid territory_controls[" & $i & "].decay for object '" & objectName & "': expected a number"
+        )
+    if control.decay <= 0:
+      raise newException(
+        ValueError,
+        "Invalid territory_controls[" & $i & "].decay for object '" & objectName & "': expected > 0"
+      )
+    if control.strength <= 0:
+      continue
+    result.add(control)
 
 proc parseHook*(s: string, i: var int, v: var IVec2) =
   var arr: array[2, int32]
@@ -820,6 +898,21 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
   if mgConfig != nil:
     replay.mgConfig = mgConfig
     replay.config = fromJson($mgConfig, Config)
+    if "game" in mgConfig and "objects" in mgConfig["game"]:
+      let objects = mgConfig["game"]["objects"]
+      if objects.kind == JObject:
+        for key, val in objects:
+          let name =
+            if "name" in val and val["name"].kind == JString:
+              val["name"].getStr
+            else:
+              key
+          let territoryControls = parseTerritoryControls(val, name)
+          replay.objectConfigsByName[name] = val
+          replay.territoryControlsByName[name] = territoryControls
+          if key != name:
+            replay.objectConfigsByName[key] = val
+            replay.territoryControlsByName[key] = territoryControls
 
   # Parse tags.
   let tagsObj = getJsonNode(jsonObj, "tags")

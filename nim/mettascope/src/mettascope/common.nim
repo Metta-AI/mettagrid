@@ -45,6 +45,8 @@ type
     showHeatmap* = false
     showObservations* = -1
     lockFocus* = false
+    hiddenTeamAoe*: HashSet[int]
+
   PlayMode* = enum
     Historical
     Realtime

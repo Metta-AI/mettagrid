@@ -1,7 +1,7 @@
 import
-  std/[algorithm, math, os, tables, json, options, strutils],
+  std/[algorithm, math, os, tables, options, strutils, sets],
   chroma, vmath, windy, silky,
-  common, actions, replays,
+  common, actions, replays, team,
   pathfinding, tilemap, pixelator, shaderquad, terrains, starfield,
   panels, heatmap, heatmapshader, colors,
   panels/objectpanel
@@ -25,10 +25,11 @@ var
   explorationFogMapSelectionId*: int = -1
   explorationFogMap*: TileMap
 
-  # AoE tilemap system (dynamic).
+  # AoE tilemap system - one map per team (dynamic).
   aoeMaps*: seq[TileMap]
   aoeMapStep*: int = -1
   aoeMapSelectionId*: int = -1
+  aoeMapHiddenTeams*: HashSet[int]
 
   # Allocated coverage map for AoE map generation,
   # so that it's not reallocated every time and cause GC pressure.
@@ -271,144 +272,122 @@ proc getProjectionView*(): Mat4 {.measure.} =
   let projection = ortho(0.0f, window.size.x.float32, window.size.y.float32, 0.0f, -1.0f, 1.0f)
   projection * view
 
-proc aoeRadius(aoeConfig: JsonNode): int =
-  if "radius" notin aoeConfig:
-    return 0
-  if aoeConfig["radius"].kind == JInt:
-    return aoeConfig["radius"].getInt
-  if aoeConfig["radius"].kind == JFloat:
-    return aoeConfig["radius"].getFloat.int
-  return 0
-
 proc withinTerritoryInfluenceRadius(dx: int, dy: int, aoeRange: int): bool =
-  ## Must match territory-mask inclusion in AOETracker::register_fixed:
-  ## inside Euclidean radius, excluding exact cardinal boundary points.
-  let
-    distSq = dx * dx + dy * dy
-    rangeSq = aoeRange * aoeRange
-  if distSq > rangeSq:
-    return false
-  if aoeRange >= 2 and distSq == rangeSq and (dx == 0 or dy == 0):
-    return false
-  return true
-
-proc aoeHasMutations(aoeConfig: JsonNode): bool =
-  if "mutations" notin aoeConfig or aoeConfig["mutations"].kind != JArray:
-    return false
-  return aoeConfig["mutations"].len > 0
-
-proc aoeHasPresenceDeltas(aoeConfig: JsonNode): bool =
-  if "presence_deltas" notin aoeConfig:
-    return false
-  if aoeConfig["presence_deltas"].kind == JObject:
-    return aoeConfig["presence_deltas"].len > 0
-  if aoeConfig["presence_deltas"].kind == JArray:
-    return aoeConfig["presence_deltas"].len > 0
-  return false
-
-proc isInfluenceAoeConfig(aoeConfig: JsonNode): bool =
-  ## Influence AOEs are fixed circular fields with no mutations/presence-deltas
-  ## and positive radius.
-  if aoeRadius(aoeConfig) <= 0:
-    return false
-  return not aoeHasMutations(aoeConfig) and not aoeHasPresenceDeltas(aoeConfig)
+  ## Matches C++ TerritoryTracker::register_source: dist_sq <= range_sq.
+  dx * dx + dy * dy <= aoeRange * aoeRange
 
 proc hasInfluenceAoe*(obj: Entity): bool =
-  ## Check if an object has influence (territory ownership) AoE in its config.
+  ## Check if an object has territory influence via replay-parsed controls.
   if obj.isNil or obj.typeName == "agent":
     return false
-  if replay.isNil or replay.mgConfig.isNil:
-    return false
-  if "game" notin replay.mgConfig:
-    return false
-  let game = replay.mgConfig["game"]
-  if "objects" notin game:
-    return false
-  let objects = game["objects"]
-  if obj.typeName notin objects:
-    return false
-  let objConfig = objects[obj.typeName]
-  if "aoes" notin objConfig:
-    return false
-  let aoes = objConfig["aoes"]
-  if aoes.kind != JObject:
-    return false
-  for _, aoeConfig in aoes.pairs:
-    if isInfluenceAoeConfig(aoeConfig):
-      return true
-  return false
+  replay != nil and replay.getTerritoryControls(obj.typeName).len > 0
 
-type TerritoryAoeSpec = object
-  radius: int
+proc effectiveRadius(spec: TerritoryControl): int =
+  ## Matches C++ effective_radius: strength / decay.
+  spec.strength div spec.decay
 
-proc territoryInfluenceScore(aoeSpec: TerritoryAoeSpec, distSq: int): float32 =
-  max(0.0f, aoeSpec.radius.float32 - sqrt(distSq.float32))
+proc territoryInfluenceScore(spec: TerritoryControl, distSq: int): float32 =
+  max(0.0f, spec.strength.float32 - spec.decay.float32 * sqrt(distSq.float32))
 
-proc influenceAoeSpecs(obj: Entity): seq[TerritoryAoeSpec] =
-  ## Return all influence AOEs for this object.
-  result = @[]
-  if obj.typeName == "agent":
-    return
-  if replay.isNil or replay.mgConfig.isNil:
-    return
-  if "game" notin replay.mgConfig:
-    return
-  let game = replay.mgConfig["game"]
-  if "objects" notin game:
-    return
-  let objects = game["objects"]
-  if obj.typeName notin objects:
-    return
-  let objConfig = objects[obj.typeName]
-  if "aoes" notin objConfig:
-    return
-  let aoes = objConfig["aoes"]
-  if aoes.kind != JObject:
-    return
-  for _, aoeConfig in aoes.pairs:
-    if not isInfluenceAoeConfig(aoeConfig):
-      continue
-    result.add(TerritoryAoeSpec(radius: aoeRadius(aoeConfig)))
+proc influenceAoeSpecs(obj: Entity): seq[TerritoryControl] =
+  ## Return territory control specs for this object.
+  if obj.typeName == "agent" or replay.isNil:
+    return @[]
+  replay.getTerritoryControls(obj.typeName)
 
-proc rebuildAoeMap*(aoeMap: TileMap) {.measure.} =
-  ## Rebuild the AoE map showing all influence areas.
+proc rebuildAoeMap*(aoeMap: TileMap, teamIdx: int) {.measure.} =
+  ## Rebuild the AoE map for a specific team with friendly/enemy scoring.
   let
     width = aoeMap.width
     height = aoeMap.height
 
   reuseableCoverageMap.setLen(width * height)
+  reuseableFriendlyScoreMap.setLen(width * height)
+  reuseableEnemyScoreMap.setLen(width * height)
   for i in 0 ..< reuseableCoverageMap.len:
     reuseableCoverageMap[i] = true
+    reuseableFriendlyScoreMap[i] = 0.0f
+    reuseableEnemyScoreMap[i] = 0.0f
 
-  proc markCoverage(obj: Entity) =
-    let aoeSpecs = influenceAoeSpecs(obj)
-    if aoeSpecs.len == 0:
+  let
+    numTeams = getNumTeams()
+    hasTeams = numTeams > 0
+    isEnabled = if hasTeams:
+      teamIdx < numTeams and teamIdx notin settings.hiddenTeamAoe
+    else:
+      teamIdx == 0
+
+  proc markSelectedCoverage(obj: Entity) =
+    if hasTeams and getEntityTeamIndex(obj) != teamIdx:
+      return
+    let specs = influenceAoeSpecs(obj)
+    if specs.len == 0:
       return
     let pos = obj.location.at(step).xy
-    for aoeSpec in aoeSpecs:
-      let aoeRange = aoeSpec.radius
-      for dx in -aoeRange .. aoeRange:
-        for dy in -aoeRange .. aoeRange:
+    for spec in specs:
+      let range = spec.effectiveRadius
+      for dx in -range .. range:
+        for dy in -range .. range:
           let
             tx = pos.x + dx.int32
             ty = pos.y + dy.int32
-          if not withinTerritoryInfluenceRadius(dx, dy, aoeRange):
+          if not withinTerritoryInfluenceRadius(dx, dy, range):
             continue
           let distSq = dx * dx + dy * dy
-          let score = territoryInfluenceScore(aoeSpec, distSq)
+          let score = territoryInfluenceScore(spec, distSq)
           if score <= 0.0f:
             continue
           if tx >= 0 and tx < width and ty >= 0 and ty < height:
             reuseableCoverageMap[ty * width + tx] = false
 
+  proc accumulateInfluence(obj: Entity) =
+    let specs = influenceAoeSpecs(obj)
+    if specs.len == 0:
+      return
+    var isFriendly = false
+    if hasTeams:
+      let objTeam = getEntityTeamIndex(obj)
+      if objTeam < 0 or objTeam in settings.hiddenTeamAoe:
+        return
+      isFriendly = objTeam == teamIdx
+    let pos = obj.location.at(step).xy
+    for spec in specs:
+      let range = spec.effectiveRadius
+      for dx in -range .. range:
+        for dy in -range .. range:
+          let
+            tx = pos.x + dx.int32
+            ty = pos.y + dy.int32
+          if not withinTerritoryInfluenceRadius(dx, dy, range):
+            continue
+          if tx >= 0 and tx < width and ty >= 0 and ty < height:
+            let idx = ty * width + tx
+            let distSq = dx * dx + dy * dy
+            let score = territoryInfluenceScore(spec, distSq)
+            if score <= 0.0f:
+              continue
+            if not hasTeams:
+              reuseableCoverageMap[idx] = false
+            elif isFriendly:
+              reuseableFriendlyScoreMap[idx] += score
+            else:
+              reuseableEnemyScoreMap[idx] += score
+
   let selectionHasInfluence = selected != nil and hasInfluenceAoe(selected)
   if selectionHasInfluence:
-    markCoverage(selected)
+    markSelectedCoverage(selected)
   else:
-    for obj in replay.objects:
-      if not obj.alive.at:
-        continue
-      markCoverage(obj)
+    if isEnabled:
+      for obj in replay.objects:
+        if not obj.alive.at:
+          continue
+        accumulateInfluence(obj)
+      if hasTeams:
+        for i in 0 ..< reuseableCoverageMap.len:
+          let
+            friendlyScore = reuseableFriendlyScoreMap[i]
+            enemyScore = reuseableEnemyScoreMap[i]
+          reuseableCoverageMap[i] = friendlyScore <= enemyScore + 1e-6f
 
   for i in 0 ..< aoeMap.indexData.len:
     let x = i mod width
@@ -439,8 +418,8 @@ proc rebuildAoeMap*(aoeMap: TileMap) {.measure.} =
       tile = patternToTile[pattern].uint8
     aoeMap.indexData[i] = tile
 
-proc generateAoeMap(): TileMap {.measure.} =
-  ## Generate the AoE tilemap.
+proc generateAoeMap(teamIdx: int): TileMap {.measure.} =
+  ## Generate an AoE tilemap for a specific team.
   let
     width = ceil(replay.mapSize[0].float32 / 32.0f).int * 32
     height = ceil(replay.mapSize[1].float32 / 32.0f).int * 32
@@ -451,43 +430,63 @@ proc generateAoeMap(): TileMap {.measure.} =
     tileSize = 64,
     atlasPath = dataDir / "aoe7x8.png"
   )
-  aoeMap.rebuildAoeMap()
+  aoeMap.rebuildAoeMap(teamIdx)
   aoeMap.setupGPU()
   return aoeMap
 
 proc initAoeMaps*() {.measure.} =
-  ## Initialize the AoE tilemap.
-  aoeMaps = @[generateAoeMap()]
+  ## Initialize AoE tilemaps, one per team.
+  let count = max(getNumTeams(), 1)
+  aoeMaps = newSeq[TileMap](count)
+  for i in 0 ..< count:
+    aoeMaps[i] = generateAoeMap(i)
   aoeMapStep = step
+  aoeMapHiddenTeams = settings.hiddenTeamAoe
 
 proc updateAoeMaps*() {.measure.} =
-  ## Update the AoE tilemap.
-  for aoeMap in aoeMaps:
-    aoeMap.rebuildAoeMap()
-    aoeMap.updateGPU()
+  ## Update all AoE tilemaps.
+  for i in 0 ..< aoeMaps.len:
+    aoeMaps[i].rebuildAoeMap(i)
+    aoeMaps[i].updateGPU()
   aoeMapStep = step
+  aoeMapHiddenTeams = settings.hiddenTeamAoe
 
 proc drawAoeMaps*() {.measure.} =
-  ## Draw AoE tilemap showing influence areas.
+  ## Draw team-colored AoE tilemaps.
   if replay.isNil:
     return
 
-  if aoeMaps.len == 0:
+  let
+    numTeams = getNumTeams()
+    expectedCount = max(numTeams, 1)
+  if aoeMaps.len != expectedCount:
     initAoeMaps()
 
   let currentSelectionId = if selected != nil: selected.id else: -1
-  let needsRebuild = aoeMapStep != step or aoeMapSelectionId != currentSelectionId
+  let needsRebuild = aoeMapStep != step or
+    aoeMapHiddenTeams != settings.hiddenTeamAoe or
+    aoeMapSelectionId != currentSelectionId
   if needsRebuild:
     updateAoeMaps()
     aoeMapSelectionId = currentSelectionId
 
-  for aoeMap in aoeMaps:
-    aoeMap.draw(
-      getProjectionView(),
-      zoom = 2.0f,
-      zoomThreshold = 1.5f,
-      tint = color(0.3, 0.6, 1.0, 0.5)
-    )
+  let selectionHasInfluence = selected != nil and hasInfluenceAoe(selected)
+  for i in 0 ..< aoeMaps.len:
+    let shouldDraw = if selectionHasInfluence and numTeams > 0:
+      getEntityTeamIndex(selected) == i
+    else:
+      i notin settings.hiddenTeamAoe
+    if shouldDraw:
+      let tint = if numTeams > 0:
+        getTeamColor(i).color
+      else:
+        color(0.3, 0.6, 1.0, 0.5)
+      aoeMaps[i].draw(
+        getProjectionView(),
+        zoom = 2.0f,
+        zoomThreshold = 1.5f,
+        tint = tint
+      )
 
 proc smoothPos*(entity: Entity): Vec2 =
   ## Interpolate between floor(stepFloat) and the next step.
@@ -708,11 +707,31 @@ proc drawObjects*() {.measure.} =
     let pos = thing.smoothPos()
     if thing.typeName == "agent":
       let agent = thing
-      # Find last orientation action.
       var agentImage = "agents/" & agentRigName(agent) & "." & smoothOrientation(agent).char
 
       px.drawSprite(
         agentImage,
+        (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
+      )
+
+    elif normalizeTypeName(thing.typeName) == "junction":
+      let
+        teamName = getTeamName(getEntityTeamIndex(thing)).toLowerAscii()
+        spriteName =
+          if teamName.contains("clip") and "objects/junction.clipped1" in px:
+            "objects/junction.clipped1"
+          elif teamName.contains("cog") and "objects/junction.working" in px:
+            "objects/junction.working"
+          elif "objects/" & thing.typeName in px:
+            "objects/" & thing.typeName
+          elif "objects/" & stripTeamPrefix(thing.typeName) in px:
+            "objects/" & stripTeamPrefix(thing.typeName)
+          elif "objects/" & stripTeamSuffix(thing.typeName) in px:
+            "objects/" & stripTeamSuffix(thing.typeName)
+          else:
+            "objects/unknown"
+      px.drawSprite(
+        spriteName,
         (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
       )
 
@@ -886,7 +905,7 @@ proc drawAgentDecorations*() {.measure.} =
     if not agent.alive.at:
       continue
     let pos = (agent.smoothPos * TileSize.float32).ivec2
-    let tint = WhiteTint
+    let tint = getTeamColor(getEntityTeamIndex(agent))
     # HP bar
     let hp = getInventoryItem(agent, "hp")
     let hpPrev = getInventoryItem(agent, "hp", prevStep)
@@ -1078,7 +1097,11 @@ proc drawObjectPips*() {.measure.} =
     if pipName notin pxMini:
       pipName = "minimap/unknown"
     let loc = obj.location.at(step).xy
-    let pipTint = WhiteTint
+    let normalized = normalizeTypeName(obj.typeName)
+    let pipTint = if normalized in ["junction", "agent"]:
+      getTeamColor(getEntityTeamIndex(obj))
+    else:
+      WhiteTint
     pxMini.drawSprite(
       pipName,
       loc.ivec2 * MiniTileSize,
