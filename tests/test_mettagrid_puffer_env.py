@@ -80,7 +80,10 @@ class TestMettaGridPufferEnvCreation:
         assert action_space.n >= 5  # noop + 4 cardinal directions
 
     def test_transport_action_space_includes_encoded_vibe_actions(self, simulator, puffer_sim_config):
-        """Transport action space should include both primary and encoded primary+vibe ids."""
+        """Transport action space should include primary-only + encoded primary+vibe ids.
+
+        Total = N_primary + N_primary * N_vibe = N_primary * (1 + N_vibe) = N_primary * (N_vibe + 1).
+        """
         env = MettaGridPufferEnv(simulator, puffer_sim_config)
 
         num_non_vibe_actions = env.single_action_space.n
@@ -108,9 +111,7 @@ class _VibeActionSupervisorAgentPolicy(AgentPolicy):
 class _VibeActionSupervisorPolicy(MultiAgentPolicy):
     def __init__(self, policy_env_info: PolicyEnvInterface, device: str = "cpu"):
         super().__init__(policy_env_info, device=device)
-        self._vibe_action_id = [*policy_env_info.action_names, *policy_env_info.vibe_action_names].index(
-            "change_vibe_default"
-        )
+        self._vibe_action_id = policy_env_info.all_action_names.index("change_vibe_default")
 
     def agent_policy(self, agent_id: int) -> AgentPolicy:
         return _VibeActionSupervisorAgentPolicy(self._policy_env_info)
@@ -210,6 +211,89 @@ class TestMettaGridPufferEnvVectorValidation:
                 vecenv.send(out_of_range)
         finally:
             vecenv.close()
+
+
+class TestMettaGridPufferEnvCombinedIndexEncoding:
+    """Tests that combined-index encoding maps scripted agent action indices correctly.
+
+    Combined-index encoding:
+      [0, N_primary)                                → primary action only, no vibe
+      [N_primary, N_primary + N_primary * N_vibe)   → primary + vibe
+        where offset = val - N_primary, primary = offset // N_vibe, vibe = offset % N_vibe
+
+    This means scripted agents can use indices from the combined action list
+    [*action_names, *vibe_action_names] directly.
+    """
+
+    def test_primary_only_combined_indices(self, simulator, puffer_sim_config):
+        """Combined indices [0, N_primary) should be accepted and treated as primary-only."""
+        env = MettaGridPufferEnv(simulator, puffer_sim_config)
+        env.reset()
+        n_primary = env.single_action_space.n
+        for idx in range(n_primary):
+            actions = np.full(env.num_agents, idx, dtype=np.int32)
+            env.step(actions)  # Should not raise
+
+    def test_vibe_combined_indices(self, simulator, puffer_sim_config):
+        """Combined indices [N_primary, N_primary + N_vibe) should be vibe-only (noop primary)."""
+        env = MettaGridPufferEnv(simulator, puffer_sim_config)
+        env.reset()
+        n_primary = env.single_action_space.n
+        n_vibe = env.single_vibe_action_space.n
+        if n_vibe == 0:
+            pytest.skip("No vibe actions configured")
+        # Combined index for vibe action i is N_primary + i.
+        # This encodes as offset=i, primary=i//N_vibe=0(noop), vibe=i%N_vibe=i.
+        for i in range(n_vibe):
+            actions = np.full(env.num_agents, n_primary + i, dtype=np.int32)
+            env.step(actions)  # Should not raise
+
+    def test_all_combined_indices_accepted(self, simulator, puffer_sim_config):
+        """Every combined index in [0, N_primary + N_primary * N_vibe) should be valid."""
+        env = MettaGridPufferEnv(simulator, puffer_sim_config)
+        env.reset()
+        n_primary = env.single_action_space.n
+        n_vibe = env.single_vibe_action_space.n
+        max_valid = n_primary + n_primary * n_vibe if n_vibe > 0 else n_primary
+        for idx in range(max_valid):
+            actions = np.full(env.num_agents, idx, dtype=np.int32)
+            env.step(actions)
+
+    def test_out_of_range_combined_index_rejected(self, simulator, puffer_sim_config):
+        """Index >= N_primary + N_primary * N_vibe should be rejected."""
+        env = MettaGridPufferEnv(simulator, puffer_sim_config)
+        env.reset()
+        n_primary = env.single_action_space.n
+        n_vibe = env.single_vibe_action_space.n
+        max_valid = n_primary + n_primary * n_vibe if n_vibe > 0 else n_primary
+        actions = np.full(env.num_agents, max_valid, dtype=np.int32)
+        with pytest.raises(ValueError, match="out of range"):
+            env.step(actions)
+
+    def test_dual_action_encoding(self, simulator, puffer_sim_config):
+        """Encoding N_primary + primary * N_vibe + vibe should work for dual actions."""
+        env = MettaGridPufferEnv(simulator, puffer_sim_config)
+        env.reset()
+        n_primary = env.single_action_space.n
+        n_vibe = env.single_vibe_action_space.n
+        if n_vibe == 0:
+            pytest.skip("No vibe actions configured")
+        # Encode: move_north (1) + first vibe action (0)
+        encoded = n_primary + 1 * n_vibe + 0
+        actions = np.full(env.num_agents, encoded, dtype=np.int32)
+        env.step(actions)  # Should not raise
+
+    def test_2d_path_still_works(self, simulator, puffer_sim_config):
+        """2D [N, 2] input (col 0 = primary, col 1 = vibe index) should still work."""
+        env = MettaGridPufferEnv(simulator, puffer_sim_config)
+        env.reset()
+        n_vibe = env.single_vibe_action_space.n
+        if n_vibe == 0:
+            pytest.skip("No vibe actions configured")
+        actions = np.zeros((env.num_agents, 2), dtype=np.int32)
+        actions[:, 0] = 0  # noop primary
+        actions[:, 1] = 0  # first vibe action
+        env.step(actions)  # Should not raise
 
 
 class TestMettaGridPufferEnvStep:

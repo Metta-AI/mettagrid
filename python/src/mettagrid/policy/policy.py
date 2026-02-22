@@ -211,7 +211,7 @@ class NimMultiAgentPolicy(MultiAgentPolicy):
             self._num_tokens,
             self._token_dim,
             obs_buffer.ctypes.data,
-            len([*self.policy_env_info.action_names, *self.policy_env_info.vibe_action_names]),
+            len(self.policy_env_info.all_action_names),
             action_buffer.ctypes.data,
         )
 
@@ -241,7 +241,7 @@ class _NimAgentPolicy(AgentPolicy):
             else:
                 self._infos = {}
         action_index_int = int(action_index)
-        action_names = [*self.policy_env_info.action_names, *self.policy_env_info.vibe_action_names]
+        action_names = self.policy_env_info.all_action_names
         if action_index_int < 0 or action_index_int >= len(action_names):
             raise ValueError(
                 f"Nim policy returned action index {action_index_int}, expected range [0, {len(action_names) - 1}]"
@@ -276,7 +276,7 @@ class StatefulAgentPolicy(AgentPolicy, Generic[StateType]):
         self._state: Optional[StateType] = None
         self._agent_id = agent_id
         self._agent_states: dict[int, StateType] = {}
-        self._action_name_to_index = {name: idx for idx, name in enumerate(policy_env_info.action_names)}
+        self._action_name_to_index = policy_env_info.action_name_to_flat_index
         self._simulation: Simulation | None = None
         self._state_initialized = False
 

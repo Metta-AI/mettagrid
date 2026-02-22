@@ -100,7 +100,7 @@ class WebSocketPolicyServerClient(MultiAgentPolicy):
         self._prepare(list(range(policy_env_info.num_agents)))
 
     def _prepare(self, agent_ids: list[int]) -> None:
-        action_names = [*self._policy_env_info.action_names, *self._policy_env_info.vibe_action_names]
+        action_names = self._policy_env_info.all_action_names
         game_rules = policy_pb2.GameRules(
             features=[
                 policy_pb2.GameRules.Feature(id=f.id, name=f.name, normalization=f.normalization)
@@ -156,7 +156,7 @@ class WebSocketPolicyServerAgentClient(AgentPolicy):
             action_id = self._parent.step_agent(self._agent_id, obs_bytes)
         except (ConnectionClosed, EOFError, OSError) as e:
             raise PolicyStepError(f"WebSocket communication failed for agent {self._agent_id}") from e
-        action_names = [*self._parent.policy_env_info.action_names, *self._parent.policy_env_info.vibe_action_names]
+        action_names = self._parent.policy_env_info.all_action_names
         if not (0 <= action_id < len(action_names)):
             raise PolicyStepError(f"Policy server returned invalid action_id {action_id} for agent {self._agent_id}")
         return Action(name=action_names[action_id])

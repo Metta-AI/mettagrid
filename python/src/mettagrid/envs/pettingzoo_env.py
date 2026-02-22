@@ -13,9 +13,9 @@ from gymnasium import spaces
 from pettingzoo import ParallelEnv
 from typing_extensions import override
 
-from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
 from mettagrid.config.mettagrid_config import MettaGridConfig
 from mettagrid.mettagrid_c import dtype_actions
+from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.simulator import Simulation, Simulator
 
 
@@ -51,11 +51,8 @@ class MettaGridPettingZooEnv(ParallelEnv):
         self._sim: Simulation | None = None
         self._sim = self._simulator.new_simulation(cfg, seed=self._seed)
         assert self._sim is not None
-        self._action_indices = [
-            self._sim.action_ids[action_name]
-            for action_name in self._sim.action_names
-            if not action_name.startswith(CHANGE_VIBE_PREFIX)
-        ]
+        policy_env_info = PolicyEnvInterface.from_mg_cfg(cfg)
+        self._action_indices = [self._sim.action_ids[action_name] for action_name in policy_env_info.action_names]
 
         # PettingZoo attributes - agent IDs are integers
         self.possible_agents: List[int] = list(range(self._sim.num_agents))

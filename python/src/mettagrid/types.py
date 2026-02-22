@@ -13,6 +13,7 @@ class Action:
     """Represents an action that can be taken by an agent."""
 
     name: str
+    vibe: str | None = None
 
 
 # Re-export EpisodeStats from C++ bindings for convenience
