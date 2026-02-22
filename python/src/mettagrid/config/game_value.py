@@ -4,9 +4,16 @@ GameValue is the base class for values queryable from game state.
 Used for rewards (numerators/denominators) and observations.
 """
 
-from typing import Set, Tuple, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Set, Tuple, Union
+
+from pydantic import Field
 
 from mettagrid.base_config import Config, ConfigStrEnum
+
+if TYPE_CHECKING:
+    from mettagrid.config.query import AnyQuery
 
 
 class Scope(ConfigStrEnum):
@@ -87,6 +94,13 @@ class TagCountValue(GameValue):
     tag: str
 
 
+class QueryInventoryValue(GameValue):
+    """Sum of a resource across objects matched by a query."""
+
+    query: "AnyQuery" = Field(description="Query to find objects whose inventory to sum")
+    item: str = Field(description="Resource name to sum")
+
+
 # ---------------------------------------------------------------------------
 # Union of all GameValue types
 # ---------------------------------------------------------------------------
@@ -97,6 +111,7 @@ AnyGameValue = Union[
     NumObjectsValue,
     TagCountValue,
     ConstValue,
+    QueryInventoryValue,
 ]
 
 

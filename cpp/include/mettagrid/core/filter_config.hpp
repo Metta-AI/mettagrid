@@ -13,10 +13,11 @@ namespace mettagrid {
 // Forward declaration for filter configs that reference queries
 struct QueryConfig;
 
-// Entity reference for resolving actor/target in filters and mutations
+// Entity reference for resolving actor/target/source in filters and mutations
 enum class EntityRef {
-  actor,             // The object performing the action (or source for AOE)
+  actor,             // The object performing the action
   target,            // The object being affected
+  source,            // BFS frontier node in closure queries (distinct from actor)
   actor_collective,  // The collective of the actor
   target_collective  // The collective of the target
 };
@@ -97,7 +98,6 @@ struct OrFilterConfig {
 };
 
 // MaxDistanceFilterConfig: Checks if entity is within radius of any source query result.
-// Works in both handler context (using entity ref) and query context (actor=target=candidate).
 struct MaxDistanceFilterConfig {
   EntityRef entity = EntityRef::target;  // Entity to check distance from (handler context)
   std::shared_ptr<QueryConfig> source;   // Source query to check distance from

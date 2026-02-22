@@ -30,11 +30,14 @@ class QuerySystem;
  *   - on_use: actor=agent performing action, target=object being used
  *   - aoe: actor=source object, target=affected object
  *   - event: actor=target=object being affected
+ *   - query filter: actor=original querying entity, target=candidate object
+ *   - edge filter: actor=original context actor, source=BFS frontier node, target=candidate
  */
 class HandlerContext {
 public:
   GridObject* actor = nullptr;
   GridObject* target = nullptr;
+  GridObject* source = nullptr;        // BFS frontier node in closure query edge filters
   StatsTracker* game_stats = nullptr;  // Game-level stats tracker (for StatsMutation)
   TagIndex* tag_index = nullptr;       // Tag index for tag/query lookups
   Grid* grid = nullptr;                // Grid for removing objects from cells
@@ -66,14 +69,14 @@ public:
         query_system(query_system),
         rng(rng) {}
 
-  // Resolve an EntityRef to the corresponding GridObject*
-  // Returns nullptr for collective refs (Collective is not a GridObject)
   GridObject* resolve(EntityRef ref) const {
     switch (ref) {
       case EntityRef::actor:
         return actor;
       case EntityRef::target:
         return target;
+      case EntityRef::source:
+        return source;
       case EntityRef::actor_collective:
         return nullptr;
       case EntityRef::target_collective:
@@ -83,13 +86,14 @@ public:
     }
   }
 
-  // Resolve an EntityRef to a HasInventory* (handles both GridObject and Collective refs)
   HasInventory* resolve_inventory(EntityRef ref) const {
     switch (ref) {
       case EntityRef::actor:
         return actor;
       case EntityRef::target:
         return target;
+      case EntityRef::source:
+        return source;
       case EntityRef::actor_collective:
         return get_collective(actor);
       case EntityRef::target_collective:

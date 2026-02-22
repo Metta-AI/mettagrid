@@ -367,7 +367,7 @@ class Simulator:
             "object_type_names": config.game.objects.keys(),
             "resource_names": config.game.resource_names,
             "vibe_names": config.game.vibe_names,
-            "obs_values": [repr(sv) for sv in config.game.obs.global_obs.obs],
+            "obs_values": {k: repr(v) for k, v in config.game.obs.global_obs.obs.items()},
         }
 
 

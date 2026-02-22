@@ -4,8 +4,6 @@ Feature IDs and names are managed by IdMap.
 Changing feature IDs will break models trained on old feature IDs.
 """
 
-from collections.abc import Sequence
-
 from pydantic import ConfigDict, Field
 
 from mettagrid.base_config import Config
@@ -32,8 +30,9 @@ class GlobalObsConfig(Config):
     # Local position: offset from spawn as directional tokens (lp:east, lp:west, lp:north, lp:south)
     local_position: bool = Field(default=False)
 
-    # Game values to include as observations
-    obs: Sequence[AnyGameValue] = Field(default_factory=list)
+    # Named game values to include as global observations.
+    # Keys become the observation feature name prefix.
+    obs: dict[str, AnyGameValue] = Field(default_factory=dict)
 
 
 class ObsConfig(Config):

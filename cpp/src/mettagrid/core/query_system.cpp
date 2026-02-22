@@ -38,7 +38,6 @@ bool QuerySystem::matches_filters(GridObject* obj,
   }
 
   HandlerContext filter_ctx = ctx;
-  filter_ctx.actor = obj;
   filter_ctx.target = obj;
 
   for (const auto& filter_cfg : filter_configs) {
@@ -50,7 +49,7 @@ bool QuerySystem::matches_filters(GridObject* obj,
   return true;
 }
 
-bool QuerySystem::matches_edge_filters(GridObject* source,
+bool QuerySystem::matches_edge_filters(GridObject* bfs_source,
                                        GridObject* candidate,
                                        const std::vector<FilterConfig>& filter_configs,
                                        const HandlerContext& ctx) {
@@ -59,7 +58,7 @@ bool QuerySystem::matches_edge_filters(GridObject* source,
   }
 
   HandlerContext edge_ctx = ctx;
-  edge_ctx.actor = source;
+  edge_ctx.source = bfs_source;
   edge_ctx.target = candidate;
 
   for (const auto& filter_cfg : filter_configs) {
@@ -182,7 +181,7 @@ std::vector<GridObject*> TagQueryConfig::evaluate(const HandlerContext& ctx) con
 }
 
 // ClosureQueryConfig::evaluate - BFS from source through candidates.
-// Edge filters are binary: evaluated with actor=net_member, target=candidate.
+// Edge filters are binary: evaluated with source=net_member, target=candidate.
 std::vector<GridObject*> ClosureQueryConfig::evaluate(const HandlerContext& ctx) const {
   assert(source && "ClosureQueryConfig requires a non-null source query");
 
