@@ -77,16 +77,13 @@ class MettaGridPufferEnv(PufferEnv):
         buf: Any = None,
         seed: int = 0,
     ):
-        # Support both Simulation and MettaGridConfig for backwards compatibility
         self._simulator = simulator
         self._current_cfg = cfg
         self._current_seed = seed
         self._supervisor_policy_spec = supervisor_policy_spec
         self._policy_env_info = PolicyEnvInterface.from_mg_cfg(cfg)
         self._env_supervisor: MultiAgentPolicy | None = None
-        self._supervisor_uses_vibe_action_space = bool(self._policy_env_info.vibe_action_names)
-        self._supervisor_action_ids: np.ndarray | None = None
-        self._vibe_action_ids_by_index: np.ndarray | None = None
+        self._vibe_action_ids_by_index = np.zeros((0,), dtype=dtype_actions)
 
         # Initialize shared buffers FIRST (before super().__init__)
         # because PufferLib may access them during initialization
@@ -218,19 +215,10 @@ class MettaGridPufferEnv(PufferEnv):
             self._vibe_action_ids_by_index = np.zeros((0,), dtype=dtype_actions)
         if self._supervisor_policy_spec is not None:
             supervisor_env_info = self._supervisor_policy_env_info()
-
-            self._supervisor_uses_vibe_action_space = bool(supervisor_env_info.vibe_action_names)
             self._env_supervisor = initialize_or_load_policy(
                 supervisor_env_info,
                 self._supervisor_policy_spec,
             )
-            if self._supervisor_uses_vibe_action_space:
-                self._supervisor_action_ids = np.array(
-                    [sim.action_ids[action_name] for action_name in supervisor_env_info.action_names],
-                    dtype=dtype_actions,
-                )
-            else:
-                self._supervisor_action_ids = None
             self._compute_supervisor_actions()
         return sim
 
@@ -337,14 +325,19 @@ class MettaGridPufferEnv(PufferEnv):
                 core_actions = actions_view[:, 0]
             elif actions_view.shape[1] == 2:
                 core_actions = actions_view[:, 0]
+                if num_vibe_actions <= 0:
+                    raise ValueError(
+                        "Received 2D actions with vibe column, but environment has no configured vibe action space"
+                    )
                 raw_vibe = actions_view[:, 1].astype(np.int64, copy=False)
                 if bool((raw_vibe < 0).any()):
                     raise ValueError(f"Vibe actions must be non-negative, got min={raw_vibe.min()}")
-                if num_vibe_actions > 0 and bool((raw_vibe < num_vibe_actions).all()):
-                    assert vibe_action_ids_by_index is not None
-                    learner_vibe_actions = vibe_action_ids_by_index[raw_vibe]
-                else:
-                    learner_vibe_actions = raw_vibe.astype(dtype_actions, copy=False)
+                if bool((raw_vibe >= num_vibe_actions).any()):
+                    raise ValueError(
+                        f"Vibe action indices out of range [0,{num_vibe_actions}), "
+                        f"min={raw_vibe.min()} max={raw_vibe.max()}"
+                    )
+                learner_vibe_actions = vibe_action_ids_by_index[raw_vibe]
             else:
                 raise ValueError(
                     f"Expected step actions shape [num_agents] or [num_agents,2], got {actions_view.shape}"
@@ -357,7 +350,7 @@ class MettaGridPufferEnv(PufferEnv):
             if bool(encoded_mask.any()):
                 if num_vibe_actions <= 0:
                     raise ValueError(
-                        "Received encoded vibe actions but this environment has no configured vibe action space"
+                        "Received encoded vibe actions, but environment has no configured vibe action space"
                     )
                 vibe_bucket = actions_i64 // num_non_vibe_actions
                 core_actions = (actions_i64 % num_non_vibe_actions).astype(dtype_actions, copy=False)
@@ -367,7 +360,6 @@ class MettaGridPufferEnv(PufferEnv):
                         f"Encoded vibe action indices out of range [0,{num_vibe_actions}), "
                         f"min={vibe_indices.min()} max={vibe_indices.max()}"
                     )
-                assert vibe_action_ids_by_index is not None
                 learner_vibe_actions = np.zeros(core_actions.shape, dtype=dtype_actions)
                 learner_vibe_actions[encoded_mask] = vibe_action_ids_by_index[vibe_indices[encoded_mask]]
         else:
@@ -416,20 +408,16 @@ class MettaGridPufferEnv(PufferEnv):
         teacher_actions = self._buffers.teacher_actions
         raw_observations = self._buffers.observations
         supervisor.step_batch(raw_observations, teacher_actions)
+        self._split_teacher_actions_inplace(teacher_actions)
+
+    def _split_teacher_actions_inplace(self, teacher_actions: np.ndarray) -> None:
         vibe_actions = self._buffers.vibe_actions
         assert vibe_actions is not None
-        if not self._supervisor_uses_vibe_action_space:
-            np.copyto(vibe_actions, teacher_actions)
-            return
-
-        supervisor_action_ids = self._supervisor_action_ids
-        assert supervisor_action_ids is not None
-
         split_supervisor_actions_inplace(
             teacher_actions,
             vibe_actions,
-            supervisor_action_ids=supervisor_action_ids,
-            action_names=[*self._policy_env_info.action_names, *self._policy_env_info.vibe_action_names],
+            num_primary_actions=len(self._policy_env_info.action_names),
+            vibe_action_ids_by_index=self._vibe_action_ids_by_index,
         )
 
     def disable_supervisor(self) -> None:
@@ -494,7 +482,7 @@ class MettaGridPufferEnv(PufferEnv):
         np.copyto(self._buffers.teacher_actions, teacher_actions)
         vibe_actions = self._buffers.vibe_actions
         if vibe_actions is not None:
-            np.copyto(vibe_actions, teacher_actions)
+            self._split_teacher_actions_inplace(self._buffers.teacher_actions)
 
     @property
     def vibe_actions(self) -> np.ndarray:
