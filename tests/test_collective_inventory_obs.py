@@ -44,7 +44,7 @@ def _make_sim_with_collective_inv_obs(initial_gold: int = 100) -> Simulation:
         agent=AgentConfig(collective="team"),
         obs=ObsConfig(
             global_obs=GlobalObsConfig(
-                obs=[inv("collective.gold")],
+                obs={"inv:collective:gold": inv("collective.gold")},
             )
         ),
         map_builder=ObjectNameMapBuilder.Config(map_data=[["agent.agent"]]),

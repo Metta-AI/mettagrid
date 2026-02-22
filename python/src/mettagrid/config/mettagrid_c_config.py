@@ -1,7 +1,6 @@
 from typing import Any
 
 from mettagrid.config.cpp_id_maps import CppIdMaps
-from mettagrid.config.game_value import InventoryValue, Scope, StatValue
 from mettagrid.config.handler_config import AlignmentCondition
 from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_mutations
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
@@ -76,10 +75,6 @@ _AGGREGATION_TO_CPP = {
     Aggregation.SUM: CppAggregationMode.SUM,
     Aggregation.SUM_LOGS: CppAggregationMode.SUM_LOGS,
 }
-
-
-def _scope_to_feature_str(scope: Scope) -> str:
-    return {Scope.AGENT: "own", Scope.GAME: "global", Scope.COLLECTIVE: "collective"}[scope]
 
 
 def _resolve_tag_prefix(prefix: str, tag_name_to_id: dict) -> list[int]:
@@ -816,17 +811,9 @@ def convert_to_cpp_game_config(
     global_obs_config = game_config.obs.global_obs
 
     obs_cpp = []
-    for game_value in global_obs_config.obs:
+    for feature_name, game_value in global_obs_config.obs.items():
         cpp_obs = CppObsValueConfig()
         cpp_obs.value = resolve_game_value(game_value, id_maps)
-        if isinstance(game_value, StatValue):
-            feature_name = f"stat:{_scope_to_feature_str(game_value.scope)}:{game_value.name}"
-            if game_value.delta:
-                feature_name += ":delta"
-        elif isinstance(game_value, InventoryValue):
-            feature_name = f"inv:{_scope_to_feature_str(game_value.scope)}:{game_value.item}"
-        else:
-            raise ValueError(f"Unsupported GameValue type for obs: {type(game_value)}")
         cpp_obs.feature_id = game_cpp_params["feature_ids"][feature_name]
         obs_cpp.append(cpp_obs)
 

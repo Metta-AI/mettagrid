@@ -328,6 +328,20 @@ proc getCollectiveIdByName(replay: Replay, collectiveName: string): int =
       return i
   return -1
 
+proc teamTagMap*(replay: Replay): Table[int, int] =
+  ## Build tag-ID-to-collective-index mapping from team:* tags.
+  for i, collective in replay.collectives:
+    let tagName = "team:" & collective.name
+    if tagName in replay.tags:
+      result[replay.tags[tagName]] = i
+
+proc collectiveIdForTags*(replay: Replay, tagMap: Table[int, int], tagIds: seq[int]): int =
+  ## Resolve a collective index from a set of tag IDs.
+  for tagId in tagIds:
+    if tagId in tagMap:
+      return tagMap[tagId]
+  return -1
+
 proc parseInventoryTable(replay: Replay, inventoryNode: JsonNode): Table[string, int] =
   ## Parse inventory from either [[item_id, count], ...] or {item_name: count}.
   result = initTable[string, int]()
@@ -1072,29 +1086,48 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
     replay.mgConfig = mgConfig
     replay.config = fromJson($mgConfig, Config)
 
-  # Parse collectives: prefer collective_names array (index = collective ID),
-  # fall back to mg_config["game"]["collectives"] dict sorted alphabetically.
-  let collectiveNamesArr = getArray(jsonObj, "collective_names")
-  if collectiveNamesArr != nil and collectiveNamesArr.len > 0:
-    for nameNode in collectiveNamesArr:
-      let name = nameNode.getStr
+  # Parse tags first so team:* tags can drive collective discovery.
+  let tagsObj = getJsonNode(jsonObj, "tags")
+  if tagsObj != nil and tagsObj.kind == JObject:
+    for key, val in tagsObj:
+      replay.tags[key] = val.getInt
+
+  # Build collectives from team:* tags (preferred), falling back to
+  # collective_names or mg_config collectives for older replays.
+  var teamNames: seq[string] = @[]
+  for tagName in replay.tags.keys:
+    if tagName.startsWith("team:"):
+      teamNames.add(tagName[5 .. ^1])
+  teamNames.sort()
+
+  if teamNames.len > 0:
+    for teamName in teamNames:
       replay.collectives.add(CollectiveData(
-        name: name,
-        color: collectiveColor(name),
+        name: teamName,
+        color: collectiveColor(teamName),
       ))
-  elif replay.mgConfig != nil and "game" in replay.mgConfig and
-      "collectives" in replay.mgConfig["game"]:
-    let collectivesNode = replay.mgConfig["game"]["collectives"]
-    if collectivesNode.kind == JObject:
-      var names: seq[string]
-      for key in collectivesNode.keys:
-        names.add(key)
-      names.sort()
-      for name in names:
+  else:
+    let collectiveNamesArr = getArray(jsonObj, "collective_names")
+    if collectiveNamesArr != nil and collectiveNamesArr.len > 0:
+      for nameNode in collectiveNamesArr:
+        let name = nameNode.getStr
         replay.collectives.add(CollectiveData(
           name: name,
           color: collectiveColor(name),
         ))
+    elif replay.mgConfig != nil and "game" in replay.mgConfig and
+        "collectives" in replay.mgConfig["game"]:
+      let collectivesNode = replay.mgConfig["game"]["collectives"]
+      if collectivesNode.kind == JObject:
+        var names: seq[string]
+        for key in collectivesNode.keys:
+          names.add(key)
+        names.sort()
+        for name in names:
+          replay.collectives.add(CollectiveData(
+            name: name,
+            color: collectiveColor(name),
+          ))
   measurePop()
 
   # Parse capacity_names (maps capacity_id to group name like "cargo", "gear").
@@ -1105,12 +1138,6 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
 
   # Parse team/global inventory snapshots for collective panel resources.
   replay.loadCollectiveInventory(jsonObj)
-
-  # Parse tags (maps tag name to tag ID).
-  let tagsObj = getJsonNode(jsonObj, "tags")
-  if tagsObj != nil and tagsObj.kind == JObject:
-    for key, val in tagsObj:
-      replay.tags[key] = val.getInt
 
   measurePush("loadReplayString.parseObjects")
   let objectsArr = getArray(jsonObj, "objects", newJArray())
@@ -1265,6 +1292,18 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
       replay.agents.add(entity)
   measurePop()
 
+  # Derive collectiveId from team:* tags when available.
+  let tagMap = replay.teamTagMap()
+  if tagMap.len > 0:
+    for entity in replay.objects:
+      if entity.tagIds.len == 0:
+        entity.collectiveId = @[-1]
+        continue
+      var newIds: seq[int] = @[]
+      for stepTags in entity.tagIds:
+        newIds.add(replay.collectiveIdForTags(tagMap, stepTags))
+      entity.collectiveId = newIds
+
   # Compute gain maps for static replays.
   computeGainMap(replay)
 
@@ -1313,6 +1352,7 @@ proc loadReplay*(fileName: string): Replay {.measure.} =
 proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
   ## Apply a replay step to the replay.
   const agentTypeName = "agent"
+  let tagMap = replay.teamTagMap()
   for obj in objects:
     let index = obj.id - 1
     while index >= replay.objects.len:
@@ -1327,7 +1367,11 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
     entity.typeName = resolvedTypeName
     entity.isAgent = resolvedTypeName == agentTypeName
     entity.groupId = obj.groupId
-    entity.collectiveId.add(obj.collectiveId)
+    entity.tagIds.add(obj.tagIds)
+    if tagMap.len > 0:
+      entity.collectiveId.add(replay.collectiveIdForTags(tagMap, obj.tagIds))
+    else:
+      entity.collectiveId.add(obj.collectiveId)
     entity.agentId = obj.agentId
     entity.location.add(obj.location)
     entity.orientation.add(obj.orientation)
@@ -1354,7 +1398,6 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
     entity.cooldownTime = obj.cooldownTime
 
     entity.alive.add(obj.alive)
-    entity.tagIds.add(obj.tagIds)
 
     entity.cooldownRemaining.add(obj.cooldownRemaining)
     entity.cooldownDuration = obj.cooldownDuration

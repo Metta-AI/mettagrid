@@ -223,10 +223,10 @@ class TestCollectiveInventoryObservations:
             agent=AgentConfig(collective="team"),
             obs=ObsConfig(
                 global_obs=GlobalObsConfig(
-                    obs=[
-                        stat("collective.gold.amount"),
-                        stat("collective.silver.amount"),
-                    ]
+                    obs={
+                        "stat:collective:gold.amount": stat("collective.gold.amount"),
+                        "stat:collective:silver.amount": stat("collective.silver.amount"),
+                    }
                 )
             ),
         )
@@ -275,9 +275,9 @@ class TestCollectiveInventoryObservations:
             agent=AgentConfig(collective="team"),
             obs=ObsConfig(
                 global_obs=GlobalObsConfig(
-                    obs=[
-                        stat("collective.gold.amount"),
-                    ]
+                    obs={
+                        "stat:collective:gold.amount": stat("collective.gold.amount"),
+                    }
                 )
             ),
         )

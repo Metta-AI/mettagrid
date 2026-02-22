@@ -32,22 +32,22 @@ def test_stat_value_with_all_fields():
 
 
 def test_global_obs_config_obs_default():
-    """Test GlobalObsConfig obs defaults to empty list."""
+    """Test GlobalObsConfig obs defaults to empty dict."""
     config = GlobalObsConfig()
-    assert config.obs == []
+    assert config.obs == {}
 
 
 def test_global_obs_config_with_obs():
     """Test GlobalObsConfig with obs specified."""
     config = GlobalObsConfig(
-        obs=[
-            StatValue(name="carbon.gained"),
-            StatValue(name="tokens_written", scope=Scope.GAME),
-        ]
+        obs={
+            "stat:own:carbon.gained": StatValue(name="carbon.gained"),
+            "stat:global:tokens_written": StatValue(name="tokens_written", scope=Scope.GAME),
+        }
     )
     assert len(config.obs) == 2
-    assert config.obs[0].name == "carbon.gained"
-    assert config.obs[1].scope == Scope.GAME
+    assert config.obs["stat:own:carbon.gained"].name == "carbon.gained"
+    assert config.obs["stat:global:tokens_written"].scope == Scope.GAME
 
 
 def test_obs_config_default_window_size():
@@ -62,10 +62,10 @@ def test_id_map_obs_feature_ids():
     config = GameConfig(
         obs=ObsConfig(
             global_obs=GlobalObsConfig(
-                obs=[
-                    StatValue(name="carbon.gained", scope=Scope.AGENT),
-                    StatValue(name="tokens_written", scope=Scope.GAME, delta=True),
-                ]
+                obs={
+                    "stat:own:carbon.gained": StatValue(name="carbon.gained", scope=Scope.AGENT),
+                    "stat:global:tokens_written:delta": StatValue(name="tokens_written", scope=Scope.GAME, delta=True),
+                }
             )
         )
     )
@@ -84,7 +84,7 @@ def test_id_map_obs_feature_ids():
 
 def test_id_map_obs_empty():
     """Test that IdMap works with empty obs."""
-    config = GameConfig(obs=ObsConfig(global_obs=GlobalObsConfig(obs=[])))
+    config = GameConfig(obs=ObsConfig(global_obs=GlobalObsConfig(obs={})))
     id_map = config.id_map()
     features = id_map.features()
     feature_names = [f.name for f in features]
@@ -98,10 +98,10 @@ def test_cpp_conversion_obs():
     config = GameConfig(
         obs=ObsConfig(
             global_obs=GlobalObsConfig(
-                obs=[
-                    StatValue(name="carbon.gained", scope=Scope.AGENT),
-                    StatValue(name="tokens_written", scope=Scope.GAME, delta=True),
-                ]
+                obs={
+                    "stat:own:carbon.gained": StatValue(name="carbon.gained", scope=Scope.AGENT),
+                    "stat:global:tokens_written:delta": StatValue(name="tokens_written", scope=Scope.GAME, delta=True),
+                }
             )
         )
     )
@@ -126,9 +126,9 @@ def test_obs_in_observation():
         max_steps=10,
         obs=ObsConfig(
             global_obs=GlobalObsConfig(
-                obs=[
-                    StatValue(name="carbon.gained", scope=Scope.AGENT),
-                ]
+                obs={
+                    "stat:own:carbon.gained": StatValue(name="carbon.gained", scope=Scope.AGENT),
+                }
             )
         ),
     )
@@ -161,9 +161,9 @@ def test_config_invariants_include_obs():
             num_agents=1,
             obs=ObsConfig(
                 global_obs=GlobalObsConfig(
-                    obs=[
-                        StatValue(name="carbon.gained", scope=Scope.AGENT),
-                    ]
+                    obs={
+                        "stat:own:carbon.gained": StatValue(name="carbon.gained", scope=Scope.AGENT),
+                    }
                 )
             ),
         )
@@ -183,10 +183,10 @@ def test_obs_tokens_present_after_step():
         max_steps=100,
         obs=ObsConfig(
             global_obs=GlobalObsConfig(
-                obs=[
-                    StatValue(name="carbon.gained", scope=Scope.AGENT),
-                    StatValue(name="carbon.gained", scope=Scope.AGENT, delta=True),
-                ]
+                obs={
+                    "stat:own:carbon.gained": StatValue(name="carbon.gained", scope=Scope.AGENT),
+                    "stat:own:carbon.gained:delta": StatValue(name="carbon.gained", scope=Scope.AGENT, delta=True),
+                }
             )
         ),
     )

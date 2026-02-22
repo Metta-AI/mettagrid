@@ -20,9 +20,9 @@ namespace mettagrid {
  * Two modes:
  * - Unary (source query set): entity is within radius of any query result.
  *   With radius=0, passes if source query returns any results (distance unchecked).
- * - Binary (source=nullptr): L2 distance(actor, entity) <= radius,
- *   or unconditionally when radius=0.
- *   Used in ClosureQuery edge_filters where actor=net_member, entity=candidate.
+ * - Binary (source=nullptr): L2 distance(ref, entity) <= radius,
+ *   or unconditionally when radius=0. Uses ctx.source (BFS frontier node)
+ *   if set, otherwise ctx.actor.
  */
 class MaxDistanceFilter : public Filter {
 public:
@@ -35,11 +35,11 @@ public:
     }
 
     if (!_config.source) {
-      // Binary mode: check distance from actor to entity
-      if (ctx.actor == nullptr) return false;
+      GridObject* ref = ctx.source ? ctx.source : ctx.actor;
+      if (ref == nullptr) return false;
       if (_config.radius == 0) return true;
-      int64_t dr = static_cast<int64_t>(entity->location.r) - static_cast<int64_t>(ctx.actor->location.r);
-      int64_t dc = static_cast<int64_t>(entity->location.c) - static_cast<int64_t>(ctx.actor->location.c);
+      int64_t dr = static_cast<int64_t>(entity->location.r) - static_cast<int64_t>(ref->location.r);
+      int64_t dc = static_cast<int64_t>(entity->location.c) - static_cast<int64_t>(ref->location.c);
       int64_t r = static_cast<int64_t>(_config.radius);
       return dr * dr + dc * dc <= r * r;
     }
