@@ -215,6 +215,11 @@ class TestMettaGridPufferEnvVectorValidation:
 class TestMettaGridPufferEnvStep:
     """Test step functionality."""
 
+    @staticmethod
+    def _force_no_vibe_action_space(env: MettaGridPufferEnv) -> None:
+        env._policy_env_info = env._policy_env_info.model_copy(update={"vibe_action_names": []})
+        env._vibe_action_ids_by_index = np.zeros((0,), dtype=np.int32)
+
     def test_step_returns_correct_types(self, simulator, puffer_sim_config):
         """Test that step returns correctly typed outputs."""
         env = MettaGridPufferEnv(simulator, puffer_sim_config)
@@ -250,6 +255,38 @@ class TestMettaGridPufferEnvStep:
 
         assert not terminals.any(), "Agents should not be terminated after one noop"
         assert not truncations.any(), "Agents should not be truncated after one step"
+
+    def test_step_rejects_out_of_range_vibe_indices_for_2d_actions(self, simulator, puffer_sim_config):
+        env = MettaGridPufferEnv(simulator, puffer_sim_config)
+        env.reset()
+
+        num_vibe_actions = len(env._policy_env_info.vibe_action_names)
+        if num_vibe_actions <= 0:
+            pytest.skip("map has no vibe actions")
+
+        actions = np.zeros((env.num_agents, 2), dtype=np.int32)
+        actions[:, 1] = num_vibe_actions
+
+        with pytest.raises(ValueError, match="Vibe action indices out of range"):
+            env.step(actions)
+
+    def test_step_rejects_2d_vibe_column_when_env_has_no_vibe_actions(self, simulator, puffer_sim_config):
+        env = MettaGridPufferEnv(simulator, puffer_sim_config)
+        env.reset()
+        self._force_no_vibe_action_space(env)
+
+        actions = np.zeros((env.num_agents, 2), dtype=np.int32)
+        with pytest.raises(ValueError, match="no configured vibe action space"):
+            env.step(actions)
+
+    def test_step_rejects_encoded_vibe_actions_when_env_has_no_vibe_actions(self, simulator, puffer_sim_config):
+        env = MettaGridPufferEnv(simulator, puffer_sim_config)
+        env.reset()
+        self._force_no_vibe_action_space(env)
+
+        encoded_vibe_action = np.full(env.num_agents, env.single_action_space.n, dtype=np.int32)
+        with pytest.raises(ValueError, match="no configured vibe action space"):
+            env.step(encoded_vibe_action)
 
     def test_episode_completion(self, simulator):
         """Test that episode completes at max_steps."""
@@ -456,13 +493,39 @@ class TestMettaGridPufferEnvSupervisorPolicy:
         assert teacher_actions_after_step4[0] == noop_idx
         assert teacher_actions_after_step4[1] == noop_idx
 
-    def test_supervisor_full_vibe_actions_are_preserved_in_teacher_labels(self, simulator, puffer_sim_config):
+    def test_supervisor_split_vibe_labels_are_mapped_into_vibe_actions(self, simulator, puffer_sim_config):
         supervisor_policy_spec = PolicySpec(class_path="tests.test_mettagrid_puffer_env._VibeActionSupervisorPolicy")
         env = MettaGridPufferEnv(simulator, puffer_sim_config, supervisor_policy_spec=supervisor_policy_spec)
 
         env.reset()
 
-        vibe_action_id = env._sim.action_names.index("change_vibe_default")
-        expected = np.full(env.num_agents, vibe_action_id, dtype=np.int32)
-        np.testing.assert_array_equal(env.teacher_actions, expected)
-        np.testing.assert_array_equal(env.vibe_actions, expected)
+        assert env._sim is not None
+        num_primary_actions = len(env._policy_env_info.action_names)
+        vibe_index = env._policy_env_info.vibe_action_names.index("change_vibe_default")
+        split_vibe_label = num_primary_actions + vibe_index
+        sim_vibe_action_id = env._sim.action_names.index("change_vibe_default")
+
+        expected_teacher_labels = np.full(env.num_agents, split_vibe_label, dtype=np.int32)
+        expected_vibe_actions = np.full(env.num_agents, sim_vibe_action_id, dtype=np.int32)
+        np.testing.assert_array_equal(env.teacher_actions, expected_teacher_labels)
+        np.testing.assert_array_equal(env.vibe_actions, expected_vibe_actions)
+
+    def test_teacher_actions_setter_uses_split_label_mapping(self, simulator, puffer_sim_config):
+        env = MettaGridPufferEnv(simulator, puffer_sim_config)
+        env.reset()
+
+        vibe_action_names = env._policy_env_info.vibe_action_names
+        if not vibe_action_names:
+            pytest.skip("map has no vibe actions")
+
+        assert env._sim is not None
+        num_primary_actions = len(env._policy_env_info.action_names)
+        split_vibe_label = num_primary_actions + env._policy_env_info.vibe_action_names.index("change_vibe_default")
+        sim_vibe_action_id = env._sim.action_names.index("change_vibe_default")
+
+        manual_teacher_labels = np.array([split_vibe_label, 0], dtype=np.int32)
+        env.teacher_actions = manual_teacher_labels
+
+        expected_vibe_actions = np.array([sim_vibe_action_id, 0], dtype=np.int32)
+        np.testing.assert_array_equal(env.teacher_actions, manual_teacher_labels)
+        np.testing.assert_array_equal(env.vibe_actions, expected_vibe_actions)
