@@ -3,7 +3,6 @@
 #include <cassert>
 #include <type_traits>
 
-#include "handler/filters/alignment_filter.hpp"
 #include "handler/filters/game_value_filter.hpp"
 #include "handler/filters/max_distance_filter.hpp"
 #include "handler/filters/neg_filter.hpp"
@@ -23,8 +22,6 @@ std::unique_ptr<Filter> create_filter(const FilterConfig& config) {
           return std::make_unique<VibeFilter>(cfg);
         } else if constexpr (std::is_same_v<T, ResourceFilterConfig>) {
           return std::make_unique<ResourceFilter>(cfg);
-        } else if constexpr (std::is_same_v<T, AlignmentFilterConfig>) {
-          return std::make_unique<AlignmentFilter>(cfg);
         } else if constexpr (std::is_same_v<T, SharedTagPrefixFilterConfig>) {
           return std::make_unique<SharedTagPrefixFilter>(cfg);
         } else if constexpr (std::is_same_v<T, TagPrefixFilterConfig>) {

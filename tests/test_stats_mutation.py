@@ -3,22 +3,18 @@
 These tests verify that:
 1. StatsMutation correctly logs stats in the C++ simulation
 2. Stats are properly accumulated across multiple handler firings
-3. Different StatsTarget values (game, agent, collective) work correctly
+3. Different StatsTarget values (game, agent) work correctly
 """
 
 from mettagrid.config.handler_config import AOEConfig
 from mettagrid.config.mettagrid_config import (
-    CollectiveConfig,
     GridObjectConfig,
-    InventoryConfig,
     MettaGridConfig,
-    ResourceLimitsConfig,
 )
 from mettagrid.config.mutation import (
     StatsMutation,
     StatsTarget,
     logStat,
-    logTargetCollectiveStat,
 )
 from mettagrid.simulator import Simulation
 
@@ -38,7 +34,7 @@ class TestStatsMutationClass:
         """StatsMutation should have sensible defaults."""
         m = StatsMutation(stat="count")
         assert m.delta == 1
-        assert m.target == StatsTarget.COLLECTIVE
+        assert m.target == StatsTarget.GAME
 
 
 class TestStatsMutationHelper:
@@ -50,7 +46,7 @@ class TestStatsMutationHelper:
         assert isinstance(m, StatsMutation)
         assert m.stat == "events"
         assert m.delta == 1
-        assert m.target == StatsTarget.COLLECTIVE
+        assert m.target == StatsTarget.GAME
 
     def test_log_stat_helper_with_delta(self):
         """logStat() should accept delta parameter."""
@@ -150,58 +146,3 @@ class TestStatsMutationEndToEnd:
         ticks = stats.get("ticks", 0)
 
         assert ticks == 15, f"Game stat 'ticks' should be 15 after 3 steps with delta=5, got {ticks}"
-
-    def test_stats_mutation_collective_target(self):
-        """Stats with COLLECTIVE target should log to collective stats."""
-        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
-            [
-                ["#", "#", "#", "#", "#"],
-                ["#", ".", ".", ".", "#"],
-                ["#", ".", "@", ".", "#"],  # Agent (cogs collective)
-                ["#", ".", "S", ".", "#"],  # AOE source
-                ["#", "#", "#", "#", "#"],
-            ],
-            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "S": "counter"},
-        )
-
-        cfg.game.resource_names = ["energy"]
-        cfg.game.agent.collective = "cogs"
-        cfg.game.agent.inventory.initial = {"energy": 0}
-        cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
-        }
-        cfg.game.actions.noop.enabled = True
-
-        cfg.game.collectives = {
-            "cogs": CollectiveConfig(
-                inventory=InventoryConfig(limits={"energy": ResourceLimitsConfig(min=10000, resources=["energy"])})
-            ),
-        }
-
-        cfg.game.objects["counter"] = GridObjectConfig(
-            name="counter",
-            map_name="counter",
-            aoes={
-                "default": AOEConfig(
-                    radius=2,
-                    filters=[],
-                    mutations=[logTargetCollectiveStat("collective_events")],
-                )
-            },
-        )
-
-        sim = Simulation(cfg)
-
-        # Step simulation
-        sim.agent(0).set_action("noop")
-        sim.step()
-
-        # Get collective stats - this tests that the conversion worked
-        collective_stats = sim.episode_stats.get("collective", {})
-
-        # The stat should have been logged to the collective
-        # The exact location depends on implementation details
-        # For now, verify simulation completed and collective stats exist
-        assert sim.current_step == 1, "Simulation should have stepped"
-        # The "cogs" collective should exist
-        assert "cogs" in collective_stats or len(collective_stats) > 0 or True, "Collective stats should be tracked"

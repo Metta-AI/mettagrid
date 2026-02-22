@@ -1,5 +1,5 @@
 import
-  std/[times, tables, os, pathnorm, sets, strutils, options],
+  std/[times, tables, os, pathnorm, strutils, options, sets],
   bumpy, windy, vmath, silky,
   replays
 
@@ -45,8 +45,6 @@ type
     showHeatmap* = false
     showObservations* = -1
     lockFocus* = false
-    hiddenCollectiveAoe*: HashSet[int]  ## Set of collective IDs to hide AoE for. Empty = all shown.
-
   PlayMode* = enum
     Historical
     Realtime
@@ -101,7 +99,6 @@ var
   settings* = Settings()
   selected*: Entity
   policyTarget*: Option[IVec2]  ## Target cell from policy_infos to highlight on map.
-  activeCollective*: int = 1  ## Currently active faction (0 = Clips, 1 = Cogs). Defaults to Cogs.
 
   step*: int = 0
   stepFloat*: float32 = 0
@@ -259,3 +256,16 @@ proc normalizeTypeName*(typeName: string): string =
   ## Handles formats like "c:hub", "cogs_green_hub", "hub_0", etc.
   result = stripTeamPrefix(typeName)
   result = stripTeamSuffix(result)
+
+proc getAgentRigName*(agent: Entity): string =
+  ## Get the rig of the agent by looking at inventory.
+  if agent.inventory.len == 0:
+    return "agent"
+  for item in agent.inventory.at(step):
+    if item.itemId < 0 or item.itemId >= replay.itemNames.len:
+      continue
+    let itemName = replay.itemNames[item.itemId]
+    if itemName in ["scout", "miner", "aligner", "scrambler"]:
+      return itemName
+  return "agent"
+

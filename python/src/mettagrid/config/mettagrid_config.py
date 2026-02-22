@@ -119,10 +119,6 @@ class GridObjectConfig(Config):
     render_symbol: str = Field(default="❓", description="Symbol used for rendering (e.g., emoji)")
     tags: list[str] = Field(default_factory=list, description="Tags for this object instance")
     vibe: int = Field(default=0, ge=0, le=255, description="Vibe value for this object instance")
-    collective: Optional[str] = Field(
-        default=None,
-        description="Name of collective this object belongs to.",
-    )
     aoes: dict[str, AOEConfig] = Field(
         default_factory=dict,
         description="Named AOE configs this object emits to targets within range (name -> config)",
@@ -155,11 +151,6 @@ class GridObjectConfig(Config):
             self.map_name = self.name
         if not self.render_name:
             self.render_name = self.name
-        # Add collective tag if collective is set
-        if self.collective:
-            collective_tag = f"collective:{self.collective}"
-            if collective_tag not in self.tags:
-                self.tags = self.tags + [collective_tag]
         # Type tags are auto-generated during C++ conversion via typeTag(object.name)
         return self
 
@@ -177,7 +168,7 @@ class WallConfig(GridObjectConfig):
 class AgentConfig(GridObjectConfig):
     """Python agent configuration.
 
-    Inherits from GridObjectConfig to share tags, collective, vibe, inventory, and handler fields.
+    Inherits from GridObjectConfig to share tags, vibe, inventory, and handler fields.
     """
 
     name: str = Field(default="agent")
@@ -188,20 +179,6 @@ class AgentConfig(GridObjectConfig):
         default_factory=dict,
         description="Handlers run every tick with actor=target=this agent (name -> handler)",
     )
-
-
-class CollectiveConfig(Config):
-    """
-    Configuration for a shared inventory (Collective).
-
-    Collective provides a shared inventory that multiple grid objects can access.
-    Objects are associated with a collective by setting collective="name" in their config.
-
-    Note: Collective name is typically provided as the dict key when defining collectives.
-    """
-
-    name: str = Field(default="", description="Unique name for this collective (typically set from dict key)")
-    inventory: InventoryConfig = Field(default_factory=InventoryConfig, description="Inventory configuration")
 
 
 # Note: GridObjectConfig is included to allow direct use of the base class for simple objects
@@ -265,18 +242,11 @@ class GameConfig(Config):
     # and other parts of the template can read from there.
     params: Optional[Any] = None
 
-    # Collectives - shared inventories that grid objects can belong to
-    collectives: dict[str, CollectiveConfig] = Field(
-        default_factory=dict,
-        description="Collectives (shared inventories) that grid objects can belong to (name -> config)",
-    )
-
     # Territories - game-level territory type definitions
     territories: dict[str, TerritoryConfig] = Field(
         default_factory=dict,
         description="Territory types with tag_prefix and handlers (name -> config)",
     )
-
     # Events - timestep-triggered effects that apply mutations to filtered objects
     events: dict[str, EventConfig] = Field(
         default_factory=dict,

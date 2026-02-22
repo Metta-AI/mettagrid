@@ -1,7 +1,7 @@
 import
   std/[json, algorithm, tables, sets, strutils, strformat],
   vmath, silky, windy,
-  ../common, ../replays, ../configs, ../cognames, ../collectives, ../colors,
+  ../common, ../replays, ../configs, ../cognames, ../colors,
   widgets
 
 type
@@ -122,7 +122,7 @@ proc drawOnUseHandlers(objConfig: JsonNode) =
             if resCount.kind == JInt: count = resCount.getInt
             elif resCount.kind == JFloat: count = resCount.getFloat.int
             reqs.add(&"{resName} x{count}")
-          let targetLabel = if target == "actor": "agent" elif target.contains("collective"): "collective" else: target
+          let targetLabel = if target == "actor": "agent" else: target
           parts.add("requires " & targetLabel & ": " & reqs.join(", "))
         elif filterType == "alignment":
           let alignment = if "alignment" in filter: filter["alignment"].getStr else: ""
@@ -224,17 +224,6 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
     else:
       h1text(cur.typeName)
       text(&"  Object ID: {cur.id}")
-    # Display collective with name and color
-    let curCollectiveId = cur.collectiveId.at
-    if curCollectiveId >= 0:
-      let collectiveColor = getCollectiveColor(curCollectiveId)
-      let collectiveName = getCollectiveName(curCollectiveId)
-      let labelText = if collectiveName.len > 0:
-        &"  Collective: {collectiveName}"
-      else:
-        &"  Collective: ({curCollectiveId})"
-      let textSize = sk.drawText(sk.textStyle, labelText, sk.at, collectiveColor)
-      sk.advance(textSize)
 
     # Show tags for this object at the current step.
     let currentTagIds = cur.tagIds.at
@@ -412,8 +401,4 @@ proc selectObject*(obj: Entity) =
     return
   selected = obj
   settings.lockFocus = not obj.isNil
-  if obj != nil:
-    let cid = obj.collectiveId.at(step)
-    if cid >= 0:
-      activeCollective = cid
   saveUIState()

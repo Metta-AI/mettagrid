@@ -1,7 +1,7 @@
 import
-  std/[strutils, sets],
+  std/strutils,
   windy, jsony,
-  common, collectives
+  common
 
 type
   SettingsConfig* = object
@@ -14,7 +14,6 @@ type
     showObservations*: int
     lockFocus*: bool
     showHeatmap*: bool
-    hiddenCollectiveAoeNames*: seq[string]
 
   AreaLayoutConfig* = object
     layout*: AreaLayout
@@ -158,15 +157,6 @@ proc applyUIState*(config: MettascopeConfig) =
   settings.showObservations = config.settings.showObservations
   settings.lockFocus = config.settings.lockFocus
   settings.showHeatmap = config.settings.showHeatmap
-  # Rebuild hiddenCollectiveAoe IDs from saved names.
-  # ["cogs", "clips"] -> [0, 1]
-  settings.hiddenCollectiveAoe.clear()
-  let numCollectives = getNumCollectives()
-  for name in config.settings.hiddenCollectiveAoeNames:
-    for i in 0 ..< numCollectives:
-      if getCollectiveName(i) == name:
-        settings.hiddenCollectiveAoe.incl(i)
-        break
   if replay != nil and config.selectedAgentId >= 0 and config.selectedAgentId < replay.agents.len:
     selected = replay.agents[config.selectedAgentId]
 
@@ -187,15 +177,6 @@ proc saveUIState*() =
   config.settings.showObservations = settings.showObservations
   config.settings.lockFocus = settings.lockFocus
   config.settings.showHeatmap = settings.showHeatmap
-  # Save hiddenCollectiveAoe as names so they survive ID changes across replays.
-  # [0, 1] -> ["cogs", "clips"]
-  config.settings.hiddenCollectiveAoeNames = @[]
-  let numCollectives = getNumCollectives()
-  for id in settings.hiddenCollectiveAoe:
-    if id >= 0 and id < numCollectives:
-      let name = getCollectiveName(id)
-      if name.len > 0:
-        config.settings.hiddenCollectiveAoeNames.add(name)
   if selected != nil and selected.isAgent:
     config.selectedAgentId = selected.agentId
   saveConfig(config)

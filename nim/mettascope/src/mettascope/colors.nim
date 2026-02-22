@@ -22,3 +22,4 @@ const
   Silver*      = parseHtmlColor("#bdc3c7").rgbx ## Silver
   Gray*        = parseHtmlColor("#95a5a6").rgbx ## Concrete
   DarkGray*    = parseHtmlColor("#7f8c8d").rgbx ## Asbestos
+

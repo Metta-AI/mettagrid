@@ -7,7 +7,6 @@
 #include "core/grid.hpp"
 #include "core/grid_object.hpp"
 #include "core/tag_index.hpp"
-#include "handler/filters/alignment_filter.hpp"
 #include "handler/filters/filter.hpp"
 #include "handler/filters/neg_filter.hpp"
 #include "handler/filters/resource_filter.hpp"
@@ -16,12 +15,9 @@
 #include "handler/handler.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/handler_context.hpp"
-#include "handler/mutations/alignment_mutation.hpp"
 #include "handler/mutations/attack_mutation.hpp"
 #include "handler/mutations/mutation.hpp"
 #include "handler/mutations/resource_mutation.hpp"
-#include "objects/collective.hpp"
-#include "objects/collective_config.hpp"
 #include "objects/inventory_config.hpp"
 
 using namespace mettagrid;
@@ -48,16 +44,6 @@ public:
     return config;
   }
 };
-
-// Helper to create a collective config
-CollectiveConfig create_test_collective_config(const std::string& name) {
-  CollectiveConfig config;
-  config.name = name;
-  config.inventory_config.limit_defs.push_back(LimitDef({0}, 1000));
-  config.inventory_config.limit_defs.push_back(LimitDef({1}, 1000));
-  config.inventory_config.limit_defs.push_back(LimitDef({2}, 1000));
-  return config;
-}
 
 // ============================================================================
 // Filter Tests
@@ -168,142 +154,6 @@ void test_resource_filter_fails() {
   assert(filter.passes(ctx) == false);
 
   std::cout << "✓ ResourceFilter fails test passed" << std::endl;
-}
-
-void test_alignment_filter_same_collective() {
-  std::cout << "Testing AlignmentFilter same_collective..." << std::endl;
-
-  CollectiveConfig coll_config = create_test_collective_config("team_a");
-  Collective collective(coll_config, &test_resource_names);
-
-  TestActivationObject actor("actor");
-  TestActivationObject target("target");
-
-  actor.setCollective(&collective);
-  target.setCollective(&collective);
-
-  HandlerContext ctx;
-  ctx.actor = &actor;
-  ctx.target = &target;
-
-  AlignmentFilterConfig config;
-  config.condition = AlignmentCondition::same_collective;
-
-  AlignmentFilter filter(config);
-  assert(filter.passes(ctx) == true);
-
-  std::cout << "✓ AlignmentFilter same_collective test passed" << std::endl;
-}
-
-void test_alignment_filter_different_collective() {
-  std::cout << "Testing AlignmentFilter different_collective..." << std::endl;
-
-  CollectiveConfig coll_config_a = create_test_collective_config("team_a");
-  CollectiveConfig coll_config_b = create_test_collective_config("team_b");
-  Collective collective_a(coll_config_a, &test_resource_names);
-  Collective collective_b(coll_config_b, &test_resource_names);
-
-  TestActivationObject actor("actor");
-  TestActivationObject target("target");
-
-  actor.setCollective(&collective_a);
-  target.setCollective(&collective_b);
-
-  HandlerContext ctx;
-  ctx.actor = &actor;
-  ctx.target = &target;
-
-  AlignmentFilterConfig config;
-  config.condition = AlignmentCondition::different_collective;
-
-  AlignmentFilter filter(config);
-  assert(filter.passes(ctx) == true);
-
-  std::cout << "✓ AlignmentFilter different_collective test passed" << std::endl;
-}
-
-void test_alignment_filter_unaligned() {
-  std::cout << "Testing AlignmentFilter unaligned..." << std::endl;
-
-  TestActivationObject actor("actor");
-  TestActivationObject target("target");
-  // Neither has a collective
-
-  HandlerContext ctx;
-  ctx.actor = &actor;
-  ctx.target = &target;
-
-  AlignmentFilterConfig config;
-  config.condition = AlignmentCondition::unaligned;
-
-  AlignmentFilter filter(config);
-  assert(filter.passes(ctx) == true);
-
-  std::cout << "✓ AlignmentFilter unaligned test passed" << std::endl;
-}
-
-void test_alignment_filter_neg_same_collective() {
-  std::cout << "Testing NegFilter with AlignmentFilter same_collective..." << std::endl;
-
-  CollectiveConfig coll_config = create_test_collective_config("team_a");
-  Collective collective(coll_config, &test_resource_names);
-
-  TestActivationObject actor("actor");
-  TestActivationObject target("target");
-
-  actor.setCollective(&collective);
-  target.setCollective(&collective);
-
-  HandlerContext ctx;
-  ctx.actor = &actor;
-  ctx.target = &target;
-
-  // Without NegFilter, same_collective should pass
-  AlignmentFilterConfig config;
-  config.condition = AlignmentCondition::same_collective;
-
-  AlignmentFilter filter_no_neg(config);
-  assert(filter_no_neg.passes(ctx) == true);
-
-  // With NegFilter, same_collective should fail (NOT same_collective)
-  auto inner_filter = std::make_unique<AlignmentFilter>(config);
-  NegFilter neg_filter(std::move(inner_filter));
-  assert(neg_filter.passes(ctx) == false);
-
-  std::cout << "✓ NegFilter with AlignmentFilter same_collective test passed" << std::endl;
-}
-
-void test_alignment_filter_neg_different_collective() {
-  std::cout << "Testing NegFilter with AlignmentFilter different_collective..." << std::endl;
-
-  CollectiveConfig coll_config_a = create_test_collective_config("team_a");
-  CollectiveConfig coll_config_b = create_test_collective_config("team_b");
-  Collective collective_a(coll_config_a, &test_resource_names);
-  Collective collective_b(coll_config_b, &test_resource_names);
-
-  TestActivationObject actor("actor");
-  TestActivationObject target("target");
-
-  actor.setCollective(&collective_a);
-  target.setCollective(&collective_b);
-
-  HandlerContext ctx;
-  ctx.actor = &actor;
-  ctx.target = &target;
-
-  // Without NegFilter, same_collective should fail (they're in different collectives)
-  AlignmentFilterConfig config;
-  config.condition = AlignmentCondition::same_collective;
-
-  AlignmentFilter filter_no_neg(config);
-  assert(filter_no_neg.passes(ctx) == false);
-
-  // With NegFilter, same_collective should pass (NOT same_collective = true)
-  auto inner_filter = std::make_unique<AlignmentFilter>(config);
-  NegFilter neg_filter(std::move(inner_filter));
-  assert(neg_filter.passes(ctx) == true);
-
-  std::cout << "✓ NegFilter with AlignmentFilter different_collective test passed" << std::endl;
 }
 
 void test_vibe_filter_neg() {
@@ -593,59 +443,6 @@ void test_resource_transfer_mutation_all() {
   std::cout << "✓ ResourceTransferMutation transfer all test passed" << std::endl;
 }
 
-void test_alignment_mutation_to_actor_collective() {
-  std::cout << "Testing AlignmentMutation to actor collective..." << std::endl;
-
-  CollectiveConfig coll_config = create_test_collective_config("team_a");
-  Collective collective(coll_config, &test_resource_names);
-
-  TestActivationObject actor("actor");
-  TestActivationObject target("target");
-
-  actor.setCollective(&collective);
-  // Target has no collective initially
-
-  HandlerContext ctx;
-  ctx.actor = &actor;
-  ctx.target = &target;
-
-  AlignmentMutationConfig config;
-  config.align_to = AlignTo::actor_collective;
-
-  AlignmentMutation mutation(config);
-  mutation.apply(ctx);
-
-  assert(target.getCollective() == &collective);
-
-  std::cout << "✓ AlignmentMutation to actor collective test passed" << std::endl;
-}
-
-void test_alignment_mutation_to_none() {
-  std::cout << "Testing AlignmentMutation to none..." << std::endl;
-
-  CollectiveConfig coll_config = create_test_collective_config("team_a");
-  Collective collective(coll_config, &test_resource_names);
-
-  TestActivationObject actor("actor");
-  TestActivationObject target("target");
-
-  target.setCollective(&collective);
-
-  HandlerContext ctx;
-  ctx.actor = &actor;
-  ctx.target = &target;
-
-  AlignmentMutationConfig config;
-  config.align_to = AlignTo::none;
-
-  AlignmentMutation mutation(config);
-  mutation.apply(ctx);
-
-  assert(target.getCollective() == nullptr);
-
-  std::cout << "✓ AlignmentMutation to none test passed" << std::endl;
-}
-
 void test_clear_inventory_mutation_specific() {
   std::cout << "Testing ClearInventoryMutation specific resource..." << std::endl;
 
@@ -733,89 +530,6 @@ void test_attack_mutation() {
 // ============================================================================
 // Handler Tests
 // ============================================================================
-
-void test_activation_handler_filters_pass() {
-  std::cout << "Testing Handler filters pass..." << std::endl;
-
-  CollectiveConfig coll_config = create_test_collective_config("team_a");
-  Collective collective(coll_config, &test_resource_names);
-
-  TestActivationObject actor("actor");
-  TestActivationObject target("target");
-  actor.setCollective(&collective);
-  target.setCollective(&collective);
-  target.inventory.update(0, 100);
-
-  // Create handler config with alignment and resource filters
-  HandlerConfig handler_config("test_handler");
-
-  AlignmentFilterConfig align_filter;
-  align_filter.condition = AlignmentCondition::same_collective;
-  handler_config.filters.push_back(align_filter);
-
-  ResourceFilterConfig resource_filter;
-  resource_filter.entity = EntityRef::target;
-  resource_filter.resource_id = 0;
-  resource_filter.min_amount = 50;
-  handler_config.filters.push_back(resource_filter);
-
-  // Add a mutation
-  ResourceDeltaMutationConfig delta_mutation;
-  delta_mutation.entity = EntityRef::target;
-  delta_mutation.resource_id = 0;
-  delta_mutation.delta = -25;
-  handler_config.mutations.push_back(delta_mutation);
-
-  Handler handler(handler_config);
-  HandlerContext ctx;
-  ctx.actor = &actor;
-  ctx.target = &target;
-  bool result = handler.try_apply(ctx);
-
-  assert(result == true);
-  assert(target.inventory.amount(0) == 75);  // 100 - 25
-
-  std::cout << "✓ Handler filters pass test passed" << std::endl;
-}
-
-void test_activation_handler_filters_fail() {
-  std::cout << "Testing Handler filters fail..." << std::endl;
-
-  CollectiveConfig coll_config_a = create_test_collective_config("team_a");
-  CollectiveConfig coll_config_b = create_test_collective_config("team_b");
-  Collective collective_a(coll_config_a, &test_resource_names);
-  Collective collective_b(coll_config_b, &test_resource_names);
-
-  TestActivationObject actor("actor");
-  TestActivationObject target("target");
-  actor.setCollective(&collective_a);
-  target.setCollective(&collective_b);  // Different collective
-  target.inventory.update(0, 100);
-
-  // Create handler config with same_collective filter
-  HandlerConfig handler_config("test_handler");
-
-  AlignmentFilterConfig align_filter;
-  align_filter.condition = AlignmentCondition::same_collective;  // Will fail
-  handler_config.filters.push_back(align_filter);
-
-  ResourceDeltaMutationConfig delta_mutation;
-  delta_mutation.entity = EntityRef::target;
-  delta_mutation.resource_id = 0;
-  delta_mutation.delta = -25;
-  handler_config.mutations.push_back(delta_mutation);
-
-  Handler handler(handler_config);
-  HandlerContext ctx;
-  ctx.actor = &actor;
-  ctx.target = &target;
-  bool result = handler.try_apply(ctx);
-
-  assert(result == false);
-  assert(target.inventory.amount(0) == 100);  // Unchanged
-
-  std::cout << "✓ Handler filters fail test passed" << std::endl;
-}
 
 void test_activation_handler_multiple_mutations() {
   std::cout << "Testing Handler multiple mutations..." << std::endl;
@@ -1084,16 +798,11 @@ int main() {
   test_vibe_filter_actor();
   test_resource_filter_passes();
   test_resource_filter_fails();
-  test_alignment_filter_same_collective();
-  test_alignment_filter_different_collective();
-  test_alignment_filter_unaligned();
   test_tag_filter_matches();
   test_tag_filter_no_match();
   test_tag_filter_on_actor();
 
   // Filter invert tests
-  test_alignment_filter_neg_same_collective();
-  test_alignment_filter_neg_different_collective();
   test_vibe_filter_neg();
   test_resource_filter_neg();
   test_tag_filter_neg();
@@ -1103,15 +812,11 @@ int main() {
   test_resource_delta_mutation_subtract();
   test_resource_transfer_mutation();
   test_resource_transfer_mutation_all();
-  test_alignment_mutation_to_actor_collective();
-  test_alignment_mutation_to_none();
   test_clear_inventory_mutation_specific();
   test_clear_inventory_mutation_all();
   test_attack_mutation();
 
   // Handler tests
-  test_activation_handler_filters_pass();
-  test_activation_handler_filters_fail();
   test_activation_handler_multiple_mutations();
   test_activation_handler_check_filters_only();
 

@@ -47,9 +47,7 @@ public:
   Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vector<std::string>* resource_names);
 
   void init(RewardType* reward_ptr);
-  void init_reward(StatsTracker* collective_stats,
-                   const mettagrid::HandlerContext* game_ctx,
-                   const std::vector<std::string>* resource_names);
+  void init_reward(const mettagrid::HandlerContext* game_ctx, const std::vector<std::string>* resource_names);
 
   void populate_initial_inventory(const std::unordered_map<InventoryItem, InventoryQuantity>& initial_inventory);
 

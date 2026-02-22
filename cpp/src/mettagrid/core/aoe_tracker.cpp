@@ -18,7 +18,48 @@ namespace {
 // - Fixed sources (is_static=true) are pre-registered into _cell_effects so apply_fixed() is O(k) per tile.
 // - Mobile sources are checked each tick in apply_mobile(), since their coverage moves.
 // - Presence deltas are edge-triggered with _inside tracking (enter => +1, exit => -1).
-// - Territory observation masks are handled separately by TerritoryTracker.
+// - Territory AOEs are a special fixed-only read path used for observability masks: they have no mutations or
+//   presence deltas and contribute weighted influence by distance. Cardinal boundary trimming keeps circle edges
+//   visually smooth for radius >= 2 while preserving small-radius coverage.
+int64_t distance_sq(const GridLocation& a, const GridLocation& b) {
+  int64_t dr = static_cast<int64_t>(a.r) - static_cast<int64_t>(b.r);
+  int64_t dc = static_cast<int64_t>(a.c) - static_cast<int64_t>(b.c);
+  return dr * dr + dc * dc;
+}
+
+bool is_territory_aoe(const AOESource* aoe_source) {
+  return aoe_source != nullptr && !aoe_source->has_mutations() && !aoe_source->has_presence_deltas() &&
+         aoe_source->config.radius > 0;
+}
+
+uint64_t floor_sqrt_u64(uint64_t value) {
+  uint64_t root = 0;
+  uint64_t bit = 1ULL << 62;
+  while (bit > value) {
+    bit >>= 2;
+  }
+  while (bit != 0) {
+    if (value >= root + bit) {
+      value -= root + bit;
+      root = (root >> 1) + bit;
+    } else {
+      root >>= 1;
+    }
+    bit >>= 2;
+  }
+  return root;
+}
+
+int64_t territory_influence_score(const AOEConfig& config, int64_t dist_sq) {
+  assert(config.radius > 0 && "radius must be positive for territory AOEs");
+  assert(dist_sq >= 0 && "distance squared cannot be negative");
+  constexpr uint64_t kInfluenceScale = 1024;
+  uint64_t scaled_dist_sq = static_cast<uint64_t>(dist_sq) * kInfluenceScale * kInfluenceScale;
+  uint64_t scaled_distance = floor_sqrt_u64(scaled_dist_sq);
+  int64_t score = static_cast<int64_t>(config.radius) * static_cast<int64_t>(kInfluenceScale) -
+                  static_cast<int64_t>(scaled_distance);
+  return score > 0 ? score : 0;
+}
 }  // namespace
 
 // AOESource implementation
@@ -117,7 +158,9 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
 
   const GridLocation& source_loc = source.location;
   int range = config.radius;
+  bool territory_boundary = is_territory_aoe(aoe_source.get());
 
+  // Register at all cells within Euclidean radius.
   int64_t range_sq = static_cast<int64_t>(range) * range;
   for (int dr = -range; dr <= range; ++dr) {
     int cell_r = static_cast<int>(source_loc.r) + dr;
@@ -131,6 +174,13 @@ void AOETracker::register_fixed(GridObject& source, const AOEConfig& config) {
       }
       int64_t dist_sq = static_cast<int64_t>(dr) * dr + static_cast<int64_t>(dc) * dc;
       if (dist_sq > range_sq) {
+        continue;
+      }
+      // Territory circles intentionally exclude exact cardinal boundary points
+      // so the mask shape is smooth and matches Mettascope overlays.
+      // Keep full coverage for tiny radii (0/1), where trimming would collapse
+      // the territory footprint.
+      if (territory_boundary && range >= 2 && dist_sq == range_sq && (dr == 0 || dc == 0)) {
         continue;
       }
       _cell_effects[cell_r][cell_c].push_back(aoe_source);
@@ -231,17 +281,21 @@ void AOETracker::apply_fixed(GridObject& target, const HandlerContext& ctx) {
   // Get AOEs at current cell
   const auto& cell_effects = _cell_effects[target.location.r][target.location.c];
 
-  // Build set of AOEs at current cell for O(1) exit detection.
+  // Build set of AOEs at current cell for O(1) lookup.
+  // Reuse scratch containers to avoid allocations in the per-agent hot path.
   _scratch_current_cell_set.clear();
   _scratch_current_cell_set.reserve(cell_effects.size());
+
   for (const auto& aoe_sp : cell_effects) {
     _scratch_current_cell_set.insert(aoe_sp.get());
   }
 
   // Process exits for AOEs that were inside but are not at current cell
+  // (target moved out of range)
   for (auto it = prev_inside.begin(); it != prev_inside.end();) {
     AOESource* aoe_source = *it;
     if (_scratch_current_cell_set.find(aoe_source) == _scratch_current_cell_set.end()) {
+      // AOE was inside but is not at current cell - target moved out of range
       _inside[aoe_source].erase(&target);
       aoe_source->apply_presence_deltas(&target, -1);
       it = prev_inside.erase(it);
@@ -250,33 +304,38 @@ void AOETracker::apply_fixed(GridObject& target, const HandlerContext& ctx) {
     }
   }
 
-  // Process all sources at this cell
-  for (const auto& aoe_sp : cell_effects) {
-    AOESource* aoe_source = aoe_sp.get();
+  auto process_source = [&](AOESource* aoe_source) {
     if (!aoe_source->has_mutations() && !aoe_source->has_presence_deltas()) {
-      continue;
+      return;
     }
 
     bool skip_self = (!aoe_source->config.effect_self && aoe_source->source == &target);
     bool now_passes = (!skip_self && aoe_source->passes_filters(&target, target_ctx));
+    bool effective_passes = now_passes;
 
     bool was_inside = prev_inside.contains(aoe_source);
-    if (now_passes && !was_inside) {
+    if (effective_passes && !was_inside) {
       _inside[aoe_source].insert(&target);
       aoe_source->apply_presence_deltas(&target, +1);
       prev_inside.insert(aoe_source);
-    } else if (!now_passes && was_inside) {
+    } else if (!effective_passes && was_inside) {
+      // Exit event (filter no longer passes).
       _inside[aoe_source].erase(&target);
       aoe_source->apply_presence_deltas(&target, -1);
       prev_inside.erase(aoe_source);
     }
 
-    if (now_passes && aoe_source->has_mutations()) {
+    if (effective_passes && aoe_source->has_mutations()) {
       aoe_source->try_apply(&target, target_ctx);
     }
+  };
+
+  for (const auto& aoe_sp : cell_effects) {
+    process_source(aoe_sp.get());
   }
 
   // Apply net ResourceDeltaMutation deltas on target once, so clamping happens on the net result.
+  // This avoids ordering artifacts when multiple fixed effects touch the same capped resource.
   if (!deferred_target_resource_order.empty()) {
     for (InventoryItem resource_id : deferred_target_resource_order) {
       auto it = deferred_target_resource_deltas.find(resource_id);
@@ -355,6 +414,49 @@ size_t AOETracker::fixed_effect_count_at(const GridLocation& loc) const {
     return 0;
   }
   return _cell_effects[loc.r][loc.c].size();
+}
+
+void AOETracker::fixed_observability_at(const GridLocation& loc,
+                                        GridObject& observer,
+                                        const HandlerContext& ctx,
+                                        ObservationType* out_aoe_mask) const {
+  if (out_aoe_mask != nullptr) {
+    *out_aoe_mask = 0;
+  }
+
+  if (out_aoe_mask == nullptr || loc.r >= _height || loc.c >= _width) {
+    return;
+  }
+
+  const auto& cell_effects = _cell_effects[loc.r][loc.c];
+  if (cell_effects.empty()) {
+    return;
+  }
+
+  HandlerContext obs_ctx = ctx;
+  obs_ctx.actor = nullptr;
+  obs_ctx.target = &observer;
+
+  int64_t total_score = 0;
+
+  for (const auto& aoe_source : cell_effects) {
+    GridObject* source = aoe_source->source;
+    if (source == nullptr) {
+      continue;
+    }
+
+    if (!is_territory_aoe(aoe_source.get())) {
+      continue;
+    }
+
+    if (!aoe_source->passes_filters(&observer, obs_ctx)) {
+      continue;
+    }
+
+    total_score += territory_influence_score(aoe_source->config, distance_sq(source->location, loc));
+  }
+
+  *out_aoe_mask = (total_score > 0) ? 1 : 0;
 }
 
 }  // namespace mettagrid

@@ -1,6 +1,6 @@
 import std/[algorithm, json, os, tables, strutils],
-  chroma, zippy, vmath, jsony, silky,
-  ./validation, ./colors
+  zippy, vmath, jsony, silky,
+  ./validation
 
 # If you update this, also update REPLAY_FORMAT_VERSION in
 # mettagrid/python/src/mettagrid/simulator/replay_log_writer.py
@@ -59,48 +59,6 @@ type
     capacityId*: int
     limit*: int
 
-  CollectiveData* = object
-    name*: string
-    color*: ColorRGBX
-
-proc collectiveColor*(name: string): ColorRGBX =
-  ## Map a collective name to its display color.
-  case name
-    of "clips":
-      Red
-    of "cogs", "cogs_green":
-      Green
-    of "cogs_dark_green":
-      DarkGreen
-    of "cogs_blue":
-      Blue
-    of "cogs_dark_blue":
-      DarkBlue
-    of "cogs_dark_red":
-      DarkRed
-    of "cogs_yellow":
-      Yellow
-    of "cogs_orange":
-      Orange
-    of "cogs_dark_orange":
-      DarkOrange
-    of "cogs_pumpkin":
-      Pumpkin
-    of "cogs_purple":
-      Purple
-    of "cogs_dark_purple":
-      DarkPurple
-    of "cogs_turquoise":
-      Turquoise
-    of "cogs_teal":
-      Teal
-    of "cogs_slate":
-      Slate
-    of "cogs_midnight_blue":
-      MidnightBlue
-    else:
-      Gray
-
 type
   Entity* = ref object
     # Common keys.
@@ -150,9 +108,6 @@ type
     currentRecipeId*: int
     protocols*: seq[Protocol]
 
-    # Alignable fields.
-    collectiveId*: seq[int]
-
     # Tag fields.
     tagIds*: seq[seq[int]]
 
@@ -175,7 +130,6 @@ type
     groupNames*: seq[string]
     capacityNames*: seq[string]  ## Maps capacity_id to group name (e.g., "cargo", "gear").
     tags*: Table[string, int]  ## Maps tag name to tag ID.
-    collectives*: seq[CollectiveData]
     typeImages*: Table[string, string]
     actionImages*: seq[string]
     actionAttackImages*: seq[string]
@@ -186,7 +140,6 @@ type
     rewardSharingMatrix*: seq[seq[float]]
 
     agents*: seq[Entity]
-    collectiveInventory*: seq[seq[Table[string, int]]]  ## Indexed by collective ID, then step.
 
     drawnAgentActionMask*: uint64
     mgConfig*: JsonNode
@@ -250,9 +203,6 @@ type
     maxUses*: int
     allowPartialUsage*: bool
     protocols*: seq[Protocol]
-
-    # Alignable fields.
-    collectiveId*: int = -1
 
     # Tag fields.
     tagIds*: seq[int]
@@ -320,213 +270,6 @@ proc getMapSize*(obj: JsonNode, default: (int, int) = (0, 0)): (int, int) =
       let h = if mapSize[1].kind == JInt: mapSize[1].getInt else: 0
       return (w, h)
   default
-
-proc getCollectiveIdByName(replay: Replay, collectiveName: string): int =
-  ## Resolve a collective name to its ID in replay.collectives.
-  for i, collective in replay.collectives:
-    if collective.name == collectiveName:
-      return i
-  return -1
-
-proc teamTagMap*(replay: Replay): Table[int, int] =
-  ## Build tag-ID-to-collective-index mapping from team:* tags.
-  for i, collective in replay.collectives:
-    let tagName = "team:" & collective.name
-    if tagName in replay.tags:
-      result[replay.tags[tagName]] = i
-
-proc collectiveIdForTags*(replay: Replay, tagMap: Table[int, int], tagIds: seq[int]): int =
-  ## Resolve a collective index from a set of tag IDs.
-  for tagId in tagIds:
-    if tagId in tagMap:
-      return tagMap[tagId]
-  return -1
-
-proc parseInventoryTable(replay: Replay, inventoryNode: JsonNode): Table[string, int] =
-  ## Parse inventory from either [[item_id, count], ...] or {item_name: count}.
-  result = initTable[string, int]()
-  if inventoryNode.isNil:
-    return
-
-  case inventoryNode.kind
-  of JArray:
-    for itemAmount in inventoryNode:
-      if itemAmount.kind != JArray or itemAmount.len < 2:
-        continue
-      if itemAmount[0].kind != JInt or itemAmount[1].kind != JInt:
-        continue
-      let itemId = itemAmount[0].getInt
-      let count = itemAmount[1].getInt
-      if itemId >= 0 and itemId < replay.itemNames.len:
-        result[replay.itemNames[itemId]] = count
-  of JObject:
-    for itemName, countNode in inventoryNode.pairs:
-      if countNode.kind == JInt:
-        result[itemName] = countNode.getInt
-  else:
-    discard
-
-proc isCollectiveInventoryTimeSeries(data: JsonNode): bool =
-  ## True when data looks like [[step, inventory], ...].
-  if data.isNil or data.kind != JArray or data.len == 0:
-    return false
-  if data[0].kind != JArray or data[0].len < 2:
-    return false
-  return data[0][0].kind == JInt
-
-proc expandCollectiveInventorySeries(
-  replay: Replay,
-  seriesNode: JsonNode,
-  numSteps: int
-): seq[Table[string, int]] =
-  ## Expand collective inventory to one entry per step.
-  if numSteps <= 0:
-    return @[]
-
-  result = newSeq[Table[string, int]](numSteps)
-  var current = initTable[string, int]()
-
-  if isCollectiveInventoryTimeSeries(seriesNode):
-    var j = 0
-    for i in 0 ..< numSteps:
-      while j < seriesNode.len and seriesNode[j].kind == JArray and
-          seriesNode[j].len >= 2 and seriesNode[j][0].kind == JInt and
-          seriesNode[j][0].getInt <= i:
-        current = parseInventoryTable(replay, seriesNode[j][1])
-        inc j
-      result[i] = current
-    return
-
-  # Static inventory object/array: repeat for all steps.
-  current = parseInventoryTable(replay, seriesNode)
-  for i in 0 ..< numSteps:
-    result[i] = current
-
-proc ensureCollectiveInventoryExpanded(replay: Replay, step: int) =
-  ## Ensure collective inventory can be indexed at [collectiveId][step].
-  if step < 0:
-    return
-
-  if replay.collectiveInventory.len < replay.collectives.len:
-    replay.collectiveInventory.setLen(replay.collectives.len)
-
-  for cid in 0 ..< replay.collectiveInventory.len:
-    let oldLen = replay.collectiveInventory[cid].len
-    if oldLen > step:
-      continue
-
-    var carry = initTable[string, int]()
-    if oldLen > 0:
-      carry = replay.collectiveInventory[cid][oldLen - 1]
-
-    replay.collectiveInventory[cid].setLen(step + 1)
-    for i in oldLen .. step:
-      replay.collectiveInventory[cid][i] = carry
-
-proc loadCollectiveInventory(replay: Replay, jsonObj: JsonNode) =
-  ## Load and expand collective inventory to one entry per step.
-  replay.collectiveInventory = @[]
-  replay.collectiveInventory.setLen(replay.collectives.len)
-  replay.ensureCollectiveInventoryExpanded(replay.maxSteps - 1)
-
-  if "collective_inventory" notin jsonObj:
-    return
-
-  let collectiveInvData = jsonObj["collective_inventory"]
-
-  # V4 replay format: array indexed by collective ID.
-  if collectiveInvData.kind == JArray:
-    for collectiveId, snapshots in collectiveInvData.getElems():
-      if collectiveId < 0 or collectiveId >= replay.collectiveInventory.len:
-        continue
-      replay.collectiveInventory[collectiveId] =
-        expandCollectiveInventorySeries(replay, snapshots, replay.maxSteps)
-    return
-
-  # Realtime/legacy object format:
-  # - {"cogs": {"heart": 12, ...}}
-  # - {"1": [[step, [[item_id, count], ...]], ...]}
-  if collectiveInvData.kind == JObject:
-    for collectiveKey, valueNode in collectiveInvData.pairs:
-      var collectiveId = -1
-      try:
-        collectiveId = parseInt(collectiveKey)
-      except ValueError:
-        collectiveId = replay.getCollectiveIdByName(collectiveKey)
-      if collectiveId < 0 or collectiveId >= replay.collectiveInventory.len:
-        continue
-
-      replay.collectiveInventory[collectiveId] =
-        expandCollectiveInventorySeries(replay, valueNode, replay.maxSteps)
-
-proc applyCollectiveInventoryStep(
-  replay: Replay,
-  step: int,
-  collectiveInvData: JsonNode
-) =
-  ## Apply one realtime step and keep collective inventory step-expanded.
-  if collectiveInvData.isNil:
-    return
-
-  replay.ensureCollectiveInventoryExpanded(step)
-
-  if collectiveInvData.kind == JObject:
-    for collectiveKey, valueNode in collectiveInvData.pairs:
-      var collectiveId = -1
-      try:
-        collectiveId = parseInt(collectiveKey)
-      except ValueError:
-        collectiveId = replay.getCollectiveIdByName(collectiveKey)
-      if collectiveId < 0:
-        continue
-
-      if collectiveId >= replay.collectiveInventory.len:
-        continue
-
-      if isCollectiveInventoryTimeSeries(valueNode):
-        var found = false
-        var latestStep = low(int)
-        var latestInventory = initTable[string, int]()
-        for snapshot in valueNode:
-          if snapshot.kind != JArray or snapshot.len < 2 or snapshot[0].kind != JInt:
-            continue
-          let snapshotStep = snapshot[0].getInt
-          if snapshotStep <= step and snapshotStep >= latestStep:
-            latestStep = snapshotStep
-            latestInventory = parseInventoryTable(replay, snapshot[1])
-            found = true
-        if found:
-          replay.collectiveInventory[collectiveId][step] = latestInventory
-      else:
-        replay.collectiveInventory[collectiveId][step] =
-          parseInventoryTable(replay, valueNode)
-    return
-
-  # Also accept replay-style array by collective ID in streamed updates.
-  if collectiveInvData.kind == JArray:
-    for collectiveId, valueNode in collectiveInvData.getElems():
-      if collectiveId < 0:
-        continue
-      if collectiveId >= replay.collectiveInventory.len:
-        continue
-
-      if isCollectiveInventoryTimeSeries(valueNode):
-        var found = false
-        var latestStep = low(int)
-        var latestInventory = initTable[string, int]()
-        for snapshot in valueNode:
-          if snapshot.kind != JArray or snapshot.len < 2 or snapshot[0].kind != JInt:
-            continue
-          let snapshotStep = snapshot[0].getInt
-          if snapshotStep <= step and snapshotStep >= latestStep:
-            latestStep = snapshotStep
-            latestInventory = parseInventoryTable(replay, snapshot[1])
-            found = true
-        if found:
-          replay.collectiveInventory[collectiveId][step] = latestInventory
-      else:
-        replay.collectiveInventory[collectiveId][step] =
-          parseInventoryTable(replay, valueNode)
 
 proc parseHook*(s: string, i: var int, v: var IVec2) =
   var arr: array[2, int32]
@@ -983,7 +726,7 @@ proc convertReplayV2ToV3*(replayData: JsonNode): JsonNode {.measure.} =
 
 proc convertReplayV3ToV4*(replayData: JsonNode): JsonNode {.measure.} =
   ## Convert a V3 replay to V4 format by ensuring new V4 fields exist.
-  ## V4 adds: collective_names, policy_env_interface, infos, collective_inventory
+  ## V4 adds: policy_env_interface, infos
   echo "Converting replay from version 3 to version 4..."
 
   # Create a deep copy of the data.
@@ -992,10 +735,6 @@ proc convertReplayV3ToV4*(replayData: JsonNode): JsonNode {.measure.} =
   # Update version to 4.
   data["version"] = newJInt(4)
 
-  # Add collective_names if missing (empty array as default).
-  if "collective_names" notin data:
-    data["collective_names"] = newJArray()
-
   # Add policy_env_interface if missing (empty object as default).
   if "policy_env_interface" notin data:
     data["policy_env_interface"] = newJObject()
@@ -1003,10 +742,6 @@ proc convertReplayV3ToV4*(replayData: JsonNode): JsonNode {.measure.} =
   # Add infos if missing (empty object as default).
   if "infos" notin data:
     data["infos"] = newJObject()
-
-  # Add collective_inventory if missing (empty array as default).
-  if "collective_inventory" notin data:
-    data["collective_inventory"] = newJArray()
 
   # Add alive=[[0, true]] to all objects that don't have it.
   if "objects" in data and data["objects"].kind == JArray:
@@ -1086,48 +821,11 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
     replay.mgConfig = mgConfig
     replay.config = fromJson($mgConfig, Config)
 
-  # Parse tags first so team:* tags can drive collective discovery.
+  # Parse tags.
   let tagsObj = getJsonNode(jsonObj, "tags")
   if tagsObj != nil and tagsObj.kind == JObject:
     for key, val in tagsObj:
       replay.tags[key] = val.getInt
-
-  # Build collectives from team:* tags (preferred), falling back to
-  # collective_names or mg_config collectives for older replays.
-  var teamNames: seq[string] = @[]
-  for tagName in replay.tags.keys:
-    if tagName.startsWith("team:"):
-      teamNames.add(tagName[5 .. ^1])
-  teamNames.sort()
-
-  if teamNames.len > 0:
-    for teamName in teamNames:
-      replay.collectives.add(CollectiveData(
-        name: teamName,
-        color: collectiveColor(teamName),
-      ))
-  else:
-    let collectiveNamesArr = getArray(jsonObj, "collective_names")
-    if collectiveNamesArr != nil and collectiveNamesArr.len > 0:
-      for nameNode in collectiveNamesArr:
-        let name = nameNode.getStr
-        replay.collectives.add(CollectiveData(
-          name: name,
-          color: collectiveColor(name),
-        ))
-    elif replay.mgConfig != nil and "game" in replay.mgConfig and
-        "collectives" in replay.mgConfig["game"]:
-      let collectivesNode = replay.mgConfig["game"]["collectives"]
-      if collectivesNode.kind == JObject:
-        var names: seq[string]
-        for key in collectivesNode.keys:
-          names.add(key)
-        names.sort()
-        for name in names:
-          replay.collectives.add(CollectiveData(
-            name: name,
-            color: collectiveColor(name),
-          ))
   measurePop()
 
   # Parse capacity_names (maps capacity_id to group name like "cargo", "gear").
@@ -1135,9 +833,6 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
   if capacityNamesArr != nil:
     for nameNode in capacityNamesArr:
       replay.capacityNames.add(nameNode.getStr)
-
-  # Parse team/global inventory snapshots for collective panel resources.
-  replay.loadCollectiveInventory(jsonObj)
 
   measurePush("loadReplayString.parseObjects")
   let objectsArr = getArray(jsonObj, "objects", newJArray())
@@ -1199,7 +894,6 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
       color: obj.getExpandedIntSeq("color", replay.maxSteps),
     )
     entity.groupId = getInt(obj, "group_id", 0)
-    entity.collectiveId = obj.getExpandedIntSeq("collective_id", replay.maxSteps, @[-1])
 
     let tagIdsField = getJsonNode(obj, "tag_ids")
     if tagIdsField != nil:
@@ -1292,18 +986,6 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
       replay.agents.add(entity)
   measurePop()
 
-  # Derive collectiveId from team:* tags when available.
-  let tagMap = replay.teamTagMap()
-  if tagMap.len > 0:
-    for entity in replay.objects:
-      if entity.tagIds.len == 0:
-        entity.collectiveId = @[-1]
-        continue
-      var newIds: seq[int] = @[]
-      for stepTags in entity.tagIds:
-        newIds.add(replay.collectiveIdForTags(tagMap, stepTags))
-      entity.collectiveId = newIds
-
   # Compute gain maps for static replays.
   computeGainMap(replay)
 
@@ -1352,7 +1034,6 @@ proc loadReplay*(fileName: string): Replay {.measure.} =
 proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
   ## Apply a replay step to the replay.
   const agentTypeName = "agent"
-  let tagMap = replay.teamTagMap()
   for obj in objects:
     let index = obj.id - 1
     while index >= replay.objects.len:
@@ -1368,10 +1049,6 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
     entity.isAgent = resolvedTypeName == agentTypeName
     entity.groupId = obj.groupId
     entity.tagIds.add(obj.tagIds)
-    if tagMap.len > 0:
-      entity.collectiveId.add(replay.collectiveIdForTags(tagMap, obj.tagIds))
-    else:
-      entity.collectiveId.add(obj.collectiveId)
     entity.agentId = obj.agentId
     entity.location.add(obj.location)
     entity.orientation.add(obj.orientation)
@@ -1449,7 +1126,6 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
 
 proc apply*(replay: Replay, replayStepJsonData: string) =
   ## Apply a replay step to the replay.
-  let replayStepJson = parseJson(replayStepJsonData)
   let replayStep = fromJson(replayStepJsonData, ReplayStep)
   if replayStep.tutorial_overlay_phases.len > 0:
     replay.tutorialOverlayPhases = replayStep.tutorial_overlay_phases
@@ -1460,5 +1136,3 @@ proc apply*(replay: Replay, replayStepJsonData: string) =
     replay.tutorialOverlayPhase = 0
     replay.tutorialOverlay = replayStep.tutorial_overlay
   replay.apply(replayStep.step, replayStep.objects)
-  if "collective_inventory" in replayStepJson:
-    replay.applyCollectiveInventoryStep(replayStep.step, replayStepJson["collective_inventory"])

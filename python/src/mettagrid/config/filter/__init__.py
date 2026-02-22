@@ -1,7 +1,7 @@
 """Filter configuration classes and helper functions.
 
 This module defines filter types used to determine when handlers should trigger.
-Filters check conditions on actors, targets, or their collectives.
+Filters check conditions on actors or targets.
 """
 
 # AnyFilter defined here where all concrete types are real imports (no strings).
@@ -10,26 +10,13 @@ from typing import Annotated, Union  # noqa: E402
 from pydantic import Discriminator  # noqa: E402
 from pydantic import Tag as PydanticTag  # noqa: E402
 
-from mettagrid.config.filter.alignment_filter import (
-    AlignmentCondition,
-    AlignmentFilter,
-    isAlignedTo,
-    isAlignedToActor,
-    isEnemy,
-    isNeutral,
-    isNotAlignedTo,
-    isNotAlignedToActor,
-    isNotNeutral,
-)
 from mettagrid.config.filter.filter import Filter, HandlerTarget, NotFilter, OrFilter, anyOf, isNot
 from mettagrid.config.filter.game_value_filter import GameValueFilter
 from mettagrid.config.filter.max_distance_filter import MaxDistanceFilter, isNear, maxDistance
 from mettagrid.config.filter.resource_filter import (
     ResourceFilter,
-    actorCollectiveHas,
     actorHas,
     actorHasAnyOf,
-    targetCollectiveHas,
     targetHas,
     targetHasAnyOf,
 )
@@ -56,7 +43,6 @@ AnyFilter = Annotated[
     Union[
         Annotated[VibeFilter, PydanticTag("vibe")],
         Annotated[ResourceFilter, PydanticTag("resource")],
-        Annotated[AlignmentFilter, PydanticTag("alignment")],
         Annotated[TagFilter, PydanticTag("tag")],
         Annotated[SharedTagPrefixFilter, PydanticTag("shared_tag_prefix")],
         Annotated[TagPrefixFilter, PydanticTag("tag_prefix")],
@@ -87,14 +73,12 @@ QueryInventoryValue.model_rebuild(_types_namespace=_rebuild_ns)
 __all__ = [
     # Enums
     "HandlerTarget",
-    "AlignmentCondition",
     # Filter classes
     "Filter",
     "NotFilter",
     "OrFilter",
     "VibeFilter",
     "ResourceFilter",
-    "AlignmentFilter",
     "TagFilter",
     "TagPrefixFilter",
     "SharedTagPrefixFilter",
@@ -104,13 +88,6 @@ __all__ = [
     # Filter helpers
     "isNot",
     "anyOf",
-    "isAlignedToActor",
-    "isNotAlignedToActor",
-    "isAlignedTo",
-    "isNotAlignedTo",
-    "isNeutral",
-    "isNotNeutral",
-    "isEnemy",
     "hasTag",
     "actorHasTag",
     "isA",
@@ -119,8 +96,6 @@ __all__ = [
     "maxDistance",
     "actorHas",
     "targetHas",
-    "actorCollectiveHas",
-    "targetCollectiveHas",
     "actorHasAnyOf",
     "targetHasAnyOf",
     "actorVibe",

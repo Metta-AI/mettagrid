@@ -1,5 +1,5 @@
 import
-  std/[tables, sets],
+  std/tables,
   windy,
   replays, worldmap, common, configs, panels
 
@@ -18,7 +18,6 @@ proc onReplayLoaded*() =
   # Clear AoE tilemaps so they get regenerated for the new replay
   aoeMaps = @[]
   aoeMapStep = -1
-  aoeMapHiddenCollectives.clear()
 
   # Reset global state for the new replay
   step = 0

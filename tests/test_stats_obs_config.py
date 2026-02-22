@@ -12,7 +12,6 @@ def test_scope_enum():
     """Test Scope enum values."""
     assert Scope.AGENT.value == "agent"
     assert Scope.GAME.value == "game"
-    assert Scope.COLLECTIVE.value == "collective"
 
 
 def test_stat_value_defaults():
@@ -25,9 +24,9 @@ def test_stat_value_defaults():
 
 def test_stat_value_with_all_fields():
     """Test StatValue with all fields specified."""
-    sv = StatValue(name="aligned.hub.held", scope=Scope.COLLECTIVE, delta=True)
-    assert sv.name == "aligned.hub.held"
-    assert sv.scope == Scope.COLLECTIVE
+    sv = StatValue(name="carbon.gained", scope=Scope.GAME, delta=True)
+    assert sv.name == "carbon.gained"
+    assert sv.scope == Scope.GAME
     assert sv.delta is True
 
 

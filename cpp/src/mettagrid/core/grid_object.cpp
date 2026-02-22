@@ -9,7 +9,6 @@
 #include "handler/handler_context.hpp"
 #include "handler/multi_handler.hpp"
 #include "objects/agent.hpp"
-#include "objects/collective.hpp"
 #include "systems/observation_encoder.hpp"
 
 // Constructor and destructor must be defined here where Handler is a complete type
@@ -145,14 +144,8 @@ void GridObject::apply_on_tag_remove_handlers(int tag_id, const mettagrid::Handl
 
 std::vector<PartialObservationToken> GridObject::obs_features() const {
   std::vector<PartialObservationToken> features;
-  features.reserve(tag_bits.count() + 3 +
+  features.reserve(tag_bits.count() + 2 +
                    (obs_encoder ? inventory.get().size() * obs_encoder->get_num_inventory_tokens() : 0));
-
-  // Emit collective ID if this object belongs to a collective and the feature is configured
-  Collective* collective = getCollective();
-  if (collective != nullptr && ObservationFeature::Collective != 0) {
-    features.push_back({ObservationFeature::Collective, static_cast<ObservationType>(collective->id)});
-  }
 
   // Emit tag features
   for (size_t i = 0; i < kMaxTags; ++i) {
@@ -178,20 +171,12 @@ std::vector<PartialObservationToken> GridObject::obs_features() const {
 }
 
 size_t GridObject::max_obs_features(size_t max_tags, size_t num_resources, size_t tokens_per_item) {
-  // 1 (collective) + max_tags + 1 (vibe) + (num_resources * tokens_per_item)
-  return 1 + max_tags + 1 + (num_resources * tokens_per_item);
+  // max_tags + 1 (vibe) + (num_resources * tokens_per_item)
+  return max_tags + 1 + (num_resources * tokens_per_item);
 }
 
 size_t GridObject::write_obs_features(PartialObservationToken* out, size_t max_tokens) const {
   size_t written = 0;
-
-  // Emit collective ID if this object belongs to a collective and the feature is configured
-  Collective* collective = getCollective();
-  if (collective != nullptr && ObservationFeature::Collective != 0) {
-    if (written < max_tokens) {
-      out[written++] = {ObservationFeature::Collective, static_cast<ObservationType>(collective->id)};
-    }
-  }
 
   // Emit tag features
   for (size_t i = 0; i < kMaxTags && written < max_tokens; ++i) {

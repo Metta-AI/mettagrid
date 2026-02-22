@@ -127,13 +127,9 @@ class MettascopeRenderer(Renderer):
 
             grid_objects.append(formatted)
 
-        # Get collective inventories for mettascope commons panel
-        collective_inventory = self._sim._c_sim.get_collective_inventories()
-
         step_replay = {
             "step": self._sim.current_step,
             "objects": grid_objects,
-            "collective_inventory": collective_inventory,
             "episode_stats": self._sim._c_sim.get_episode_stats(),
         }
         if tutorial_overlay_phases:

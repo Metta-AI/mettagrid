@@ -99,6 +99,12 @@ public:
   // Get number of fixed effect sources at a location (for testing/debugging)
   size_t fixed_effect_count_at(const GridLocation& loc) const;
 
+  // Compute collapsed territory observability for a tile.
+  void fixed_observability_at(const GridLocation& loc,
+                              GridObject& observer,
+                              const HandlerContext& ctx,
+                              ObservationType* out_aoe_mask) const;
+
   // Get number of mobile sources (for testing/debugging)
   size_t mobile_source_count() const {
     return _mobile_sources.size();

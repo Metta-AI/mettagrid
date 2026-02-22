@@ -27,7 +27,6 @@ public:
     _cooldown_remaining = get("cooldown_remaining");
     _remaining_uses = get("remaining_uses");
     _goal = get("goal");
-    _collective = has("collective") ? get("collective") : 0;
     _lp_east = has("lp:east") ? get("lp:east") : 0;
     _lp_west = has("lp:west") ? get("lp:west") : 0;
     _lp_north = has("lp:north") ? get("lp:north") : 0;
@@ -47,7 +46,6 @@ public:
     CooldownRemaining = _cooldown_remaining;
     RemainingUses = _remaining_uses;
     Goal = _goal;
-    Collective = _collective;
     LpEast = _lp_east;
     LpWest = _lp_west;
     LpNorth = _lp_north;
@@ -82,7 +80,6 @@ public:
   ObservationType CooldownRemaining;
   ObservationType RemainingUses;
   ObservationType Goal;
-  ObservationType Collective;
   ObservationType LpEast;
   ObservationType LpWest;
   ObservationType LpNorth;
@@ -105,7 +102,6 @@ private:
   ObservationType _cooldown_remaining;
   ObservationType _remaining_uses;
   ObservationType _goal;
-  ObservationType _collective;
   ObservationType _lp_east;
   ObservationType _lp_west;
   ObservationType _lp_north;
@@ -135,7 +131,6 @@ extern ObservationType Tag;
 extern ObservationType CooldownRemaining;
 extern ObservationType RemainingUses;
 extern ObservationType Goal;
-extern ObservationType Collective;
 extern ObservationType LpEast;
 extern ObservationType LpWest;
 extern ObservationType LpNorth;

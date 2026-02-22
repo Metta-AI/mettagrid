@@ -73,5 +73,4 @@ def _convert_scope(scope: Scope) -> GameValueScope:
     return {
         Scope.AGENT: GameValueScope.AGENT,
         Scope.GAME: GameValueScope.GAME,
-        Scope.COLLECTIVE: GameValueScope.COLLECTIVE,
     }[scope]

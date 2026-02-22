@@ -12,13 +12,6 @@ from pydantic import (
 )
 
 from mettagrid.config.filter import AnyFilter
-from mettagrid.config.mutation.alignment_mutation import (
-    AlignmentMutation,
-    AlignTo,
-    alignTo,
-    alignToActor,
-    removeAlignment,
-)
 from mettagrid.config.mutation.attack_mutation import AttackMutation
 from mettagrid.config.mutation.clear_inventory_mutation import ClearInventoryMutation
 from mettagrid.config.mutation.freeze_mutation import FreezeMutation
@@ -37,13 +30,9 @@ from mettagrid.config.mutation.recompute_materialized_query_mutation import (
 from mettagrid.config.mutation.resource_mutation import (
     ResourceDeltaMutation,
     ResourceTransferMutation,
-    collectiveDeposit,
-    collectiveWithdraw,
     deposit,
     updateActor,
-    updateActorCollective,
     updateTarget,
-    updateTargetCollective,
     withdraw,
 )
 from mettagrid.config.mutation.stats_mutation import (
@@ -51,11 +40,9 @@ from mettagrid.config.mutation.stats_mutation import (
     StatsMutation,
     StatsTarget,
     logActorAgentStat,
-    logActorCollectiveStat,
     logStat,
     logStatToGame,
     logTargetAgentStat,
-    logTargetCollectiveStat,
 )
 from mettagrid.config.mutation.tag_mutation import (
     AddTagMutation,
@@ -72,7 +59,6 @@ AnyMutation = Annotated[
     Union[
         Annotated[ResourceDeltaMutation, Tag("resource_delta")],
         Annotated[ResourceTransferMutation, Tag("resource_transfer")],
-        Annotated[AlignmentMutation, Tag("alignment")],
         Annotated[FreezeMutation, Tag("freeze")],
         Annotated[ClearInventoryMutation, Tag("clear_inventory")],
         Annotated[AttackMutation, Tag("attack")],
@@ -98,7 +84,6 @@ _mutation_namespace = {
     "ResourceTransferMutation": ResourceTransferMutation,
     "FreezeMutation": FreezeMutation,
     "ClearInventoryMutation": ClearInventoryMutation,
-    "AlignmentMutation": AlignmentMutation,
     "AttackMutation": AttackMutation,
     "StatsMutation": StatsMutation,
     "AddTagMutation": AddTagMutation,
@@ -116,13 +101,11 @@ QueryInventoryMutation.model_rebuild(_types_namespace=_mutation_namespace)
 __all__ = [
     # Enums
     "EntityTarget",
-    "AlignTo",
     "StatsTarget",
     # Mutation classes
     "Mutation",
     "ResourceDeltaMutation",
     "ResourceTransferMutation",
-    "AlignmentMutation",
     "FreezeMutation",
     "ClearInventoryMutation",
     "AttackMutation",
@@ -135,15 +118,10 @@ __all__ = [
     "QueryInventoryMutation",
     "AnyMutation",
     # Mutation helpers
-    "alignToActor",
-    "alignTo",
-    "removeAlignment",
     "logStat",
     "logStatToGame",
     "logTargetAgentStat",
     "logActorAgentStat",
-    "logTargetCollectiveStat",
-    "logActorCollectiveStat",
     "StatsEntity",
     "addTag",
     "removeTag",
@@ -151,12 +129,8 @@ __all__ = [
     "RemoveTagsWithPrefix",
     "withdraw",
     "deposit",
-    "collectiveDeposit",
-    "collectiveWithdraw",
     "updateTarget",
     "updateActor",
-    "updateTargetCollective",
-    "updateActorCollective",
     "queryDeposit",
     "queryWithdraw",
     "queryDelta",

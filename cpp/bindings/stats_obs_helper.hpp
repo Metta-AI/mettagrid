@@ -9,7 +9,6 @@
 #include "config/mettagrid_config.hpp"
 #include "core/grid_object.hpp"
 #include "objects/agent.hpp"
-#include "objects/collective.hpp"
 #include "systems/encoding_utils.hpp"
 #include "systems/observation_encoder.hpp"
 #include "systems/stats_tracker.hpp"
@@ -24,8 +23,7 @@ public:
 
   // Register observations on appropriate trackers by source
   void init(std::vector<Agent*>& agents,
-            StatsTracker* global_stats,
-            std::vector<std::unique_ptr<Collective>>& collectives) {
+            StatsTracker* global_stats) {
     if (_global_obs_config.stats_obs.empty()) return;
 
     for (const auto& cfg : _global_obs_config.stats_obs) {
@@ -38,23 +36,14 @@ public:
         case StatsSource::Global:
           global_stats->register_observation(cfg.name, cfg.feature_id, cfg.delta);
           break;
-        case StatsSource::Collective:
-          for (auto& collective : collectives) {
-            collective->stats.register_observation(cfg.name, cfg.feature_id, cfg.delta);
-          }
-          break;
       }
     }
   }
 
   // Precompute observation values once per timestep (before per-agent emission)
   void precompute(std::vector<Agent*>& agents,
-                  StatsTracker* global_stats,
-                  std::vector<std::unique_ptr<Collective>>& collectives) {
+                  StatsTracker* global_stats) {
     global_stats->precompute_observation_values();
-    for (auto& collective : collectives) {
-      collective->stats.precompute_observation_values();
-    }
     for (auto& agent : agents) {
       agent->stats.precompute_observation_values();
     }

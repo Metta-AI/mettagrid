@@ -3,7 +3,6 @@
 #include <algorithm>
 
 #include "config/observation_features.hpp"
-#include "objects/collective.hpp"
 
 // For std::shuffle
 #include <random>
@@ -28,10 +27,8 @@ void Agent::init(RewardType* reward_ptr) {
   this->reward_helper.init(reward_ptr);
 }
 
-void Agent::init_reward(StatsTracker* collective_stats,
-                        const mettagrid::HandlerContext* game_ctx,
-                        const std::vector<std::string>* resource_names) {
-  this->reward_helper.init_entries(&this->stats, collective_stats, game_ctx, resource_names);
+void Agent::init_reward(const mettagrid::HandlerContext* game_ctx, const std::vector<std::string>* resource_names) {
+  this->reward_helper.init_entries(&this->stats, game_ctx, resource_names);
 }
 
 void Agent::set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers) {
@@ -98,7 +95,6 @@ bool Agent::onUse(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& 
 }
 
 std::vector<PartialObservationToken> Agent::obs_features() const {
-  // Start with base class features (collective, tags, vibe, inventory)
   auto features = GridObject::obs_features();
 
   // Agent-specific observations
@@ -115,7 +111,6 @@ size_t Agent::max_obs_features(size_t max_tags, size_t num_resources, size_t tok
 }
 
 size_t Agent::write_obs_features(PartialObservationToken* out, size_t max_tokens) const {
-  // Start with base class features (collective, tags, vibe, inventory)
   size_t written = GridObject::write_obs_features(out, max_tokens);
 
   // Agent-specific observations

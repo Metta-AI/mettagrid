@@ -16,20 +16,13 @@ namespace mettagrid {
 // Forward declaration
 struct QueryConfig;
 
-// Align-to options for AlignmentMutation
-enum class AlignTo {
-  actor_collective,  // Align target to actor's collective
-  none               // Remove target's collective alignment
-};
-
 // Target for stats logging - which stats tracker to log to
 enum class StatsTarget {
-  game,       // Log to game-level stats tracker
-  agent,      // Log to entity's agent stats tracker
-  collective  // Log to entity's collective's stats tracker
+  game,  // Log to game-level stats tracker
+  agent  // Log to entity's agent stats tracker
 };
 
-// Which entity to use for resolving stats target (agent or collective)
+// Which entity to use for resolving stats target
 enum class StatsEntity {
   target,  // Use the target entity (default)
   actor    // Use the actor entity
@@ -53,12 +46,6 @@ struct ResourceTransferMutationConfig {
   bool remove_source_when_empty = false;  // Remove source from grid when its inventory is empty
 };
 
-struct AlignmentMutationConfig {
-  AlignTo align_to = AlignTo::actor_collective;
-  std::string collective_name;  // If non-empty, align to this specific collective (overrides align_to)
-  int collective_id = -1;       // Resolved collective ID (set during config setup)
-};
-
 struct FreezeMutationConfig {
   int duration = 1;  // Ticks to freeze
 };
@@ -77,10 +64,10 @@ struct AttackMutationConfig {
 };
 
 struct StatsMutationConfig {
-  std::string stat_name;                         // Name of the stat to log
-  float delta = 1.0f;                            // Delta to add to the stat
-  StatsTarget target = StatsTarget::collective;  // Which stats tracker to log to
-  StatsEntity entity = StatsEntity::target;      // Which entity to use for resolving target
+  std::string stat_name;                     // Name of the stat to log
+  float delta = 1.0f;                        // Delta to add to the stat
+  StatsTarget target = StatsTarget::game;    // Which stats tracker to log to
+  StatsEntity entity = StatsEntity::target;  // Which entity to use for resolving target
 };
 
 struct AddTagMutationConfig {
@@ -118,7 +105,6 @@ struct RemoveTagsWithPrefixMutationConfig {
 // Variant type for all mutation configs
 using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     ResourceTransferMutationConfig,
-                                    AlignmentMutationConfig,
                                     FreezeMutationConfig,
                                     ClearInventoryMutationConfig,
                                     AttackMutationConfig,

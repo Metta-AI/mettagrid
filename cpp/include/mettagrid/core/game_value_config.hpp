@@ -12,8 +12,7 @@ struct QueryConfig;
 
 enum class GameValueScope : uint8_t {
   AGENT,
-  GAME,
-  COLLECTIVE
+  GAME
 };
 
 struct InventoryValueConfig {

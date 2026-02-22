@@ -3,7 +3,7 @@ import
   opengl, windy, bumpy, vmath, silky, webby,
   mettascope/[replays, common, worldmap, panels,
   footer, timeline, minimap, header, replayloader, configs, gameplayer],
-  mettascope/panels/[objectpanel, policyinfopanel, envpanel, vibespanel, aoepanel, collectivepanel, scorepanel]
+  mettascope/panels/[objectpanel, policyinfopanel, envpanel, vibespanel, aoepanel, scorepanel]
 
 when isMainModule:
   let config = loadConfig()
@@ -159,7 +159,6 @@ proc createDefaultPanelLayout() =
 
   rootArea.areas[1].areas[1].addPanel("Vibes", drawVibes)
   rootArea.areas[1].areas[1].addPanel("AoE", drawAoePanel)
-  rootArea.areas[1].areas[1].addPanel("Collectives", drawCollectivesPanel)
   rootArea.areas[1].areas[1].addPanel("Score", drawScorePanel)
 
 proc collectPanelNames(area: Area): seq[string] =

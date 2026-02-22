@@ -12,12 +12,6 @@ float HandlerContext::resolve_game_value(const GameValueConfig& cfg, EntityRef e
       [&](auto&& c) -> float {
         using T = std::decay_t<decltype(c)>;
         if constexpr (std::is_same_v<T, InventoryValueConfig>) {
-          if (c.scope == GameValueScope::COLLECTIVE) {
-            GridObject* entity = resolve(entity_ref);
-            Collective* coll = get_collective(entity);
-            if (!coll) return 0.0f;
-            return static_cast<float>(coll->inventory.amount(c.id));
-          }
           GridObject* entity = resolve(entity_ref);
           if (!entity) return 0.0f;
           return static_cast<float>(entity->inventory.amount(c.id));
@@ -51,11 +45,6 @@ StatsTracker* HandlerContext::resolve_stats_tracker(GameValueScope scope, GridOb
     case GameValueScope::AGENT: {
       Agent* agent = dynamic_cast<Agent*>(entity);
       if (agent != nullptr) return &agent->stats;
-      return nullptr;
-    }
-    case GameValueScope::COLLECTIVE: {
-      Collective* coll = get_collective(entity);
-      if (coll != nullptr) return &coll->stats;
       return nullptr;
     }
     case GameValueScope::GAME:

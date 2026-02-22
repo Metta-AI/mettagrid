@@ -12,8 +12,6 @@ class EntityTarget(ConfigStrEnum):
 
     ACTOR = auto()
     TARGET = auto()
-    ACTOR_COLLECTIVE = auto()
-    TARGET_COLLECTIVE = auto()
 
 
 class Mutation(Config):

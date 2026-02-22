@@ -53,19 +53,16 @@ public:
 
   // Initialize resolved entries from config.entries
   void init_entries(StatsTracker* agent_stats_tracker,
-                    StatsTracker* collective_stats_tracker,
                     const mettagrid::HandlerContext* game_ctx,
                     const std::vector<std::string>* resource_names) {
     _resolved_entries.clear();
     for (const auto& entry : config.entries) {
       ResolvedEntry re;
       for (const auto& num : entry.numerators) {
-        re.numerators.push_back(
-            resolve_game_value(num, agent_stats_tracker, collective_stats_tracker, game_ctx, resource_names));
+        re.numerators.push_back(resolve_game_value(num, agent_stats_tracker, game_ctx, resource_names));
       }
       for (const auto& denom : entry.denominators) {
-        re.denominators.push_back(
-            resolve_game_value(denom, agent_stats_tracker, collective_stats_tracker, game_ctx, resource_names));
+        re.denominators.push_back(resolve_game_value(denom, agent_stats_tracker, game_ctx, resource_names));
       }
       re.weight = entry.weight;
       re.max_value = entry.max_value;
@@ -123,15 +120,10 @@ public:
   }
 
 private:
-  StatsTracker* resolve_tracker(GameValueScope scope,
-                                StatsTracker* agent_stats,
-                                StatsTracker* collective_stats,
-                                StatsTracker* game_stats) {
+  StatsTracker* resolve_tracker(GameValueScope scope, StatsTracker* agent_stats, StatsTracker* game_stats) {
     switch (scope) {
       case GameValueScope::AGENT:
         return agent_stats;
-      case GameValueScope::COLLECTIVE:
-        return collective_stats;
       case GameValueScope::GAME:
         return game_stats;
     }
@@ -140,7 +132,6 @@ private:
 
   ResolvedGameValue resolve_game_value(const GameValueConfig& gvc,
                                        StatsTracker* agent_stats,
-                                       StatsTracker* collective_stats,
                                        const mettagrid::HandlerContext* game_ctx,
                                        const std::vector<std::string>* resource_names) {
     return std::visit(
@@ -171,8 +162,7 @@ private:
             float val = c.value;
             rgv.compute_fn = [val]() -> float { return val; };
           } else if constexpr (std::is_same_v<T, InventoryValueConfig>) {
-            StatsTracker* tracker =
-                resolve_tracker(c.scope, agent_stats, collective_stats, game_ctx ? game_ctx->game_stats : nullptr);
+            StatsTracker* tracker = resolve_tracker(c.scope, agent_stats, game_ctx ? game_ctx->game_stats : nullptr);
             if (tracker != nullptr && resource_names != nullptr && c.id < resource_names->size()) {
               std::string stat_name = (*resource_names)[c.id] + ".amount";
               uint16_t sid = tracker->get_or_create_id(stat_name);
@@ -180,8 +170,7 @@ private:
             }
           } else if constexpr (std::is_same_v<T, StatValueConfig>) {
             rgv.delta = c.delta;
-            StatsTracker* tracker =
-                resolve_tracker(c.scope, agent_stats, collective_stats, game_ctx ? game_ctx->game_stats : nullptr);
+            StatsTracker* tracker = resolve_tracker(c.scope, agent_stats, game_ctx ? game_ctx->game_stats : nullptr);
             if (tracker != nullptr) {
               if (!c.stat_name.empty()) {
                 uint16_t sid = tracker->get_or_create_id(c.stat_name);

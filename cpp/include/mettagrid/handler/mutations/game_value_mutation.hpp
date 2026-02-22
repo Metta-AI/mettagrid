@@ -9,7 +9,6 @@
 #include "handler/handler_context.hpp"
 #include "handler/mutations/mutation.hpp"
 #include "objects/agent.hpp"
-#include "objects/collective.hpp"
 
 namespace mettagrid {
 

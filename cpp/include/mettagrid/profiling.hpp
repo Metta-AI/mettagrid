@@ -9,7 +9,6 @@ struct StepTimingStats {
   double actions_ns = 0;
   double on_tick_ns = 0;
   double aoe_ns = 0;
-  double collectives_ns = 0;
   double observations_ns = 0;
   double rewards_ns = 0;
   double truncation_ns = 0;

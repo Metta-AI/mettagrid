@@ -1,9 +1,9 @@
 import
-  std/[algorithm, math, os, tables, json, sets, options, strutils],
+  std/[algorithm, math, os, tables, json, options, strutils],
   chroma, vmath, windy, silky,
   common, actions, replays,
   pathfinding, tilemap, pixelator, shaderquad, terrains, starfield,
-  panels, heatmap, heatmapshader, collectives, colors,
+  panels, heatmap, heatmapshader, colors,
   panels/objectpanel
 
 const
@@ -25,10 +25,9 @@ var
   explorationFogMapSelectionId*: int = -1
   explorationFogMap*: TileMap
 
-  # AoE tilemap system - one map per collective + one for neutral (dynamic)
+  # AoE tilemap system (dynamic).
   aoeMaps*: seq[TileMap]
   aoeMapStep*: int = -1
-  aoeMapHiddenCollectives*: HashSet[int]
   aoeMapSelectionId*: int = -1
 
   # Allocated coverage map for AoE map generation,
@@ -272,19 +271,50 @@ proc getProjectionView*(): Mat4 {.measure.} =
   let projection = ortho(0.0f, window.size.x.float32, window.size.y.float32, 0.0f, -1.0f, 1.0f)
   projection * view
 
-proc withinTerritoryInfluenceRadius(dx: int, dy: int, range: int): bool =
-  ## Inside Euclidean radius, excluding exact cardinal boundary points.
+proc aoeRadius(aoeConfig: JsonNode): int =
+  if "radius" notin aoeConfig:
+    return 0
+  if aoeConfig["radius"].kind == JInt:
+    return aoeConfig["radius"].getInt
+  if aoeConfig["radius"].kind == JFloat:
+    return aoeConfig["radius"].getFloat.int
+  return 0
+
+proc withinTerritoryInfluenceRadius(dx: int, dy: int, aoeRange: int): bool =
+  ## Must match territory-mask inclusion in AOETracker::register_fixed:
+  ## inside Euclidean radius, excluding exact cardinal boundary points.
   let
     distSq = dx * dx + dy * dy
-    rangeSq = range * range
+    rangeSq = aoeRange * aoeRange
   if distSq > rangeSq:
     return false
-  if range >= 2 and distSq == rangeSq and (dx == 0 or dy == 0):
+  if aoeRange >= 2 and distSq == rangeSq and (dx == 0 or dy == 0):
     return false
   return true
 
+proc aoeHasMutations(aoeConfig: JsonNode): bool =
+  if "mutations" notin aoeConfig or aoeConfig["mutations"].kind != JArray:
+    return false
+  return aoeConfig["mutations"].len > 0
+
+proc aoeHasPresenceDeltas(aoeConfig: JsonNode): bool =
+  if "presence_deltas" notin aoeConfig:
+    return false
+  if aoeConfig["presence_deltas"].kind == JObject:
+    return aoeConfig["presence_deltas"].len > 0
+  if aoeConfig["presence_deltas"].kind == JArray:
+    return aoeConfig["presence_deltas"].len > 0
+  return false
+
+proc isInfluenceAoeConfig(aoeConfig: JsonNode): bool =
+  ## Influence AOEs are fixed circular fields with no mutations/presence-deltas
+  ## and positive radius.
+  if aoeRadius(aoeConfig) <= 0:
+    return false
+  return not aoeHasMutations(aoeConfig) and not aoeHasPresenceDeltas(aoeConfig)
+
 proc hasInfluenceAoe*(obj: Entity): bool =
-  ## Check if an object has territory control in its config.
+  ## Check if an object has influence (territory ownership) AoE in its config.
   if obj.isNil or obj.typeName == "agent":
     return false
   if replay.isNil or replay.mgConfig.isNil:
@@ -298,212 +328,119 @@ proc hasInfluenceAoe*(obj: Entity): bool =
   if obj.typeName notin objects:
     return false
   let objConfig = objects[obj.typeName]
-  if "territory_controls" notin objConfig:
+  if "aoes" notin objConfig:
     return false
-  let controls = objConfig["territory_controls"]
-  if controls.kind != JArray or controls.len == 0:
+  let aoes = objConfig["aoes"]
+  if aoes.kind != JObject:
     return false
-  for ctrl in controls:
-    if ctrl.kind == JObject and "strength" in ctrl:
-      let strength = ctrl["strength"].getInt(0)
-      if strength > 0:
-        return true
+  for _, aoeConfig in aoes.pairs:
+    if isInfluenceAoeConfig(aoeConfig):
+      return true
   return false
 
-proc collectiveToSlot*(collectiveId: int): int =
-  ## Map a game collective ID to an AoE map slot index.
-  ## Collective IDs 0..N-1 map to slots 0..N-1; negative (neutral) maps to the last slot.
-  if collectiveId < 0:
-    getNumCollectives()
-  else:
-    collectiveId
-
 type TerritoryAoeSpec = object
-  strength: int
-  decay: int
+  radius: int
 
-proc effectiveRadius(spec: TerritoryAoeSpec): int =
-  ## Matches C++ effective_radius: strength / decay.
-  if spec.decay > 0: spec.strength div spec.decay else: spec.strength
+proc territoryInfluenceScore(aoeSpec: TerritoryAoeSpec, distSq: int): float32 =
+  max(0.0f, aoeSpec.radius.float32 - sqrt(distSq.float32))
 
-proc territoryInfluenceScore(spec: TerritoryAoeSpec, distSq: int): float32 =
-  ## Matches C++ territory_influence_score: strength - decay * euclidean_distance.
-  max(0.0f, spec.strength.float32 - spec.decay.float32 * sqrt(distSq.float32))
+proc influenceAoeSpecs(obj: Entity): seq[TerritoryAoeSpec] =
+  ## Return all influence AOEs for this object.
+  result = @[]
+  if obj.typeName == "agent":
+    return
+  if replay.isNil or replay.mgConfig.isNil:
+    return
+  if "game" notin replay.mgConfig:
+    return
+  let game = replay.mgConfig["game"]
+  if "objects" notin game:
+    return
+  let objects = game["objects"]
+  if obj.typeName notin objects:
+    return
+  let objConfig = objects[obj.typeName]
+  if "aoes" notin objConfig:
+    return
+  let aoes = objConfig["aoes"]
+  if aoes.kind != JObject:
+    return
+  for _, aoeConfig in aoes.pairs:
+    if not isInfluenceAoeConfig(aoeConfig):
+      continue
+    result.add(TerritoryAoeSpec(radius: aoeRadius(aoeConfig)))
 
-proc rebuildAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
-  ## Rebuild the AoE map for a specific slot (0=Clips, 1=Cogs, 2=Neutral).
+proc rebuildAoeMap*(aoeMap: TileMap) {.measure.} =
+  ## Rebuild the AoE map showing all influence areas.
   let
     width = aoeMap.width
     height = aoeMap.height
 
   reuseableCoverageMap.setLen(width * height)
-  reuseableOwnershipMap.setLen(width * height)
-  reuseableFriendlyScoreMap.setLen(width * height)
-  reuseableEnemyScoreMap.setLen(width * height)
-  # Ownership encoding:
-  # 0 = neutral/no ownership, 1 = friendly ownership, 2 = enemy ownership.
   for i in 0 ..< reuseableCoverageMap.len:
     reuseableCoverageMap[i] = true
-    reuseableOwnershipMap[i] = 0'u8
-    reuseableFriendlyScoreMap[i] = 0.0f
-    reuseableEnemyScoreMap[i] = 0.0f
 
-  # Check if this collective is visible (not hidden). Neutral slot is never shown in combined mode.
-  let isEnabled = slotId < getNumCollectives() and slotId notin settings.hiddenCollectiveAoe
-
-  proc territoryControlsForObj(obj: Entity): seq[TerritoryAoeSpec] =
-    ## Return territory control specs for an object.
-    result = @[]
-    if obj.typeName == "agent":
+  proc markCoverage(obj: Entity) =
+    let aoeSpecs = influenceAoeSpecs(obj)
+    if aoeSpecs.len == 0:
       return
-    if replay.isNil or replay.mgConfig.isNil:
-      return
-    if "game" notin replay.mgConfig:
-      return
-    let game = replay.mgConfig["game"]
-    if "objects" notin game:
-      return
-    let objects = game["objects"]
-    if obj.typeName notin objects:
-      return
-    let objConfig = objects[obj.typeName]
-    if "territory_controls" notin objConfig:
-      return
-    let controls = objConfig["territory_controls"]
-    if controls.kind != JArray:
-      return
-
-    for ctrl in controls:
-      if ctrl.kind != JObject:
-        continue
-      let strength = ctrl.getOrDefault("strength").getInt(0)
-      let decay = ctrl.getOrDefault("decay").getInt(1)
-      if strength > 0 and decay > 0:
-        result.add(TerritoryAoeSpec(strength: strength, decay: decay))
-
-  # Mark territory coverage directly (used for selected-object mode).
-  proc markSelectedCoverage(obj: Entity) =
-    if collectiveToSlot(obj.collectiveId.at(step)) != slotId:
-      return
-
-    let specs = territoryControlsForObj(obj)
-    if specs.len == 0:
-      return
-
     let pos = obj.location.at(step).xy
-    for spec in specs:
-      let range = spec.effectiveRadius
-      for dx in -range .. range:
-        for dy in -range .. range:
+    for aoeSpec in aoeSpecs:
+      let aoeRange = aoeSpec.radius
+      for dx in -aoeRange .. aoeRange:
+        for dy in -aoeRange .. aoeRange:
           let
             tx = pos.x + dx.int32
             ty = pos.y + dy.int32
-            distSq = dx * dx + dy * dy
-          if not withinTerritoryInfluenceRadius(dx, dy, range):
+          if not withinTerritoryInfluenceRadius(dx, dy, aoeRange):
             continue
-          let score = territoryInfluenceScore(spec, distSq)
+          let distSq = dx * dx + dy * dy
+          let score = territoryInfluenceScore(aoeSpec, distSq)
           if score <= 0.0f:
             continue
           if tx >= 0 and tx < width and ty >= 0 and ty < height:
-            reuseableOwnershipMap[ty * width + tx] = 1'u8
+            reuseableCoverageMap[ty * width + tx] = false
 
-  # Accumulate friendly/enemy weighted influence from territory controls.
-  proc accumulateTerritoryInfluence(obj: Entity) =
-    let objSlot = collectiveToSlot(obj.collectiveId.at(step))
-    if objSlot >= getNumCollectives() or objSlot in settings.hiddenCollectiveAoe:
-      return
-
-    let specs = territoryControlsForObj(obj)
-    if specs.len == 0:
-      return
-
-    let isFriendly = objSlot == slotId
-    let pos = obj.location.at(step).xy
-
-    for spec in specs:
-      let range = spec.effectiveRadius
-      for dx in -range .. range:
-        for dy in -range .. range:
-          let
-            tx = pos.x + dx.int32
-            ty = pos.y + dy.int32
-          let distSq = dx * dx + dy * dy
-          if not withinTerritoryInfluenceRadius(dx, dy, range):
-            continue
-          if tx >= 0 and tx < width and ty >= 0 and ty < height:
-            let idx = ty * width + tx
-            let score = territoryInfluenceScore(spec, distSq)
-            if score <= 0.0f:
-              continue
-            if isFriendly:
-              reuseableFriendlyScoreMap[idx] += score
-            else:
-              reuseableEnemyScoreMap[idx] += score
-
-  # If a selected object has influence AoE, show only its AoE.
-  # Otherwise show combined AoE for all objects in enabled collectives.
   let selectionHasInfluence = selected != nil and hasInfluenceAoe(selected)
-
   if selectionHasInfluence:
-    # Only show the selected object's influence AoE
-    if collectiveToSlot(selected.collectiveId.at(step)) == slotId:
-      markSelectedCoverage(selected)
+    markCoverage(selected)
   else:
-    # Show combined AoE with weighted territory influence collapse.
-    if isEnabled:
-      for obj in replay.objects:
-        if not obj.alive.at:
-          continue
-        accumulateTerritoryInfluence(obj)
+    for obj in replay.objects:
+      if not obj.alive.at:
+        continue
+      markCoverage(obj)
 
-      for i in 0 ..< reuseableOwnershipMap.len:
-        let
-          friendlyScore = reuseableFriendlyScoreMap[i]
-          enemyScore = reuseableEnemyScoreMap[i]
-          epsilon = 1e-6f
-        if friendlyScore > enemyScore + epsilon:
-          reuseableOwnershipMap[i] = 1'u8
-        elif enemyScore > friendlyScore + epsilon:
-          reuseableOwnershipMap[i] = 2'u8
-        else:
-          reuseableOwnershipMap[i] = 0'u8
-
-  for i in 0 ..< reuseableCoverageMap.len:
-    # Only friendly ownership is rendered in this slot's tinted map.
-    reuseableCoverageMap[i] = reuseableOwnershipMap[i] != 1'u8
-
-  # Generate the tile edges using marching squares
   for i in 0 ..< aoeMap.indexData.len:
     let x = i mod width
     let y = i div width
 
     proc get(map: seq[bool], x: int, y: int): int =
       if x < 0 or y < 0 or x >= width or y >= height:
-        return 1  # Outside bounds = no coverage
+        return 1
       if map[y * width + x]:
         return 1
       return 0
 
     var tile: uint8 = 0
     if reuseableCoverageMap[y * width + x]:
-      tile = 49  # Fully covered/empty tile
+      tile = 49
     else:
       let
         pattern = (
-          1 * reuseableCoverageMap.get(x-1, y-1) + # NW
-          2 * reuseableCoverageMap.get(x, y-1) + # N
-          4 * reuseableCoverageMap.get(x+1, y-1) + # NE
-          8 * reuseableCoverageMap.get(x+1, y) + # E
-          16 * reuseableCoverageMap.get(x+1, y+1) + # SE
-          32 * reuseableCoverageMap.get(x, y+1) + # S
-          64 * reuseableCoverageMap.get(x-1, y+1) + # SW
-          128 * reuseableCoverageMap.get(x-1, y) # W
+          1 * reuseableCoverageMap.get(x-1, y-1) +
+          2 * reuseableCoverageMap.get(x, y-1) +
+          4 * reuseableCoverageMap.get(x+1, y-1) +
+          8 * reuseableCoverageMap.get(x+1, y) +
+          16 * reuseableCoverageMap.get(x+1, y+1) +
+          32 * reuseableCoverageMap.get(x, y+1) +
+          64 * reuseableCoverageMap.get(x-1, y+1) +
+          128 * reuseableCoverageMap.get(x-1, y)
         )
       tile = patternToTile[pattern].uint8
     aoeMap.indexData[i] = tile
 
-proc generateAoeMap(slotId: int): TileMap {.measure.} =
-  ## Generate an AoE tilemap for a specific slot.
+proc generateAoeMap(): TileMap {.measure.} =
+  ## Generate the AoE tilemap.
   let
     width = ceil(replay.mapSize[0].float32 / 32.0f).int * 32
     height = ceil(replay.mapSize[1].float32 / 32.0f).int * 32
@@ -514,72 +451,43 @@ proc generateAoeMap(slotId: int): TileMap {.measure.} =
     tileSize = 64,
     atlasPath = dataDir / "aoe7x8.png"
   )
-  aoeMap.rebuildAoeMap(slotId)
+  aoeMap.rebuildAoeMap()
   aoeMap.setupGPU()
   return aoeMap
 
-proc updateAoeMap*(aoeMap: TileMap, slotId: int) {.measure.} =
-  ## Update the AoE map.
-  aoeMap.rebuildAoeMap(slotId)
-  aoeMap.updateGPU()
-
 proc initAoeMaps*() {.measure.} =
-  ## Initialize all AoE tilemaps (including neutral).
-  let count = getNumCollectives() + 1
-  aoeMaps = newSeq[TileMap](count)
-  for slotId in 0 ..< count:
-    aoeMaps[slotId] = generateAoeMap(slotId)
+  ## Initialize the AoE tilemap.
+  aoeMaps = @[generateAoeMap()]
   aoeMapStep = step
-  aoeMapHiddenCollectives = settings.hiddenCollectiveAoe
 
 proc updateAoeMaps*() {.measure.} =
-  ## Update all AoE tilemaps if step or hidden collectives changed.
-  for slotId in 0 ..< aoeMaps.len:
-    aoeMaps[slotId].updateAoeMap(slotId)
+  ## Update the AoE tilemap.
+  for aoeMap in aoeMaps:
+    aoeMap.rebuildAoeMap()
+    aoeMap.updateGPU()
   aoeMapStep = step
-  aoeMapHiddenCollectives = settings.hiddenCollectiveAoe
 
 proc drawAoeMaps*() {.measure.} =
-  ## Draw all enabled AoE tilemaps with their respective tint colors.
-  ## Only shows influence AoE (not attack AoE).
-  ## When a selected object has influence AoE, shows only that object's AoE.
-  ## Otherwise shows combined AoE for all enabled collectives.
+  ## Draw AoE tilemap showing influence areas.
   if replay.isNil:
     return
 
-  # Initialize maps if needed (empty seq or collective count changed)
-  let expectedCount = getNumCollectives() + 1
-  if aoeMaps.len != expectedCount:
+  if aoeMaps.len == 0:
     initAoeMaps()
 
-  # Check if we need to rebuild (including when selected changes)
   let currentSelectionId = if selected != nil: selected.id else: -1
-  let needsRebuild = aoeMapStep != step or
-    aoeMapHiddenCollectives != settings.hiddenCollectiveAoe or
-    aoeMapSelectionId != currentSelectionId
+  let needsRebuild = aoeMapStep != step or aoeMapSelectionId != currentSelectionId
   if needsRebuild:
     updateAoeMaps()
     aoeMapSelectionId = currentSelectionId
 
-  # Determine if selected has influence AoE to decide what to draw
-  let selectionHasInfluence = selected != nil and hasInfluenceAoe(selected)
-  let numCollectives = getNumCollectives()
-
-  # Draw each map with its tint color
-  for slotId in 0 ..< aoeMaps.len:
-    let shouldDraw = if selectionHasInfluence:
-      # Only draw the selected object's slot
-      collectiveToSlot(selected.collectiveId.at(step)) == slotId
-    else:
-      # Draw visible collectives; neutral slot is never shown in combined mode
-      slotId < numCollectives and slotId notin settings.hiddenCollectiveAoe
-    if shouldDraw:
-      aoeMaps[slotId].draw(
-        getProjectionView(),
-        zoom = 2.0f,
-        zoomThreshold = 1.5f,
-        tint = getCollectiveColor(slotId).color
-      )
+  for aoeMap in aoeMaps:
+    aoeMap.draw(
+      getProjectionView(),
+      zoom = 2.0f,
+      zoomThreshold = 1.5f,
+      tint = color(0.3, 0.6, 1.0, 0.5)
+    )
 
 proc smoothPos*(entity: Entity): Vec2 =
   ## Interpolate between floor(stepFloat) and the next step.
@@ -808,27 +716,6 @@ proc drawObjects*() {.measure.} =
         (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
       )
 
-    elif normalizeTypeName(thing.typeName) == "junction":
-      let
-        collectiveName = getCollectiveName(thing.collectiveId.at(step)).toLowerAscii()
-        spriteName =
-          if collectiveName.contains("clip") and "objects/junction.clipped1" in px:
-            "objects/junction.clipped1"
-          elif collectiveName.contains("cog") and "objects/junction.working" in px:
-            "objects/junction.working"
-          elif "objects/" & thing.typeName in px:
-            "objects/" & thing.typeName
-          elif "objects/" & stripTeamPrefix(thing.typeName) in px:
-            "objects/" & stripTeamPrefix(thing.typeName)
-          elif "objects/" & stripTeamSuffix(thing.typeName) in px:
-            "objects/" & stripTeamSuffix(thing.typeName)
-          else:
-            "objects/unknown"
-      px.drawSprite(
-        spriteName,
-        (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
-      )
-
     else:
       let spriteName =
         if "objects/" & thing.typeName in px:
@@ -999,8 +886,8 @@ proc drawAgentDecorations*() {.measure.} =
     if not agent.alive.at:
       continue
     let pos = (agent.smoothPos * TileSize.float32).ivec2
-    let tint = getCollectiveColor(agent.collectiveId.at(step))
-    # HP bar - large pips, colored by collective
+    let tint = WhiteTint
+    # HP bar
     let hp = getInventoryItem(agent, "hp")
     let hpPrev = getInventoryItem(agent, "hp", prevStep)
     drawBar(ivec2(pos.x, pos.y - 68), tint, NumPips, MaxHp, hp, hpPrev, LargePip)
@@ -1178,7 +1065,6 @@ proc drawMaskedSplatComposite*() {.measure.} =
 
 proc drawObjectPips*() {.measure.} =
   ## Draw the pips for the objects on the minimap using the mini pixelator.
-  ## Junction pips are colored by their collective.
   for obj in replay.objects:
     if obj.typeName == "wall":
       continue
@@ -1192,12 +1078,7 @@ proc drawObjectPips*() {.measure.} =
     if pipName notin pxMini:
       pipName = "minimap/unknown"
     let loc = obj.location.at(step).xy
-    # Color agent and junction pips by collective (everything else keeps default white)
-    let normalized = normalizeTypeName(obj.typeName)
-    let pipTint = if normalized in ["junction", "agent"]:
-      getCollectiveColor(obj.collectiveId.at(step))
-    else:
-      WhiteTint
+    let pipTint = WhiteTint
     pxMini.drawSprite(
       pipName,
       loc.ivec2 * MiniTileSize,

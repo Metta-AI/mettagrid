@@ -13,7 +13,6 @@
 #include "core/grid_object.hpp"
 #include "core/tag_index.hpp"
 #include "handler/handler_config.hpp"
-#include "objects/collective.hpp"
 #include "systems/stats_tracker.hpp"
 
 class Agent;
@@ -41,33 +40,23 @@ public:
   StatsTracker* game_stats = nullptr;  // Game-level stats tracker (for StatsMutation)
   TagIndex* tag_index = nullptr;       // Tag index for tag/query lookups
   Grid* grid = nullptr;                // Grid for removing objects from cells
-  const std::vector<std::unique_ptr<Collective>>* collectives = nullptr;  // Collectives indexed by ID (for events)
-  QuerySystem* query_system = nullptr;                                    // For RecomputeMaterializedQueryMutation
-  std::mt19937* rng = nullptr;                                            // Random number generator
-  bool skip_on_update_trigger = false;  // Skip triggering on_update handlers (prevent recursion)
+  QuerySystem* query_system = nullptr;
+  std::mt19937* rng = nullptr;
+  bool skip_on_update_trigger = false;
 
   // Optional accumulator for ResourceDeltaMutation on the target entity.
-  // Used to apply a single net resource delta after evaluating multiple effects (e.g., fixed AOEs),
-  // avoiding intermediate clamp artifacts.
   std::unordered_map<InventoryItem, InventoryDelta>* deferred_target_resource_deltas = nullptr;
   std::vector<InventoryItem>* deferred_target_resource_order = nullptr;
   std::unordered_set<InventoryItem>* deferred_target_resource_seen = nullptr;
 
   HandlerContext() = default;
 
-  // Construct with all system-level pointers (set once in MettaGrid)
   HandlerContext(TagIndex* tag_index,
                  Grid* grid,
                  StatsTracker* game_stats,
-                 const std::vector<std::unique_ptr<Collective>>* collectives,
                  QuerySystem* query_system,
                  std::mt19937* rng)
-      : tag_index(tag_index),
-        grid(grid),
-        game_stats(game_stats),
-        collectives(collectives),
-        query_system(query_system),
-        rng(rng) {}
+      : tag_index(tag_index), grid(grid), game_stats(game_stats), query_system(query_system), rng(rng) {}
 
   GridObject* resolve(EntityRef ref) const {
     switch (ref) {
@@ -77,10 +66,6 @@ public:
         return target;
       case EntityRef::source:
         return source;
-      case EntityRef::actor_collective:
-        return nullptr;
-      case EntityRef::target_collective:
-        return nullptr;
       default:
         return nullptr;
     }
@@ -94,31 +79,9 @@ public:
         return target;
       case EntityRef::source:
         return source;
-      case EntityRef::actor_collective:
-        return get_collective(actor);
-      case EntityRef::target_collective:
-        return get_collective(target);
       default:
         return nullptr;
     }
-  }
-
-  // Get the collective for an entity
-  Collective* get_collective(GridObject* entity) const {
-    if (entity == nullptr) {
-      return nullptr;
-    }
-    return entity->getCollective();
-  }
-
-  // Get actor's collective
-  Collective* actor_collective() const {
-    return get_collective(actor);
-  }
-
-  // Get target's collective
-  Collective* target_collective() const {
-    return get_collective(target);
   }
 
   // Get actor's vibe (returns 0 if actor is null)
@@ -136,14 +99,6 @@ public:
 
   // Resolve a stats tracker for a given scope and entity
   StatsTracker* resolve_stats_tracker(GameValueScope scope, GridObject* entity) const;
-
-  // Look up a collective by ID (returns nullptr if not found)
-  Collective* get_collective_by_id(int collective_id) const {
-    if (collectives == nullptr || collective_id < 0 || static_cast<size_t>(collective_id) >= collectives->size()) {
-      return nullptr;
-    }
-    return (*collectives)[collective_id].get();
-  }
 };
 
 }  // namespace mettagrid

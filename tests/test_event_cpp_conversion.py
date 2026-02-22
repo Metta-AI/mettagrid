@@ -4,9 +4,8 @@
 These tests verify the Python-to-C++ conversion in _convert_events, which was
 the source of several bugs:
 1. max_targets not being passed to C++
-2. AlignmentFilter missing entity field
-3. TagFilter not being handled
-4. Filter types silently skipped instead of failing
+2. TagFilter not being handled
+3. Filter types silently skipped instead of failing
 """
 
 import pytest
@@ -15,18 +14,16 @@ from mettagrid.config.event_config import EventConfig
 from mettagrid.config.filter import (
     hasTag,
     isA,
-    isAlignedTo,
 )
 from mettagrid.config.mettagrid_c_config import convert_to_cpp_game_config
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
-    CollectiveConfig,
     GameConfig,
     NoopActionConfig,
     ObsConfig,
     WallConfig,
 )
-from mettagrid.config.mutation import alignTo
+from mettagrid.config.mutation import logStat
 from mettagrid.config.query import query
 from mettagrid.config.tag import typeTag
 from mettagrid.map_builder.ascii import AsciiMapBuilder
@@ -47,10 +44,6 @@ class TestEventCppConversion:
             objects={
                 "wall": WallConfig(tags=["target_wall"]),
             },
-            collectives={
-                "cogs": CollectiveConfig(),
-                "clips": CollectiveConfig(),
-            },
             events=events,
             map_builder=AsciiMapBuilder.Config(
                 map_data=[["@"]],
@@ -59,18 +52,14 @@ class TestEventCppConversion:
         )
 
     def test_max_targets_passed_to_cpp(self):
-        """Test that max_targets is properly passed to C++ EventConfig.
-
-        This was the main bug - _convert_events didn't set max_targets on the C++ config,
-        so events with max_targets=1 would apply to all matching objects.
-        """
+        """Test that max_targets is properly passed to C++ EventConfig."""
         events = {
             "test_event": EventConfig(
                 name="test_event",
                 target_query=query(typeTag("wall")),
                 timesteps=[10],
                 filters=[isA("wall")],
-                mutations=[alignTo("clips")],
+                mutations=[logStat("event.fired")],
                 max_targets=5,
             ),
         }
@@ -90,7 +79,7 @@ class TestEventCppConversion:
                 target_query=query(typeTag("wall")),
                 timesteps=[10],
                 filters=[isA("wall")],
-                mutations=[alignTo("clips")],
+                mutations=[logStat("event.fired")],
                 max_targets=None,
             ),
         }
@@ -109,7 +98,7 @@ class TestEventCppConversion:
                 target_query=query(typeTag("wall")),
                 timesteps=[10, 20, 30],
                 filters=[isA("wall")],
-                mutations=[alignTo("clips")],
+                mutations=[logStat("event.fired")],
             ),
         }
 
@@ -132,12 +121,8 @@ class TestEventFilterConversion:
             actions=ActionsConfig(noop=NoopActionConfig()),
             resource_names=[],
             objects={
-                "wall": WallConfig(tags=["target_wall"], collective="cogs"),
+                "wall": WallConfig(tags=["target_wall"]),
                 "junction": WallConfig(tags=[typeTag("junction")]),
-            },
-            collectives={
-                "cogs": CollectiveConfig(),
-                "clips": CollectiveConfig(),
             },
             events=events,
             map_builder=AsciiMapBuilder.Config(
@@ -147,59 +132,14 @@ class TestEventFilterConversion:
         )
 
     def test_tag_filter_conversion(self):
-        """Test that TagFilter is converted to C++.
-
-        TagFilter is used for TagIndex pre-selection - the filter must
-        exist in C++ for EventScheduler to find candidate objects.
-        """
+        """Test that TagFilter is converted to C++."""
         events = {
             "test_event": EventConfig(
                 name="test_event",
                 target_query=query(typeTag("wall")),
                 timesteps=[10],
-                filters=[isA("junction")],  # Creates TagFilter with typeTag("junction")
-                mutations=[alignTo("clips")],
-            ),
-        }
-
-        game_config = self._create_game_config_with_events(events)
-
-        # This should not raise - the conversion should succeed
-        cpp_config, _ = convert_to_cpp_game_config(game_config)
-        assert "test_event" in cpp_config.events
-
-    def test_alignment_filter_conversion(self):
-        """Test that AlignmentFilter is converted to C++.
-
-        This tests the isAlignedTo(None) case which creates an AlignmentFilter
-        checking for UNALIGNED condition.
-        """
-        events = {
-            "test_event": EventConfig(
-                name="test_event",
-                target_query=query(typeTag("wall")),
-                timesteps=[10],
-                filters=[isA("junction"), isAlignedTo(None)],  # AlignmentFilter
-                mutations=[alignTo("clips")],
-            ),
-        }
-
-        game_config = self._create_game_config_with_events(events)
-        cpp_config, _ = convert_to_cpp_game_config(game_config)
-        assert "test_event" in cpp_config.events
-
-    def test_alignment_filter_with_collective_conversion(self):
-        """Test that AlignmentFilter with collective is converted to C++.
-
-        This tests isAlignedTo("cogs") which creates an AlignmentFilter with collective.
-        """
-        events = {
-            "test_event": EventConfig(
-                name="test_event",
-                target_query=query(typeTag("wall")),
-                timesteps=[10],
-                filters=[isA("wall"), isAlignedTo("cogs")],  # AlignmentFilter with collective
-                mutations=[alignTo("clips")],
+                filters=[isA("junction")],
+                mutations=[logStat("event.fired")],
             ),
         }
 
@@ -208,29 +148,23 @@ class TestEventFilterConversion:
         assert "test_event" in cpp_config.events
 
     def test_multiple_filters_all_converted(self):
-        """Test that all filters in an event are converted.
-
-        Bug: Only 1 filter was being created when there should be 2.
-        """
+        """Test that all filters in an event are converted."""
         events = {
             "multi_filter_event": EventConfig(
                 name="multi_filter_event",
                 target_query=query(typeTag("wall")),
                 timesteps=[10],
                 filters=[
-                    isA("junction"),  # TagFilter
-                    isAlignedTo(None),  # AlignmentFilter
+                    isA("junction"),
+                    hasTag("target_wall"),
                 ],
-                mutations=[alignTo("clips")],
+                mutations=[logStat("event.fired")],
             ),
         }
 
         game_config = self._create_game_config_with_events(events)
-
-        # Verify Python config has 2 filters
         assert len(events["multi_filter_event"].filters) == 2
 
-        # Convert to C++ and verify it succeeds
         cpp_config, _ = convert_to_cpp_game_config(game_config)
         assert "multi_filter_event" in cpp_config.events
 
@@ -249,9 +183,6 @@ class TestConvertEventsFunction:
             objects={
                 "wall": WallConfig(tags=["target_wall"]),
             },
-            collectives={
-                "cogs": CollectiveConfig(),
-            },
             events=events,
             map_builder=AsciiMapBuilder.Config(
                 map_data=[["@"]],
@@ -267,7 +198,7 @@ class TestConvertEventsFunction:
                 target_query=query(typeTag("wall")),
                 timesteps=[10],
                 filters=[hasTag("target_wall")],
-                mutations=[alignTo("cogs")],
+                mutations=[logStat("event.fired")],
                 max_targets=1,
             ),
             "event2": EventConfig(
@@ -275,7 +206,7 @@ class TestConvertEventsFunction:
                 target_query=query(typeTag("wall")),
                 timesteps=[20],
                 filters=[hasTag("target_wall")],
-                mutations=[alignTo("cogs")],
+                mutations=[logStat("event.fired")],
                 max_targets=10,
             ),
         }

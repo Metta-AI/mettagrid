@@ -15,7 +15,6 @@ from mettagrid.config.vibes import VIBES as VIBE_DATA
 from mettagrid.renderer.miniscope.components import (
     AgentControlComponent,
     AgentInfoComponent,
-    CollectiveInventoryComponent,
     HelpPanelComponent,
     MapComponent,
     MiniscopeComponent,
@@ -110,7 +109,6 @@ class MiniscopeRenderer(Renderer):
             ("1", "agent_info", AgentInfoComponent),
             ("2", "object_info", ObjectInfoComponent),
             ("3", "symbols", SymbolsTableComponent),
-            ("4", "collective_inventory", CollectiveInventoryComponent),
         ]
         self._sidebar_hotkeys = {hotkey: name for hotkey, name, _ in sidebar_defs}
 
@@ -134,7 +132,6 @@ class MiniscopeRenderer(Renderer):
         self._components.append(AgentInfoComponent(sim=self._sim, state=self._state, panels=self._panels))
         self._components.append(ObjectInfoComponent(sim=self._sim, state=self._state, panels=self._panels))
         self._components.append(SymbolsTableComponent(sim=self._sim, state=self._state, panels=self._panels))
-        self._components.append(CollectiveInventoryComponent(sim=self._sim, state=self._state, panels=self._panels))
         self._components.append(VibePickerComponent(sim=self._sim, state=self._state, panels=self._panels))
         self._components.append(HelpPanelComponent(sim=self._sim, state=self._state, panels=self._panels))
 

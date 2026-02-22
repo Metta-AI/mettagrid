@@ -16,7 +16,6 @@ from mettagrid.config.game_value import (
 )
 from mettagrid.config.reward_config import (
     AgentReward,
-    collectiveInventoryReward,
     inventoryReward,
     numObjects,
     numObjectsReward,
@@ -38,15 +37,12 @@ class TestScope:
         """Test that Scope has expected values."""
         assert Scope.AGENT.value == "agent"
         assert Scope.GAME.value == "game"
-        assert Scope.COLLECTIVE.value == "collective"
 
     def test_all_scopes(self):
         """Test that all expected scopes exist."""
         scopes = list(Scope)
-        assert len(scopes) == 3
         assert Scope.AGENT in scopes
         assert Scope.GAME in scopes
-        assert Scope.COLLECTIVE in scopes
 
 
 class TestGameValueInheritance:
@@ -64,7 +60,7 @@ class TestGameValueInheritance:
         values = [
             StatValue(name="test"),
             InventoryValue(item="heart"),
-            InventoryValue(item="gold", scope=Scope.COLLECTIVE),
+            InventoryValue(item="gold", scope=Scope.GAME),
             NumObjectsValue(object_type="junction"),
             TagCountValue(tag="vibe:aligned"),
         ]
@@ -80,7 +76,7 @@ class TestAnyGameValueUnion:
         values: list[AnyGameValue] = [
             StatValue(name="test"),
             InventoryValue(item="heart"),
-            InventoryValue(item="gold", scope=Scope.COLLECTIVE),
+            InventoryValue(item="gold", scope=Scope.GAME),
             NumObjectsValue(object_type="junction"),
             TagCountValue(tag="vibe:aligned"),
         ]
@@ -138,7 +134,7 @@ class TestAgentReward:
     def test_full_config(self):
         """Test AgentReward with all fields."""
         ar = AgentReward(
-            nums=[StatValue(name="junction.held", scope=Scope.COLLECTIVE)],
+            nums=[StatValue(name="junction.held", scope=Scope.GAME)],
             denoms=[NumObjectsValue(object_type="junction")],
             weight=0.1,
             max=5.0,
@@ -180,8 +176,8 @@ class TestStatHelper:
 
     def test_stat_with_scope(self):
         """Test stat with custom scope."""
-        s = stat("junction.held", scope=Scope.COLLECTIVE)
-        assert s.scope == Scope.COLLECTIVE
+        s = stat("junction.held", scope=Scope.GAME)
+        assert s.scope == Scope.GAME
 
     def test_stat_with_delta(self):
         """Test stat with delta flag."""
@@ -190,7 +186,7 @@ class TestStatHelper:
 
     def test_stat_value_serialization_round_trip(self):
         """Test StatValue serialization/deserialization."""
-        original = StatValue(name="carbon.gained", scope=Scope.COLLECTIVE, delta=True)
+        original = StatValue(name="carbon.gained", scope=Scope.GAME, delta=True)
         data = original.model_dump()
         restored = StatValue.model_validate(data)
 
@@ -227,7 +223,6 @@ class TestRewardHelper:
 REWARD_HELPER_TEST_CASES = [
     # (helper_fn, args, expected_num_type, expected_field, expected_field_value)
     ("inventoryReward", ("heart",), InventoryValue, "item", "heart"),
-    ("collectiveInventoryReward", ("gold",), InventoryValue, "item", "gold"),
     ("numObjectsReward", ("junction",), NumObjectsValue, "object_type", "junction"),
     ("numTaggedReward", ("vibe:aligned",), TagCountValue, "tag", "vibe:aligned"),
 ]
@@ -241,7 +236,6 @@ class TestRewardHelpers:
         """Test that helper creates correct reward with expected numerator type."""
         helper_fn = {
             "inventoryReward": inventoryReward,
-            "collectiveInventoryReward": collectiveInventoryReward,
             "numObjectsReward": numObjectsReward,
             "numTaggedReward": numTaggedReward,
         }[helper_name]
@@ -259,7 +253,6 @@ class TestRewardHelpers:
         """Test that helper respects weight parameter."""
         helper_fn = {
             "inventoryReward": inventoryReward,
-            "collectiveInventoryReward": collectiveInventoryReward,
             "numObjectsReward": numObjectsReward,
             "numTaggedReward": numTaggedReward,
         }[helper_name]
@@ -272,7 +265,6 @@ class TestRewardHelpers:
         """Test that helper respects max parameter."""
         helper_fn = {
             "inventoryReward": inventoryReward,
-            "collectiveInventoryReward": collectiveInventoryReward,
             "numObjectsReward": numObjectsReward,
             "numTaggedReward": numTaggedReward,
         }[helper_name]
@@ -312,8 +304,8 @@ class TestStatReward:
 
     def test_stat_reward_with_scope(self):
         """Test stat reward with custom scope."""
-        r = statReward("junction.held", scope=Scope.COLLECTIVE)
-        assert r.nums[0].scope == Scope.COLLECTIVE
+        r = statReward("junction.held", scope=Scope.GAME)
+        assert r.nums[0].scope == Scope.GAME
 
     def test_stat_reward_with_delta(self):
         """Test stat reward with delta flag."""
@@ -324,14 +316,14 @@ class TestStatReward:
         """Test stat reward with all options."""
         r = statReward(
             "junction.held",
-            scope=Scope.COLLECTIVE,
+            scope=Scope.GAME,
             delta=False,
             weight=0.1,
             max=5.0,
             denoms=[NumObjectsValue(object_type="junction")],
         )
         assert r.nums[0].name == "junction.held"
-        assert r.nums[0].scope == Scope.COLLECTIVE
+        assert r.nums[0].scope == Scope.GAME
         assert r.nums[0].delta is False
         assert r.weight == 0.1
         assert r.max == 5.0
@@ -360,7 +352,7 @@ class TestRewardConfigSerialization:
         """Test serialization round-trip for complex reward with denoms."""
         original = statReward(
             "junction.held",
-            scope=Scope.COLLECTIVE,
+            scope=Scope.GAME,
             weight=0.1,
             max=5.0,
             denoms=[NumObjectsValue(object_type="junction")],
@@ -377,7 +369,7 @@ class TestRewardConfigSerialization:
         "game_value",
         [
             InventoryValue(item="heart"),
-            InventoryValue(item="gold", scope=Scope.COLLECTIVE),
+            InventoryValue(item="gold", scope=Scope.GAME),
             NumObjectsValue(object_type="junction"),
             TagCountValue(tag="vibe:aligned"),
         ],

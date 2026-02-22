@@ -76,15 +76,7 @@ class MapComponent(MiniscopeComponent):
             radius = self._aoe_type_ranges.get(type_name)
             if radius is None:
                 continue
-            collective_name = obj.get("collective_name")
-            if not isinstance(collective_name, str) or not collective_name:
-                style_key = "aoe.neutral"
-            elif collective_name == "cogs":
-                style_key = "aoe.cogs"
-            elif collective_name == "clips":
-                style_key = "aoe.clips"
-            else:
-                style_key = "aoe.other"
+            style_key = "aoe.neutral"
             sources.append((obj["r"], obj["c"], radius, style_key))
         return sources
 
