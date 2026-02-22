@@ -285,8 +285,7 @@ class MettaGridPufferEnv(PufferEnv):
             sim = self._sim
             assert sim is not None
 
-        # Gymnasium returns int64 arrays by default when sampling MultiDiscrete spaces,
-        # so coerce here to keep callers simple while preserving strict bounds checking.
+        # Coerce dtype for callers that pass int64 (e.g. Gymnasium MultiDiscrete sampling).
         actions_view = actions if actions.dtype == dtype_actions else np.asarray(actions, dtype=dtype_actions)
         core_actions = actions_view
         learner_vibe_actions: Optional[np.ndarray] = None
@@ -318,25 +317,40 @@ class MettaGridPufferEnv(PufferEnv):
                     f"Expected step actions shape [num_agents] or [num_agents,2], got {actions_view.shape}"
                 )
         elif actions_view.ndim == 1:
+            # Combined-index encoding:
+            #   [0, N_primary)                                → primary action only, no vibe
+            #   [N_primary, N_primary + N_primary * N_vibe)   → primary + vibe
+            #     where offset = val - N_primary, primary = offset // N_vibe, vibe = offset % N_vibe
+            #
+            # This means scripted agents can use indices from the combined action list
+            # [*action_names, *vibe_action_names] directly — combined index i maps to:
+            #   i < N_primary → primary action i, no vibe change
+            #   i >= N_primary → noop primary + vibe action (i - N_primary)
             actions_i64 = actions_view.astype(np.int64, copy=False)
             if bool((actions_i64 < 0).any()):
-                raise ValueError(f"Core actions must be non-negative, got min={actions_i64.min()}")
+                raise ValueError(f"Actions must be non-negative, got min={actions_i64.min()}")
             encoded_mask = actions_i64 >= num_non_vibe_actions
             if bool(encoded_mask.any()):
                 if num_vibe_actions <= 0:
                     raise ValueError(
                         "Received encoded vibe actions, but environment has no configured vibe action space"
                     )
-                vibe_bucket = actions_i64 // num_non_vibe_actions
-                core_actions = (actions_i64 % num_non_vibe_actions).astype(dtype_actions, copy=False)
-                vibe_indices = vibe_bucket - 1
-                if bool((vibe_indices < 0).any()) or bool((vibe_indices >= num_vibe_actions).any()):
+                max_valid = num_non_vibe_actions + num_non_vibe_actions * num_vibe_actions
+                if bool((actions_i64 >= max_valid).any()):
                     raise ValueError(
-                        f"Encoded vibe action indices out of range [0,{num_vibe_actions}), "
-                        f"min={vibe_indices.min()} max={vibe_indices.max()}"
+                        f"Action indices out of range [0, {max_valid}), min={actions_i64.min()} max={actions_i64.max()}"
                     )
+                offsets = actions_i64[encoded_mask] - num_non_vibe_actions
+                encoded_primary = offsets // num_vibe_actions
+                encoded_vibe = offsets % num_vibe_actions
+
+                core_actions = actions_i64.copy()
+                core_actions[encoded_mask] = encoded_primary
+                core_actions = core_actions.astype(dtype_actions, copy=False)
+
+                assert vibe_action_ids_by_index is not None
                 learner_vibe_actions = np.zeros(core_actions.shape, dtype=dtype_actions)
-                learner_vibe_actions[encoded_mask] = vibe_action_ids_by_index[vibe_indices[encoded_mask]]
+                learner_vibe_actions[encoded_mask] = vibe_action_ids_by_index[encoded_vibe]
         else:
             raise ValueError(f"Expected step actions shape [num_agents] or [num_agents,2], got {actions_view.shape}")
 

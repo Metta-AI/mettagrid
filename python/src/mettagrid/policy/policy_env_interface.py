@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, Optional, cast
 
 import gymnasium as gym
@@ -84,6 +85,16 @@ class PolicyEnvInterface(BaseModel):
                 primary_action_names.append(action_name)
         return primary_action_names, vibe_action_names
 
+    @cached_property
+    def all_action_names(self) -> list[str]:
+        """Canonical flat list: [*primary_actions, *vibe_actions]."""
+        return [*self.action_names, *self.vibe_action_names]
+
+    @cached_property
+    def action_name_to_flat_index(self) -> dict[str, int]:
+        """Canonical mapping from action name to flat index in [0, N_primary + N_vibe)."""
+        return {name: idx for idx, name in enumerate(self.all_action_names)}
+
     @property
     def tag_id_to_name(self) -> dict[int, str]:
         """Tag ID to name mapping, derived from alphabetically-sorted tags list."""
@@ -125,7 +136,7 @@ class PolicyEnvInterface(BaseModel):
         payload = self.model_dump(mode="json", include={"num_agents", "tags"})
         payload["obs_width"] = self.obs_width
         payload["obs_height"] = self.obs_height
-        payload["actions"] = [*self.action_names, *self.vibe_action_names]
+        payload["actions"] = self.all_action_names
         payload["vibe_action_names"] = self.vibe_action_names
         payload["obs_features"] = [feature.model_dump(mode="json") for feature in self.obs_features]
         return json.dumps(payload)
@@ -141,7 +152,7 @@ class PolicyEnvInterface(BaseModel):
                 for f in self.obs_features
             ],
             tags=list(self.tags),
-            action_names=[*self.action_names, *self.vibe_action_names],
+            action_names=self.all_action_names,
             move_energy_cost=move_cost if move_cost is not None else -1,
             num_agents=self.num_agents,
             observation_shape=list(self.observation_shape),

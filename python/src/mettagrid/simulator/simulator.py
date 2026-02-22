@@ -382,14 +382,27 @@ class SimulationAgent:
 
     def set_action(self, action: Action | str) -> None:
         # Convert action to index
-        action_name = action if isinstance(action, str) else action.name
+        if isinstance(action, str):
+            action_name = action
+            action_vibe = None
+        else:
+            action_name = action.name
+            action_vibe = action.vibe
+
         action_idx = self._sim.action_ids[action_name]
         use_vibe_buffer = action_name in self._sim._vibe_action_name_set
-        action_buffer = self._sim._c_sim.vibe_actions() if use_vibe_buffer else self._sim._c_sim.actions()
-        inactive_buffer = self._sim._c_sim.actions() if use_vibe_buffer else self._sim._c_sim.vibe_actions()
 
-        inactive_buffer[self._agent_id] = 0
-        action_buffer[self._agent_id] = action_idx
+        if action_vibe is not None:
+            # Dual action: write both buffers
+            vibe_idx = self._sim.action_ids[action_vibe]
+            self._sim._c_sim.actions()[self._agent_id] = action_idx
+            self._sim._c_sim.vibe_actions()[self._agent_id] = vibe_idx
+        else:
+            # Single action: write active buffer, zero the other
+            action_buffer = self._sim._c_sim.vibe_actions() if use_vibe_buffer else self._sim._c_sim.actions()
+            inactive_buffer = self._sim._c_sim.actions() if use_vibe_buffer else self._sim._c_sim.vibe_actions()
+            inactive_buffer[self._agent_id] = 0
+            action_buffer[self._agent_id] = action_idx
 
     @property
     def observation(self) -> AgentObservation:
