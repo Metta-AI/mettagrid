@@ -14,5 +14,4 @@ class CppIdMaps:
     resource_name_to_id: dict[str, int] = field(default_factory=dict)
     tag_name_to_id: dict[str, int] = field(default_factory=dict)
     vibe_name_to_id: dict[str, int] = field(default_factory=dict)
-    collective_name_to_id: dict[str, int] = field(default_factory=dict)
     limit_name_to_resource_ids: dict[str, list[int]] = field(default_factory=dict)

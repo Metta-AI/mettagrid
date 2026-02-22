@@ -23,7 +23,6 @@ STEP_TIMING_PHASES = [
     "actions",
     "on_tick",
     "aoe",
-    "collectives",
     "observations",
     "rewards",
     "truncation",

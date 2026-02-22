@@ -1,7 +1,6 @@
 from typing import Any
 
 from mettagrid.config.cpp_id_maps import CppIdMaps
-from mettagrid.config.handler_config import AlignmentCondition
 from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_mutations
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mettagrid_config import (
@@ -9,23 +8,17 @@ from mettagrid.config.mettagrid_config import (
     GridObjectConfig,
     WallConfig,
 )
-from mettagrid.config.mutation import AlignmentMutation
 from mettagrid.config.query import Query
 from mettagrid.config.reward_config import Aggregation
 from mettagrid.config.tag import typeTag
 from mettagrid.mettagrid_c import ActionConfig as CppActionConfig
 from mettagrid.mettagrid_c import AgentConfig as CppAgentConfig
 from mettagrid.mettagrid_c import AggregationMode as CppAggregationMode
-from mettagrid.mettagrid_c import AlignmentCondition as CppAlignmentCondition
-from mettagrid.mettagrid_c import AlignmentFilterConfig as CppAlignmentFilterConfig
-from mettagrid.mettagrid_c import AlignmentMutationConfig as CppAlignmentMutationConfig
-from mettagrid.mettagrid_c import AlignTo as CppAlignTo
 from mettagrid.mettagrid_c import AOEConfig as CppAOEConfig
 from mettagrid.mettagrid_c import AttackActionConfig as CppAttackActionConfig
 from mettagrid.mettagrid_c import AttackOutcome as CppAttackOutcome
 from mettagrid.mettagrid_c import ChangeVibeActionConfig as CppChangeVibeActionConfig
 from mettagrid.mettagrid_c import ClosureQueryConfig as CppClosureQueryConfig
-from mettagrid.mettagrid_c import CollectiveConfig as CppCollectiveConfig
 from mettagrid.mettagrid_c import EventConfig as CppEventConfig
 from mettagrid.mettagrid_c import FilteredQueryConfig as CppFilteredQueryConfig
 from mettagrid.mettagrid_c import GameConfig as CppGameConfig
@@ -67,13 +60,6 @@ from mettagrid.mettagrid_c import make_query_config
 # ---------------------------------------------------------------------------
 # Enum conversion helpers
 # ---------------------------------------------------------------------------
-
-_ALIGNMENT_CONDITION_TO_CPP = {
-    AlignmentCondition.ALIGNED: CppAlignmentCondition.aligned,
-    AlignmentCondition.UNALIGNED: CppAlignmentCondition.unaligned,
-    AlignmentCondition.SAME_COLLECTIVE: CppAlignmentCondition.same_collective,
-    AlignmentCondition.DIFFERENT_COLLECTIVE: CppAlignmentCondition.different_collective,
-}
 
 _AGGREGATION_TO_CPP = {
     Aggregation.SUM: CppAggregationMode.SUM,
@@ -184,20 +170,6 @@ def _convert_one_filter(filter_config, id_maps: CppIdMaps, context: str) -> tupl
     if ft == "or":
         return ("or", _build_or_filter(filter_config, id_maps, context))
 
-    if ft == "alignment":
-        cpp_filter = CppAlignmentFilterConfig(
-            condition=_ALIGNMENT_CONDITION_TO_CPP.get(filter_config.alignment, CppAlignmentCondition.same_collective),
-        )
-        collective = getattr(filter_config, "collective", None)
-        if collective is not None:
-            if not id_maps.collective_name_to_id or collective not in id_maps.collective_name_to_id:
-                available = sorted(id_maps.collective_name_to_id.keys()) if id_maps.collective_name_to_id else []
-                raise ValueError(
-                    f"AlignmentFilter references unknown collective '{collective}'. Available collectives: {available}"
-                )
-            cpp_filter.collective_id = id_maps.collective_name_to_id[collective]
-        return ("alignment", cpp_filter)
-
     if ft == "resource":
         filters = []
         for resource_name, min_amount in filter_config.resources.items():
@@ -289,7 +261,6 @@ def _convert_one_filter(filter_config, id_maps: CppIdMaps, context: str) -> tupl
 # ---------------------------------------------------------------------------
 
 _FILTER_TYPE_TO_METHOD = {
-    "alignment": "add_alignment_filter",
     "resource": "add_resource_filter",
     "vibe": "add_vibe_filter",
     "tag_prefix": "add_tag_prefix_filter",
@@ -402,26 +373,8 @@ def _convert_event_configs(events: dict, id_maps: CppIdMaps) -> dict:
 
 
 def _convert_event_mutations(mutations, cpp_target, id_maps: CppIdMaps, context: str):
-    """Convert Python mutations for events, including AlignmentMutation with collective."""
-    standard_mutations = []
-    collective_alignment_mutations = []
-    for mutation in mutations:
-        if isinstance(mutation, AlignmentMutation) and mutation.collective is not None:
-            collective_alignment_mutations.append(mutation)
-        else:
-            standard_mutations.append(mutation)
-
-    convert_mutations(standard_mutations, cpp_target, id_maps, context)
-
-    for mutation in collective_alignment_mutations:
-        collective_name = mutation.collective
-        if collective_name in id_maps.collective_name_to_id:
-            cpp_mut = CppAlignmentMutationConfig()
-            cpp_mut.align_to = CppAlignTo.none
-            cpp_mut.collective_id = id_maps.collective_name_to_id[collective_name]
-            cpp_target.add_alignment_mutation(cpp_mut)
-        else:
-            raise ValueError(f"Collective '{collective_name}' not found in collective_name_to_id mapping in {context}")
+    """Convert Python mutations for events."""
+    convert_mutations(mutations, cpp_target, id_maps, context)
 
 
 def _convert_on_tag_lifecycle_handlers(
@@ -521,7 +474,7 @@ def _convert_territory_controls(controls: list, id_maps: CppIdMaps, territory_na
 
 
 def rename_map_agents(map_grid: list[list[str]], rename_map: dict[str, list[str]]) -> list[list[str]]:
-    """Rename collective agent cells to per-agent cell names."""
+    """Rename agent group cells to per-agent cell names."""
     counters: dict[str, int] = {name: 0 for name in rename_map}
     result = []
     for row in map_grid:
@@ -532,8 +485,7 @@ def rename_map_agents(map_grid: list[list[str]], rename_map: dict[str, list[str]
                 per_agent_names = rename_map[cell]
                 if idx >= len(per_agent_names):
                     raise ValueError(
-                        f"Map has more '{cell}' cells ({idx + 1}) than agents "
-                        f"in the collective ({len(per_agent_names)})"
+                        f"Map has more '{cell}' cells ({idx + 1}) than agents in the group ({len(per_agent_names)})"
                     )
                 new_row.append(per_agent_names[idx])
                 counters[cell] = idx + 1
@@ -554,7 +506,7 @@ def convert_to_cpp_game_config(
     """Convert a GameConfig to a CppGameConfig.
 
     Returns (cpp_game_config, agent_renames) where agent_renames maps
-    collective cell names to per-agent cell names for map rewriting.
+    group cell names to per-agent cell names for map rewriting.
     """
     if isinstance(mettagrid_config, GameConfig):
         game_config = mettagrid_config
@@ -588,8 +540,6 @@ def convert_to_cpp_game_config(
 
     supported_vibes = game_config.actions.change_vibe.vibes
     vibe_name_to_id = {vibe.name: i for i, vibe in enumerate(supported_vibes)}
-
-    collective_name_to_id = {name: idx for idx, name in enumerate(sorted(game_config.collectives.keys()))}
 
     first_agent_config_dict = game_config.agents[0].model_dump()
     default_resource_limit = first_agent_config_dict["inventory"]["default_limit"]
@@ -627,7 +577,6 @@ def convert_to_cpp_game_config(
         resource_name_to_id=resource_name_to_id,
         tag_name_to_id=tag_name_to_id,
         vibe_name_to_id=vibe_name_to_id,
-        collective_name_to_id=collective_name_to_id,
         limit_name_to_resource_ids=limit_name_to_resource_ids,
     )
 
@@ -636,12 +585,12 @@ def convert_to_cpp_game_config(
     # --- Build agents ---
 
     objects_cpp_params = {}
-    collective_groups: dict[str | int, list[tuple[int, Any]]] = {}
+    team_groups: dict[int, list[tuple[int, Any]]] = {}
     for agent_idx, agent_config in enumerate(game_config.agents):
-        group_key: str | int = agent_config.collective if agent_config.collective is not None else agent_config.team_id
-        if group_key not in collective_groups:
-            collective_groups[group_key] = []
-        collective_groups[group_key].append((agent_idx, agent_config))
+        group_key = agent_config.team_id
+        if group_key not in team_groups:
+            team_groups[group_key] = []
+        team_groups[group_key].append((agent_idx, agent_config))
 
     def _build_one_agent_config(agent_cfg, group_id: int, group_name: str) -> CppAgentConfig:
         agent_props = agent_cfg.model_dump()
@@ -705,9 +654,6 @@ def convert_to_cpp_game_config(
         )
         cpp_agent_config.tag_ids = tag_ids
 
-        if agent_cfg.collective and agent_cfg.collective in collective_name_to_id:
-            cpp_agent_config.collective_id = collective_name_to_id[agent_cfg.collective]
-
         if agent_cfg.aoes:
             cpp_agent_config.aoe_configs = _convert_aoe_configs(agent_cfg.aoes, id_maps)
 
@@ -731,48 +677,45 @@ def convert_to_cpp_game_config(
         return cpp_agent_config
 
     agent_renames: dict[str, list[str]] = {}
-    collective_to_id = {name: idx for idx, name in enumerate(collective_groups.keys())}
-    for collective, collective_agents in collective_groups.items():
-        _, first_agent = collective_agents[0]
+    group_id_map = {team_id: idx for idx, team_id in enumerate(team_groups.keys())}
+    for team_id, team_agents in team_groups.items():
+        _, first_agent = team_agents[0]
 
         first_agent_tags = set(first_agent.tags)
-        for agent_idx, agent_config in collective_agents[1:]:
+        for agent_idx, agent_config in team_agents[1:]:
             if set(agent_config.tags) != first_agent_tags:
                 raise ValueError(
-                    f"All agents in collective {collective} must have identical tags. "
+                    f"All agents in team {team_id} must have identical tags. "
                     f"Agent 0 has tags {sorted(first_agent_tags)}, "
                     f"but agent {agent_idx} has tags {sorted(agent_config.tags)}. "
-                    f"Tags are currently applied per-collective, not per-agent."
+                    f"Tags are currently applied per-team, not per-agent."
                 )
 
-        group_id = collective_to_id[collective]
+        group_id = group_id_map[team_id]
         team_names = {0: "red", 1: "blue", 2: "green", 3: "yellow", 4: "purple", 5: "orange"}
-        if isinstance(collective, str):
-            group_name = collective
-        elif isinstance(collective, int) and collective in team_names:
-            group_name = team_names[collective]
+        if team_id in team_names:
+            group_name = team_names[team_id]
         else:
             group_name = f"group_{group_id}"
 
         canonical_cell = "agent." + group_name
 
         per_agent_cells: list[str] = []
-        for idx, (_, agent_cfg) in enumerate(collective_agents):
+        for idx, (_, agent_cfg) in enumerate(team_agents):
             cell_name = f"agent.{group_name}.{idx}"
             per_agent_cells.append(cell_name)
             objects_cpp_params[cell_name] = _build_one_agent_config(agent_cfg, group_id, group_name)
         objects_cpp_params[canonical_cell] = objects_cpp_params[per_agent_cells[0]]
-        if len(collective_agents) > 1:
+        if len(team_agents) > 1:
             agent_renames[canonical_cell] = per_agent_cells
 
         alias_cells = [f"agent.team_{group_id}"]
-        if isinstance(collective, int) and collective != group_id:
-            alias_cells.append(f"agent.team_{collective}")
-        team_names = {0: "red", 1: "blue", 2: "green", 3: "yellow", 4: "purple", 5: "orange"}
+        if team_id != group_id:
+            alias_cells.append(f"agent.team_{team_id}")
         if group_id in team_names:
             alias_cells.append(f"agent.{team_names[group_id]}")
-        if isinstance(collective, int) and collective in team_names and collective != group_id:
-            alias_cells.append(f"agent.{team_names[collective]}")
+        if team_id in team_names and team_id != group_id:
+            alias_cells.append(f"agent.{team_names[team_id]}")
         if group_id == 0:
             alias_cells.extend(["agent.default", "agent.agent"])
         for alias in alias_cells:
@@ -824,9 +767,6 @@ def convert_to_cpp_game_config(
 
         if cpp_config is not None:
             cpp_config.tag_ids = tag_ids
-
-            if object_config.collective and object_config.collective in collective_name_to_id:
-                cpp_config.collective_id = collective_name_to_id[object_config.collective]
 
             if object_config.on_use_handlers:
                 cpp_config.on_use_handler = _create_on_use_handler(object_config.on_use_handlers, id_maps)
@@ -952,44 +892,12 @@ def convert_to_cpp_game_config(
     game_cpp_params["objects"] = objects_cpp_params
     game_cpp_params["tag_id_map"] = tag_id_to_name
 
-    # --- Collectives ---
-
-    collectives_cpp = {}
-    for collective_name, collective_cfg in game_config.collectives.items():
-        limit_defs = []
-        for resource_limit in collective_cfg.inventory.limits.values():
-            resource_list = resource_limit.resources
-            resource_ids = [resource_name_to_id[name] for name in resource_list if name in resource_name_to_id]
-            if resource_ids:
-                modifier_ids = {
-                    resource_name_to_id[name]: bonus
-                    for name, bonus in resource_limit.modifiers.items()
-                    if name in resource_name_to_id
-                }
-                limit_defs.append(CppLimitDef(resource_ids, resource_limit.min, resource_limit.max, modifier_ids))
-
-        inventory_config = CppInventoryConfig()
-        inventory_config.limit_defs = limit_defs
-
-        initial_inventory_cpp = {}
-        for resource, amount in collective_cfg.inventory.initial.items():
-            if resource in resource_name_to_id:
-                initial_inventory_cpp[resource_name_to_id[resource]] = amount
-
-        cpp_collective_config = CppCollectiveConfig(collective_name)
-        cpp_collective_config.inventory_config = inventory_config
-        cpp_collective_config.initial_inventory = initial_inventory_cpp
-        collectives_cpp[collective_name] = cpp_collective_config
-
-    game_cpp_params["collectives"] = collectives_cpp
-
     # --- Territories ---
 
     if game_config.territories:
         game_cpp_params["territories"] = _convert_game_territory_configs(
             game_config.territories, id_maps, territory_name_to_index
         )
-
     # --- Events ---
 
     if game_config.events:

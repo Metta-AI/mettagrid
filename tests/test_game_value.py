@@ -18,7 +18,6 @@ from mettagrid.config.game_value import (
 class TestScope:
     def test_values(self):
         assert Scope.AGENT.value == "agent"
-        assert Scope.COLLECTIVE.value == "collective"
         assert Scope.GAME.value == "game"
 
 
@@ -27,10 +26,6 @@ class TestInventoryValue:
         v = InventoryValue(item="gold")
         assert v.item == "gold"
         assert v.scope == Scope.AGENT
-
-    def test_collective_scope(self):
-        v = InventoryValue(item="gold", scope=Scope.COLLECTIVE)
-        assert v.scope == Scope.COLLECTIVE
 
 
 class TestStatValue:
@@ -57,11 +52,6 @@ class TestInvHelper:
         assert v.item == "gold"
         assert v.scope == Scope.AGENT
 
-    def test_collective_prefix(self):
-        v = inv("collective.gold")
-        assert v.item == "gold"
-        assert v.scope == Scope.COLLECTIVE
-
     def test_game_scope_disallowed(self):
         with pytest.raises(ValueError):
             inv("game.gold")
@@ -83,11 +73,6 @@ class TestStatHelper:
         v = stat("game.junctions")
         assert v.name == "junctions"
         assert v.scope == Scope.GAME
-
-    def test_collective_prefix(self):
-        v = stat("collective.foo")
-        assert v.name == "foo"
-        assert v.scope == Scope.COLLECTIVE
 
     def test_delta(self):
         v = stat("gold", delta=True)

@@ -12,7 +12,6 @@ void bind_profiling_properties(py::class_<MettaGrid>& cls) {
       .def_readonly("actions_ns", &StepTimingStats::actions_ns)
       .def_readonly("on_tick_ns", &StepTimingStats::on_tick_ns)
       .def_readonly("aoe_ns", &StepTimingStats::aoe_ns)
-      .def_readonly("collectives_ns", &StepTimingStats::collectives_ns)
       .def_readonly("observations_ns", &StepTimingStats::observations_ns)
       .def_readonly("rewards_ns", &StepTimingStats::rewards_ns)
       .def_readonly("truncation_ns", &StepTimingStats::truncation_ns)

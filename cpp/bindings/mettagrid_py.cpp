@@ -10,7 +10,6 @@
 #include "handler/event_bindings.hpp"
 #include "handler/handler_bindings.hpp"
 #include "objects/agent.hpp"
-#include "objects/collective.hpp"
 #include "objects/protocol.hpp"
 #include "objects/reward_config.hpp"
 #include "objects/wall.hpp"
@@ -103,19 +102,6 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
       obj_dict["inventory_capacities"] = capacity_dict;
     }
 
-    // Add collective_id/name for alignable objects
-    Collective* collective = obj->getCollective();
-    if (collective != nullptr) {
-      obj_dict["collective_name"] = collective->name;
-      // Find the index of this collective in _collectives
-      for (size_t i = 0; i < _collectives.size(); i++) {
-        if (_collectives[i].get() == collective) {
-          obj_dict["collective_id"] = static_cast<int>(i);
-          break;
-        }
-      }
-    }
-
     // Inject agent-specific info
     if (auto* agent = dynamic_cast<Agent*>(obj)) {
       obj_dict["group_id"] = agent->group;
@@ -180,7 +166,7 @@ py::dict MettaGrid::get_episode_stats() {
   // {
   //   "game": dict[str, float],  // Global game statistics
   //   "agent": list[dict[str, float]],  // Per-agent statistics
-  //   "collective": dict[str, dict[str, float]],  // Per-collective statistics (name -> stats)
+  //
   // }
 
   py::dict stats;
@@ -191,12 +177,6 @@ py::dict MettaGrid::get_episode_stats() {
     agent_stats.append(py::cast(agent->stats.to_dict()));
   }
   stats["agent"] = agent_stats;
-
-  py::dict collective_stats;
-  for (const auto& collective : _collectives) {
-    collective_stats[py::str(collective->name)] = py::cast(collective->stats.to_dict());
-  }
-  stats["collective"] = collective_stats;
 
   return stats;
 }
@@ -219,33 +199,8 @@ std::optional<float> MettaGrid::get_agent_stat(uint32_t agent_id, const std::str
   return agent->stats.get_if_present(key);
 }
 
-std::optional<float> MettaGrid::get_collective_stat(const std::string& collective_name, const std::string& key) const {
-  auto it = _collectives_by_name.find(collective_name);
-  if (it == _collectives_by_name.end() || it->second == nullptr) {
-    return std::nullopt;
-  }
-  return it->second->stats.get_if_present(key);
-}
-
 py::list MettaGrid::action_success_py() {
   return py::cast(_action_success);
-}
-
-py::dict MettaGrid::get_collective_inventories() {
-  // Returns a dictionary mapping collective names to their inventories
-  // { "collective_name": { "resource_name": quantity, ... }, ... }
-  py::dict result;
-  for (const auto& collective : _collectives) {
-    py::dict inventory_dict;
-    for (const auto& [resource_id, quantity] : collective->inventory.get()) {
-      // Use resource name instead of ID for mettascope compatibility
-      if (resource_id < resource_names.size()) {
-        inventory_dict[py::str(resource_names[resource_id])] = quantity;
-      }
-    }
-    result[py::str(collective->name)] = inventory_dict;
-  }
-  return result;
 }
 
 py::none MettaGrid::set_inventory(GridObjectId agent_id,
@@ -349,7 +304,6 @@ PYBIND11_MODULE(mettagrid_c, m) {
           .def("get_episode_stats", &MettaGrid::get_episode_stats)
           .def("get_game_stat", &MettaGrid::get_game_stat)
           .def("get_agent_stat", &MettaGrid::get_agent_stat)
-          .def("get_collective_stat", &MettaGrid::get_collective_stat)
           .def("action_success", &MettaGrid::action_success_py)
           .def_readonly("obs_width", &MettaGrid::obs_width)
           .def_readonly("obs_height", &MettaGrid::obs_height)
@@ -358,7 +312,6 @@ PYBIND11_MODULE(mettagrid_c, m) {
           .def_readonly("object_type_names", &MettaGrid::object_type_names)
           .def_readonly("resource_names", &MettaGrid::resource_names)
           .def("set_inventory", &MettaGrid::set_inventory, py::arg("agent_id"), py::arg("inventory"))
-          .def("get_collective_inventories", &MettaGrid::get_collective_inventories)
           .def("tag_index", &MettaGrid::tag_index, py::return_value_policy::reference_internal);
 
   // Profiling bindings (defined in profiling_py.cpp)
@@ -375,7 +328,6 @@ PYBIND11_MODULE(mettagrid_c, m) {
       .def_readwrite("name", &GridObjectConfig::name)
       .def_readwrite("tag_ids", &GridObjectConfig::tag_ids)
       .def_readwrite("initial_vibe", &GridObjectConfig::initial_vibe)
-      .def_readwrite("collective_id", &GridObjectConfig::collective_id)
       .def_readwrite("on_use_handler", &GridObjectConfig::on_use_handler)
       .def_readwrite("aoe_configs", &GridObjectConfig::aoe_configs)
       .def_readwrite("territory_controls", &GridObjectConfig::territory_controls)
@@ -409,7 +361,6 @@ PYBIND11_MODULE(mettagrid_c, m) {
 
   bind_inventory_config(m);
   bind_reward_config(m);
-  bind_collective_config(m);
   bind_agent_config(m);
   bind_action_config(m);
   bind_attack_action_config(m);

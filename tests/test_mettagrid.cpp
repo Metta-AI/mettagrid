@@ -15,8 +15,6 @@
 #include "handler/handler_context.hpp"
 #include "objects/agent.hpp"
 #include "objects/agent_config.hpp"
-#include "objects/collective.hpp"
-#include "objects/collective_config.hpp"
 #include "objects/constants.hpp"
 #include "objects/inventory.hpp"
 #include "objects/inventory_config.hpp"
@@ -66,7 +64,6 @@ protected:
         {"tag", 15},
         {"cooldown_remaining", 16},
         {"remaining_uses", 17},
-        {"collective", 18},
     };
     ObservationFeature::Initialize(feature_ids);
     resource_names = create_test_resource_names();
@@ -149,54 +146,6 @@ TEST_F(MettaGridCppTest, AgentRewards) {
   EXPECT_FLOAT_EQ(entries[3].weight, 1.0f);    // HEART
 }
 
-TEST_F(MettaGridCppTest, DISABLED_AgentRewardsFromCollectiveStats) {
-  // Create agent with reward for collective resource deposits
-  RewardConfig reward_cfg;
-  reward_cfg.entries.push_back(make_stat_entry("ore_red.deposited", 0.5f, 10.0f, GameValueScope::GAME));
-
-  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, create_test_inventory_config(), reward_cfg);
-  auto resource_names = create_test_resource_names();
-  std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
-
-  float agent_reward = 0.0f;
-  agent->init(&agent_reward);
-
-  // Create a collective with inventory
-  CollectiveConfig collective_cfg;
-  collective_cfg.name = "test_collective";
-  collective_cfg.inventory_config.limit_defs = {LimitDef({TestItems::ORE}, 100)};
-  Collective collective(collective_cfg, &resource_names);
-
-  // Attach agent to collective and init reward entries
-  agent->setCollective(&collective);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, &resource_names);
-
-  // Deposit resources to the collective
-  collective.inventory.update(TestItems::ORE, 10);
-  EXPECT_FLOAT_EQ(collective.stats.get("ore_red.deposited"), 10.0f);
-
-  agent->reward_helper.compute_entries();
-  EXPECT_FLOAT_EQ(agent_reward, 5.0f);  // 10 * 0.5
-
-  // Deposit more resources
-  collective.inventory.update(TestItems::ORE, 8);
-  EXPECT_FLOAT_EQ(collective.stats.get("ore_red.deposited"), 18.0f);
-
-  agent->reward_helper.compute_entries();
-  EXPECT_FLOAT_EQ(agent_reward, 9.0f);  // 18 * 0.5
-
-  // Test cap behavior
-  collective.inventory.update(TestItems::ORE, 10);  // Total 28 deposited
-  EXPECT_FLOAT_EQ(collective.stats.get("ore_red.deposited"), 28.0f);
-
-  agent->reward_helper.compute_entries();
-  EXPECT_FLOAT_EQ(agent_reward, 10.0f);  // Capped at 10.0
-
-  // Test withdrawal tracking
-  collective.inventory.update(TestItems::ORE, -5);
-  EXPECT_FLOAT_EQ(collective.stats.get("ore_red.withdrawn"), 5.0f);
-}
-
 TEST_F(MettaGridCppTest, AgentInventoryUpdate) {
   AgentConfig agent_cfg = create_test_agent_config();
   auto resource_names = create_test_resource_names();
@@ -204,7 +153,7 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate) {
 
   float agent_reward = 0.0f;
   agent->init(&agent_reward);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, &resource_names);
+  agent->reward_helper.init_entries(&agent->stats, nullptr, &resource_names);
 
   // Test adding items
   int delta = agent->inventory.update(TestItems::ORE, 5);
@@ -344,7 +293,7 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate_RewardCappingBehavior) {
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
   float agent_reward = 0.0f;
   agent->init(&agent_reward);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, &resource_names);
+  agent->reward_helper.init_entries(&agent->stats, nullptr, &resource_names);
 
   // Test 1: Add items up to the cap
   // 16 ORE * 0.125 = 2.0 (exactly at cap)
@@ -412,7 +361,7 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate_MultipleItemCaps) {
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
   float agent_reward = 0.0f;
   agent->init(&agent_reward);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, nullptr, &resource_names);
+  agent->reward_helper.init_entries(&agent->stats, nullptr, &resource_names);
 
   // Add ORE beyond its cap
   agent->inventory.update(TestItems::ORE, 50);  // 50 * 0.125 = 6.25, capped at 2.0

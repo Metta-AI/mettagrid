@@ -42,7 +42,7 @@ def test_game_value_filter_serialization():
     """Test GameValueFilter round-trips through JSON."""
     f = GameValueFilter(
         target=HandlerTarget.ACTOR,
-        value=InventoryValue(item="gold", scope=Scope.COLLECTIVE),
+        value=InventoryValue(item="gold", scope=Scope.GAME),
         min=3,
     )
     data = f.model_dump()

@@ -118,7 +118,6 @@ class MettaGridPufferEnv(PufferEnv):
         self._sim = self._init_simulation()
         self.num_agents = self._sim.num_agents
         self._step_info_game_keys: tuple[tuple[str, str], ...] = ()
-        self._step_info_collective_keys: tuple[tuple[str, str, str], ...] = ()
         self._step_info_attribute_keys: tuple[tuple[str, str], ...] = ()
         self._step_info_agent_keys: tuple[str, ...] = ()
         self._configure_step_info_keys(step_info_keys)
@@ -130,7 +129,6 @@ class MettaGridPufferEnv(PufferEnv):
             return
 
         game_keys: list[tuple[str, str]] = []
-        collective_keys: list[tuple[str, str, str]] = []
         attribute_keys: list[tuple[str, str]] = []
         agent_keys: list[str] = []
 
@@ -151,22 +149,6 @@ class MettaGridPufferEnv(PufferEnv):
                 game_keys.append((raw, stat_key))
                 continue
 
-            if raw.startswith("collective/"):
-                remainder = raw[len("collective/") :]
-                if "/" not in remainder:
-                    raise ValueError(
-                        "step_info_keys contains invalid collective entry "
-                        f"{key_str!r}; expected 'collective/<name>/<stat>'"
-                    )
-                collective_name, stat_key = remainder.split("/", 1)
-                if not collective_name or not stat_key:
-                    raise ValueError(
-                        "step_info_keys contains invalid collective entry "
-                        f"{key_str!r}; expected 'collective/<name>/<stat>'"
-                    )
-                collective_keys.append((raw, collective_name, stat_key))
-                continue
-
             if raw.startswith("attributes/"):
                 attr_key = raw[len("attributes/") :]
                 if not attr_key:
@@ -175,13 +157,11 @@ class MettaGridPufferEnv(PufferEnv):
                 continue
 
             raise ValueError(
-                f"Unsupported step_info_keys entry {key_str!r}; expected 'game/...', 'collective/...', "
-                "'attributes/...', or 'agent/...'."
+                f"Unsupported step_info_keys entry {key_str!r}; expected 'game/...', 'attributes/...', or 'agent/...'."
             )
 
         # Preserve order for determinism (useful for debugging), but drop duplicates.
         self._step_info_game_keys = tuple(dict.fromkeys(game_keys))
-        self._step_info_collective_keys = tuple(dict.fromkeys(collective_keys))
         self._step_info_attribute_keys = tuple(dict.fromkeys(attribute_keys))
         self._step_info_agent_keys = tuple(dict.fromkeys(agent_keys))
 
@@ -234,7 +214,7 @@ class MettaGridPufferEnv(PufferEnv):
         base_info = sim._context.get("infos", {})
         info_payload = dict(base_info) if isinstance(base_info, dict) else {}
 
-        if not (self._step_info_game_keys or self._step_info_collective_keys or self._step_info_attribute_keys):
+        if not (self._step_info_game_keys or self._step_info_attribute_keys):
             if not self._step_info_agent_keys:
                 return info_payload
 
@@ -242,11 +222,6 @@ class MettaGridPufferEnv(PufferEnv):
 
         for raw_key, stat_key in self._step_info_game_keys:
             value = c_sim.get_game_stat(stat_key)
-            if value is not None:
-                info_payload[raw_key] = float(value)
-
-        for raw_key, collective_name, stat_key in self._step_info_collective_keys:
-            value = c_sim.get_collective_stat(collective_name, stat_key)
             if value is not None:
                 info_payload[raw_key] = float(value)
 

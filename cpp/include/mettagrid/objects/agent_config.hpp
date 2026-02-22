@@ -13,7 +13,6 @@
 #include "core/grid_object.hpp"
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
-#include "objects/collective_config.hpp"
 #include "objects/inventory_config.hpp"
 #include "objects/reward_config.hpp"
 

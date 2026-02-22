@@ -191,9 +191,6 @@ class IdMap:
         add_feature("cooldown_remaining", 255.0)
         add_feature("remaining_uses", 255.0)
 
-        # Collective ID (for aligned objects)
-        add_feature("collective", 10.0)
-
         # Local position features (directional offset from spawn)
         add_feature("lp:east", 255.0)
         add_feature("lp:west", 255.0)

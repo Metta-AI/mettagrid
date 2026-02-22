@@ -20,13 +20,11 @@ class Scope(ConfigStrEnum):
     """Scope for a game value."""
 
     AGENT = "agent"
-    COLLECTIVE = "collective"
     GAME = "game"
 
 
 _SCOPE_ALIASES: dict[str, Scope] = {
     "agent": Scope.AGENT,
-    "collective": Scope.COLLECTIVE,
     "game": Scope.GAME,
 }
 
@@ -122,13 +120,13 @@ AnyGameValue = Union[
 
 def inv(s: str) -> InventoryValue:
     """Parse 'item' or 'scope.item' into InventoryValue."""
-    scope, name = _parse_scope(s, allowed={Scope.AGENT, Scope.COLLECTIVE})
+    scope, name = _parse_scope(s, allowed={Scope.AGENT})
     return InventoryValue(item=name, scope=scope)
 
 
 def stat(s: str, delta: bool = False) -> StatValue:
     """Parse 'name' or 'scope.name' into StatValue."""
-    scope, name = _parse_scope(s, allowed={Scope.AGENT, Scope.COLLECTIVE, Scope.GAME})
+    scope, name = _parse_scope(s, allowed={Scope.AGENT, Scope.GAME})
     return StatValue(name=name, scope=scope, delta=delta)
 
 

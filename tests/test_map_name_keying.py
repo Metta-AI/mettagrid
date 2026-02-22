@@ -7,7 +7,6 @@ in C++ initialization.
 
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
-    CollectiveConfig,
     GameConfig,
     GridObjectConfig,
     InventoryConfig,
@@ -146,26 +145,20 @@ class TestMapNameKeying:
         walls = [o for o in sim.grid_objects().values() if o.get("type_name") == "wall"]
         assert len(walls) == 3
 
-    def test_collective_objects_with_map_names(self):
-        """Objects belonging to different collectives use map_name for lookup."""
+    def test_tagged_objects_with_map_names(self):
+        """Objects with different tags use map_name for lookup."""
         cfg = _minimal_game_config(
             objects={
                 "cogs_hub": GridObjectConfig(
                     name="hub",
                     map_name="c:hub",
                     tags=["team:cogs"],
-                    collective="cogs",
                 ),
                 "clips_hub": GridObjectConfig(
                     name="hub",
                     map_name="clips:hub",
                     tags=["team:clips"],
-                    collective="clips",
                 ),
-            },
-            collectives={
-                "cogs": CollectiveConfig(),
-                "clips": CollectiveConfig(),
             },
             tags=["team:cogs", "team:clips"],
             map_builder=AsciiMapBuilder.Config(
@@ -180,9 +173,6 @@ class TestMapNameKeying:
         sim = _sim(cfg)
         hubs = [o for o in sim.grid_objects().values() if o.get("type_name") == "hub"]
         assert len(hubs) == 2
-
-        collective_ids = {o.get("collective_id") for o in hubs}
-        assert len(collective_ids) == 2, "Hubs should belong to different collectives"
 
     def test_objects_with_different_inventories(self):
         """Same-typed objects with different map_names have their own inventory configs."""
@@ -238,7 +228,7 @@ class TestMapNameKeying:
         """Three junctions (same type) with different map_names, tags, and inventories.
 
         Verifies that each spawned object has type_name 'junction' but carries
-        distinct per-variant inventory and collective assignment.
+        distinct per-variant inventory.
         """
         resources = ["gold", "silver", "gems"]
         cfg = _minimal_game_config(
@@ -248,14 +238,12 @@ class TestMapNameKeying:
                     name="junction",
                     map_name="j1",
                     tags=["team:cogs"],
-                    collective="cogs",
                     inventory=InventoryConfig(initial={"gold": 100}),
                 ),
                 "junction_clips": GridObjectConfig(
                     name="junction",
                     map_name="j2",
                     tags=["team:clips"],
-                    collective="clips",
                     inventory=InventoryConfig(initial={"silver": 200}),
                 ),
                 "junction_neutral": GridObjectConfig(
@@ -263,10 +251,6 @@ class TestMapNameKeying:
                     map_name="j3",
                     inventory=InventoryConfig(initial={"gems": 50}),
                 ),
-            },
-            collectives={
-                "cogs": CollectiveConfig(),
-                "clips": CollectiveConfig(),
             },
             tags=["team:cogs", "team:clips"],
             map_builder=AsciiMapBuilder.Config(
@@ -294,18 +278,15 @@ class TestMapNameKeying:
         assert j1["inventory"][gold_id] == 100
         assert j1["inventory"].get(silver_id, 0) == 0
         assert j1["inventory"].get(gems_id, 0) == 0
-        assert j1.get("collective_name") == "cogs"
 
         j2 = by_col[1]
         assert j2["type_name"] == "junction"
         assert j2["inventory"].get(gold_id, 0) == 0
         assert j2["inventory"][silver_id] == 200
         assert j2["inventory"].get(gems_id, 0) == 0
-        assert j2.get("collective_name") == "clips"
 
         j3 = by_col[2]
         assert j3["type_name"] == "junction"
         assert j3["inventory"].get(gold_id, 0) == 0
         assert j3["inventory"].get(silver_id, 0) == 0
         assert j3["inventory"][gems_id] == 50
-        assert j3.get("collective_name") is None

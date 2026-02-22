@@ -16,7 +16,6 @@ ObservationType Tag;
 ObservationType CooldownRemaining;
 ObservationType RemainingUses;
 ObservationType Goal;
-ObservationType Collective;
 ObservationType LpEast;
 ObservationType LpWest;
 ObservationType LpNorth;
@@ -39,7 +38,6 @@ void Initialize(const std::unordered_map<std::string, ObservationType>& feature_
   CooldownRemaining = _instance->CooldownRemaining;
   RemainingUses = _instance->RemainingUses;
   Goal = _instance->Goal;
-  Collective = _instance->Collective;
   LpEast = _instance->LpEast;
   LpWest = _instance->LpWest;
   LpNorth = _instance->LpNorth;

@@ -16,7 +16,6 @@ class StatsTarget(ConfigStrEnum):
 
     GAME = auto()  # log to game-level stats tracker
     AGENT = auto()  # log to entity's (actor or target) agent stats tracker
-    COLLECTIVE = auto()  # log to entity's (actor or target) collective's stats tracker
 
 
 class StatsEntity(ConfigStrEnum):
@@ -35,9 +34,8 @@ class StatsMutation(Mutation):
     The target field specifies which stats tracker to log to:
     - GAME: global game-level stats (accessible via game stats API)
     - AGENT: an agent's individual stats tracker
-    - COLLECTIVE: an entity's collective's stats tracker
 
-    The entity field specifies which entity to use when resolving AGENT or COLLECTIVE:
+    The entity field specifies which entity to use when resolving AGENT:
     - TARGET: use the target entity (default)
     - ACTOR: use the actor entity
     """
@@ -46,12 +44,12 @@ class StatsMutation(Mutation):
     stat: str = Field(description="Name of the stat to log")
     delta: int = Field(default=1, description="Delta to add to the stat")
     target: StatsTarget = Field(
-        default=StatsTarget.COLLECTIVE,
-        description="Which stats tracker to log to (game, agent, or collective)",
+        default=StatsTarget.GAME,
+        description="Which stats tracker to log to (game or agent)",
     )
     entity: StatsEntity = Field(
         default=StatsEntity.TARGET,
-        description="Which entity to use for resolving AGENT or COLLECTIVE target (target or actor)",
+        description="Which entity to use for resolving AGENT target (target or actor)",
     )
 
 
@@ -61,7 +59,7 @@ class StatsMutation(Mutation):
 def logStat(
     stat: str,
     delta: int = 1,
-    target: StatsTarget = StatsTarget.COLLECTIVE,
+    target: StatsTarget = StatsTarget.GAME,
     entity: StatsEntity = StatsEntity.TARGET,
 ) -> StatsMutation:
     """Mutation: log a stat with a specified delta.
@@ -69,8 +67,8 @@ def logStat(
     Args:
         stat: Name of the stat to log.
         delta: Delta to add to the stat (default 1).
-        target: Which stats tracker to log to (game, agent, or collective). Defaults to COLLECTIVE.
-        entity: Which entity to use for resolving AGENT or COLLECTIVE target. Defaults to TARGET.
+        target: Which stats tracker to log to (game or agent). Defaults to GAME.
+        entity: Which entity to use for resolving AGENT target. Defaults to TARGET.
     """
     return StatsMutation(stat=stat, delta=delta, target=target, entity=entity)
 
@@ -103,23 +101,3 @@ def logActorAgentStat(stat: str, delta: int = 1) -> StatsMutation:
         delta: Delta to add to the stat (default 1).
     """
     return StatsMutation(stat=stat, delta=delta, target=StatsTarget.AGENT, entity=StatsEntity.ACTOR)
-
-
-def logTargetCollectiveStat(stat: str, delta: int = 1) -> StatsMutation:
-    """Mutation: log a stat to the target's collective's stats tracker.
-
-    Args:
-        stat: Name of the stat to log.
-        delta: Delta to add to the stat (default 1).
-    """
-    return StatsMutation(stat=stat, delta=delta, target=StatsTarget.COLLECTIVE, entity=StatsEntity.TARGET)
-
-
-def logActorCollectiveStat(stat: str, delta: int = 1) -> StatsMutation:
-    """Mutation: log a stat to the actor's collective's stats tracker.
-
-    Args:
-        stat: Name of the stat to log.
-        delta: Delta to add to the stat (default 1).
-    """
-    return StatsMutation(stat=stat, delta=delta, target=StatsTarget.COLLECTIVE, entity=StatsEntity.ACTOR)

@@ -90,7 +90,6 @@ class HelpPanelComponent(MiniscopeComponent):
         lines.append("  1       - Toggle Agent info")
         lines.append("  2       - Toggle Object info")
         lines.append("  3       - Toggle Symbols list")
-        lines.append("  4       - Toggle Collective inventory")
         lines.append("")
 
         lines.append("=" * width)
@@ -149,6 +148,5 @@ class HelpPanelComponent(MiniscopeComponent):
         table.add_row("Sidebar", "1", "Toggle Agent info")
         table.add_row("", "2", "Toggle Object info")
         table.add_row("", "3", "Toggle Symbols list")
-        table.add_row("", "4", "Toggle Collective inventory")
 
         return self._table_to_lines(table)

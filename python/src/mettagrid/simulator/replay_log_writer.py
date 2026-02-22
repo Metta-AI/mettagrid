@@ -111,17 +111,6 @@ class EpisodeReplay:
         # Create PolicyEnvInterface for replay consumers
         policy_env_interface = PolicyEnvInterface.from_mg_cfg(sim.config)
 
-        # Build sorted collective names list (matches C++ sorted order for deterministic IDs)
-        self._collective_names: List[str] = sorted(sim.config.game.collectives.keys())
-        # Map collective name -> ID for fast lookup
-        self._collective_name_to_id: Dict[str, int] = {name: idx for idx, name in enumerate(self._collective_names)}
-
-        # Time-series data for collective inventory
-        # Format: list indexed by collective_id, each element is [[step, [[item_id, count], ...]], ...]
-        self._collective_inventory: List[list] = [[] for _ in range(len(self._collective_names))]
-        # Track last values to only record changes (keyed by collective_id)
-        self._last_collective_inventory: Dict[int, Dict[str, int]] = {}
-
         # Build capacity_names from the first agent's inventory limits config (sorted for determinism).
         # Each capacity group (e.g., "gear", "cargo") is assigned an ID = index in this sorted list.
         agent_inv_limits = sim.config.game.agents[0].inventory.limits if sim.config.game.agents else {}
@@ -149,7 +138,6 @@ class EpisodeReplay:
             "action_names": sim.action_names,
             "item_names": sim.resource_names,
             "type_names": sim.object_type_names,
-            "collective_names": self._collective_names,
             "capacity_names": self._capacity_names,
             "tags": self._tag_name_to_id,
             "map_size": [sim.map_width, sim.map_height],
@@ -159,7 +147,6 @@ class EpisodeReplay:
             "policy_env_interface": policy_env_interface.model_dump(mode="json"),
             "objects": self.objects,
             "infos": {},  # Populated at episode end
-            "collective_inventory": self._collective_inventory,
         }
 
     def set_compression(self, compression: str):
@@ -234,9 +221,6 @@ class EpisodeReplay:
                     if alive_entries[-1][1] is not False:
                         obj_data["alive"].append([self.step, False])
 
-        # Log collective inventory time-series
-        self._log_collective_inventory(self.step)
-
         self.step += 1
         if current_step != self.step:
             raise ValueError(
@@ -295,28 +279,6 @@ class EpisodeReplay:
                 if last != default:
                     grid_object[key].append([step, default])
 
-    def _log_collective_inventory(self, step: int):
-        """Log collective inventory for the current step."""
-        # Get current collective inventories (keyed by name from C++ API)
-        collective_inventories = self.sim._c_sim.get_collective_inventories()
-        for collective_name, inventory in collective_inventories.items():
-            # Convert name to ID for storage
-            collective_id = self._collective_name_to_id.get(collective_name)
-            if collective_id is None:
-                continue  # Skip unknown collectives
-
-            # Only record if changed from last snapshot
-            last_inv = self._last_collective_inventory.get(collective_id, {})
-            if inventory != last_inv:
-                # Convert {item_name: count} to [[item_id, count], ...] format
-                inv_by_id = []
-                for item_name, count in inventory.items():
-                    if item_name in self.sim.resource_names:
-                        item_id = self.sim.resource_names.index(item_name)
-                        inv_by_id.append([item_id, count])
-                self._collective_inventory[collective_id].append([step, inv_by_id])
-                self._last_collective_inventory[collective_id] = dict(inventory)
-
     def _populate_infos(self) -> Dict[str, Any]:
         """Populate episode infos from simulation state."""
         stats = self.sim.episode_stats
@@ -335,11 +297,6 @@ class EpisodeReplay:
                 infos["agent"][n] = infos["agent"].get(n, 0) + v
         for n, v in infos["agent"].items():
             infos["agent"][n] = v / num_agents if num_agents > 0 else 0
-
-        # Collective stats
-        collective_stats = stats.get("collective")
-        if collective_stats:
-            infos["collective"] = collective_stats
 
         # Attributes
         infos["attributes"] = {

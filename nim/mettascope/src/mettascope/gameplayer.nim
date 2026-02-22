@@ -3,7 +3,7 @@ import
   opengl,
   bumpy, vmath, windy, silky, silky/atlas, chroma,
   common, worldmap, panels, configs,
-  replays, collectives, colors, minimap, actions, cognames, timelineslider
+  replays, colors, minimap, actions, cognames, timelineslider
 
 var
   pendingCenter: Vec2
@@ -75,15 +75,14 @@ proc switchGameMode*(newMode: GameMode) =
   saveUIState()
 
 proc computeScore(): float =
-  ## Computes the average score for the active collective.
+  ## Computes the average score for all agents.
   if replay.isNil:
     return 0.0
-  let cid = activeCollective
   var
     totalScore = 0.0
     agentCount = 0
   for obj in replay.objects:
-    if obj.isAgent and obj.collectiveId.at(step) == cid:
+    if obj.isAgent:
       totalScore += obj.totalReward.at
       agentCount += 1
   if agentCount > 0:
@@ -91,14 +90,12 @@ proc computeScore(): float =
   return 0.0
 
 proc computeJunctionCount(): int =
-  ## Computes the number of junctions for the active collective.
+  ## Computes the total number of junctions.
   if replay.isNil:
     return 0
-  let cid = activeCollective
   var junctionCount = 0
   for obj in replay.objects:
-    if normalizeTypeName(obj.typeName) == "junction" and
-        obj.collectiveId.at(step) == cid:
+    if normalizeTypeName(obj.typeName) == "junction":
       junctionCount += 1
   return junctionCount
 
@@ -276,22 +273,7 @@ proc topRightPanel(winW: float32) =
     trPos = vec2(winW - trSize.x, 0)
   sk.drawImage("ui/panel_topright", trPos)
 
-  if not replay.isNil:
-    const
-      CellSpacing = 32.0f
-      YPad = 42.0f
-      XPad = 52.0f
-    let globalResources = [
-      ("resources/carbon", "carbon"),
-      ("resources/oxygen", "oxygen"),
-      ("resources/germanium", "germanium"),
-      ("resources/silicon", "silicon"),
-    ]
-    var x = trPos.x + XPad
-    let y = trPos.y + YPad
-    for i, (icon, name) in globalResources:
-      resourceCell(vec2(x, y), icon, getCollectiveResourceCount(activeCollective, name))
-      x += ResourceCellWidth + CellSpacing
+  discard
 
 proc bottomBarStretch(winW: float32, winH: float32) =
   ## Draw the stretch bar between the two bottom panels.
@@ -544,14 +526,9 @@ proc centerPanel(winW: float32, winH: float32) =
 
     let
       textPos = bcPos + vec2(69, 32)
-      collectiveName = getCollectiveName(selected.collectiveId.at(step))
       cogName = getCogName(selected.agentId)
       displayName =
-        if collectiveName.len > 0 and cogName.len > 0:
-          collectiveName & " " & cogName
-        elif collectiveName.len > 0:
-          collectiveName
-        elif cogName.len > 0:
+        if cogName.len > 0:
           cogName
         else:
           rig
@@ -620,12 +597,7 @@ proc centerPanel(winW: float32, winH: float32) =
 
     let
       textPos = bcPos + vec2(69, 32)
-      collectiveName = getCollectiveName(selected.collectiveId.at(step))
-      displayName =
-        if collectiveName.len > 0:
-          collectiveName & " " & normalized
-        else:
-          normalized
+      displayName = normalized
 
     discard sk.drawText("pixelated", displayName, textPos, Yellow, clip = false)
 

@@ -5,7 +5,7 @@ to avoid circular import issues.
 """
 
 from dataclasses import dataclass
-from typing import NotRequired, TypedDict
+from typing import TypedDict
 
 
 @dataclass
@@ -26,4 +26,3 @@ class EpisodeStats(TypedDict):
 
     game: StatsDict
     agent: list[StatsDict]
-    collective: NotRequired[dict[str, StatsDict]]

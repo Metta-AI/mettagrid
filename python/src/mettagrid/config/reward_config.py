@@ -99,28 +99,6 @@ def inventoryReward(
     )
 
 
-def collectiveInventoryReward(
-    item: str,
-    *,
-    weight: float = 1.0,
-    max: float | None = None,
-    denoms: list[AnyGameValue] | None = None,
-    per_tick: bool = False,
-) -> AgentReward:
-    """Create an AgentReward from a collective inventory item count.
-
-    Examples:
-        collectiveInventoryReward("heart", weight=0.5)
-    """
-    return AgentReward(
-        nums=[InventoryValue(item=item, scope=Scope.COLLECTIVE)],
-        denoms=denoms or [],
-        weight=weight,
-        max=max,
-        per_tick=per_tick,
-    )
-
-
 def numObjects(object_type: str) -> NumObjectsValue:
     """Count of objects by type for use in denoms.
 
@@ -178,7 +156,7 @@ def statReward(
 
     Examples:
         statReward("a.b.c", max=10)
-        statReward("junction.held", scope=Scope.COLLECTIVE, denoms=[numObjects("junction")])
+        statReward("junction.held", scope=Scope.GAME, denoms=[numObjects("junction")])
     """
     return AgentReward(
         nums=[StatValue(name=name, scope=scope, delta=delta)],

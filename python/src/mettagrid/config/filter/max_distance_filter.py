@@ -65,7 +65,7 @@ def isNear(query: "str | AnyQuery", radius: int = 1) -> MaxDistanceFilter:
 
     Examples:
         isNear(typeTag("junction"), radius=3)
-        isNear(query(typeTag("agent"), [hasTag("collective:cogs")]))
+        isNear(query(typeTag("agent"), [hasTag("type:agent")]))
     """
     from mettagrid.config.query import Query  # noqa: PLC0415
 

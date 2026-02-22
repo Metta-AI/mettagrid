@@ -13,7 +13,6 @@
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/territory_config.hpp"
-#include "objects/alignable.hpp"
 #include "objects/constants.hpp"
 #include "objects/has_inventory.hpp"
 #include "objects/has_vibe.hpp"
@@ -71,7 +70,6 @@ struct GridObjectConfig {
   std::string name;  // Instance name (defaults to type_name if empty)
   std::vector<int> tag_ids;
   ObservationType initial_vibe;
-  int collective_id = -1;  // Collective ID for initial alignment (-1 = none)
   InventoryConfig inventory_config;
   std::unordered_map<InventoryItem, InventoryQuantity> initial_inventory;
 
@@ -106,7 +104,7 @@ class TagIndex;
 class HandlerContext;
 }  // namespace mettagrid
 
-class GridObject : public HasVibe, public Alignable, public HasInventory, public Usable {
+class GridObject : public HasVibe, public HasInventory, public Usable {
 public:
   GridObjectId id{};
   GridLocation location{};
@@ -163,7 +161,7 @@ public:
     obs_encoder = encoder;
   }
 
-  // Returns observable features for this object (collective, tags, vibe, inventory)
+  // Returns observable features for this object (tags, vibe, inventory)
   // Subclasses should call this base implementation and append their specific features
   virtual std::vector<PartialObservationToken> obs_features() const;
 

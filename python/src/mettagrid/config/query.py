@@ -62,8 +62,8 @@ class ClosureQuery(Config):
     Example::
 
         ClosureQuery(
-            source=query(typeTag("hub"), [hasTag("collective:cogs")]),
-            candidates=query(typeTag("junction"), [hasTag("collective:cogs")]),
+            source=query(typeTag("hub"), [hasTag("type:hub")]),
+            candidates=query(typeTag("junction"), [hasTag("type:junction")]),
             edge_filters=[maxDistance(10)],
         )
     """
@@ -91,7 +91,7 @@ def query(source: "str | AnyQuery", filters: "AnyFilter | list[AnyFilter] | None
 
     Examples:
         query(typeTag("junction"))
-        query(typeTag("agent"), [hasTag("collective:cogs")])
+        query(typeTag("agent"), [hasTag("type:agent")])
     """
     return Query(source=source, filters=filters if isinstance(filters, list) else [filters] if filters else [])
 

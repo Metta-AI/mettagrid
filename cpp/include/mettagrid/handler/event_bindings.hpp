@@ -34,10 +34,6 @@ inline void bind_event_config(py::module& m) {
           [](EventConfig& self, const ResourceFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_alignment_filter",
-          [](EventConfig& self, const AlignmentFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
           "add_tag_prefix_filter",
           [](EventConfig& self, const TagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
@@ -69,10 +65,6 @@ inline void bind_event_config(py::module& m) {
       .def(
           "add_resource_transfer_mutation",
           [](EventConfig& self, const ResourceTransferMutationConfig& cfg) { self.mutations.push_back(cfg); },
-          py::arg("mutation"))
-      .def(
-          "add_alignment_mutation",
-          [](EventConfig& self, const AlignmentMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))
       .def(
           "add_freeze_mutation",

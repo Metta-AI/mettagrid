@@ -31,9 +31,6 @@
 #include "handler/handler_bindings.hpp"
 #include "handler/handler_context.hpp"
 #include "objects/agent.hpp"
-#include "objects/alignable.hpp"
-#include "objects/collective.hpp"
-#include "objects/collective_config.hpp"
 #include "objects/constants.hpp"
 #include "objects/inventory_config.hpp"
 #include "objects/protocol.hpp"
@@ -145,25 +142,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   init_action_handlers();
 
-  // Initialize collectives from config in SORTED order (before _init_grid so objects can reference them)
-  // This ensures collective IDs match between Python and C++ (unordered_map iteration is unpredictable)
-  std::vector<std::string> collective_names;
-  collective_names.reserve(game_config.collectives.size());
-  for (const auto& [name, _] : game_config.collectives) {
-    collective_names.push_back(name);
-  }
-  std::sort(collective_names.begin(), collective_names.end());
-
-  for (const auto& name : collective_names) {
-    const auto& collective_cfg = game_config.collectives.at(name);
-    auto collective = std::make_unique<Collective>(*collective_cfg, &resource_names);
-    collective->id = static_cast<int>(_collectives.size());  // Set ID to index (sorted order)
-    _collectives_by_name[name] = collective.get();
-    _collectives_by_id.push_back(collective.get());
-    _collectives.push_back(std::move(collective));
-  }
-
-  _init_grid(game_config, map, _collectives_by_id);
+  _init_grid(game_config, map);
 
   _prev_agent_locations.resize(_agents.size());
   for (size_t i = 0; i < _agents.size(); ++i) {
@@ -174,8 +153,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   _query_system = std::make_unique<mettagrid::QuerySystem>(game_config.materialized_queries);
 
   // Initialize base HandlerContext with all system pointers
-  _game_ctx =
-      mettagrid::HandlerContext(&_tag_index, _grid.get(), _stats.get(), &_collectives, _query_system.get(), &_rng);
+  _game_ctx = mettagrid::HandlerContext(&_tag_index, _grid.get(), _stats.get(), _query_system.get(), &_rng);
 
   // Compute initial query tags
   _query_system->compute_all(_game_ctx);
@@ -195,9 +173,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   // Initialize reward entries (resolve stat names to IDs, get pointers)
   for (auto* agent : _agents) {
-    Collective* coll = agent->getCollective();
-    StatsTracker* collective_stats = coll ? &coll->stats : nullptr;
-    agent->init_reward(collective_stats, &_game_ctx, &resource_names);
+    agent->init_reward(&_game_ctx, &resource_names);
   }
 
   // Validation configuration from environment variables
@@ -226,8 +202,7 @@ MettaGrid::~MettaGrid() {
 }
 
 void MettaGrid::_init_grid(const GameConfig& game_config,
-                           const py::list& map,
-                           const std::vector<Collective*>& collectives_by_id) {
+                           const py::list& map) {
   GridCoord height = static_cast<GridCoord>(py::len(map));
   GridCoord width = static_cast<GridCoord>(py::len(map[0]));
 
@@ -274,8 +249,7 @@ void MettaGrid::_init_grid(const GameConfig& game_config,
                                                                         _grid.get(),
                                                                         _obs_encoder.get(),
                                                                         &current_step,
-                                                                        &_tag_index,
-                                                                        &collectives_by_id);
+                                                                        &_tag_index);
 
       // Add to grid and track stats
       _grid->add_object(created_object);
@@ -1091,16 +1065,6 @@ void MettaGrid::_step() {
   if (_profiling_enabled) {
     phase_end = std::chrono::steady_clock::now();
     _step_timing.aoe_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
-  }
-
-  // Update held stats for all collectives (tracks how long objects are aligned)
-  if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
-  for (auto& collective : _collectives) {
-    collective->update_held_stats();
-  }
-  if (_profiling_enabled) {
-    phase_end = std::chrono::steady_clock::now();
-    _step_timing.collectives_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
   }
 
   // Compute observations for next step

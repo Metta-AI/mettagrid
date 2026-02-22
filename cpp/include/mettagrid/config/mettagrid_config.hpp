@@ -16,7 +16,6 @@
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/territory_config.hpp"
-#include "objects/collective_config.hpp"
 
 // Forward declarations
 #include "actions/action_handler.hpp"
@@ -56,12 +55,8 @@ struct GameConfig {
   std::unordered_map<std::string, std::shared_ptr<GridObjectConfig>> objects;
   std::unordered_map<int, std::string> tag_id_map;
 
-  // Collective configurations - maps collective name to config
-  std::unordered_map<std::string, std::shared_ptr<CollectiveConfig>> collectives;
-
   // Territory type definitions (indexed by position in vector)
   std::vector<mettagrid::TerritoryConfig> territories;
-
   // FEATURE FLAGS
   bool protocol_details_obs = true;
   std::unordered_map<std::string, float> reward_estimates = {};
@@ -144,10 +139,6 @@ inline void bind_query_config(py::module& m) {
       .def(
           "add_shared_tag_prefix_filter",
           [](TagQueryConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
-          "add_alignment_filter",
-          [](TagQueryConfig& self, const AlignmentFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"));
 
   py::class_<ClosureQueryConfig>(m, "ClosureQueryConfig")
@@ -170,10 +161,6 @@ inline void bind_query_config(py::module& m) {
       .def(
           "add_edge_tag_prefix_filter",
           [](ClosureQueryConfig& self, const TagPrefixFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
-          "add_edge_alignment_filter",
-          [](ClosureQueryConfig& self, const AlignmentFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
           py::arg("filter"))
       .def(
           "add_edge_neg_filter",
@@ -225,10 +212,6 @@ inline void bind_query_config(py::module& m) {
           [](ClosureQueryConfig& self, const GameValueFilterConfig& cfg) { self.result_filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_result_alignment_filter",
-          [](ClosureQueryConfig& self, const AlignmentFilterConfig& cfg) { self.result_filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
           "add_result_vibe_filter",
           [](ClosureQueryConfig& self, const VibeFilterConfig& cfg) { self.result_filters.push_back(cfg); },
           py::arg("filter"))
@@ -276,10 +259,6 @@ inline void bind_query_config(py::module& m) {
       .def(
           "add_game_value_filter",
           [](FilteredQueryConfig& self, const GameValueFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
-          "add_alignment_filter",
-          [](FilteredQueryConfig& self, const AlignmentFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"));
 
   py::class_<MaxDistanceFilterConfig>(m, "MaxDistanceFilterConfig")
@@ -329,12 +308,8 @@ inline void bind_game_config(py::module& m) {
                     const std::unordered_map<std::string, std::shared_ptr<GridObjectConfig>>&,
                     const std::unordered_map<int, std::string>&,
 
-                    // Collectives
-                    const std::unordered_map<std::string, std::shared_ptr<CollectiveConfig>>&,
-
                     // Territories
                     const std::vector<mettagrid::TerritoryConfig>&,
-
                     // FEATURE FLAGS
                     bool,
                     const std::unordered_map<std::string, float>&,
@@ -361,12 +336,8 @@ inline void bind_game_config(py::module& m) {
            py::arg("objects"),
            py::arg("tag_id_map") = std::unordered_map<int, std::string>(),
 
-           // Collectives
-           py::arg("collectives") = std::unordered_map<std::string, std::shared_ptr<CollectiveConfig>>(),
-
            // Territories
            py::arg("territories") = std::vector<mettagrid::TerritoryConfig>(),
-
            // FEATURE FLAGS
            py::arg("protocol_details_obs") = true,
            py::arg("reward_estimates") = std::unordered_map<std::string, float>(),
@@ -398,12 +369,8 @@ inline void bind_game_config(py::module& m) {
 
       .def_readwrite("tag_id_map", &GameConfig::tag_id_map)
 
-      // Collectives
-      .def_readwrite("collectives", &GameConfig::collectives)
-
       // Territories
       .def_readwrite("territories", &GameConfig::territories)
-
       // FEATURE FLAGS
       .def_readwrite("protocol_details_obs", &GameConfig::protocol_details_obs)
       .def_readwrite("reward_estimates", &GameConfig::reward_estimates)

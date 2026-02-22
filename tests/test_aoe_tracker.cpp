@@ -9,8 +9,6 @@
 #include "handler/handler_config.hpp"
 #include "objects/agent.hpp"
 #include "objects/agent_config.hpp"
-#include "objects/collective.hpp"
-#include "objects/collective_config.hpp"
 #include "objects/inventory_config.hpp"
 
 using namespace mettagrid;

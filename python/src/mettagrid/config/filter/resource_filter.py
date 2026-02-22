@@ -35,16 +35,6 @@ def targetHas(resources: dict[str, int]) -> ResourceFilter:
     return ResourceFilter(target=HandlerTarget.TARGET, resources=resources)
 
 
-def actorCollectiveHas(resources: dict[str, int]) -> ResourceFilter:
-    """Filter: actor's collective has at least the specified resources."""
-    return ResourceFilter(target=HandlerTarget.ACTOR_COLLECTIVE, resources=resources)
-
-
-def targetCollectiveHas(resources: dict[str, int]) -> ResourceFilter:
-    """Filter: target's collective has at least the specified resources."""
-    return ResourceFilter(target=HandlerTarget.TARGET_COLLECTIVE, resources=resources)
-
-
 def actorHasAnyOf(resources: list[str]) -> OrFilter:
     """Filter: actor has at least 1 of ANY of the specified resources.
 

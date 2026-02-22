@@ -2,7 +2,6 @@
 
 #include <type_traits>
 
-#include "handler/mutations/alignment_mutation.hpp"
 #include "handler/mutations/attack_mutation.hpp"
 #include "handler/mutations/freeze_mutation.hpp"
 #include "handler/mutations/game_value_mutation.hpp"
@@ -22,8 +21,6 @@ std::unique_ptr<Mutation> create_mutation(const MutationConfig& config) {
           return std::make_unique<ResourceDeltaMutation>(cfg);
         } else if constexpr (std::is_same_v<T, ResourceTransferMutationConfig>) {
           return std::make_unique<ResourceTransferMutation>(cfg);
-        } else if constexpr (std::is_same_v<T, AlignmentMutationConfig>) {
-          return std::make_unique<AlignmentMutation>(cfg);
         } else if constexpr (std::is_same_v<T, FreezeMutationConfig>) {
           return std::make_unique<FreezeMutation>(cfg);
         } else if constexpr (std::is_same_v<T, ClearInventoryMutationConfig>) {

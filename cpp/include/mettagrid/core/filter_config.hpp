@@ -15,19 +15,9 @@ struct QueryConfig;
 
 // Entity reference for resolving actor/target/source in filters and mutations
 enum class EntityRef {
-  actor,             // The object performing the action
-  target,            // The object being affected
-  source,            // BFS frontier node in closure queries (distinct from actor)
-  actor_collective,  // The collective of the actor
-  target_collective  // The collective of the target
-};
-
-// Alignment conditions for AlignmentFilter
-enum class AlignmentCondition {
-  aligned,              // Entity has a collective
-  unaligned,            // Entity has no collective
-  same_collective,      // Actor and target belong to same collective
-  different_collective  // Actor and target belong to different collectives
+  actor,   // The object performing the action
+  target,  // The object being affected
+  source   // BFS frontier node in closure queries (distinct from actor)
 };
 
 // ============================================================================
@@ -43,12 +33,6 @@ struct ResourceFilterConfig {
   EntityRef entity = EntityRef::target;
   InventoryItem resource_id = 0;
   InventoryQuantity min_amount = 1;
-};
-
-struct AlignmentFilterConfig {
-  EntityRef entity = EntityRef::target;  // Which entity to check
-  AlignmentCondition condition = AlignmentCondition::same_collective;
-  int collective_id = -1;  // If >= 0, check if entity belongs to this specific collective
 };
 
 struct SharedTagPrefixFilterConfig {
@@ -75,7 +59,6 @@ struct QueryResourceFilterConfig;
 // Variant type for all filter configs
 using FilterConfig = std::variant<VibeFilterConfig,
                                   ResourceFilterConfig,
-                                  AlignmentFilterConfig,
                                   SharedTagPrefixFilterConfig,
                                   TagPrefixFilterConfig,
                                   GameValueFilterConfig,

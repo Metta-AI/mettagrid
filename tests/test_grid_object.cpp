@@ -6,8 +6,6 @@
 
 #include "config/observation_features.hpp"
 #include "core/grid_object.hpp"
-#include "objects/collective.hpp"
-#include "objects/collective_config.hpp"
 
 // Resource names for testing
 static std::vector<std::string> test_resource_names = {"gold", "energy"};
@@ -94,13 +92,12 @@ protected:
         {"tag", 7},
         {"cooldown_remaining", 8},
         {"remaining_uses", 9},
-        {"collective", 10},
     };
     ObservationFeature::Initialize(feature_ids);
   }
 };
 
-// Test obs_features with no collective and no tags
+// Test obs_features with no tags
 TEST_F(GridObjectObsFeaturesTest, EmptyObsFeatures) {
   GridLocation loc(0, 0);
   std::vector<int> tags;  // Empty tags
@@ -124,52 +121,4 @@ TEST_F(GridObjectObsFeaturesTest, ObsFeaturesWithTags) {
     EXPECT_EQ(ObservationFeature::Tag, features[i].feature_id);
     EXPECT_EQ(tags[i], features[i].value);
   }
-}
-
-// Test obs_features with collective only
-TEST_F(GridObjectObsFeaturesTest, ObsFeaturesWithCollective) {
-  GridLocation loc(0, 0);
-  std::vector<int> tags;  // Empty tags
-  obj.init(1, "object", loc, tags);
-
-  // Create and set collective
-  CollectiveConfig config;
-  config.name = "test_collective";
-  Collective collective(config, &test_resource_names);
-  collective.id = 5;
-
-  obj.setCollective(&collective);
-
-  auto features = obj.obs_features();
-  EXPECT_EQ(1, features.size());
-  EXPECT_EQ(ObservationFeature::Collective, features[0].feature_id);
-  EXPECT_EQ(5, features[0].value);
-}
-
-// Test obs_features with both collective and tags
-TEST_F(GridObjectObsFeaturesTest, ObsFeaturesWithCollectiveAndTags) {
-  GridLocation loc(0, 0);
-  std::vector<int> tags = {10, 20};
-  obj.init(1, "object", loc, tags);
-
-  // Create and set collective
-  CollectiveConfig config;
-  config.name = "test_collective";
-  Collective collective(config, &test_resource_names);
-  collective.id = 3;
-
-  obj.setCollective(&collective);
-
-  auto features = obj.obs_features();
-  EXPECT_EQ(3, features.size());  // 1 collective + 2 tags
-
-  // First should be collective
-  EXPECT_EQ(ObservationFeature::Collective, features[0].feature_id);
-  EXPECT_EQ(3, features[0].value);
-
-  // Rest should be tags
-  EXPECT_EQ(ObservationFeature::Tag, features[1].feature_id);
-  EXPECT_EQ(10, features[1].value);
-  EXPECT_EQ(ObservationFeature::Tag, features[2].feature_id);
-  EXPECT_EQ(20, features[2].value);
 }

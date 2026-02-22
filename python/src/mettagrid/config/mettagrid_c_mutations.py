@@ -8,8 +8,6 @@ from mettagrid.config.game_value import ConstValue
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mutation import (
     AddTagMutation,
-    AlignmentMutation,
-    AlignTo,
     ClearInventoryMutation,
     EntityTarget,
     FreezeMutation,
@@ -25,8 +23,6 @@ from mettagrid.config.mutation import (
     StatsTarget,
 )
 from mettagrid.mettagrid_c import AddTagMutationConfig as CppAddTagMutationConfig
-from mettagrid.mettagrid_c import AlignmentMutationConfig as CppAlignmentMutationConfig
-from mettagrid.mettagrid_c import AlignTo as CppAlignTo
 from mettagrid.mettagrid_c import ClearInventoryMutationConfig as CppClearInventoryMutationConfig
 from mettagrid.mettagrid_c import EntityRef as CppEntityRef
 from mettagrid.mettagrid_c import FreezeMutationConfig as CppFreezeMutationConfig
@@ -49,19 +45,11 @@ if TYPE_CHECKING:
 _ENTITY_TARGET_TO_CPP: dict[EntityTarget, CppEntityRef] = {
     EntityTarget.ACTOR: CppEntityRef.actor,
     EntityTarget.TARGET: CppEntityRef.target,
-    EntityTarget.ACTOR_COLLECTIVE: CppEntityRef.actor_collective,
-    EntityTarget.TARGET_COLLECTIVE: CppEntityRef.target_collective,
-}
-
-_ALIGN_TO_CPP: dict[AlignTo, CppAlignTo] = {
-    AlignTo.ACTOR_COLLECTIVE: CppAlignTo.actor_collective,
-    AlignTo.NONE: CppAlignTo.none,
 }
 
 _STATS_TARGET_TO_CPP: dict[StatsTarget, CppStatsTarget] = {
     StatsTarget.GAME: CppStatsTarget.game,
     StatsTarget.AGENT: CppStatsTarget.agent,
-    StatsTarget.COLLECTIVE: CppStatsTarget.collective,
 }
 
 _STATS_ENTITY_TO_CPP: dict[StatsEntity, CppStatsEntity] = {
@@ -73,11 +61,6 @@ _STATS_ENTITY_TO_CPP: dict[StatsEntity, CppStatsEntity] = {
 def convert_entity_ref(target: EntityTarget) -> CppEntityRef:
     assert target in _ENTITY_TARGET_TO_CPP, f"Unknown EntityTarget: {target}"
     return _ENTITY_TARGET_TO_CPP[target]
-
-
-def convert_align_to(align_to: AlignTo) -> CppAlignTo:
-    assert align_to in _ALIGN_TO_CPP, f"Unknown AlignTo: {align_to}"
-    return _ALIGN_TO_CPP[align_to]
 
 
 def convert_mutations(
@@ -115,12 +98,6 @@ def convert_mutations(
                     remove_source_when_empty=mutation.remove_source_when_empty,
                 )
                 target_obj.add_resource_transfer_mutation(cpp_mutation)
-
-        elif isinstance(mutation, AlignmentMutation):
-            cpp_mutation = CppAlignmentMutationConfig(
-                align_to=convert_align_to(mutation.align_to),
-            )
-            target_obj.add_alignment_mutation(cpp_mutation)
 
         elif isinstance(mutation, FreezeMutation):
             cpp_mutation = CppFreezeMutationConfig(duration=mutation.duration)

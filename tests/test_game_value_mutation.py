@@ -35,9 +35,9 @@ def test_set_game_value_mutation_stat():
 def test_set_game_value_mutation_serialization():
     """Test SetGameValueMutation round-trips through JSON."""
     m = SetGameValueMutation(
-        value=InventoryValue(item="silver", scope=Scope.COLLECTIVE),
+        value=InventoryValue(item="silver", scope=Scope.GAME),
         delta=10,
-        target=EntityTarget.ACTOR_COLLECTIVE,
+        target=EntityTarget.TARGET,
     )
     data = m.model_dump()
     assert data["mutation_type"] == "set_game_value"

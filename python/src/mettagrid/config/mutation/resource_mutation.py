@@ -63,28 +63,6 @@ def deposit(resources: dict[str, int]) -> ResourceTransferMutation:
     return ResourceTransferMutation(from_target=EntityTarget.ACTOR, to_target=EntityTarget.TARGET, resources=resources)
 
 
-def collectiveDeposit(resources: dict[str, int]) -> ResourceTransferMutation:
-    """Mutation: transfer resources from actor to actor's collective.
-
-    Args:
-        resources: Map of resource name to amount. Use -1 for "all available".
-    """
-    return ResourceTransferMutation(
-        from_target=EntityTarget.ACTOR, to_target=EntityTarget.ACTOR_COLLECTIVE, resources=resources
-    )
-
-
-def collectiveWithdraw(resources: dict[str, int]) -> ResourceTransferMutation:
-    """Mutation: transfer resources from actor's collective to actor.
-
-    Args:
-        resources: Map of resource name to amount. Use -1 for "all available".
-    """
-    return ResourceTransferMutation(
-        from_target=EntityTarget.ACTOR_COLLECTIVE, to_target=EntityTarget.ACTOR, resources=resources
-    )
-
-
 def updateTarget(deltas: dict[str, int]) -> ResourceDeltaMutation:
     """Mutation: apply resource deltas to target.
 
@@ -101,21 +79,3 @@ def updateActor(deltas: dict[str, int]) -> ResourceDeltaMutation:
         deltas: Map of resource name to delta (positive = gain, negative = lose).
     """
     return ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas=deltas)
-
-
-def updateTargetCollective(deltas: dict[str, int]) -> ResourceDeltaMutation:
-    """Mutation: apply resource deltas to target's collective.
-
-    Args:
-        deltas: Map of resource name to delta (positive = gain, negative = lose).
-    """
-    return ResourceDeltaMutation(target=EntityTarget.TARGET_COLLECTIVE, deltas=deltas)
-
-
-def updateActorCollective(deltas: dict[str, int]) -> ResourceDeltaMutation:
-    """Mutation: apply resource deltas to actor's collective.
-
-    Args:
-        deltas: Map of resource name to delta (positive = gain, negative = lose).
-    """
-    return ResourceDeltaMutation(target=EntityTarget.ACTOR_COLLECTIVE, deltas=deltas)

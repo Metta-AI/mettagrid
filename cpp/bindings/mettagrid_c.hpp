@@ -31,7 +31,6 @@
 #include "core/tag_index.hpp"
 #include "core/types.hpp"
 #include "handler/event_scheduler.hpp"
-#include "objects/collective.hpp"
 #include "profiling.hpp"
 #include "systems/encoding_utils.hpp"
 #include "systems/packed_coordinate.hpp"
@@ -108,9 +107,7 @@ public:
   py::dict get_episode_stats();
   std::optional<float> get_game_stat(const std::string& key) const;
   std::optional<float> get_agent_stat(uint32_t agent_id, const std::string& key) const;
-  std::optional<float> get_collective_stat(const std::string& collective_name, const std::string& key) const;
   py::list action_success_py();
-  py::dict get_collective_inventories();
 
   using Actions = py::array_t<ActionType, py::array::c_style>;
   using ActionSuccess = std::vector<bool>;
@@ -204,11 +201,6 @@ private:
   std::unique_ptr<mettagrid::EventScheduler> _event_scheduler;
   std::unique_ptr<mettagrid::QuerySystem> _query_system;
 
-  // Collective objects - owned by MettaGrid
-  std::vector<std::unique_ptr<Collective>> _collectives;
-  std::unordered_map<std::string, Collective*> _collectives_by_name;
-  std::vector<Collective*> _collectives_by_id;
-
   // Tag index for efficient tag-based object lookup
   mettagrid::TagIndex _tag_index;
 
@@ -260,8 +252,7 @@ private:
                                        size_t buffer_capacity);
   void add_agent(Agent* agent);
   void _init_grid(const GameConfig& game_config,
-                  const py::list& map,
-                  const std::vector<Collective*>& collectives_by_id);
+                  const py::list& map);
   void _make_buffers(unsigned int num_agents);
   void _init_buffers(unsigned int num_agents);
   // Dispatcher: routes to original or optimized based on validation config

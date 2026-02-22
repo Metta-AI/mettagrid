@@ -19,8 +19,7 @@ inline void bind_handler_config(py::module& m) {
   // GameValueScope enum
   py::enum_<GameValueScope>(m, "GameValueScope")
       .value("AGENT", GameValueScope::AGENT)
-      .value("GAME", GameValueScope::GAME)
-      .value("COLLECTIVE", GameValueScope::COLLECTIVE);
+      .value("GAME", GameValueScope::GAME);
 
   // Typed GameValue configs
   py::class_<InventoryValueConfig>(m, "InventoryValueConfig")
@@ -52,30 +51,13 @@ inline void bind_handler_config(py::module& m) {
           py::arg("query"));
 
   // EntityRef enum
-  py::enum_<EntityRef>(m, "EntityRef")
-      .value("actor", EntityRef::actor)
-      .value("target", EntityRef::target)
-      .value("actor_collective", EntityRef::actor_collective)
-      .value("target_collective", EntityRef::target_collective);
-
-  // AlignmentCondition enum
-  py::enum_<AlignmentCondition>(m, "AlignmentCondition")
-      .value("aligned", AlignmentCondition::aligned)
-      .value("unaligned", AlignmentCondition::unaligned)
-      .value("same_collective", AlignmentCondition::same_collective)
-      .value("different_collective", AlignmentCondition::different_collective);
-
-  // AlignTo enum
-  py::enum_<AlignTo>(m, "AlignTo").value("actor_collective", AlignTo::actor_collective).value("none", AlignTo::none);
+  py::enum_<EntityRef>(m, "EntityRef").value("actor", EntityRef::actor).value("target", EntityRef::target);
 
   // HandlerMode enum
   py::enum_<HandlerMode>(m, "HandlerMode").value("FirstMatch", HandlerMode::FirstMatch).value("All", HandlerMode::All);
 
   // StatsTarget enum
-  py::enum_<StatsTarget>(m, "StatsTarget")
-      .value("game", StatsTarget::game)
-      .value("agent", StatsTarget::agent)
-      .value("collective", StatsTarget::collective);
+  py::enum_<StatsTarget>(m, "StatsTarget").value("game", StatsTarget::game).value("agent", StatsTarget::agent);
 
   // StatsEntity enum
   py::enum_<StatsEntity>(m, "StatsEntity").value("target", StatsEntity::target).value("actor", StatsEntity::actor);
@@ -109,18 +91,6 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("entity", &ResourceFilterConfig::entity)
       .def_readwrite("resource_id", &ResourceFilterConfig::resource_id)
       .def_readwrite("min_amount", &ResourceFilterConfig::min_amount);
-
-  py::class_<AlignmentFilterConfig>(m, "AlignmentFilterConfig")
-      .def(py::init<>())
-      .def(py::init([](AlignmentCondition condition) {
-             AlignmentFilterConfig cfg;
-             cfg.condition = condition;
-             return cfg;
-           }),
-           py::arg("condition") = AlignmentCondition::same_collective)
-      .def_readwrite("entity", &AlignmentFilterConfig::entity)
-      .def_readwrite("condition", &AlignmentFilterConfig::condition)
-      .def_readwrite("collective_id", &AlignmentFilterConfig::collective_id);
 
   // SharedTagPrefixFilter - checks if objects share tags with a common prefix
   py::class_<SharedTagPrefixFilterConfig>(m, "SharedTagPrefixFilterConfig")
@@ -175,10 +145,6 @@ inline void bind_handler_config(py::module& m) {
       .def(py::init<>())
       .def_readwrite("inner", &NegFilterConfig::inner)
       .def(
-          "add_alignment_filter",
-          [](NegFilterConfig& self, const AlignmentFilterConfig& cfg) { self.inner.push_back(cfg); },
-          py::arg("filter"))
-      .def(
           "add_vibe_filter",
           [](NegFilterConfig& self, const VibeFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"))
@@ -218,10 +184,6 @@ inline void bind_handler_config(py::module& m) {
   py::class_<OrFilterConfig>(m, "OrFilterConfig")
       .def(py::init<>())
       .def_readwrite("inner", &OrFilterConfig::inner)
-      .def(
-          "add_alignment_filter",
-          [](OrFilterConfig& self, const AlignmentFilterConfig& cfg) { self.inner.push_back(cfg); },
-          py::arg("filter"))
       .def(
           "add_vibe_filter",
           [](OrFilterConfig& self, const VibeFilterConfig& cfg) { self.inner.push_back(cfg); },
@@ -302,17 +264,6 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("amount", &ResourceTransferMutationConfig::amount)
       .def_readwrite("remove_source_when_empty", &ResourceTransferMutationConfig::remove_source_when_empty);
 
-  py::class_<AlignmentMutationConfig>(m, "AlignmentMutationConfig")
-      .def(py::init<>())
-      .def(py::init([](AlignTo align_to) {
-             AlignmentMutationConfig cfg;
-             cfg.align_to = align_to;
-             return cfg;
-           }),
-           py::arg("align_to") = AlignTo::actor_collective)
-      .def_readwrite("align_to", &AlignmentMutationConfig::align_to)
-      .def_readwrite("collective_id", &AlignmentMutationConfig::collective_id);
-
   py::class_<FreezeMutationConfig>(m, "FreezeMutationConfig")
       .def(py::init<>())
       .def(py::init([](int duration) {
@@ -370,7 +321,7 @@ inline void bind_handler_config(py::module& m) {
            }),
            py::arg("stat_name") = "",
            py::arg("delta") = 1.0f,
-           py::arg("target") = StatsTarget::collective,
+           py::arg("target") = StatsTarget::game,
            py::arg("entity") = StatsEntity::target)
       .def_readwrite("stat_name", &StatsMutationConfig::stat_name)
       .def_readwrite("delta", &StatsMutationConfig::delta)
@@ -457,10 +408,6 @@ inline void bind_handler_config(py::module& m) {
           [](HandlerConfig& self, const ResourceFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       .def(
-          "add_alignment_filter",
-          [](HandlerConfig& self, const AlignmentFilterConfig& cfg) { self.filters.push_back(cfg); },
-          py::arg("filter"))
-      .def(
           "add_shared_tag_prefix_filter",
           [](HandlerConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
@@ -496,10 +443,6 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_resource_transfer_mutation",
           [](HandlerConfig& self, const ResourceTransferMutationConfig& cfg) { self.mutations.push_back(cfg); },
-          py::arg("mutation"))
-      .def(
-          "add_alignment_mutation",
-          [](HandlerConfig& self, const AlignmentMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))
       .def(
           "add_freeze_mutation",
