@@ -20,6 +20,7 @@ from mettagrid.util.uri_resolvers.schemes import localize_uri, resolve_uri
 logger = logging.getLogger(__name__)
 
 MAX_POLICY_LOG_BYTES = 100 * 1024 * 1024  # 100MB
+MAX_POLICY_SIZE_BYTES = 500 * 1024 * 1024  # 500MB
 
 
 def _read_log_with_limit(path: Path, max_bytes: int = MAX_POLICY_LOG_BYTES) -> bytes:
@@ -51,12 +52,18 @@ def _is_presigned_url(url: str) -> bool:
 
 
 def _download_presigned_policy(url: str, temp_dirs: list[Path]) -> Path:
-    response = requests.get(url, timeout=30)
+    response = requests.get(url, timeout=30, stream=True)
     response.raise_for_status()
     temp_dir = Path(tempfile.mkdtemp())
     temp_dirs.append(temp_dir)
     local_path = temp_dir / "policy.zip"
-    local_path.write_bytes(response.content)
+    downloaded = 0
+    with open(local_path, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            downloaded += len(chunk)
+            if downloaded > MAX_POLICY_SIZE_BYTES:
+                raise ValueError(f"Policy exceeds {MAX_POLICY_SIZE_BYTES // (1024 * 1024)} MB limit")
+            f.write(chunk)
     return local_path
 
 
