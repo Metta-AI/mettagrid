@@ -933,16 +933,19 @@ proc drawGrid*() {.measure.} =
 
 proc drawPlannedPath*() {.measure.} =
   ## Draw the planned paths for all agents.
-  ## Only show paths when in realtime mode and viewing the latest step.
-  if playMode != Realtime or step != replay.maxSteps - 1:
+  ## Only show paths when in realtime mode and viewing the latest or partial step.
+  let latestStep = (replay.maxSteps - 1).float32
+  if playMode != Realtime or stepFloat < latestStep - 1.0:
     return
   for agentId, pathActions in agentPaths:
     if pathActions.len == 0:
       continue
 
-    # Get agent's current position.
-    let agent = getAgentById(agentId)
-    var currentPos = agent.location.at(step).xy
+    # Start the path from where the agent is heading, not where it was.
+    let
+      agent = getAgentById(agentId)
+      baseStep = floor(stepFloat).int
+    var currentPos = agent.location.at(baseStep + 1).xy
 
     for action in pathActions:
       if action.kind != Move:
