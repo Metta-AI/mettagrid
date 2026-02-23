@@ -205,8 +205,8 @@ AnyGridObjectConfig = Annotated[
 class RenderConfig(Config):
     """MettaScope rendering hints embedded in the game config."""
 
-    hud_1: str = Field(default="hp", description="Inventory item shown as the primary HUD bar")
-    hud_2: str = Field(default="energy", description="Inventory item shown as the secondary HUD bar")
+    hud1: str = Field(default="hp", description="Inventory item shown as the primary HUD bar")
+    hud2: str = Field(default="energy", description="Inventory item shown as the secondary HUD bar")
 
 
 class GameConfig(Config):

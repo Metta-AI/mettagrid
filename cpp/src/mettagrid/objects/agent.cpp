@@ -86,12 +86,7 @@ void Agent::on_inventory_change(InventoryItem item, InventoryDelta delta) {
 }
 
 bool Agent::onUse(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& ctx) {
-  // Agent-to-agent transfers are now handled by the Transfer action handler.
-  // This method returns false to indicate no default use action.
-  (void)actor;
-  (void)arg;
-  (void)ctx;
-  return false;
+  return GridObject::onUse(actor, arg, ctx);
 }
 
 std::vector<PartialObservationToken> Agent::obs_features() const {
