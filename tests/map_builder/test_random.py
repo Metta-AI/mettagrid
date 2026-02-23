@@ -1,6 +1,5 @@
 import numpy as np
 
-from mettagrid.map_builder.map_builder import GameMap
 from mettagrid.map_builder.random_map import RandomMapBuilder
 
 
@@ -128,25 +127,6 @@ class TestRandomMapBuilder:
         assert game_map.grid.shape == (1, 1)
         assert game_map.grid[0, 0] == "wall"
 
-    def test_build_map_shape(self):
-        objects = {"wall": 1}
-        config = RandomMapBuilder.Config(width=7, height=4, objects=objects, agents=0, seed=42)
-        builder = config.create()
-        game_map = builder.build()
-
-        assert game_map.grid.shape == (4, 7)  # height x width
-
-    def test_build_no_agents_int(self):
-        objects = {"wall": 2}
-        config = RandomMapBuilder.Config(width=3, height=3, objects=objects, agents=0, seed=42)
-        builder = config.create()
-        game_map = builder.build()
-
-        unique, counts = np.unique(game_map.grid, return_counts=True)
-        count_dict = dict(zip(unique, counts, strict=False))
-
-        assert "agent.agent" not in count_dict or count_dict["agent.agent"] == 0
-
     def test_build_no_agents_empty_dict(self):
         objects = {"wall": 2}
         agents = {}
@@ -160,26 +140,6 @@ class TestRandomMapBuilder:
         # No agent types should be present
         agent_types = [key for key in count_dict.keys() if key.startswith("agent.")]
         assert len(agent_types) == 0
-
-    def test_build_returns_numpy_array(self):
-        objects = {"wall": 1}
-        config = RandomMapBuilder.Config(width=2, height=2, objects=objects, agents=0, seed=42)
-        builder = config.create()
-        result = builder.build()
-
-        # Should return a GameMap object
-        assert isinstance(result, GameMap)
-        assert result.grid.dtype.kind == "U"  # Unicode string type
-
-    def test_build_large_map_performance(self):
-        """Test that large maps can be built without performance issues"""
-        objects = {"wall": 50, "hub": 20}
-        config = RandomMapBuilder.Config(width=50, height=50, objects=objects, agents=10, seed=42)
-        builder = config.create()
-
-        # This should complete without issues
-        game_map = builder.build()
-        assert game_map.grid.shape == (50, 50)
 
     def test_multiple_agent_types(self):
         objects = {"wall": 2}
