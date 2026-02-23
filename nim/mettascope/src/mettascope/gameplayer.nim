@@ -1,7 +1,7 @@
 import
   std/[strformat, strutils, tables],
   opengl,
-  bumpy, vmath, windy, silky, silky/atlas, chroma,
+  bumpy, vmath, windy, silky, silky/atlas, chroma, pixie,
   common, worldmap, panels, configs, team,
   replays, colors, minimap, actions, cognames, timelineslider
 
@@ -120,7 +120,7 @@ proc drawIconScaled(
   )
 
 const
-  ResourceCellWidth = 88.0f
+  ResourceCellWidth = 120.0f
   ResourceCellHeight = 48.0f
 
 proc resourceCell(pos: Vec2, icon: string, amount: int) =
@@ -128,13 +128,31 @@ proc resourceCell(pos: Vec2, icon: string, amount: int) =
   const
     IconSize = 48.0f
     IconTextGap = 8.0f
+    NumberBgName = "ui/resource_bg"
+    NumberBgFallbackSize = vec2(64, 40)
+    NumberTextPaddingX = 8.0f
   drawIconScaled(icon, pos, IconSize)
+  let
+    numberBgSize =
+      if NumberBgName in sk.atlas.entries:
+        sk.getImageSize(NumberBgName)
+      else:
+        NumberBgFallbackSize
+    numberBgPos = pos + vec2(IconSize + IconTextGap, (IconSize - numberBgSize.y) * 0.5f + 4)
+  if NumberBgName in sk.atlas.entries:
+    sk.drawImage(NumberBgName, numberBgPos)
+
+  let amountLabel = $amount
   discard sk.drawText(
     "pixelated",
-    &"{amount:03d}",
-    pos + vec2(IconSize + IconTextGap, 0),
+    amountLabel,
+    numberBgPos + vec2(NumberTextPaddingX, -4),
     Yellow,
-    clip = false
+    maxWidth = max(0.0f, numberBgSize.x - NumberTextPaddingX * 2.0f),
+    maxHeight = numberBgSize.y,
+    clip = false,
+    hAlign = RightAlign,
+    vAlign = MiddleAlign
   )
 
 proc drawVibeButton(
@@ -532,31 +550,49 @@ proc centerPanel(winW: float32, winH: float32) =
   let bcSize = sk.getImageSize("ui/panel_center")
   let bcPos = vec2((winW - bcSize.x) / 2.0, winH - bcSize.y - 20)
   sk.drawImage("ui/panel_center", bcPos)
+  var at = vec2(bcPos.x + 69, bcPos.y + 32)
 
-  if selected.isAgent:
-    let profilePos = bcPos + vec2(424, 32)
+  let
+    isAgent = selected.isAgent
+    profilePos = bcPos + vec2(424, 32)
+    teamName = getTeamName(getEntityTeamIndex(selected))
+
+  var
+    displayName = ""
+    profileName = ""
+    resourcesToDraw: seq[tuple[icon: string, amount: int]] = @[]
+
+  if isAgent:
     let rig = getAgentRigName(selected)
-    let profileName =
+    let cogName = getCogName(selected.agentId)
+    displayName =
+      if teamName.len > 0 and cogName.len > 0:
+        teamName & " " & cogName
+      elif teamName.len > 0:
+        teamName
+      elif cogName.len > 0:
+        cogName
+      else:
+        rig
+    profileName =
       if rig == "agent":
         "profiles/cog"
       else:
         "profiles/" & rig
-    sk.drawImage(profileName, profilePos)
+  else:
+    let normalized = normalizeTypeName(selected.renderName)
+    displayName =
+      if teamName.len > 0:
+        teamName & " " & normalized
+      else:
+        normalized
+    profileName = "profiles/" & normalized
 
-    let
-      textPos = bcPos + vec2(69, 32)
-      cogName = getCogName(selected.agentId)
-      teamName = getTeamName(getEntityTeamIndex(selected))
-      displayName =
-        if teamName.len > 0 and cogName.len > 0:
-          teamName & " " & cogName
-        elif teamName.len > 0:
-          teamName
-        elif cogName.len > 0:
-          cogName
-        else:
-          rig
+  # 1) Name
+  discard sk.drawText("pixelated", displayName, at, Yellow, clip = false)
 
+  # 2) Agent bars
+  if isAgent:
     let
       prevStep = max(0, step - 1)
       hud1Name = replay.hudItem1
@@ -567,86 +603,63 @@ proc centerPanel(winW: float32, winH: float32) =
       prevHud2 = getInventoryItem(selected, hud2Name, prevStep)
       deltaHud1 = hud1 - prevHud1
       deltaHud2 = hud2 - prevHud2
-
-    discard sk.drawText("pixelated", displayName, textPos, Yellow, clip = false)
     drawStatBar(bcPos + vec2(69, 84), hud1Name.toUpperAscii, hud1, 100, 10, deltaHud1)
     drawStatBar(bcPos + vec2(69, 118), hud2Name.toUpperAscii, hud2, 20, 20, deltaHud2)
 
-    let agentResources = [
-      ("resources/heart", "heart"),
-      ("resources/carbon", "carbon"),
-      ("resources/oxygen", "oxygen"),
-      ("resources/germanium", "germanium"),
-      ("resources/silicon", "silicon"),
-    ]
-    const
-      ResourceGridOrigin = vec2(59, 156)
-      ResourceColSpacing = 20.0f
-      ResourceRowSpacing = 12.0f
-      ResourceCols = 3
-    var visibleResourceCells = 0
-    for (icon, name) in agentResources:
-      let amount = getInventoryItem(selected, name)
-      if amount <= 0:
-        continue
-      let
-        row = visibleResourceCells div ResourceCols
-        col = visibleResourceCells mod ResourceCols
-        rowXOffset = if row == 0: 0.0f else: (ResourceCellWidth + ResourceColSpacing) / 2.0f
-        cellPos = bcPos + ResourceGridOrigin + vec2(
-          rowXOffset + col.float32 * (ResourceCellWidth + ResourceColSpacing),
-          row.float32 * (ResourceCellHeight + ResourceRowSpacing)
-        )
-      resourceCell(cellPos, icon, amount)
-      inc visibleResourceCells
-
-  else:
-    # Building info panel.
+  # 3) Object resources (inline, wrapped, no resource_bg) shared for agent/building.
+  for item in selected.inventory.at:
+    if item.count <= 0 or item.itemId < 0 or item.itemId >= replay.itemNames.len:
+      continue
     let
-      normalized = normalizeTypeName(selected.renderName)
-      iconName = "profiles/" & normalized
-      profilePos = bcPos + vec2(424, 32)
-    if iconName in sk.atlas.entries:
-      sk.drawImage(iconName, profilePos)
-
-    let
-      textPos = bcPos + vec2(69, 32)
-      teamName = getTeamName(getEntityTeamIndex(selected))
-      displayName =
-        if teamName.len > 0:
-          teamName & " " & normalized
+      itemName = replay.itemNames[item.itemId]
+      itemIcon =
+        if "resources/" & itemName in sk.atlas.entries:
+          "resources/" & itemName
         else:
-          normalized
+          "resources/heart"
+    resourcesToDraw.add((icon: itemIcon, amount: item.count))
 
-    discard sk.drawText("pixelated", displayName, textPos, Yellow, clip = false)
+  # Use `at` for resource anchor; buildings start higher since they have no bars.
+  at = vec2(
+    bcPos.x + 59,
+    if isAgent: bcPos.y + 156 else: bcPos.y + 112
+  )
+  const
+    ResourceMaxWidth = 300.0f
+    IconSize = 48.0f
+    IconTextGap = 8.0f
+    ItemGap = 16.0f
+    RowGap = 12.0f
+  var
+    cursorX = 0.0f
+    cursorY = 0.0f
+  for resource in resourcesToDraw:
+    let
+      amountLabel = $resource.amount
+      textSize = sk.getTextSize(sk.textStyle, amountLabel)
+      itemWidth = IconSize + IconTextGap + textSize.x
+    if cursorX > 0 and cursorX + itemWidth > ResourceMaxWidth:
+      cursorX = 0.0f
+      cursorY += IconSize + RowGap
+    let iconPos = at + vec2(cursorX, cursorY)
+    drawIconScaled(resource.icon, iconPos, IconSize)
+    discard sk.drawText(
+      "pixelated",
+      amountLabel,
+      iconPos + vec2(IconSize + IconTextGap, 0),
+      Yellow,
+      maxWidth = textSize.x,
+      maxHeight = IconSize,
+      clip = false,
+      hAlign = LeftAlign,
+      vAlign = MiddleAlign
+    )
+    cursorX += itemWidth + ItemGap
 
-    # Building inventory.
-    let inv = selected.inventory.at
-    const
-      ResourceGridOrigin = vec2(59, 156)
-      ResourceColSpacing = 20.0f
-      ResourceRowSpacing = 12.0f
-      ResourceCols = 3
-    var visibleResourceCells = 0
-    for item in inv:
-      if item.count <= 0 or item.itemId < 0 or item.itemId >= replay.itemNames.len:
-        continue
-      let
-        itemName = replay.itemNames[item.itemId]
-        itemIcon =
-          if "resources/" & itemName in sk.atlas.entries:
-            "resources/" & itemName
-          else:
-            "resources/heart"  # fallback icon
-        row = visibleResourceCells div ResourceCols
-        col = visibleResourceCells mod ResourceCols
-        rowXOffset = if row == 0: 0.0f else: (ResourceCellWidth + ResourceColSpacing) / 2.0f
-        cellPos = bcPos + ResourceGridOrigin + vec2(
-          rowXOffset + col.float32 * (ResourceCellWidth + ResourceColSpacing),
-          row.float32 * (ResourceCellHeight + ResourceRowSpacing)
-        )
-      resourceCell(cellPos, itemIcon, item.count)
-      inc visibleResourceCells
+  # 4) Profile
+  if profileName in sk.atlas.entries:
+    sk.drawImage(profileName, profilePos)
+
 
 proc bottomLeftMinimap(winH: float32) =
   ## Draw minimap inside the bottom-left panel.
@@ -693,7 +706,12 @@ proc drawTimelineSlider*(value: var float32, minVal: float32, maxVal: float32, l
     baseHandleSize = sk.getImageSize("scrubber.handle")
     buttonHandleSize = sk.getImageSize("button.9patch")
     labelSize = if label.len > 0: sk.getTextSize(sk.textStyle, label) else: vec2(0, 0)
-    minLabelSize = if label.len > 0: sk.getTextSize(sk.textStyle, "0000") else: vec2(0, 0)
+    maxLabel =
+      if label.len > 0:
+        $int(max(abs(minVal), abs(maxVal)) + 0.5f)
+      else:
+        ""
+    minLabelSize = if maxLabel.len > 0: sk.getTextSize(sk.textStyle, maxLabel) else: vec2(0, 0)
     knobTextPadding = sk.theme.padding.float32 * 2 + 8f
     handleWidth =
       if label.len > 0:
@@ -731,9 +749,23 @@ proc drawTimelineSlider*(value: var float32, minVal: float32, maxVal: float32, l
   let displayValue = clamp(value, minF, maxF)
   let norm2 = if range == 0: 0f else: clamp((displayValue - minF) / range, 0f, 1f)
   let handlePos2 = vec2(trackStart + norm2 * travel - handleSize.x * 0.5, controlRect.y + (height - handleSize.y) * 0.5)
+  let
+    sliderPos = handlePos2 - vec2(32, 24)
+    sliderSize = sk.getImageSize("ui/timeslider")
+    labelPaddingX = 10.0f
 
-  sk.drawImage("ui/timeslider", handlePos2 - vec2(32, 24))
-  discard sk.drawText("pixelated", label, handlePos2 + vec2(12, -8), Yellow)
+  sk.drawImage("ui/timeslider", sliderPos)
+  discard sk.drawText(
+    "pixelated",
+    label,
+    sliderPos + vec2(labelPaddingX, 14),
+    Yellow,
+    maxWidth = sliderSize.x - labelPaddingX * 2,
+    maxHeight = sliderSize.y,
+    clip = false,
+    hAlign = CenterAlign,
+    vAlign = TopAlign
+  )
 
 proc bottomTimelineSlider(winW: float32, winH: float32) =
   ## Draw a bottom timeline slider inset from both edges.
