@@ -604,14 +604,10 @@ proc centerPanel(winW: float32, winH: float32) =
     # Building info panel.
     let
       normalized = normalizeTypeName(selected.renderName)
-      iconName = "icons/objects/" & normalized
+      iconName = "profiles/" & normalized
       profilePos = bcPos + vec2(424, 32)
-      profileSize = sk.getImageSize("profiles/cog")
     if iconName in sk.atlas.entries:
-      let
-        iconW = profileSize.x
-        offsetY = (profileSize.y - iconW) / 2.0
-      drawIconScaled(iconName, profilePos + vec2(0, offsetY), iconW)
+      sk.drawImage(iconName, profilePos)
 
     let
       textPos = bcPos + vec2(69, 32)
