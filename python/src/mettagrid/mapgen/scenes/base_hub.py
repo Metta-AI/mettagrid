@@ -34,7 +34,6 @@ class BaseHubConfig(SceneConfig):
     cross_bundle: Literal["none", "extractors", "custom"] = "none"
     cross_distance: int = 4
     layout: Literal["default", "tight"] = "default"
-    junction_object: str = "junction"
     randomize_spawn_positions: bool = False
     # Gear stations: list of station names to place (e.g., ["aligner_station", "scrambler_station"])
     # These are placed in a row below the chest, similar to how the chest is placed
@@ -251,10 +250,6 @@ class BaseHub(Scene[BaseHubConfig]):
         if 1 <= cx < w - 1 and 1 <= cy < h - 1:
             grid[cy, cx] = cfg.hub_object
 
-            junction_y = cy - 3
-            if 1 <= junction_y < h - 1:
-                grid[junction_y, cx] = cfg.junction_object
-
             # Place stations in a row below the hub
             self._place_stations(cx, cy + 4, grid)
 
@@ -349,10 +344,6 @@ class BaseHub(Scene[BaseHubConfig]):
 
         if 1 <= cx < w - 1 and 1 <= cy < h - 1:
             place_building(cx, cy, cfg.hub_object)
-
-        junction_y = cy - 2
-        if 1 <= cx < w - 1 and 1 <= junction_y < h - 1:
-            place_building(cx, junction_y, cfg.junction_object)
 
         corner_positions = [
             (cx - 2, cy - 2),
