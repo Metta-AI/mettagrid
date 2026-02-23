@@ -490,7 +490,6 @@ proc drawStatBar(panelPos: Vec2, label: string, value: int, maxValue: int, divis
     deltaStart = min(totalFilled, previousFilled)
     deltaEnd = max(totalFilled, previousFilled)
 
-  let
     outerX = outerPos.x.int
     outerY = outerPos.y.int
     outerW = OuterSize.x.int
@@ -500,7 +499,13 @@ proc drawStatBar(panelPos: Vec2, label: string, value: int, maxValue: int, divis
     innerW = max(0, outerW - 2 * (BorderPx + InnerGapPx))
     innerH = max(0, outerH - 2 * (BorderPx + InnerGapPx))
 
-  discard sk.drawText("pixelated", label, panelPos + LabelOffset, Yellow, clip = false)
+    text =
+      if label == "ENERGY":
+        "E"
+      else:
+        # Just first 2 letters of the label
+        label[0..1]
+  discard sk.drawText("pixelated", text, panelPos + LabelOffset, Yellow, clip = false)
 
   # Stroke-only rectangle made from 4 filled rects.
   sk.drawRect(vec2(outerX.float32, outerY.float32), vec2(outerW.float32, BorderPx.float32), Yellow)  # top
@@ -612,11 +617,11 @@ proc centerPanel(winW: float32, winH: float32) =
       continue
     let
       itemName = replay.itemNames[item.itemId]
-      itemIcon =
-        if "resources/" & itemName in sk.atlas.entries:
-          "resources/" & itemName
-        else:
-          "resources/heart"
+      itemIcon = "resources/" & itemName
+    if itemName in @["hp", "energy", "solar"]:
+      continue
+    if itemIcon notin sk.atlas.entries:
+      continue
     resourcesToDraw.add((icon: itemIcon, amount: item.count))
 
   # Use `at` for resource anchor; buildings start higher since they have no bars.
