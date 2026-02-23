@@ -1,5 +1,5 @@
 import
-  std/[strformat, tables],
+  std/[strformat, strutils, tables],
   opengl,
   bumpy, vmath, windy, silky, silky/atlas, chroma,
   common, worldmap, panels, configs, team,
@@ -557,26 +557,20 @@ proc centerPanel(winW: float32, winH: float32) =
         else:
           rig
 
-    var
-      health = 0
-      energy = 0
-    let prevStep = max(0, step - 1)
-    let inv = selected.inventory.at
-    for item in inv:
-      if item.itemId >= 0 and item.itemId < replay.itemNames.len:
-        if replay.itemNames[item.itemId] == "hp":
-          health = item.count
-        elif replay.itemNames[item.itemId] == "energy":
-          energy = item.count
     let
-      prevHealth = getInventoryItem(selected, "hp", prevStep)
-      prevEnergy = getInventoryItem(selected, "energy", prevStep)
-      deltaHealth = health - prevHealth
-      deltaEnergy = energy - prevEnergy
+      prevStep = max(0, step - 1)
+      hud1Name = replay.hudItem1
+      hud2Name = replay.hudItem2
+      hud1 = getInventoryItem(selected, hud1Name)
+      hud2 = getInventoryItem(selected, hud2Name)
+      prevHud1 = getInventoryItem(selected, hud1Name, prevStep)
+      prevHud2 = getInventoryItem(selected, hud2Name, prevStep)
+      deltaHud1 = hud1 - prevHud1
+      deltaHud2 = hud2 - prevHud2
 
     discard sk.drawText("pixelated", displayName, textPos, Yellow, clip = false)
-    drawStatBar(bcPos + vec2(69, 84), "HP", health, 100, 10, deltaHealth)
-    drawStatBar(bcPos + vec2(69, 118), "E", energy, 20, 20, deltaEnergy)
+    drawStatBar(bcPos + vec2(69, 84), hud1Name.toUpperAscii, hud1, 100, 10, deltaHud1)
+    drawStatBar(bcPos + vec2(69, 118), hud2Name.toUpperAscii, hud2, 20, 20, deltaHud2)
 
     let agentResources = [
       ("resources/heart", "heart"),
@@ -609,7 +603,7 @@ proc centerPanel(winW: float32, winH: float32) =
   else:
     # Building info panel.
     let
-      normalized = normalizeTypeName(selected.typeName)
+      normalized = normalizeTypeName(selected.renderName)
       iconName = "icons/objects/" & normalized
       profilePos = bcPos + vec2(424, 32)
       profileSize = sk.getImageSize("profiles/cog")

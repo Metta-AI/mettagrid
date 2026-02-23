@@ -722,6 +722,8 @@ proc drawObjects*() {.measure.} =
             "objects/junction.clipped1"
           elif teamName.contains("cog") and "objects/junction.working" in px:
             "objects/junction.working"
+          elif "objects/" & thing.renderName in px:
+            "objects/" & thing.renderName
           elif "objects/" & thing.typeName in px:
             "objects/" & thing.typeName
           elif "objects/" & stripTeamPrefix(thing.typeName) in px:
@@ -737,7 +739,9 @@ proc drawObjects*() {.measure.} =
 
     else:
       let spriteName =
-        if "objects/" & thing.typeName in px:
+        if "objects/" & thing.renderName in px:
+          "objects/" & thing.renderName
+        elif "objects/" & thing.typeName in px:
           "objects/" & thing.typeName
         elif "objects/" & stripTeamPrefix(thing.typeName) in px:
           "objects/" & stripTeamPrefix(thing.typeName)
@@ -895,25 +899,26 @@ proc drawBar*(pos: IVec2, tint: ColorRGBX, numPips: int, maxValue: int, current:
     px.drawSprite(fgSprite, ivec2(startX + int32((currentPips - 1) * pipWidth), pos.y))
 
 proc drawAgentDecorations*() {.measure.} =
-  # Draw health and energy bars, and frozen status.
+  ## Draw configurable HUD bars above each agent.
   const
-    MaxHp = 100
-    MaxEnergy = 20
+    MaxHud1 = 100
+    MaxHud2 = 20
     NumPips = 10
-  let prevStep = max(0, step - 1)
+  let
+    prevStep = max(0, step - 1)
+    hud1Name = replay.hudItem1
+    hud2Name = replay.hudItem2
   for agent in replay.agents:
     if not agent.alive.at:
       continue
     let pos = (agent.smoothPos * TileSize.float32).ivec2
     let tint = getTeamColor(getEntityTeamIndex(agent))
-    # HP bar
-    let hp = getInventoryItem(agent, "hp")
-    let hpPrev = getInventoryItem(agent, "hp", prevStep)
-    drawBar(ivec2(pos.x, pos.y - 68), tint, NumPips, MaxHp, hp, hpPrev, LargePip)
-    # Energy bar - medium pips, yellow
-    let energy = getInventoryItem(agent, "energy")
-    let energyPrev = getInventoryItem(agent, "energy", prevStep)
-    drawBar(ivec2(pos.x, pos.y - 61), colors.Yellow, NumPips, MaxEnergy, energy, energyPrev, MediumPip)
+    let hud1 = getInventoryItem(agent, hud1Name)
+    let hud1Prev = getInventoryItem(agent, hud1Name, prevStep)
+    drawBar(ivec2(pos.x, pos.y - 68), tint, NumPips, MaxHud1, hud1, hud1Prev, LargePip)
+    let hud2 = getInventoryItem(agent, hud2Name)
+    let hud2Prev = getInventoryItem(agent, hud2Name, prevStep)
+    drawBar(ivec2(pos.x, pos.y - 61), colors.Yellow, NumPips, MaxHud2, hud2, hud2Prev, MediumPip)
 
 proc drawGrid*() {.measure.} =
   # Draw the grid using a single quad and shader-based lines.
@@ -1089,7 +1094,9 @@ proc drawObjectPips*() {.measure.} =
       continue
     if not obj.alive.at:
       continue
-    var pipName = "minimap/" & obj.typeName
+    var pipName = "minimap/" & obj.renderName
+    if pipName notin pxMini:
+      pipName = "minimap/" & obj.typeName
     if pipName notin pxMini:
       pipName = "minimap/" & stripTeamSuffix(obj.typeName)
     if pipName notin pxMini:

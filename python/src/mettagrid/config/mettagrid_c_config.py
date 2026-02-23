@@ -803,6 +803,8 @@ def convert_to_cpp_game_config(
         del game_cpp_params["materialize_queries"]
     if "territories" in game_cpp_params:
         del game_cpp_params["territories"]
+    if "render" in game_cpp_params:
+        del game_cpp_params["render"]
 
     if "obs" in game_cpp_params:
         obs_config = game_cpp_params.pop("obs")

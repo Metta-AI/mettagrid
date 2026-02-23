@@ -41,12 +41,17 @@ type
     name*: string
     typeId*: int
     mapChar*: string
+    renderName*: string
     renderSymbol*: string
     tags*: seq[string]
     `type`*: string
     swappable*: bool
     recipes*: seq[RecipeInfoConfig]
     territory_controls*: seq[TerritoryControl]
+
+  RenderConfig* = object
+    hud1*: string
+    hud2*: string
 
   GameConfig* = object
     resourceNames*: seq[string]
@@ -56,6 +61,7 @@ type
     obs*: ObsConfig
     actions*: Table[string, ActionConfig]
     objects*: Table[string, ObjectConfig]
+    render*: RenderConfig
 
   Config* = object
     label*: string
@@ -75,6 +81,7 @@ type
     # Common keys.
     id*: int
     typeName*: string
+    renderName*: string
     groupId*: int
     agentId*: int
     location*: seq[IVec2]
@@ -177,6 +184,7 @@ type
     ## Replay entity does not have time series and only has the current step value.
     id*: int
     typeName*: string
+    renderName*: string
     typeId*: int
     groupId*: int
     agentId*: int
@@ -293,6 +301,26 @@ proc getTerritoryControls*(replay: Replay, typeName: string): seq[TerritoryContr
   if typeName notin replay.territoryControlsByName:
     return @[]
   replay.territoryControlsByName[typeName]
+
+proc getRenderName*(replay: Replay, typeName: string): string =
+  ## Resolve render name for a type, falling back to typeName.
+  if typeName in replay.config.game.objects:
+    let cfg = replay.config.game.objects[typeName]
+    if cfg.renderName.len > 0:
+      return cfg.renderName
+  typeName
+
+proc hudItem1*(replay: Replay): string =
+  ## Inventory item name for the primary HUD bar.
+  if replay.config.game.render.hud1.len > 0:
+    return replay.config.game.render.hud1
+  "hp"
+
+proc hudItem2*(replay: Replay): string =
+  ## Inventory item name for the secondary HUD bar.
+  if replay.config.game.render.hud2.len > 0:
+    return replay.config.game.render.hud2
+  "carbon"
 
 proc parseTerritoryControls(objConfig: JsonNode, objectName: string): seq[TerritoryControl] =
   ## Parse and validate territory_controls from object config.
@@ -979,6 +1007,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
     let entity = Entity(
       id: obj.getInt("id", 0),
       typeName: resolvedTypeName,
+      renderName: replay.getRenderName(resolvedTypeName),
       location: location,
       orientation: obj.getExpandedIntSeq("orientation", replay.maxSteps),
       inventory: inventory,
@@ -1139,6 +1168,7 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
     if resolvedTypeName.len == 0 and obj.typeId >= 0 and obj.typeId < replay.typeNames.len:
       resolvedTypeName = replay.typeNames[obj.typeId]
     entity.typeName = resolvedTypeName
+    entity.renderName = replay.getRenderName(resolvedTypeName)
     entity.isAgent = resolvedTypeName == agentTypeName
     entity.groupId = obj.groupId
     entity.tagIds.add(obj.tagIds)
