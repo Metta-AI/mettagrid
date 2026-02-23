@@ -120,6 +120,18 @@ class _VibeActionSupervisorPolicy(MultiAgentPolicy):
         raw_actions[...] = np.int32(self._vibe_action_id)
 
 
+class _MoveNorthSupervisorPolicy(MultiAgentPolicy):
+    def __init__(self, policy_env_info: PolicyEnvInterface, device: str = "cpu"):
+        super().__init__(policy_env_info, device=device)
+        self._move_north_id = policy_env_info.action_names.index("move_north")
+
+    def agent_policy(self, agent_id: int) -> AgentPolicy:
+        return _VibeActionSupervisorAgentPolicy(self._policy_env_info)
+
+    def step_batch(self, raw_observations: np.ndarray, raw_actions: np.ndarray) -> None:
+        raw_actions[...] = np.int32(self._move_north_id)
+
+
 class TestMettaGridPufferEnvGymnasiumVector:
     """Tests for Gymnasium vector compatibility."""
 
@@ -576,6 +588,31 @@ class TestMettaGridPufferEnvSupervisorPolicy:
         teacher_actions_after_step4 = env.teacher_actions
         assert teacher_actions_after_step4[0] == noop_idx
         assert teacher_actions_after_step4[1] == noop_idx
+
+    def test_serial_vecenv_propagates_teacher_actions(self, simulator, puffer_sim_config):
+        """Ensure supervisor teacher_actions are visible through PufferLib vecenv.recv()."""
+
+        supervisor_policy_spec = PolicySpec(class_path="tests.test_mettagrid_puffer_env._MoveNorthSupervisorPolicy")
+
+        def create_env(*args, **kwargs):
+            return MettaGridPufferEnv(
+                simulator=simulator,
+                cfg=puffer_sim_config,
+                supervisor_policy_spec=supervisor_policy_spec,
+                **kwargs,
+            )
+
+        vecenv = Serial([create_env], [()], [{}], num_envs=1)
+        try:
+            vecenv.async_reset(seed=0)
+            vecenv.recv()
+
+            expected = vecenv.driver_env._policy_env_info.action_names.index("move_north")
+            teacher_actions = vecenv.teacher_actions
+            assert teacher_actions.shape == (2,)
+            assert np.all(teacher_actions == expected)
+        finally:
+            vecenv.close()
 
     def test_supervisor_split_vibe_labels_are_mapped_into_vibe_actions(self, simulator, puffer_sim_config):
         supervisor_policy_spec = PolicySpec(class_path="tests.test_mettagrid_puffer_env._VibeActionSupervisorPolicy")
