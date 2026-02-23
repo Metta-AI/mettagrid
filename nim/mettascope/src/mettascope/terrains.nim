@@ -119,14 +119,26 @@ proc generateTerrainMap(atlasPath: string): TileMap =
 
 proc stampForTypeName(typeName: string): string =
   let normalized = normalizeTypeName(typeName)
-  if normalized.contains("carbon_extractor"): return "terrain/stamp.carbon"
-  if normalized.contains("germanium_extractor"): return "terrain/stamp.germanium"
-  if normalized.contains("germenium_extractor"): return "terrain/stamp.germenium"
-  if normalized.contains("silicon_extractor"): return "terrain/stamp.silicon"
-  if normalized.contains("oxygen_extractor"): return "terrain/stamp.oxygen"
-  if normalized == "junction": return "terrain/stamp.junction"
-  if normalized == "hub": return "terrain/stamp.hub"
-  ""
+  case normalized
+  of "carbon_extractor":
+    "terrain/stamp.carbon"
+  of "germanium_extractor":
+    "terrain/stamp.germanium"
+  of "germenium_extractor":
+    "terrain/stamp.germenium"
+  of "silicon_extractor":
+    "terrain/stamp.silicon"
+  of "oxygen_extractor":
+    "terrain/stamp.oxygen"
+  of "junction":
+    "terrain/stamp.junction"
+  of "hub":
+    "terrain/stamp.hub"
+  of "wall", "agent", "aligner", "scrambler", "miner", "scout":
+    ""
+  else:
+    echo "Missing splat stamp mapping for ", normalized
+    ""
 
 proc rebuildSplats*() =
   splats.setLen(0)
@@ -134,7 +146,8 @@ proc rebuildSplats*() =
 
   for obj in replay.objects:
     let stamp = stampForTypeName(obj.renderName)
-    if stamp.len == 0: continue
+    if stamp == "":
+      continue
 
     var firstAliveStep = -1
     for s in 0 ..< min(replay.maxSteps, obj.alive.len):
