@@ -558,7 +558,7 @@ proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
         gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
       if gridPos.x >= 0 and gridPos.x < replay.mapSize[0] and
         gridPos.y >= 0 and gridPos.y < replay.mapSize[1]:
-        let startPos = selected.location.at(step).xy
+        let startPos = selected.location.at(replay.maxSteps - 1).xy
 
         # Determine if this is a Bump or Move objective.
         let targetObj = getObjectAtLocation(gridPos)
