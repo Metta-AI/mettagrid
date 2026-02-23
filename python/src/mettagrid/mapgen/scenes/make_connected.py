@@ -13,6 +13,10 @@ STRUCTURE_4_CONNECTED = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
 # Cost ratio for wall vs empty. Higher = prefer corridors more aggressively.
 # With ratio 10, walking 10 empty cells equals digging through 1 wall.
 WALL_COST_RATIO = 10
+# Cost ratio for objects vs empty. Objects are more expensive to remove than walls
+# because they represent placed game content, but must be removable as a last resort
+# to ensure map connectivity.
+OBJECT_COST_RATIO = 50
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +98,7 @@ class MakeConnected(Scene[MakeConnectedConfig]):
             min_idx = int(np.argmin(comp_distances))
             start_y, start_x = int(comp_ys[min_idx]), int(comp_xs[min_idx])
 
-            # Trace path back and only dig through walls
-            self._dig_path(start_y, start_x, predecessors, wall)
+            self._dig_path(start_y, start_x, predecessors, wall, empty)
 
         # Verify connectivity
         _, num_final = ndimage.label(self.grid == "empty", structure=STRUCTURE_4_CONNECTED)  # type: ignore[misc]
@@ -107,37 +110,32 @@ class MakeConnected(Scene[MakeConnectedConfig]):
         """
         Dial's algorithm: bucket-based shortest path for integer edge weights.
 
-        Since we have only 2 costs (1 for empty, K for wall), we use K+1 circular buckets.
-        This avoids heap operations entirely, giving O(n * K) complexity.
-
-        Cells that are neither empty nor wall (e.g. resource objects, agents) are
-        treated as impassable so that connectivity tunnels never destroy them.
+        Three cost levels:
+        - Empty cells: cost 1 (walk through)
+        - Wall cells: cost K (dig through)
+        - Object cells: cost J (remove as last resort, strongly avoided)
 
         Returns:
             distances: 2D int array of minimum cost to reach each cell
             predecessors: 2D array of (prev_y * width + prev_x), -1 for sources
         """
         K = WALL_COST_RATIO
-        INF = height * width * K + 1  # Upper bound on any path cost
+        J = OBJECT_COST_RATIO
+        INF = height * width * J + 1
 
-        # Use integer arrays for speed
         distances = np.full((height, width), INF, dtype=np.int32)
-        # Encode predecessor as flat index (y * width + x), -1 for source/unvisited
         predecessors = np.full((height, width), -1, dtype=np.int32)
 
-        # Circular bucket queues indexed by cost mod (K + 1)
-        num_buckets = K + 1
+        num_buckets = J + 1
         buckets: list[deque[tuple[int, int]]] = [deque() for _ in range(num_buckets)]
 
-        # Seed with all source cells (cost 0)
         source_ys, source_xs = np.where(source_mask)
         for i in range(len(source_ys)):
             y, x = int(source_ys[i]), int(source_xs[i])
             distances[y, x] = 0
-            predecessors[y, x] = -2  # Mark as source (distinct from -1 unvisited)
+            predecessors[y, x] = -2
             buckets[0].append((y, x))
 
-        # Process buckets in order of increasing cost
         current_cost = 0
         processed = 0
         total_cells = height * width
@@ -154,25 +152,20 @@ class MakeConnected(Scene[MakeConnectedConfig]):
 
             y, x = bucket.popleft()
 
-            # Skip if we've already processed this cell with lower cost
             if distances[y, x] < current_cost:
                 continue
 
             processed += 1
 
-            # Explore neighbors
             for dy, dx in DIRECTIONS:
                 ny, nx = y + dy, x + dx
                 if 0 <= ny < height and 0 <= nx < width:
-                    # Cost: 1 for empty, K for wall, impassable for objects
                     if empty[ny, nx]:
                         step_cost = 1
                     elif wall[ny, nx]:
                         step_cost = K
                     else:
-                        # Non-wall, non-empty cell (resource, agent, etc.)
-                        # Treat as impassable to avoid destroying objects.
-                        continue
+                        step_cost = J
                     new_cost = current_cost + step_cost
 
                     if new_cost < distances[ny, nx]:
@@ -182,22 +175,20 @@ class MakeConnected(Scene[MakeConnectedConfig]):
 
         return distances, predecessors
 
-    def _dig_path(self, start_y: int, start_x: int, predecessors: np.ndarray, wall: np.ndarray) -> None:
+    def _dig_path(
+        self, start_y: int, start_x: int, predecessors: np.ndarray, wall: np.ndarray, empty: np.ndarray
+    ) -> None:
         """
-        Trace path from start back to the largest component, digging only through walls.
-
-        Only wall cells are converted to empty.  Non-wall objects (resources,
-        agents, etc.) are never overwritten, preserving map integrity.
+        Trace path from start back to the largest component, digging through
+        walls and removing objects as needed to ensure connectivity.
         """
         width = predecessors.shape[1]
         y, x = start_y, start_x
 
         while predecessors[y, x] >= 0:  # -2 = source, -1 = unvisited
-            # Only dig if this cell is a wall — never overwrite objects
-            if wall[y, x]:
+            if not empty[y, x]:
                 self.grid[y, x] = "empty"
 
-            # Decode predecessor from flat index
             prev_flat = predecessors[y, x]
             y, x = prev_flat // width, prev_flat % width
 
