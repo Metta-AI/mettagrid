@@ -304,7 +304,7 @@ proc parseTerritoryControls(objConfig: JsonNode, objectName: string): seq[Territ
       ValueError,
       "Invalid territory_controls for object '" & objectName & "': expected an array"
     )
-  for i, controlNode in controls:
+  for i, controlNode in controls.getElems():
     if controlNode.kind != JObject:
       raise newException(
         ValueError,
