@@ -36,7 +36,7 @@ proc agentHasEnergy(agent: Entity): bool =
   if energyId == -1:
     echo "Energy item not found in replay"
     return true
-  let inv = agent.inventory.at(step)
+  let inv = agent.inventory.at(replay.maxSteps - 1)
   for item in inv:
     if item.itemId == energyId and item.count > 1:
       return true
@@ -63,7 +63,7 @@ proc processActions*() =
       continue
 
     let agent = getAgentById(agentId)
-    let currentPos = agent.location.at(step).xy
+    let currentPos = agent.location.at(replay.maxSteps - 1).xy
     let pathActions = agentPaths[agentId]
 
     if pathActions.len == 0:
