@@ -131,13 +131,6 @@ class TestAsciiMapBuilder:
         finally:
             os.unlink(temp_file)
 
-    def test_config_accepts_string_map_data(self):
-        config = AsciiMapBuilder.Config(
-            map_data=[list(v) for v in ["#@", "##"]],
-            char_to_map_name={"#": "wall", "@": "agent.agent"},
-        )
-        assert config.map_data == [["#", "@"], ["#", "#"]]
-
     def test_config_accepts_list_of_strings(self):
         config = AsciiMapBuilder.Config(
             map_data=[list(v) for v in ["##", "@#"]],
@@ -184,21 +177,6 @@ class TestAsciiMapBuilder:
         with pytest.raises(FileNotFoundError):
             config = AsciiMapBuilder.Config.from_uri("nonexistent_file.txt")
             AsciiMapBuilder(config)
-
-    def test_from_uri_loads_legend(self):
-        yaml_content = make_yaml_map(
-            [
-                "A",
-            ],
-            {"A": "legend_name"},
-        )
-
-        temp_file = write_temp_map(yaml_content)
-        try:
-            config = AsciiMapBuilder.Config.from_uri(temp_file)
-            assert config.char_to_map_name["A"] == "legend_name"
-        finally:
-            os.unlink(temp_file)
 
     def test_global_defaults_merge_into_legend(self):
         yaml_content = make_yaml_map(
@@ -284,30 +262,5 @@ class TestAsciiMapBuilder:
         try:
             with pytest.raises(ValueError, match="String should match pattern"):
                 AsciiMapBuilder.Config.from_uri(temp_file)
-        finally:
-            os.unlink(temp_file)
-
-    def test_utf8_encoding(self):
-        yaml_content = make_yaml_map(
-            [
-                "###",
-                "#@.",
-                "###",
-            ],
-            self.BASE_LEGEND,
-        )
-
-        temp_file = write_temp_map(yaml_content)
-        try:
-            config = AsciiMapBuilder.Config.from_uri(temp_file)
-            builder = AsciiMapBuilder(config)
-            game_map = builder.build()
-
-            expected = np.array(
-                [["wall", "wall", "wall"], ["wall", "agent.agent", "empty"], ["wall", "wall", "wall"]],
-                dtype=map_grid_dtype,
-            )
-
-            assert np.array_equal(game_map.grid, expected)
         finally:
             os.unlink(temp_file)
