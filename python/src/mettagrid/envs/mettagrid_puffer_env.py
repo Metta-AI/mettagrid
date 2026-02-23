@@ -468,7 +468,10 @@ class MettaGridPufferEnv(PufferEnv):
 
     @teacher_actions.setter
     def teacher_actions(self, teacher_actions: np.ndarray) -> None:
-        np.copyto(self._buffers.teacher_actions, teacher_actions)
+        # Preserve PufferLib zero-copy semantics: when a vecenv provides a teacher_actions
+        # buffer, we must keep a reference to it so supervisor actions are visible to the
+        # trainer via vecenv.recv().
+        self._buffers.teacher_actions = teacher_actions
         vibe_actions = self._buffers.vibe_actions
         if vibe_actions is not None:
             self._split_teacher_actions_inplace(self._buffers.teacher_actions)
