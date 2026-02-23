@@ -202,6 +202,13 @@ AnyGridObjectConfig = Annotated[
 ]
 
 
+class RenderConfig(Config):
+    """MettaScope rendering hints embedded in the game config."""
+
+    hud_1: str = Field(default="hp", description="Inventory item shown as the primary HUD bar")
+    hud_2: str = Field(default="energy", description="Inventory item shown as the secondary HUD bar")
+
+
 class GameConfig(Config):
     """Python game configuration.
 
@@ -252,6 +259,8 @@ class GameConfig(Config):
         default_factory=dict,
         description="Events that fire at specific timesteps, applying mutations to filtered objects.",
     )
+
+    render: RenderConfig = Field(default_factory=RenderConfig, description="MettaScope rendering hints")
 
     # Map builder configuration - accepts any MapBuilder config
     map_builder: AnyMapBuilderConfig = Field(default_factory=lambda: RandomMapBuilder.Config(agents=24))

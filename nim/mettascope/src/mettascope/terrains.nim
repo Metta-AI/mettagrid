@@ -133,7 +133,7 @@ proc rebuildSplats*() =
   if replay.isNil: return
 
   for obj in replay.objects:
-    let stamp = stampForTypeName(obj.typeName)
+    let stamp = stampForTypeName(obj.renderName)
     if stamp.len == 0: continue
 
     var firstAliveStep = -1
