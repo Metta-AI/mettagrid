@@ -1,6 +1,6 @@
 import
   std/[algorithm, math, os, tables, options, strutils, sets],
-  chroma, vmath, windy, silky,
+  chroma, vmath, windy, silky, bumpy,
   common, actions, replays, team,
   pathfinding, tilemap, pixelator, shaderquad, terrains, starfield,
   panels, heatmap, heatmapshader, colors,
@@ -1076,8 +1076,236 @@ proc drawSplats*() {.measure.} =
 proc drawMaskedSplatComposite*() {.measure.} =
   terrains.drawMaskedSplatComposite(getProjectionView(), px)
 
+proc drawMinimapConnectivity*() {.measure.} =
+  ## Draw connectivity lines for hubs and junctions on the minimap.
+  type
+    MiniNode = tuple[pos: IVec2, range: float32]
+    MiniEdge = tuple[a: int, b: int]
+  var
+    hubsByTeam = initTable[int, seq[MiniNode]]()
+    junctionsByTeam = initTable[int, seq[MiniNode]]()
+
+  for obj in replay.objects:
+    if not obj.alive.at:
+      continue
+    let normalized = normalizeTypeName(obj.typeName)
+    if normalized notin ["hub", "junction"]:
+      continue
+
+    let teamIdx = getEntityTeamIndex(obj)
+    if teamIdx < 0:
+      continue
+
+    var maxAoeRange = 0
+    for spec in influenceAoeSpecs(obj):
+      maxAoeRange = max(maxAoeRange, spec.effectiveRadius)
+    if maxAoeRange <= 0:
+      continue
+
+    let node = (
+      pos: obj.location.at(step).xy,
+      range: maxAoeRange.float32
+    )
+    if normalized == "hub":
+      hubsByTeam.mgetOrPut(teamIdx, @[]).add(node)
+    else:
+      junctionsByTeam.mgetOrPut(teamIdx, @[]).add(node)
+
+  proc toMiniPx(pos: IVec2): Vec2 =
+    ## Convert minimap tile coordinates to minimap pixel coordinates.
+    vec2(
+      pos.x.float32 * MiniTileSize.float32,
+      pos.y.float32 * MiniTileSize.float32
+    )
+
+  proc segmentsCrossStrict(
+    a1: Vec2,
+    a2: Vec2,
+    b1: Vec2,
+    b2: Vec2
+  ): bool =
+    ## Return true only for proper crossings, not endpoint touches.
+    if (a1 == b1) or (a1 == b2) or (a2 == b1) or (a2 == b2):
+      return false
+    let
+      segA = segment(a1, a2)
+      segB = segment(b1, b2)
+    if not overlaps(segA, segB):
+      return false
+    var at: Vec2
+    intersects(segA, segB, at)
+
+  proc shortestPathHops(
+    adjacency: seq[seq[int]],
+    startNode: int,
+    endNode: int
+  ): int =
+    ## Return shortest path length in hops, or -1 if disconnected.
+    if startNode == endNode:
+      return 0
+    var
+      visited = newSeq[bool](adjacency.len)
+      distance = newSeq[int](adjacency.len)
+      queue: seq[int] = @[startNode]
+      at = 0
+    visited[startNode] = true
+    while at < queue.len:
+      let current = queue[at]
+      inc at
+      for nxt in adjacency[current]:
+        if visited[nxt]:
+          continue
+        visited[nxt] = true
+        distance[nxt] = distance[current] + 1
+        if nxt == endNode:
+          return distance[nxt]
+        queue.add(nxt)
+    return -1
+
+  ## Connectivity rules for minimap links:
+  ## - Build a per-team tree that starts from hub nodes.
+  ## - Add tree edges only when distance is within 2x minimum AoE range.
+  ## - Add bridge edges only when current shortest path is 3 or more hops.
+  ## - Reject bridge edges that overlap any existing edge.
+  ## - Reject bridge edges when the midpoint is within 0.5x AoE of any edge.
+  const DotStepPx = 16.0f
+  for teamIdx, junctions in junctionsByTeam:
+    if teamIdx notin hubsByTeam:
+      continue
+    if junctions.len == 0:
+      continue
+
+    var
+      connected: seq[MiniNode] = @[]
+      isConnected = newSeq[bool](junctions.len)
+      edges: seq[MiniEdge] = @[]
+    for hub in hubsByTeam[teamIdx]:
+      connected.add(hub)
+    if connected.len == 0:
+      continue
+
+    while true:
+      var
+        bestJunction = -1
+        bestParent = -1
+        bestDistance = high(float32)
+      for j in 0 ..< junctions.len:
+        if isConnected[j]:
+          continue
+        let child = junctions[j]
+        var
+          nearestParent = -1
+          nearestDistance = high(float32)
+        for p in 0 ..< connected.len:
+          let parent = connected[p]
+          let
+            dx = (child.pos.x - parent.pos.x).float32
+            dy = (child.pos.y - parent.pos.y).float32
+            dist = sqrt(dx * dx + dy * dy)
+            connectRange = min(child.range, parent.range) * 2.0f
+          if connectRange <= 0 or dist > connectRange:
+            continue
+          if dist < nearestDistance:
+            nearestDistance = dist
+            nearestParent = p
+        if nearestParent >= 0 and nearestDistance < bestDistance:
+          bestDistance = nearestDistance
+          bestJunction = j
+          bestParent = nearestParent
+
+      if bestJunction < 0:
+        break
+      edges.add((a: bestParent, b: connected.len))
+      isConnected[bestJunction] = true
+      connected.add(junctions[bestJunction])
+
+    if connected.len >= 2:
+      var
+        adjacency = newSeq[seq[int]](connected.len)
+        edgeExists = initHashSet[string]()
+      for edge in edges:
+        adjacency[edge.a].add(edge.b)
+        adjacency[edge.b].add(edge.a)
+        edgeExists.incl($min(edge.a, edge.b) & ":" & $max(edge.a, edge.b))
+
+      for i in 0 ..< connected.len:
+        for j in i + 1 ..< connected.len:
+          let key = $i & ":" & $j
+          if key in edgeExists:
+            continue
+          let
+            a = connected[i]
+            b = connected[j]
+            dx = (b.pos.x - a.pos.x).float32
+            dy = (b.pos.y - a.pos.y).float32
+            distance = sqrt(dx * dx + dy * dy)
+            connectRange = min(a.range, b.range) * 2.0f
+          if connectRange <= 0 or distance > connectRange:
+            continue
+          let hops = shortestPathHops(adjacency, i, j)
+          if hops < 3:
+            continue
+          let
+            startPx = toMiniPx(a.pos)
+            endPx = toMiniPx(b.pos)
+            midpoint = vec2(
+              (a.pos.x.float32 + b.pos.x.float32) * 0.5f,
+              (a.pos.y.float32 + b.pos.y.float32) * 0.5f
+            )
+            midpointCrowdRange = min(a.range, b.range) * 0.5f
+          var overlaps = false
+          for edge in edges:
+            if i == edge.a or i == edge.b or j == edge.a or j == edge.b:
+              continue
+            let
+              edgeStartPx = toMiniPx(connected[edge.a].pos)
+              edgeEndPx = toMiniPx(connected[edge.b].pos)
+            if segmentsCrossStrict(startPx, endPx, edgeStartPx, edgeEndPx):
+              overlaps = true
+              break
+          if overlaps:
+            continue
+          var midpointCrowded = false
+          if midpointCrowdRange > 0:
+            for edge in edges:
+              let
+                edgeSegment = segment(
+                  vec2(
+                    connected[edge.a].pos.x.float32,
+                    connected[edge.a].pos.y.float32
+                  ),
+                  vec2(
+                    connected[edge.b].pos.x.float32,
+                    connected[edge.b].pos.y.float32
+                  )
+                )
+              if overlaps(circle(midpoint, midpointCrowdRange), edgeSegment):
+                midpointCrowded = true
+                break
+          if midpointCrowded:
+            continue
+          edges.add((a: i, b: j))
+          adjacency[i].add(j)
+          adjacency[j].add(i)
+          edgeExists.incl(key)
+
+    let tint = getTeamColor(teamIdx)
+    for edge in edges:
+      let
+        startPx = toMiniPx(connected[edge.a].pos)
+        endPx = toMiniPx(connected[edge.b].pos)
+        seg = endPx - startPx
+        segLen = sqrt(seg.x * seg.x + seg.y * seg.y)
+      if segLen > 0:
+        var t = DotStepPx / segLen
+        while t < 1.0f:
+          let p = startPx + seg * t
+          pxMini.drawSprite("minimap/dot", p.ivec2, tint)
+          t += DotStepPx / segLen
+
 proc drawObjectPips*() {.measure.} =
   ## Draw the pips for the objects on the minimap using the mini pixelator.
+
   for obj in replay.objects:
     if obj.typeName == "wall":
       continue
@@ -1131,6 +1359,7 @@ proc drawWorldMini*() {.measure.} =
         maxHeat
       )
 
+  drawMinimapConnectivity()
   drawObjectPips()
 
   pxMini.flush(getProjectionView() * scale(vec3(Mts, Mts, 1.0f)))
