@@ -96,9 +96,9 @@ proc beginPanAndZoom*(zoomInfo: ZoomInfo) =
   saveTransform()
 
   if zoomInfo.hasMouse:
-    if window.buttonPressed[MouseLeft]:
+    if window.buttonPressed[MouseLeft] or window.buttonPressed[MouseMiddle]:
       zoomInfo.dragging = true
-    if not window.buttonDown[MouseLeft] and zoomInfo.dragging:
+    if not window.buttonDown[MouseLeft] and not window.buttonDown[MouseMiddle] and zoomInfo.dragging:
       zoomInfo.dragging = false
 
   if zoomInfo.dragging:
