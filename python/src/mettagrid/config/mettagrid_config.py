@@ -46,6 +46,7 @@ from mettagrid.config.obs_config import (  # noqa: F401 - re-exported
     ObsConfig,
 )
 from mettagrid.config.query import MaterializedQuery
+from mettagrid.config.render_config import RenderConfig, RenderHudConfig  # noqa: F401 - re-exported
 from mettagrid.config.reward_config import AgentReward
 from mettagrid.config.territory_config import TerritoryConfig, TerritoryControlConfig
 from mettagrid.map_builder.ascii import AsciiMapBuilder
@@ -200,13 +201,6 @@ AnyGridObjectConfig = Annotated[
     ],
     Discriminator(_grid_object_discriminator),
 ]
-
-
-class RenderConfig(Config):
-    """MettaScope rendering hints embedded in the game config."""
-
-    hud1: str = Field(default="hp", description="Inventory item shown as the primary HUD bar")
-    hud2: str = Field(default="energy", description="Inventory item shown as the secondary HUD bar")
 
 
 class GameConfig(Config):
