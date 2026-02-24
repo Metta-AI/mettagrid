@@ -309,7 +309,7 @@ proc topRightPanel(winW: float32) =
     var x = trPos.x + XPad
     let y = trPos.y + YPad
     for (icon, name) in globalResources:
-      resourceCell(vec2(x, y), icon, getTeamResourceCount(teamIdx, name))
+      resourceCell(vec2(x, y), icon, getGlobalResourceCount(teamIdx, name))
       x += ResourceCellWidth + CellSpacing
 
 proc bottomBarStretch(winW: float32, winH: float32) =
