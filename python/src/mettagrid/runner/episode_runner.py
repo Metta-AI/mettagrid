@@ -172,6 +172,7 @@ def run_episode_isolated(
             debug_dir=str(debug_dir) if debug_dir else None,
             seed=spec.seed,
             max_action_time_ms=spec.max_action_time_ms,
+            overage_budget_ms=spec.overage_budget_ms,
         )
 
         with tempfile.NamedTemporaryFile(delete=True) as job_spec_tmp_file:

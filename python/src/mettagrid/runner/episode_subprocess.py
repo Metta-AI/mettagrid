@@ -41,6 +41,7 @@ def main() -> None:
             env_for_rollout,
             seed=job.seed,
             max_action_time_ms=job.max_action_time_ms,
+            overage_budget_ms=job.overage_budget_ms,
             render_mode="none",
             autostart=False,
             capture_replay=job.replay_uri is not None,

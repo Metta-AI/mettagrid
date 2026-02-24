@@ -11,6 +11,7 @@ class EpisodeSpec(BaseModel):
     env: MettaGridConfig
     seed: int = 0
     max_action_time_ms: int = 10000
+    overage_budget_ms: int | None = None
 
 
 class PureSingleEpisodeJob(BaseModel):
@@ -30,6 +31,7 @@ class PureSingleEpisodeJob(BaseModel):
     seed: int = 0
 
     max_action_time_ms: int = 10000
+    overage_budget_ms: int | None = None
     episode_tags: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -58,6 +60,9 @@ class PureSingleEpisodeResult(BaseModel):
     stats: EpisodeStats
     steps: int
     time_averaged_game_stats: dict[str, float] = Field(default_factory=dict)
+    # None for results produced before overage tracking existed (e.g. old S3 artifacts).
+    # When present, one entry per agent: the step at which overage budget was exhausted, or None if never exceeded.
+    overage_exceeded_at: list[int | None] | None = None
 
 
 class RuntimeInfo(BaseModel):
@@ -78,4 +83,5 @@ class SingleEpisodeJob(EpisodeSpec):
             env=self.env,
             seed=self.seed,
             max_action_time_ms=self.max_action_time_ms,
+            overage_budget_ms=self.overage_budget_ms,
         )

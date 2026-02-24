@@ -45,6 +45,7 @@ class Rollout:
         policies: list[AgentPolicy],
         policy_names: Optional[Sequence[str]] = None,
         max_action_time_ms: int | None = 10000,
+        overage_budget_ms: int | None = None,
         render_mode: Optional[RenderMode] = None,
         seed: int = 0,
         event_handlers: Optional[list[SimulatorEventHandler]] = None,
@@ -56,6 +57,10 @@ class Rollout:
         self._policies = policies
         self._simulator = Simulator()
         self._max_action_time_ms: int = max_action_time_ms or 10000
+        self._overage_remaining_ms: list[float] | None = (
+            [float(overage_budget_ms)] * len(policies) if overage_budget_ms is not None else None
+        )
+        self._overage_exceeded_at: list[int | None] = [None] * len(policies)
         self._renderer: Optional[Renderer] = None
         self._timeout_counts: list[int] = [0] * len(policies)
         self._tracer: Tracer = tracer or NullTracer()
@@ -92,15 +97,26 @@ class Rollout:
             logger.debug(f"Step {self._step_count}")
 
         for i in range(len(self._policies)):
+            if self._overage_exceeded_at[i] is not None:
+                self._agents[i].set_action(self._config.game.actions.noop.Noop())
+                if i < len(self._policy_names):
+                    self._policy_infos[i] = {"policy_name": self._policy_names[i]}
+                continue
+
             with self._tracer.span("agent_step", step=self._step_count, agent=i) as span:
                 start_time = time.time()
                 action = self._policies[i].step(self._agents[i].observation)
                 elapsed_ms = (time.time() - start_time) * 1000
                 timed_out = elapsed_ms > self._max_action_time_ms
                 if timed_out:
-                    logger.warning(f"Action took {elapsed_ms}ms, exceeding max of {self._max_action_time_ms}ms")
+                    logger.warning(f"Action took {elapsed_ms:.0f}ms, exceeding max of {self._max_action_time_ms}ms")
                     action = self._config.game.actions.noop.Noop()
                     self._timeout_counts[i] += 1
+                    if self._overage_remaining_ms is not None:
+                        self._overage_remaining_ms[i] -= elapsed_ms - self._max_action_time_ms
+                        if self._overage_remaining_ms[i] <= 0:
+                            self._overage_exceeded_at[i] = self._step_count
+                            logger.warning(f"Agent {i} disabled at step {self._step_count} (overage budget exhausted)")
                 span.set(timed_out=timed_out)
             self._agents[i].set_action(action)
             infos = self._policies[i].infos
@@ -137,3 +153,8 @@ class Rollout:
     def timeout_counts(self) -> list[int]:
         """Return the timeout counts for each agent."""
         return self._timeout_counts
+
+    @property
+    def overage_exceeded_at(self) -> list[int | None]:
+        """Return the step at which each agent's overage budget was exhausted, or None if never exceeded."""
+        return self._overage_exceeded_at
