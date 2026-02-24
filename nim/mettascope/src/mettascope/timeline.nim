@@ -36,6 +36,10 @@ proc playControls*() =
   if window.buttonPressed[KeyF10] or window.buttonPressed[KeyG]:
     let newMode = if gameMode == Editor: Game else: Editor
     switchGameMode(newMode)
+  if window.buttonPressed[KeyEscape]:
+    moveToggleActive = false
+    queueToggleActive = false
+    repeatToggleActive = false
 
   if play:
     stepFloat += playSpeed * deltaTime

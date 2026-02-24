@@ -8,9 +8,6 @@ import
 var
   pendingCenter: Vec2
   hasPendingCenter = false
-  moveToggleActive = false
-  queueToggleActive = false
-  repeatToggleActive = false
   timeLineDragging = false
 
 proc applyModeSwitchCenter*(zoomInfo: ZoomInfo) =
@@ -431,13 +428,15 @@ proc bottomRightPanel(winW: float32, winH: float32) =
 
     if drawToggleIconButton(toggleBasePos + vec2(0, ToggleStride * 0), "ui/move", moveToggleActive):
       moveToggleActive = not moveToggleActive
-      echo "move toggle: ", moveToggleActive
     if drawToggleIconButton(toggleBasePos + vec2(0, ToggleStride * 1), "ui/queue", queueToggleActive):
       queueToggleActive = not queueToggleActive
-      echo "queue toggle: ", queueToggleActive
+      if queueToggleActive:
+        moveToggleActive = true
     if drawToggleIconButton(toggleBasePos + vec2(0, ToggleStride * 2), "ui/repeat", repeatToggleActive):
       repeatToggleActive = not repeatToggleActive
-      echo "repeat toggle: ", repeatToggleActive
+      if repeatToggleActive:
+        queueToggleActive = true
+        moveToggleActive = true
 
   if not replay.isNil:
     const

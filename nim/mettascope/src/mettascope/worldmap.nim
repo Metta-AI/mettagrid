@@ -503,6 +503,42 @@ proc isSelectableCandidate(entity: Entity): bool =
   ## Return true when an entity should participate in click selection.
   not entity.isNil and entity.typeName != "wall" and entity.alive.at
 
+proc issueOrderAt(gridPos: IVec2, mousePos: Vec2, effectiveShift: bool, effectiveRepeat: bool) =
+  ## Issue a move or bump order for the selected agent at the given grid position.
+  if selected == nil or not selected.isAgent:
+    return
+  let startPos = selected.location.at(replay.maxSteps - 1).xy
+  let targetObj = getObjectAtLocation(gridPos)
+  var objective: Objective
+  if targetObj != nil:
+    let typeName = targetObj.typeName
+    if typeName != "agent" and typeName != "wall":
+      let
+        tileCenterX = gridPos.x.float32
+        tileCenterY = gridPos.y.float32
+        offsetX = mousePos.x - tileCenterX
+        offsetY = mousePos.y - tileCenterY
+      var approachDir: IVec2
+      if abs(offsetX) > abs(offsetY):
+        approachDir = if offsetX > 0: ivec2(1, 0) else: ivec2(-1, 0)
+      else:
+        approachDir = if offsetY > 0: ivec2(0, 1) else: ivec2(0, -1)
+      objective = Objective(kind: Bump, pos: gridPos, approachDir: approachDir, repeat: effectiveRepeat)
+    else:
+      objective = Objective(kind: Move, pos: gridPos, approachDir: ivec2(0, 0), repeat: effectiveRepeat)
+  else:
+    objective = Objective(kind: Move, pos: gridPos, approachDir: ivec2(0, 0), repeat: effectiveRepeat)
+  if effectiveShift:
+    if not agentObjectives.hasKey(selected.agentId) or agentObjectives[selected.agentId].len == 0:
+      agentObjectives[selected.agentId] = @[objective]
+      recomputePath(selected.agentId, startPos)
+    else:
+      agentObjectives[selected.agentId].add(objective)
+      recomputePath(selected.agentId, startPos)
+  else:
+    agentObjectives[selected.agentId] = @[objective]
+    recomputePath(selected.agentId, startPos)
+
 proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
   ## Reads the mouse position and selects the thing under it.
   let modifierDown = when defined(macosx):
@@ -515,6 +551,8 @@ proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
 
   let shiftDown = window.buttonDown[KeyLeftShift] or window.buttonDown[KeyRightShift]
   let rDown = window.buttonDown[KeyR]
+  let effectiveShift = shiftDown or queueToggleActive
+  let effectiveRepeat = rDown or repeatToggleActive
 
   # Track mouse down position to distinguish clicks from drags.
   if window.buttonPressed[MouseLeft] and not modifierDown:
@@ -524,13 +562,15 @@ proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
   if window.buttonPressed[DoubleClick] and not modifierDown:
     settings.lockFocus = not settings.lockFocus
 
-  # Only select on mouse up, and only if we didn't drag much.
+  # Left-click release: selection or order (when move mode active).
   if window.buttonReleased[MouseLeft] and not modifierDown:
     let mouseDragDistance = (window.mousePos.vec2 - mouseDownPos).length
     const maxClickDragDistance = 5.0
     if mouseDragDistance < maxClickDragDistance:
       let
         mouseScreenPos = window.mousePos.vec2
+        mousePos = getTransform().inverse * mouseScreenPos
+        gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
         clickRadiusSq = SelectionRadiusPixels * SelectionRadiusPixels
         transform = getTransform()
       var
@@ -549,8 +589,20 @@ proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
         if obj.isNil or distSq < closestDistSq or (sameDistance and candidate.id < obj.id):
           obj = candidate
           closestDistSq = distSq
-      selectObject(obj)
 
+      let inMapBounds = gridPos.x >= 0 and gridPos.x < replay.mapSize[0] and
+        gridPos.y >= 0 and gridPos.y < replay.mapSize[1]
+      if moveToggleActive and selected != nil and selected.isAgent and inMapBounds:
+        if obj != nil and obj.isAgent:
+          selectObject(obj)
+        else:
+          issueOrderAt(gridPos, mousePos, effectiveShift, effectiveRepeat)
+          if not queueToggleActive:
+            moveToggleActive = false
+      else:
+        selectObject(obj)
+
+  # Right-click or Ctrl+left: issue order.
   if window.buttonPressed[MouseRight] or (window.buttonPressed[MouseLeft] and modifierDown):
     if selected != nil and selected.isAgent:
       let
@@ -558,58 +610,7 @@ proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
         gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
       if gridPos.x >= 0 and gridPos.x < replay.mapSize[0] and
         gridPos.y >= 0 and gridPos.y < replay.mapSize[1]:
-        let startPos = selected.location.at(replay.maxSteps - 1).xy
-
-        # Determine if this is a Bump or Move objective.
-        let targetObj = getObjectAtLocation(gridPos)
-        var objective: Objective
-        if targetObj != nil:
-          let typeName = targetObj.typeName
-          if typeName != "agent" and typeName != "wall":
-            # Calculate which quadrant of the tile was clicked.
-            # The tile center is at gridPos, and mousePos has fractional parts.
-            let
-              tileCenterX = gridPos.x.float32
-              tileCenterY = gridPos.y.float32
-              offsetX = mousePos.x - tileCenterX
-              offsetY = mousePos.y - tileCenterY
-            # Divide the tile into 4 quadrants at 45-degree angles (diamond shape).
-            # If the click is more horizontal than vertical, use left/right approach.
-            # If the click is more vertical than horizontal, use top/bottom approach.
-            var approachDir: IVec2
-            if abs(offsetX) > abs(offsetY):
-              # Left or right quadrant.
-              if offsetX > 0:
-                approachDir = ivec2(1, 0)   # Clicked right, approach from right.
-              else:
-                approachDir = ivec2(-1, 0)  # Clicked left, approach from left.
-            else:
-              # Top or bottom quadrant.
-              if offsetY > 0:
-                approachDir = ivec2(0, 1)   # Clicked bottom, approach from bottom.
-              else:
-                approachDir = ivec2(0, -1)  # Clicked top, approach from top.
-            objective = Objective(kind: Bump, pos: gridPos, approachDir: approachDir, repeat: rDown)
-          else:
-            objective = Objective(kind: Move, pos: gridPos, approachDir: ivec2(0, 0), repeat: rDown)
-        else:
-          objective = Objective(kind: Move, pos: gridPos, approachDir: ivec2(0, 0), repeat: rDown)
-
-        if shiftDown:
-          # Queue up additional objectives.
-          if not agentObjectives.hasKey(selected.agentId) or agentObjectives[selected.agentId].len == 0:
-            # No existing objectives, start fresh.
-            agentObjectives[selected.agentId] = @[objective]
-            recomputePath(selected.agentId, startPos)
-          else:
-            # Append to existing objectives.
-            agentObjectives[selected.agentId].add(objective)
-            # Recompute path to include all objectives.
-            recomputePath(selected.agentId, startPos)
-        else:
-          # Replace the entire objective queue.
-          agentObjectives[selected.agentId] = @[objective]
-          recomputePath(selected.agentId, startPos)
+        issueOrderAt(gridPos, mousePos, effectiveShift, effectiveRepeat)
 
 proc inferOrientation*(agent: Entity, step: int): Orientation =
   ## Get the orientation of the agent based on position changes.
@@ -916,6 +917,62 @@ proc drawGrid*() {.measure.} =
     tileSize = vec2(1.0f, 1.0f) # world units per tile
     gridColor = vec4(1.0f, 1.0f, 1.0f, 1.0f) # subtle white grid
   sq.draw(mvp, mapSize, tileSize, gridColor, 1.0f)
+
+proc effectiveQueueMode(): bool =
+  ## Same semantics as order input: true when the next click would append to the queue.
+  queueToggleActive or
+    window.buttonDown[KeyLeftShift] or window.buttonDown[KeyRightShift]
+
+proc getPreviewStartPos(agentId: int): IVec2 =
+  ## Return the position to start the move preview from.
+  ## When queue mode is active and there are queued objectives, returns the queued end position.
+  ## Otherwise returns the agent's current position.
+  let agent = getAgentById(agentId)
+  var lastPos = agent.location.at(step).xy
+  if not effectiveQueueMode():
+    return lastPos
+  if agentPaths.hasKey(agentId) and agentPaths[agentId].len > 0:
+    var pos = agent.location.at(step).xy
+    for action in agentPaths[agentId]:
+      case action.kind
+      of Move:
+        pos = action.pos
+      of Bump:
+        pos = ivec2(action.bumpPos.x - action.bumpDir.x, action.bumpPos.y - action.bumpDir.y)
+      of Vibe:
+        discard
+    return pos
+  if agentObjectives.hasKey(agentId) and agentObjectives[agentId].len > 0:
+    for objective in agentObjectives[agentId]:
+      case objective.kind
+      of Move:
+        lastPos = objective.pos
+      of Bump:
+        lastPos = ivec2(
+          objective.pos.x + objective.approachDir.x,
+          objective.pos.y + objective.approachDir.y
+        )
+      of Vibe:
+        discard
+  lastPos
+
+proc drawMovePreview*() {.measure.} =
+  ## Draw a prediction path from the selected agent to the mouse position when move mode is active.
+  if not moveToggleActive or selected == nil or not selected.isAgent or replay == nil:
+    return
+  let
+    mousePos = getTransform().inverse * window.mousePos.vec2
+    gridPos = (mousePos + vec2(0.5, 0.5)).ivec2
+  if gridPos.x < 0 or gridPos.x >= replay.mapSize[0] or gridPos.y < 0 or gridPos.y >= replay.mapSize[1]:
+    return
+  let startPos = getPreviewStartPos(selected.agentId)
+  let previewPath = findPath(startPos, gridPos)
+  var currentPos = startPos
+  for pos in previewPath:
+    if pos != startPos:
+      px.drawSprite("agents/path", currentPos.ivec2 * TileSize)
+      currentPos = pos
+  px.drawSprite("objects/selection", gridPos.ivec2 * TileSize)
 
 proc drawPlannedPath*() {.measure.} =
   ## Draw the planned paths for all agents.
@@ -1447,6 +1504,7 @@ proc drawWorldMain*() {.measure.} =
 
   drawAgentDecorations()
   drawPlannedPath()
+  drawMovePreview()
 
   px.flush(getProjectionView() * scale(vec3(Ts, Ts, 1.0f)))
 
