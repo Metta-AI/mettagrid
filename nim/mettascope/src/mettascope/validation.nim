@@ -879,4 +879,3 @@ proc `prettyPrint`*(issues: seq[ValidationIssue]) =
   for i, issue in issues:
     let fieldInfo = if issue.field.len > 0: &" (field: {issue.field})" else: ""
     echo &"  {i+1}. {issue.message}{fieldInfo}"
-

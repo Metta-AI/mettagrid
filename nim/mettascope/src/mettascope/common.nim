@@ -270,4 +270,3 @@ proc getAgentRigName*(agent: Entity): string =
     if itemName in ["scout", "miner", "aligner", "scrambler"]:
       return itemName
   return "agent"
-

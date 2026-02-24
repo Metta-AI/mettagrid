@@ -110,4 +110,3 @@ timeIt "64x64 random walls 20%":
   let testMap = createMapWithRandomWalls(64, 64, 0.2)
   setupTestMap(testMap)
   discard findPath(ivec2(1, 1), ivec2(62, 62))
-
