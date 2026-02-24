@@ -75,12 +75,14 @@ proc getActiveTeam*(): int =
     return 0
   return -1
 
-proc getTeamResourceCount*(teamIdx: int, itemName: string): int =
-  ## Sum an inventory item across all living entities in a team.
+proc getGlobalResourceCount*(teamIdx: int, itemName: string): int =
+  ## Sum an inventory item across all living hubs in a team.
   if replay.isNil or teamIdx < 0 or teamIdx >= replay.teams.len:
     return 0
   for obj in replay.objects:
     if not obj.alive.at:
+      continue
+    if normalizeTypeName(obj.typeName) != "hub":
       continue
     if getEntityTeamIndex(obj) != teamIdx:
       continue
