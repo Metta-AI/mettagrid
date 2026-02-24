@@ -10,7 +10,7 @@ from mettagrid.policy.loader import initialize_or_load_policy
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.protobuf.sim.policy_v1 import policy_pb2
-from mettagrid.simulator import AgentObservation, ObservationToken
+from mettagrid.simulator import Action, AgentObservation, ObservationToken
 from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri
 
 logger = logging.getLogger(__name__)
@@ -64,12 +64,38 @@ OBSERVATION_PARSERS: dict[int, ObservationParser] = {
 }
 
 
+def encode_action_id(action: Action, policy_env: PolicyEnvInterface) -> int | None:
+    primary_action_names = policy_env.action_names
+    vibe_action_names = policy_env.vibe_action_names
+    num_primary_actions = len(primary_action_names)
+    num_vibe_actions = len(vibe_action_names)
+    primary_name_to_index = {name: index for index, name in enumerate(primary_action_names)}
+    vibe_name_to_index = {name: index for index, name in enumerate(vibe_action_names)}
+
+    if action.vibe is not None:
+        primary_index = primary_name_to_index.get(action.name)
+        vibe_index = vibe_name_to_index.get(action.vibe)
+        if primary_index is None or vibe_index is None:
+            return None
+        return num_primary_actions + num_vibe_actions + primary_index * num_vibe_actions + vibe_index
+
+    primary_index = primary_name_to_index.get(action.name)
+    if primary_index is not None:
+        return primary_index
+
+    vibe_index = vibe_name_to_index.get(action.name)
+    if vibe_index is not None:
+        return num_primary_actions + vibe_index
+
+    return None
+
+
 @dataclass
 class Episode:
     episode_id: str
     policy: MultiAgentPolicy
+    policy_env: PolicyEnvInterface
     features: dict[int, ObservationFeatureSpec]
-    actions: dict[str, int]
     parse_observations: ObservationParser
     agent_policies: dict[int, AgentPolicy]
 
@@ -97,14 +123,13 @@ class LocalPolicyServer:
             f.id: ObservationFeatureSpec(id=f.id, name=f.name, normalization=f.normalization)
             for f in req.game_rules.features
         }
-        actions = {a.name: a.id for a in req.game_rules.actions}
         agent_policies = {agent_id: policy.agent_policy(agent_id) for agent_id in req.agent_ids}
         logger.info("Agent policies for policy %s: %s", self._policy_uri, agent_policies)
         episode = Episode(
             episode_id=req.episode_id,
             policy=policy,
+            policy_env=policy_env,
             features=features,
-            actions=actions,
             parse_observations=parse_observations,
             agent_policies=agent_policies,
         )
@@ -126,10 +151,10 @@ class LocalPolicyServer:
             tokens = episode.parse_observations(agent_obs.observations, episode.features)
             observation = AgentObservation(agent_id=agent_id, tokens=tokens)
             action = agent_policy.step(observation)
-            action_id = episode.actions.get(action.name)
+            action_id = encode_action_id(action, episode.policy_env)
             actions: list[int] = []
             if action_id is None:
-                logger.warning("episode %r agent %d returned unknown action %r", req.episode_id, agent_id, action.name)
+                logger.warning("episode %r agent %d returned unknown action %r", req.episode_id, agent_id, action)
             else:
                 actions.append(action_id)
             resp.agent_actions.append(policy_pb2.AgentActions(agent_id=agent_id, action_id=actions))
