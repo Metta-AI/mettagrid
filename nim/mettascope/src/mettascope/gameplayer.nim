@@ -500,11 +500,11 @@ proc drawStatBar(panelPos: Vec2, label: string, value: int, maxValue: int, divis
     innerH = max(0, outerH - 2 * (BorderPx + InnerGapPx))
 
     text =
-      if label == "ENERGY":
-        "E"
-      else:
-        # Just first 2 letters of the label
+      if label.len >= 2:
+        # Just first 2 letters of the label.
         label[0..1]
+      else:
+        label
   discard sk.drawText("pixelated", text, panelPos + LabelOffset, Yellow, clip = false)
 
   # Stroke-only rectangle made from 4 filled rects.
@@ -600,16 +600,16 @@ proc centerPanel(winW: float32, winH: float32) =
   if isAgent:
     let
       prevStep = max(0, step - 1)
-      hud1Name = replay.hudItem1
-      hud2Name = replay.hudItem2
-      hud1 = getInventoryItem(selected, hud1Name)
-      hud2 = getInventoryItem(selected, hud2Name)
-      prevHud1 = getInventoryItem(selected, hud1Name, prevStep)
-      prevHud2 = getInventoryItem(selected, hud2Name, prevStep)
+      hud1Cfg = replay.hudItem1
+      hud2Cfg = replay.hudItem2
+      hud1 = getInventoryItem(selected, hud1Cfg.resource)
+      hud2 = getInventoryItem(selected, hud2Cfg.resource)
+      prevHud1 = getInventoryItem(selected, hud1Cfg.resource, prevStep)
+      prevHud2 = getInventoryItem(selected, hud2Cfg.resource, prevStep)
       deltaHud1 = hud1 - prevHud1
       deltaHud2 = hud2 - prevHud2
-    drawStatBar(bcPos + vec2(69, 84), hud1Name.toUpperAscii, hud1, 100, 10, deltaHud1)
-    drawStatBar(bcPos + vec2(69, 118), hud2Name.toUpperAscii, hud2, 20, 20, deltaHud2)
+    drawStatBar(bcPos + vec2(69, 84), hud1Cfg.short_name, hud1, hud1Cfg.max, 10, deltaHud1)
+    drawStatBar(bcPos + vec2(69, 118), hud2Cfg.short_name, hud2, hud2Cfg.max, 20, deltaHud2)
 
   # 3) Object resources (inline, wrapped, no resource_bg) shared for agent/building.
   for item in selected.inventory.at:

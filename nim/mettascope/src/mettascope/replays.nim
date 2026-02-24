@@ -49,9 +49,14 @@ type
     recipes*: seq[RecipeInfoConfig]
     territory_controls*: seq[TerritoryControl]
 
+  RenderHudConfig* = object
+    resource*: string
+    short_name*: string
+    max*: int
+
   RenderConfig* = object
-    hud1*: string
-    hud2*: string
+    hud1*: RenderHudConfig
+    hud2*: RenderHudConfig
 
   GameConfig* = object
     resourceNames*: seq[string]
@@ -310,17 +315,17 @@ proc getRenderName*(replay: Replay, typeName: string): string =
       return cfg.renderName
   typeName
 
-proc hudItem1*(replay: Replay): string =
-  ## Inventory item name for the primary HUD bar.
-  if replay.config.game.render.hud1.len > 0:
+proc hudItem1*(replay: Replay): RenderHudConfig =
+  ## HUD config for the primary bar.
+  if replay.config.game.render.hud1.resource.len > 0:
     return replay.config.game.render.hud1
-  "hp"
+  RenderHudConfig(resource: "hp", short_name: "HP", max: 100)
 
-proc hudItem2*(replay: Replay): string =
-  ## Inventory item name for the secondary HUD bar.
-  if replay.config.game.render.hud2.len > 0:
+proc hudItem2*(replay: Replay): RenderHudConfig =
+  ## HUD config for the secondary bar.
+  if replay.config.game.render.hud2.resource.len > 0:
     return replay.config.game.render.hud2
-  "carbon"
+  RenderHudConfig(resource: "energy", short_name: "E", max: 20)
 
 proc parseTerritoryControls(objConfig: JsonNode, objectName: string): seq[TerritoryControl] =
   ## Parse and validate territory_controls from object config.
