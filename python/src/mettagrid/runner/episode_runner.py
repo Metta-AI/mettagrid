@@ -119,7 +119,20 @@ def _per_agent_policy_mapping(
         0 <= assignment < len(local_policy_uris) for assignment in assignments
     ):
         raise ValueError("Assignments must match agent count and be within policy range")
-    return [local_policy_uris[assignment] for assignment in assignments], list(range(num_agents))
+
+    # Launch one policy server per referenced policy index, not per agent.
+    # This preserves assignment semantics while avoiding N-agent process blowups.
+    policy_index_remap: dict[int, int] = {}
+    compact_policy_uris: list[str] = []
+    compact_assignments: list[int] = []
+    for assignment in assignments:
+        remapped_index = policy_index_remap.get(assignment)
+        if remapped_index is None:
+            remapped_index = len(compact_policy_uris)
+            policy_index_remap[assignment] = remapped_index
+            compact_policy_uris.append(local_policy_uris[assignment])
+        compact_assignments.append(remapped_index)
+    return compact_policy_uris, compact_assignments
 
 
 def run_episode_isolated(
@@ -158,7 +171,12 @@ def run_episode_isolated(
         )
 
         servers, http_policy_uris = _spawn_policy_servers(per_agent_policy_uris)
-        logger.info(f"Policy servers spawned in {time.monotonic() - t1:.1f}s for {len(spec.assignments)} agents")
+        logger.info(
+            "Policy servers spawned in %.1fs for %d compact policies (%d agents)",
+            time.monotonic() - t1,
+            len(http_policy_uris),
+            len(spec.assignments),
+        )
 
         local_results_uri = _to_file_uri(results_path)
         local_replay_uri = _to_file_uri(replay_path) if replay_path else None
@@ -216,11 +234,14 @@ def run_episode_isolated(
                 detail = f"signal {-code}" if code < 0 else f"exit {code}"
                 raise RuntimeError(f"episode_subprocess failed ({detail})")
 
-        # Copy policy logs to output directory if requested
+        # Copy policy logs to output directory if requested.
+        # We keep one log artifact per agent index for compatibility with
+        # downstream upload consumers, even when multiple agents share a
+        # compacted policy server.
         if policy_log_dir is not None:
             policy_log_dir.mkdir(parents=True, exist_ok=True)
-            for i, server in enumerate(servers):
-                shutil.copy(server._log_file, policy_log_dir / f"{i}.log")
+            for agent_idx, policy_idx in enumerate(per_agent_assignments):
+                shutil.copy(servers[policy_idx]._log_file, policy_log_dir / f"{agent_idx}.log")
 
         return PureSingleEpisodeResult.model_validate_json(read(local_results_uri))
 

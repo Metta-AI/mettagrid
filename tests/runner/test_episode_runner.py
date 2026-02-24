@@ -4,7 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mettagrid.runner.episode_runner import _download_presigned_policy, _is_presigned_url, _to_file_uri
+from mettagrid.runner.episode_runner import (
+    _download_presigned_policy,
+    _is_presigned_url,
+    _per_agent_policy_mapping,
+    _to_file_uri,
+)
 
 
 class TestIsPresignedUrl:
@@ -29,6 +34,37 @@ def test_to_file_uri_resolves_relative_paths() -> None:
     relative_path = Path("train_dir/replay.json.z")
 
     assert _to_file_uri(relative_path) == relative_path.resolve().as_uri()
+
+
+def test_per_agent_policy_mapping_compacts_by_policy_index() -> None:
+    uris, remapped_assignments = _per_agent_policy_mapping(
+        ["file:///policy0.zip", "file:///policy1.zip", "file:///policy2.zip"],
+        assignments=[0, 0, 2, 2, 0, 2],
+        num_agents=6,
+    )
+
+    assert uris == ["file:///policy0.zip", "file:///policy2.zip"]
+    assert remapped_assignments == [0, 0, 1, 1, 0, 1]
+
+
+def test_per_agent_policy_mapping_keeps_distinct_duplicate_indices() -> None:
+    uris, remapped_assignments = _per_agent_policy_mapping(
+        ["file:///same.zip", "file:///same.zip"],
+        assignments=[0, 1, 0, 1],
+        num_agents=4,
+    )
+
+    assert uris == ["file:///same.zip", "file:///same.zip"]
+    assert remapped_assignments == [0, 1, 0, 1]
+
+
+def test_per_agent_policy_mapping_rejects_bad_assignments() -> None:
+    with pytest.raises(ValueError, match="Assignments must match agent count and be within policy range"):
+        _per_agent_policy_mapping(
+            ["file:///policy0.zip"],
+            assignments=[0, 1],
+            num_agents=2,
+        )
 
 
 class TestDownloadPresignedPolicy:

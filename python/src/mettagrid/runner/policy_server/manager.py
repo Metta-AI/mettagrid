@@ -57,7 +57,19 @@ def _create_policy_venv() -> Path:
         mettagrid_source = _get_mettagrid_source()
         logger.info("Creating policy server venv with mettagrid source %s", mettagrid_source)
         subprocess.run(
-            ["uv", "pip", "install", "--python", str(venv_python), mettagrid_source],
+            [
+                "uv",
+                "pip",
+                "install",
+                "--python",
+                str(venv_python),
+                mettagrid_source,
+                "safetensors",
+                "packaging",
+                "tensordict",
+                "torchrl",
+                "einops",
+            ],
             check=True,
         )
     return policy_dir
