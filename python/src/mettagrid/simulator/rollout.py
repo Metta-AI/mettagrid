@@ -107,17 +107,17 @@ class Rollout:
                 start_time = time.time()
                 action = self._policies[i].step(self._agents[i].observation)
                 elapsed_ms = (time.time() - start_time) * 1000
-                timed_out = elapsed_ms > self._max_action_time_ms
-                if timed_out:
+                overage_ms = max(0.0, elapsed_ms - self._max_action_time_ms)
+                if overage_ms > 0:
                     logger.warning(f"Action took {elapsed_ms:.0f}ms, exceeding max of {self._max_action_time_ms}ms")
                     action = self._config.game.actions.noop.Noop()
                     self._timeout_counts[i] += 1
                     if self._overage_remaining_ms is not None:
-                        self._overage_remaining_ms[i] -= elapsed_ms - self._max_action_time_ms
+                        self._overage_remaining_ms[i] -= overage_ms
                         if self._overage_remaining_ms[i] <= 0:
                             self._overage_exceeded_at[i] = self._step_count
                             logger.warning(f"Agent {i} disabled at step {self._step_count} (overage budget exhausted)")
-                span.set(timed_out=timed_out)
+                span.set(timed_out=overage_ms > 0)
             self._agents[i].set_action(action)
             infos = self._policies[i].infos
             merged_infos = dict(infos) if infos else {}
