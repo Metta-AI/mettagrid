@@ -31,6 +31,40 @@ def _serialize_triplet_v1(obs: AgentObservation) -> bytes:
     return bytes(buf)
 
 
+def _decode_action_id(action_id: int, policy_env_info: PolicyEnvInterface) -> Action:
+    primary_action_names = policy_env_info.action_names
+    vibe_action_names = policy_env_info.vibe_action_names
+    num_primary_actions = len(primary_action_names)
+    num_vibe_actions = len(vibe_action_names)
+
+    if action_id < 0:
+        raise PolicyStepError(f"Policy server returned invalid action_id {action_id}")
+
+    if action_id < num_primary_actions:
+        return Action(name=primary_action_names[action_id])
+
+    if num_vibe_actions <= 0:
+        raise PolicyStepError(
+            f"Policy server returned invalid action_id {action_id}; expected range [0, {num_primary_actions - 1}]"
+        )
+
+    if action_id < num_primary_actions + num_vibe_actions:
+        vibe_index = action_id - num_primary_actions
+        return Action(name=vibe_action_names[vibe_index])
+
+    encoded = action_id - num_primary_actions - num_vibe_actions
+    max_encoded = num_primary_actions * num_vibe_actions
+    if encoded >= max_encoded:
+        raise PolicyStepError(
+            "Policy server returned invalid action_id "
+            f"{action_id}; expected range [0, {num_primary_actions + num_vibe_actions + max_encoded - 1}]"
+        )
+
+    primary_index = encoded // num_vibe_actions
+    vibe_index = encoded % num_vibe_actions
+    return Action(name=primary_action_names[primary_index], vibe=vibe_action_names[vibe_index])
+
+
 class WebSocketPolicyServer:
     def __init__(
         self,
@@ -156,7 +190,7 @@ class WebSocketPolicyServerAgentClient(AgentPolicy):
             action_id = self._parent.step_agent(self._agent_id, obs_bytes)
         except (ConnectionClosed, EOFError, OSError) as e:
             raise PolicyStepError(f"WebSocket communication failed for agent {self._agent_id}") from e
-        action_names = self._parent.policy_env_info.all_action_names
-        if not (0 <= action_id < len(action_names)):
-            raise PolicyStepError(f"Policy server returned invalid action_id {action_id} for agent {self._agent_id}")
-        return Action(name=action_names[action_id])
+        try:
+            return _decode_action_id(action_id, self._parent.policy_env_info)
+        except PolicyStepError as e:
+            raise PolicyStepError(f"{e} for agent {self._agent_id}") from e
