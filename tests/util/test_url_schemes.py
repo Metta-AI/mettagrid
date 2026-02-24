@@ -133,7 +133,7 @@ def test_policy_spec_from_metta_uri_nlanky_role_params():
 
     spec = policy_spec_from_uri("metta://policy/nlanky?miner=4&aligner=2&scrambler=0&trace_agent=-1")
 
-    assert spec.class_path.endswith("PlankyAgentsMultiPolicy")
+    assert spec.class_path.endswith("NlankyAgentsMultiPolicy")
     assert spec.init_kwargs["miner"] == 4
     assert spec.init_kwargs["aligner"] == 2
     assert spec.init_kwargs["scrambler"] == 0
