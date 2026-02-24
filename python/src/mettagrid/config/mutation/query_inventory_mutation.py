@@ -29,29 +29,40 @@ class QueryInventoryMutation(Mutation):
         default=None,
         description="If set, apply inverse deltas to this entity (transfer mode)",
     )
+    transfer_stats: dict[str, str] = Field(
+        default_factory=dict,
+        description="Map resource name -> game stat name. Logs actual transfer amounts.",
+    )
 
 
-def queryDeposit(query: "AnyQuery", resources: dict[str, int]) -> QueryInventoryMutation:
+def queryDeposit(query: "AnyQuery", resources: dict[str, int], stat_prefix: str = "") -> QueryInventoryMutation:
     """Mutation: transfer resources from actor to query results.
 
     Args:
         query: Query to find destination objects
         resources: Map of resource name to amount to transfer
+        stat_prefix: If set, log actual amounts to "{stat_prefix}{resource}.deposited"
     """
-    return QueryInventoryMutation(query=query, deltas=resources, source=EntityTarget.ACTOR)
+    transfer_stats = {r: f"{stat_prefix}{r}.deposited" for r in resources} if stat_prefix else {}
+    return QueryInventoryMutation(
+        query=query, deltas=resources, source=EntityTarget.ACTOR, transfer_stats=transfer_stats
+    )
 
 
-def queryWithdraw(query: "AnyQuery", resources: dict[str, int]) -> QueryInventoryMutation:
+def queryWithdraw(query: "AnyQuery", resources: dict[str, int], stat_prefix: str = "") -> QueryInventoryMutation:
     """Mutation: transfer resources from query results to actor.
 
     Args:
         query: Query to find source objects
         resources: Map of resource name to amount to transfer
+        stat_prefix: If set, log actual amounts to "{stat_prefix}{resource}.withdrawn"
     """
+    transfer_stats = {r: f"{stat_prefix}{r}.withdrawn" for r in resources} if stat_prefix else {}
     return QueryInventoryMutation(
         query=query,
         deltas={k: -v for k, v in resources.items()},
         source=EntityTarget.ACTOR,
+        transfer_stats=transfer_stats,
     )
 
 

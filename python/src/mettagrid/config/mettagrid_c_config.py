@@ -1,6 +1,11 @@
 from typing import Any
 
 from mettagrid.config.cpp_id_maps import CppIdMaps
+from mettagrid.config.derived_stat import (
+    CumulativeDerivedStat,
+    TagCountDerivedStat,
+    TagInventoryDerivedStat,
+)
 from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_mutations
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mettagrid_config import (
@@ -19,6 +24,8 @@ from mettagrid.mettagrid_c import AttackActionConfig as CppAttackActionConfig
 from mettagrid.mettagrid_c import AttackOutcome as CppAttackOutcome
 from mettagrid.mettagrid_c import ChangeVibeActionConfig as CppChangeVibeActionConfig
 from mettagrid.mettagrid_c import ClosureQueryConfig as CppClosureQueryConfig
+from mettagrid.mettagrid_c import DerivedStatConfig as CppDerivedStatConfig
+from mettagrid.mettagrid_c import DerivedStatType as CppDerivedStatType
 from mettagrid.mettagrid_c import EventConfig as CppEventConfig
 from mettagrid.mettagrid_c import FilteredQueryConfig as CppFilteredQueryConfig
 from mettagrid.mettagrid_c import GameConfig as CppGameConfig
@@ -808,6 +815,8 @@ def convert_to_cpp_game_config(
         del game_cpp_params["territories"]
     if "render" in game_cpp_params:
         del game_cpp_params["render"]
+    if "derived_stats" in game_cpp_params:
+        del game_cpp_params["derived_stats"]
 
     if "obs" in game_cpp_params:
         obs_config = game_cpp_params.pop("obs")
@@ -918,5 +927,30 @@ def convert_to_cpp_game_config(
         materialized_queries_cpp.append(cpp_mq)
     if materialized_queries_cpp:
         game_cpp_params["materialized_queries"] = materialized_queries_cpp
+
+    # --- Derived stats ---
+
+    derived_stats_cpp = []
+    for ds in game_config.derived_stats:
+        cpp_ds = CppDerivedStatConfig()
+        cpp_ds.name = ds.name
+        if isinstance(ds, TagCountDerivedStat):
+            cpp_ds.type = CppDerivedStatType.TagCount
+            cpp_ds.tag_id = tag_name_to_id[ds.tag]
+            cpp_ds.count_offset = ds.offset
+        elif isinstance(ds, TagInventoryDerivedStat):
+            cpp_ds.type = CppDerivedStatType.TagInventory
+            cpp_ds.tag_id = tag_name_to_id[ds.tag]
+            cpp_ds.resource_id = resource_name_to_id[ds.resource]
+            if ds.require_tag:
+                cpp_ds.require_tag_id = tag_name_to_id[ds.require_tag]
+        elif isinstance(ds, CumulativeDerivedStat):
+            cpp_ds.type = CppDerivedStatType.Cumulative
+            cpp_ds.source_stat = ds.source_stat
+        else:
+            raise TypeError(f"Unknown derived stat type: {type(ds).__name__}")
+        derived_stats_cpp.append(cpp_ds)
+    if derived_stats_cpp:
+        game_cpp_params["derived_stats"] = derived_stats_cpp
 
     return CppGameConfig(**game_cpp_params), agent_renames

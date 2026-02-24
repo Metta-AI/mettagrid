@@ -325,6 +325,7 @@ class QueryInventoryMutationConfig:
     deltas: list[tuple[int, int]]
     source: EntityRef
     has_source: bool
+    transfer_stat_names: list[tuple[int, str]]
     def set_query(self, query: QueryConfigHolder) -> None: ...
 
 # Handler config
@@ -623,6 +624,21 @@ class GlobalObsConfig:
     local_position: bool
     obs: list[ObsValueConfig]
 
+class DerivedStatType(Enum):
+    TagCount = ...
+    TagInventory = ...
+    Cumulative = ...
+
+class DerivedStatConfig:
+    def __init__(self) -> None: ...
+    name: str
+    type: DerivedStatType
+    tag_id: int
+    count_offset: int
+    resource_id: int
+    require_tag_id: int
+    source_stat: str
+
 class GameConfig:
     def __init__(
         self,
@@ -642,6 +658,7 @@ class GameConfig:
         protocol_details_obs: bool = True,
         reward_estimates: Optional[dict[str, float]] = None,
         token_value_base: int = 256,
+        derived_stats: list[DerivedStatConfig] | None = None,
     ) -> None: ...
     num_agents: int
     max_steps: int
@@ -658,6 +675,11 @@ class GameConfig:
     protocol_details_obs: bool
     reward_estimates: Optional[dict[str, float]]
     token_value_base: int
+    derived_stats: list[DerivedStatConfig]
+
+class TagIndex:
+    def __init__(self) -> None: ...
+    def count_objects_with_tag(self, tag_id: int) -> int: ...
 
 class MettaGrid:
     obs_width: int
@@ -711,3 +733,4 @@ class MettaGrid:
     def get_agent_stat(self, agent_id: int, key: str) -> float | None: ...
     def action_success(self) -> list[bool]: ...
     def set_inventory(self, agent_id: int, inventory: dict[int, int]) -> None: ...
+    def tag_index(self) -> TagIndex: ...

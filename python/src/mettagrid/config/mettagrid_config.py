@@ -26,6 +26,7 @@ from mettagrid.config.action_config import (  # noqa: F401 - re-exported for bac
     MoveActionConfig,
     NoopActionConfig,
 )
+from mettagrid.config.derived_stat import AnyDerivedStat
 from mettagrid.config.event_config import EventConfig
 from mettagrid.config.game_value import (  # noqa: F401 - re-exported
     AnyGameValue,
@@ -275,6 +276,11 @@ class GameConfig(Config):
     materialize_queries: list[MaterializedQuery] = Field(
         default_factory=list,
         description="Queries whose results are materialized as tags, recomputed via RecomputeMaterializedQueryMutation",
+    )
+
+    derived_stats: list[AnyDerivedStat] = Field(
+        default_factory=list,
+        description="Stats computed from simulation state each step (tag counts, inventory totals, cumulatives)",
     )
 
     @model_validator(mode="after")

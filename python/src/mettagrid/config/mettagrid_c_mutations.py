@@ -203,4 +203,9 @@ def convert_mutations(
             if mutation.source is not None:
                 cpp_mutation.source = convert_entity_ref(mutation.source)
                 cpp_mutation.has_source = True
+            if mutation.transfer_stats:
+                cpp_mutation.transfer_stat_names = [
+                    (id_maps.resource_name_to_id[rname], stat_name)
+                    for rname, stat_name in mutation.transfer_stats.items()
+                ]
             target_obj.add_query_inventory_mutation(cpp_mutation)

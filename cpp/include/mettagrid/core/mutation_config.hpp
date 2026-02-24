@@ -95,6 +95,10 @@ struct QueryInventoryMutationConfig {
   std::vector<std::pair<InventoryItem, InventoryDelta>> deltas;
   EntityRef source = EntityRef::actor;  // Only used if has_source=true
   bool has_source = false;              // Transfer mode
+
+  // Optional: log actual transfer amounts to game stats.
+  // Maps resource_id -> stat_name. When present, logs the actual transferred amount.
+  std::vector<std::pair<InventoryItem, std::string>> transfer_stat_names;
 };
 
 struct RemoveTagsWithPrefixMutationConfig {

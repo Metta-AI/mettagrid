@@ -149,6 +149,9 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
     _prev_agent_locations[i] = _agents[i]->location;
   }
 
+  // Store derived stat configs
+  _derived_stats = game_config.derived_stats;
+
   // Initialize QuerySystem — always created so inline queries in filters/mutations work
   _query_system = std::make_unique<mettagrid::QuerySystem>(game_config.materialized_queries);
 
@@ -1065,6 +1068,11 @@ void MettaGrid::_step() {
   if (_profiling_enabled) {
     phase_end = std::chrono::steady_clock::now();
     _step_timing.aoe_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
+  }
+
+  // Compute derived stats (tag counts, inventory totals, cumulatives)
+  if (!_derived_stats.empty()) {
+    _compute_derived_stats();
   }
 
   // Compute observations for next step

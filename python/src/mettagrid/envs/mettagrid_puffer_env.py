@@ -156,11 +156,23 @@ class MettaGridPufferEnv(PufferEnv):
                 attribute_keys.append((raw, attr_key))
                 continue
 
+            if raw.startswith("team/"):
+                remainder = raw[len("team/") :]
+                slash_idx = remainder.find("/")
+                if slash_idx <= 0:
+                    raise ValueError(f"step_info_keys entry {key_str!r}: expected 'team/{{team}}/{{stat}}'")
+                team_name = remainder[:slash_idx]
+                stat_key = remainder[slash_idx + 1 :]
+                if not stat_key:
+                    raise ValueError(f"step_info_keys entry {key_str!r}: missing stat key after team name")
+                game_keys.append((raw, f"{team_name}/{stat_key}"))
+                continue
+
             raise ValueError(
-                f"Unsupported step_info_keys entry {key_str!r}; expected 'game/...', 'attributes/...', or 'agent/...'."
+                f"Unsupported step_info_keys entry {key_str!r}; "
+                "expected 'game/...', 'attributes/...', 'team/...', or 'agent/...'."
             )
 
-        # Preserve order for determinism (useful for debugging), but drop duplicates.
         self._step_info_game_keys = tuple(dict.fromkeys(game_keys))
         self._step_info_attribute_keys = tuple(dict.fromkeys(attribute_keys))
         self._step_info_agent_keys = tuple(dict.fromkeys(agent_keys))
@@ -214,9 +226,8 @@ class MettaGridPufferEnv(PufferEnv):
         base_info = sim._context.get("infos", {})
         info_payload = dict(base_info) if isinstance(base_info, dict) else {}
 
-        if not (self._step_info_game_keys or self._step_info_attribute_keys):
-            if not self._step_info_agent_keys:
-                return info_payload
+        if not (self._step_info_game_keys or self._step_info_attribute_keys) and not self._step_info_agent_keys:
+            return info_payload
 
         c_sim = sim._c_sim
 

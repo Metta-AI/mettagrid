@@ -388,6 +388,7 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("deltas", &QueryInventoryMutationConfig::deltas)
       .def_readwrite("source", &QueryInventoryMutationConfig::source)
       .def_readwrite("has_source", &QueryInventoryMutationConfig::has_source)
+      .def_readwrite("transfer_stat_names", &QueryInventoryMutationConfig::transfer_stat_names)
       .def(
           "set_query",
           [](QueryInventoryMutationConfig& self, const QueryConfigHolder& q) { self.query = q.config; },

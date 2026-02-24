@@ -29,6 +29,7 @@
 #include "core/grid_object.hpp"
 #include "core/query_system.hpp"
 #include "core/tag_index.hpp"
+#include "systems/derived_stat.hpp"
 #include "core/types.hpp"
 #include "handler/event_scheduler.hpp"
 #include "profiling.hpp"
@@ -204,6 +205,9 @@ private:
   // Tag index for efficient tag-based object lookup
   mettagrid::TagIndex _tag_index;
 
+  // Derived stats - computed from simulation state each step
+  std::vector<mettagrid::DerivedStatConfig> _derived_stats;
+
   // Base HandlerContext with all system pointers — copied and specialized per interaction
   mettagrid::HandlerContext _game_ctx;
 
@@ -298,6 +302,7 @@ private:
                                     double primary_time_ns,
                                     bool primary_was_optimized);
 
+  void _compute_derived_stats();
   void _compute_observations(const std::vector<ActionType>& executed_actions);
   void _step();
 
