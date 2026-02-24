@@ -124,6 +124,11 @@ var
   # Popup warning system.
   popupWarning*: string = ""
 
+  # Action mode toggles (left-click friendly move/queue/repeat).
+  moveToggleActive* = false
+  queueToggleActive* = false
+  repeatToggleActive* = false
+
 
 type
   ActionRequest* = object
