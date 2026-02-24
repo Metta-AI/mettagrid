@@ -264,4 +264,3 @@ window.onButtonPress = proc(button: Button) =
 
 while not window.closeRequested:
   pollEvents()
-
