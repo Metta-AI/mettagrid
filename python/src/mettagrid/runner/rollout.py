@@ -50,6 +50,7 @@ def single_episode_rollout(
     *,
     seed: int,
     max_action_time_ms: int,
+    overage_budget_ms: int | None = None,
     render_mode: RenderMode,
     autostart: bool,
     capture_replay: bool,
@@ -98,6 +99,7 @@ def single_episode_rollout(
         agent_policies,
         policy_names=agent_policy_names,
         max_action_time_ms=max_action_time_ms,
+        overage_budget_ms=overage_budget_ms,
         render_mode=render_mode,
         autostart=autostart,
         seed=seed,
@@ -115,6 +117,7 @@ def single_episode_rollout(
         stats=rollout._sim.episode_stats,
         steps=rollout._sim.current_step,
         time_averaged_game_stats=stats_handler.time_averaged_game_stats,
+        overage_exceeded_at=list(rollout.overage_exceeded_at),
     )
     replay: Optional[EpisodeReplay] = None
     if replay_writer is not None:
@@ -136,6 +139,7 @@ def run_episode_local(
     debug_dir: Path | None = None,
     seed: int = 0,
     max_action_time_ms: int = 10000,
+    overage_budget_ms: int | None = None,
     device: Optional[str] = None,
     render_mode: Optional[RenderMode] = None,
     autostart: bool = False,
@@ -166,6 +170,7 @@ def run_episode_local(
         env_for_rollout,
         seed=seed,
         max_action_time_ms=max_action_time_ms,
+        overage_budget_ms=overage_budget_ms,
         render_mode=render_mode or "none",
         autostart=autostart,
         capture_replay=replay_path is not None,
@@ -191,6 +196,7 @@ def run_multi_episode_rollout(
     episodes: int,
     seed: int,
     max_action_time_ms: int,
+    overage_budget_ms: int | None = None,
     replay_dir: Optional[str | Path] = None,
     create_replay_dir: bool = False,
     rng: Optional[random.Random] = None,
@@ -224,6 +230,7 @@ def run_multi_episode_rollout(
             replay_path=replay_path,
             seed=seed + episode_idx,
             max_action_time_ms=max_action_time_ms,
+            overage_budget_ms=overage_budget_ms,
             device=device,
         )
         result = EpisodeRolloutResult(
