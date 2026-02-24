@@ -707,39 +707,27 @@ proc drawObjects*() {.measure.} =
     let pos = thing.smoothPos()
     if thing.typeName == "agent":
       let agent = thing
-      var agentImage = "agents/" & agentRigName(agent) & "." & smoothOrientation(agent).char
+      let resolvedAsset = replay.resolveRenderAsset(agent, step)
+      let orientation = smoothOrientation(agent)
+      var agentImage =
+        if resolvedAsset.len > 0:
+          "agents/" & resolvedAsset & "." & orientation.char
+        else:
+          ""
+      if agentImage notin px:
+        agentImage = "agents/" & agentRigName(agent) & "." & orientation.char
 
       px.drawSprite(
         agentImage,
         (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
       )
 
-    elif normalizeTypeName(thing.typeName) == "junction":
-      let
-        teamName = getTeamName(getEntityTeamIndex(thing)).toLowerAscii()
-        spriteName =
-          if teamName.contains("clip") and "objects/junction.clipped1" in px:
-            "objects/junction.clipped1"
-          elif teamName.contains("cog") and "objects/junction.working" in px:
-            "objects/junction.working"
-          elif "objects/" & thing.renderName in px:
-            "objects/" & thing.renderName
-          elif "objects/" & thing.typeName in px:
-            "objects/" & thing.typeName
-          elif "objects/" & stripTeamPrefix(thing.typeName) in px:
-            "objects/" & stripTeamPrefix(thing.typeName)
-          elif "objects/" & stripTeamSuffix(thing.typeName) in px:
-            "objects/" & stripTeamSuffix(thing.typeName)
-          else:
-            "objects/unknown"
-      px.drawSprite(
-        spriteName,
-        (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
-      )
-
     else:
+      let resolvedAsset = replay.resolveRenderAsset(thing, step)
       let spriteName =
-        if "objects/" & thing.renderName in px:
+        if resolvedAsset.len > 0 and "objects/" & resolvedAsset in px:
+          "objects/" & resolvedAsset
+        elif "objects/" & thing.renderName in px:
           "objects/" & thing.renderName
         elif "objects/" & thing.typeName in px:
           "objects/" & thing.typeName
@@ -1095,7 +1083,12 @@ proc drawObjectPips*() {.measure.} =
       continue
     if not obj.alive.at:
       continue
-    var pipName = "minimap/" & obj.renderName
+    let resolvedAsset = replay.resolveRenderAsset(obj, step)
+    var pipName =
+      if resolvedAsset.len > 0:
+        "minimap/" & resolvedAsset
+      else:
+        "minimap/" & obj.renderName
     if pipName notin pxMini:
       pipName = "minimap/" & obj.typeName
     if pipName notin pxMini:

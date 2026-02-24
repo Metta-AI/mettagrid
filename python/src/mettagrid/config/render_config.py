@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import Field, model_validator
 
@@ -19,6 +19,17 @@ class RenderHudConfig(Config):
         return self
 
 
+class RenderAsset(Config):
+    """Conditional asset selection rule for MettaScope rendering."""
+
+    asset: str = Field(description="Asset base name used by MettaScope")
+    resources: list[str] = Field(default_factory=list, description="Required inventory resources")
+    tags: list[str] = Field(default_factory=list, description="Required entity tags")
+
+
+RenderAssetValue = Union[str, RenderAsset, list[RenderAsset]]
+
+
 class RenderConfig(Config):
     """MettaScope rendering hints embedded in the game config."""
 
@@ -29,4 +40,8 @@ class RenderConfig(Config):
     hud2: RenderHudConfig = Field(
         default_factory=lambda: RenderHudConfig(resource="energy", short_name="E", max=100),
         description="Secondary HUD bar configuration",
+    )
+    assets: dict[str, RenderAssetValue] = Field(
+        default_factory=dict,
+        description="Type-name to asset mapping, optionally with resource/tag conditions",
     )

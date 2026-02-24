@@ -569,6 +569,7 @@ proc centerPanel(winW: float32, winH: float32) =
 
   if isAgent:
     let rig = getAgentRigName(selected)
+    let resolvedAsset = replay.resolveRenderAsset(selected, step)
     let cogName = getCogName(selected.agentId)
     displayName =
       if teamName.len > 0 and cogName.len > 0:
@@ -580,18 +581,29 @@ proc centerPanel(winW: float32, winH: float32) =
       else:
         rig
     profileName =
-      if rig == "agent":
+      if resolvedAsset.len > 0 and ("profiles/" & resolvedAsset) in sk.atlas.entries:
+        "profiles/" & resolvedAsset
+      elif rig == "agent":
         "profiles/cog"
       else:
         "profiles/" & rig
   else:
-    let normalized = normalizeTypeName(selected.renderName)
+    let resolvedAsset = replay.resolveRenderAsset(selected, step)
+    let normalized =
+      if resolvedAsset.len > 0:
+        normalizeTypeName(resolvedAsset)
+      else:
+        normalizeTypeName(selected.renderName)
     displayName =
       if teamName.len > 0:
         teamName & " " & normalized
       else:
         normalized
-    profileName = "profiles/" & normalized
+    profileName =
+      if resolvedAsset.len > 0 and ("profiles/" & resolvedAsset) in sk.atlas.entries:
+        "profiles/" & resolvedAsset
+      else:
+        "profiles/" & normalized
 
   # 1) Name
   discard sk.drawText("pixelated", displayName, at, Yellow, clip = false)
