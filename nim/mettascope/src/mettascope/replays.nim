@@ -54,6 +54,11 @@ type
     short_name*: string
     max*: int
 
+  RenderAssetRule* = object
+    asset*: string
+    resources*: seq[string]
+    tags*: seq[string]
+
   RenderConfig* = object
     hud1*: RenderHudConfig
     hud2*: RenderHudConfig
@@ -174,6 +179,7 @@ type
 
     objectConfigsByName*: Table[string, JsonNode]
     territoryControlsByName*: Table[string, seq[TerritoryControl]]
+    renderAssetsByType*: Table[string, seq[RenderAssetRule]]
 
     # Cached action IDs for common actions.
     noopActionId*: int
@@ -314,6 +320,134 @@ proc getRenderName*(replay: Replay, typeName: string): string =
     if cfg.renderName.len > 0:
       return cfg.renderName
   typeName
+
+proc parseStringArray(node: JsonNode, key: string, context: string): seq[string] =
+  ## Parse a string array field from a JSON object.
+  if key notin node:
+    return @[]
+  let arr = node[key]
+  if arr.kind != JArray:
+    raise newException(
+      ValueError,
+      "Invalid " & context & "." & key & ": expected an array of strings"
+    )
+  for i, item in arr.getElems():
+    if item.kind != JString:
+      raise newException(
+        ValueError,
+        "Invalid " & context & "." & key & "[" & $i & "]: expected a string"
+      )
+    result.add(item.getStr)
+
+proc parseRenderAssetRule(node: JsonNode, context: string): RenderAssetRule =
+  ## Parse a render asset rule from string/object JSON.
+  if node.kind == JString:
+    return RenderAssetRule(asset: node.getStr)
+  if node.kind != JObject:
+    raise newException(
+      ValueError,
+      "Invalid " & context & ": expected a string or object"
+    )
+  result.asset = getString(node, "asset")
+  if result.asset.len == 0:
+    raise newException(
+      ValueError,
+      "Invalid " & context & ".asset: expected a non-empty string"
+    )
+  result.resources = parseStringArray(node, "resources", context)
+  result.tags = parseStringArray(node, "tags", context)
+
+proc parseRenderAssets(renderNode: JsonNode): Table[string, seq[RenderAssetRule]] =
+  ## Parse game.render.assets map from JSON.
+  if renderNode.isNil or "assets" notin renderNode:
+    return
+  let assetsNode = renderNode["assets"]
+  if assetsNode.kind != JObject:
+    raise newException(
+      ValueError,
+      "Invalid game.render.assets: expected an object"
+    )
+  for key, val in assetsNode:
+    let context = "game.render.assets." & key
+    if val.kind == JArray:
+      for i, entry in val.getElems():
+        result.mgetOrPut(key, @[]).add(
+          parseRenderAssetRule(entry, context & "[" & $i & "]")
+        )
+    else:
+      result[key] = @[parseRenderAssetRule(val, context)]
+
+proc normalizeRenderTypeName(typeName: string): string =
+  ## Normalize team-prefixed/suffixed type names for asset lookup.
+  let colonIdx = typeName.find(':')
+  if colonIdx >= 0 and colonIdx < typeName.len - 1:
+    result = typeName[colonIdx + 1 .. ^1]
+  else:
+    result = typeName
+  const teamPrefixes = ["cogs_green_", "cogs_blue_", "cogs_red_", "cogs_yellow_", "clips_"]
+  for prefix in teamPrefixes:
+    if result.len > prefix.len and result[0 ..< prefix.len] == prefix:
+      result = result[prefix.len .. ^1]
+      break
+  if result.len >= 2 and result[^2] == '_' and result[^1] in {'0'..'9'}:
+    result = result[0 .. ^3]
+  if result.endsWith("_station"):
+    result = result[0 ..< (result.len - "_station".len)]
+
+proc entityHasResource*(replay: Replay, entity: Entity, resourceName: string, atStep: int): bool =
+  ## Return true if entity has a positive amount of a resource.
+  let resourceId = replay.itemNames.find(resourceName)
+  if resourceId < 0:
+    return false
+  let inventoryAtStep =
+    if entity.inventory.len == 0:
+      @[]
+    else:
+      entity.inventory[atStep.clamp(0, entity.inventory.len - 1)]
+  for item in inventoryAtStep:
+    if item.itemId == resourceId and item.count > 0:
+      return true
+  false
+
+proc entityHasTag*(replay: Replay, entity: Entity, tagName: string, atStep: int): bool =
+  ## Return true if entity has the named tag.
+  if tagName notin replay.tags:
+    return false
+  if entity.tagIds.len == 0:
+    return false
+  let tagIdsAtStep = entity.tagIds[atStep.clamp(0, entity.tagIds.len - 1)]
+  replay.tags[tagName] in tagIdsAtStep
+
+proc matchesRenderAssetRule(
+  replay: Replay,
+  entity: Entity,
+  rule: RenderAssetRule,
+  atStep: int
+): bool =
+  ## Return true if entity satisfies resource/tag requirements.
+  for resourceName in rule.resources:
+    if not replay.entityHasResource(entity, resourceName, atStep):
+      return false
+  for tagName in rule.tags:
+    if not replay.entityHasTag(entity, tagName, atStep):
+      return false
+  true
+
+proc resolveRenderAsset*(replay: Replay, entity: Entity, atStep: int): string =
+  ## Resolve render asset name from game.render.assets.
+  if replay.isNil or entity.isNil:
+    return ""
+  var keys = @[entity.typeName]
+  let normalizedTypeName = normalizeRenderTypeName(entity.typeName)
+  if normalizedTypeName.len > 0 and normalizedTypeName != entity.typeName:
+    keys.add(normalizedTypeName)
+  for typeName in keys:
+    if typeName notin replay.renderAssetsByType:
+      continue
+    for rule in replay.renderAssetsByType[typeName]:
+      if replay.matchesRenderAssetRule(entity, rule, atStep):
+        return rule.asset
+  ""
 
 proc hudItem1*(replay: Replay): RenderHudConfig =
   ## HUD config for the primary bar.
@@ -931,6 +1065,12 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
   if mgConfig != nil:
     replay.mgConfig = mgConfig
     replay.config = fromJson($mgConfig, Config)
+    let renderNode =
+      if "game" in mgConfig and "render" in mgConfig["game"]:
+        mgConfig["game"]["render"]
+      else:
+        nil
+    replay.renderAssetsByType = parseRenderAssets(renderNode)
     if "game" in mgConfig and "objects" in mgConfig["game"]:
       let objects = mgConfig["game"]["objects"]
       if objects.kind == JObject:
