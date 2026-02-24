@@ -688,7 +688,7 @@ proc bottomLeftMinimap(winH: float32) =
 
   let mmZoom = ZoomInfo()
   mmZoom.rect = irect(minimapPos.x, minimapPos.y, MinimapSize, MinimapSize)
-  mmZoom.hasMouse = false
+  mmZoom.hasMouse = window.mousePos.vec2.overlaps(rect(minimapPos, vec2(MinimapSize, MinimapSize)))
 
   saveTransform()
   translateTransform(minimapPos)
