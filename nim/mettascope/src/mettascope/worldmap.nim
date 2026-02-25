@@ -1134,7 +1134,7 @@ proc drawMaskedSplatComposite*() {.measure.} =
   terrains.drawMaskedSplatComposite(getProjectionView(), px)
 
 proc drawMinimapConnectivity*() {.measure.} =
-  ## Draw connectivity lines for hubs and junctions on the minimap.
+  ## Draw connectivity lines for hubs, ships, and junctions on the minimap.
   type
     MiniNode = tuple[pos: IVec2, range: float32]
     MiniEdge = tuple[a: int, b: int]
@@ -1146,7 +1146,7 @@ proc drawMinimapConnectivity*() {.measure.} =
     if not obj.alive.at:
       continue
     let normalized = normalizeTypeName(obj.typeName)
-    if normalized notin ["hub", "junction"]:
+    if normalized notin ["hub", "ship", "junction"]:
       continue
 
     let teamIdx = getEntityTeamIndex(obj)
@@ -1163,7 +1163,7 @@ proc drawMinimapConnectivity*() {.measure.} =
       pos: obj.location.at(step).xy,
       range: maxAoeRange.float32
     )
-    if normalized == "hub":
+    if normalized in ["hub", "ship"]:
       hubsByTeam.mgetOrPut(teamIdx, @[]).add(node)
     else:
       junctionsByTeam.mgetOrPut(teamIdx, @[]).add(node)
@@ -1220,7 +1220,7 @@ proc drawMinimapConnectivity*() {.measure.} =
     return -1
 
   ## Connectivity rules for minimap links:
-  ## - Build a per-team tree that starts from hub nodes.
+  ## - Build a per-team forest seeded by all hub nodes.
   ## - Add tree edges only when distance is within 2x minimum AoE range.
   ## - Add bridge edges only when current shortest path is 3 or more hops.
   ## - Reject bridge edges that overlap any existing edge.
@@ -1241,40 +1241,48 @@ proc drawMinimapConnectivity*() {.measure.} =
     if connected.len == 0:
       continue
 
-    while true:
-      var
-        bestJunction = -1
-        bestParent = -1
-        bestDistance = high(float32)
-      for j in 0 ..< junctions.len:
-        if isConnected[j]:
-          continue
-        let child = junctions[j]
-        var
-          nearestParent = -1
-          nearestDistance = high(float32)
-        for p in 0 ..< connected.len:
-          let parent = connected[p]
-          let
-            dx = (child.pos.x - parent.pos.x).float32
-            dy = (child.pos.y - parent.pos.y).float32
-            dist = sqrt(dx * dx + dy * dy)
-            connectRange = min(child.range, parent.range) * 2.0f
-          if connectRange <= 0 or dist > connectRange:
-            continue
-          if dist < nearestDistance:
-            nearestDistance = dist
-            nearestParent = p
-        if nearestParent >= 0 and nearestDistance < bestDistance:
-          bestDistance = nearestDistance
-          bestJunction = j
-          bestParent = nearestParent
+    let hubCount = connected.len
+    var nodeRoot = newSeq[int](hubCount)
+    for rootIdx in 0 ..< hubCount:
+      nodeRoot[rootIdx] = rootIdx
 
-      if bestJunction < 0:
+    while true:
+      var addedAny = false
+      for rootIdx in 0 ..< hubCount:
+        var
+          bestJunction = -1
+          bestParent = -1
+          bestDistance = high(float32)
+        for j in 0 ..< junctions.len:
+          if isConnected[j]:
+            continue
+          let child = junctions[j]
+          for p in 0 ..< connected.len:
+            if nodeRoot[p] != rootIdx:
+              continue
+            let parent = connected[p]
+            let
+              dx = (child.pos.x - parent.pos.x).float32
+              dy = (child.pos.y - parent.pos.y).float32
+              dist = sqrt(dx * dx + dy * dy)
+              connectRange = min(child.range, parent.range) * 2.0f
+            if connectRange <= 0 or dist > connectRange:
+              continue
+            if dist < bestDistance:
+              bestDistance = dist
+              bestJunction = j
+              bestParent = p
+
+        if bestJunction < 0:
+          continue
+        edges.add((a: bestParent, b: connected.len))
+        isConnected[bestJunction] = true
+        connected.add(junctions[bestJunction])
+        nodeRoot.add(rootIdx)
+        addedAny = true
+
+      if not addedAny:
         break
-      edges.add((a: bestParent, b: connected.len))
-      isConnected[bestJunction] = true
-      connected.add(junctions[bestJunction])
 
     if connected.len >= 2:
       var

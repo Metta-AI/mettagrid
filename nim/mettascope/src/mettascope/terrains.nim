@@ -136,6 +136,8 @@ proc stampForTypeName(typeName: string): string =
     "terrain/stamp.hub"
   of "wall", "agent", "aligner", "scrambler", "miner", "scout":
     ""
+  of "ship":
+    "" # TODO: Add ship shadow.
   else:
     echo "Missing splat stamp mapping for ", normalized
     ""
