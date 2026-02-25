@@ -2,171 +2,146 @@
 
 MettaGrid is a multi-agent gridworld environment for studying the emergence of cooperation and social behaviors in
 reinforcement learning agents. The environment features a variety of objects and actions that agents can interact with
-to manage resources, engage in combat, share with others, and optimize their rewards.
+to manage resources, engage in combat, and optimize their rewards.
 
 ## Requirements
 
-- Bazel 7.0.0 or newer (the project uses Bzlmod and modern Bazel features)
-- Python 3.11 or newer
+- Bazel 9.0.0 or newer (the project uses Bzlmod and modern Bazel features)
+- Python 3.12
 - C++ compiler with C++20 support
 
 ## Overview
 
-In MettaGrid, agents navigate a gridworld and interact with various objects to manage their energy, harvest resources,
-engage in combat, and cooperate with other agents. The key dynamics include:
+In MettaGrid, agents navigate a gridworld and interact with various objects to manage resources, engage in combat, and
+cooperate with other agents. The key dynamics include:
 
-- **Energy Management**: Agents must efficiently manage their energy, which is required for all actions. They can
-  harvest resources and convert them to energy at junction stations.
-- **Resource Gathering**: Agents can gather resources from generator objects scattered throughout the environment.
-- **Cooperation and Sharing**: Agents have the ability to share resources with other agents.
-- **Combat**: Agents can attack other agents to temporarily freeze them and steal their resources. They can also use
-  shields to defend against attacks.
+- **Resource Management**: Agents carry an inventory of typed resources with configurable capacity limits. Resources can
+  be gathered from objects, consumed by actions, and stolen through combat.
+- **Combat**: Agents can attack other agents by moving into them when their vibe matches an attack configuration.
+  Successful attacks freeze the target and allow the attacker to steal resources. Targets can defend using armor and
+  defense resources.
+- **Vibes**: Each agent has a vibe that determines how they interact with other agents on contact. Vibes affect which
+  attacks trigger, defense bonuses, and are visible in observations.
 
 The environment is highly configurable, allowing for experimentation with different world layouts, object placements,
-and agent capabilities.
+game mechanics, and agent capabilities.
 
 ## Objects
 
 ### Agent
 
-<img src="https://github.com/daveey/Griddly/blob/develop/resources/images/oryx/oryx_tiny_galaxy/tg_sliced/tg_monsters/tg_monsters_astronaut_u1.png?raw=true" width="32"/>
-
-The `Agent` object represents an individual agent in the environment. Agents can move, rotate, attack, and interact with
-other objects. Each agent has energy, resources, and shield properties that govern its abilities and interactions.
-
-### Converter
-
-<img src="https://github.com/daveey/Griddly/blob/develop/resources/images/oryx/oryx_tiny_galaxy/tg_sliced/tg_items/tg_items_pda_A.png?raw=true" width="32"/>
-
-The `Converter` object allows agents to convert their harvested resources into energy. Agents can use converters by
-moving to them and taking the `use` action. Each use of a converter provides a specified amount of energy and has a
-cooldown period.
-
-- Using the converter does not cost any energy.
-- Using the converter outputs `converter.energy_output.r1` energy
-  - see `this.output_energy = cfg[b"energy_output.r1"]` in the Converter cppclass
-- Using the converter increments resource 2 by one and decrements resource 1 by 1
-- There is currently no use for `converter.energy_output.r2` and `converter.energy_output.r3`
-- After the converter is used, it waits for the next value in `converter.cooldown` before it can be used again.
-  Supplying a list of integers causes the converter to cycle through the provided schedule.
-
-### Generator
-
-<img src="https://github.com/daveey/Griddly/blob/develop/resources/images/oryx/oryx_fantasy/ore-0.png?raw=true" width="32"/>
-
-The `Generator` object produces resources that agents can harvest. Agents can gather resources from generators by moving
-to them and taking the `use` action. Generators have a specified capacity and replenish resources over time.
-
-- Using the generator once gives one resource 1
-- After the generator is used, it is unable to be used for the next value in `generator.cooldown` timesteps
+The `Agent` object represents an individual agent in the environment. Agents can move, attack, change their vibe, and
+interact with other objects. Each agent has an inventory, a vibe, and a frozen state that govern its abilities and
+interactions.
 
 ### Wall
 
-<img src="https://github.com/daveey/Griddly/blob/develop/resources/images/oryx/oryx_fantasy/wall2-0.png?raw=true" width="32"/>
-
 The `Wall` object acts as an impassable barrier in the environment, restricting agent movement.
 
-### Cooldown
+### Custom Objects
 
-The `cooldown` property holds one or more delays that determine how long objects wait before they can be used again.
-When provided as a list, the delays are applied cyclically.
+Object types beyond Agent and Wall are defined entirely through configuration. Any object can have an inventory, on-use
+handlers that trigger when an agent moves into them, area-of-effect behaviors that apply to nearby objects each tick,
+and territory controls.
 
 ## Actions
 
-### Move / Rotate
+### Move
 
-The `move` action allows agents to move to an adjacent cell in the gridworld. The action has two modes: moving forward
-and moving backward relative to the agent's current orientation.
+The `move` action allows agents to move to an adjacent cell in the gridworld. Movement supports up to 8 directions (4
+cardinal and 4 diagonal), configured via `allowed_directions`. Moving into different targets triggers different
+behaviors:
 
-The `rotate` action enables agents to change their orientation within the gridworld. Agents can rotate to face in four
-directions: down, left, right, and up.
+- Moving into an empty cell moves the agent normally.
+- Moving into an object with an on-use handler triggers that handler (e.g., gathering resources from a generator).
+- Moving into a frozen agent swaps positions with them.
+- Moving into an agent whose vibe matches an attack configuration triggers the attack.
+- Otherwise, the movement fails.
 
 ### Attack
 
-The `attack` action allows agents to attack other agents or objects within their attack range. Successful attacks freeze
-the target for `freeze_duration` timesteps and allow the attacker to steal resources. Further, the attacked agent's
-energy is set to `0`. Attacks have a cost and inflict a damage value. The agent selects from one of nine coordinates
-within its attack range.
+Attacks are not standalone actions. They trigger when a move lands on an agent whose vibe matches an attack handler
+configuration. The attack system uses weapon, armor, and defense resource calculations:
 
-### Shield (Toggle)
+- Weapon power is computed from the attacker's inventory, weighted by configured amounts.
+- Armor power is computed from the target's inventory, with optional vibe-based bonuses.
+- If the target has sufficient defense resources, the attack is blocked and those resources are consumed.
+- On a successful attack, the target is frozen for a configured duration and inventory loot is transferred to the
+  attacker.
 
-The `shield` action turns on a shield. When the shield is active, the agent is protected from attacks by other agents.
-The shield consumes energy defined by `upkeep.shield` while active. Attack damage is subtracted from the agent's energy,
-rather than freezing the agent.
+### Change Vibe
 
-### Transfer
+The `change_vibe` action sets the agent's current vibe. There is one action variant per configured vibe, named after the
+vibe (e.g., `change_vibe_default`, `change_vibe_junction`). Changing vibe always succeeds.
 
-The `transfer` action enables agents to share resources with other agents. Agents can choose to transfer specific
-resources to another agent in an adjacent cell. It is currently not implemented.
+### Noop
 
-### Use
+The `noop` action is a no-operation. It always succeeds with no side effects.
 
-The `use` action allows agents to interact with objects such as converters and generators. The specific effects of the
-`use` action depend on the target object and can include converting resources to energy or harvesting resources from
-generators.
+## Handler System
+
+Game logic in MettaGrid is driven by an event-based handler architecture rather than hardcoded per-object behavior. This
+makes the environment highly composable and configurable.
+
+A **handler** pairs a chain of filters with a chain of mutations. All filters must pass for the mutations to execute.
+Handlers are used for on-use interactions (when an agent moves into an object) and area-of-effect behaviors (applied to
+nearby objects each tick).
+
+A **multi-handler** dispatches to multiple handlers with either first-match or apply-all semantics.
+
+**Filters** gate whether a handler's mutations execute. Available filter types include vibe matching, resource
+thresholds, tag membership, shared tags between actor and target, game value thresholds, distance checks, and boolean
+combinators (negation and disjunction).
+
+**Mutations** modify game state when a handler fires. Available mutation types include resource deltas, resource
+transfers between entities, freezing agents, clearing inventories, weapon-vs-armor attack calculations, stat logging,
+tag modifications, and inventory queries across multiple objects.
+
+**Events** fire at specific timesteps, applying mutations to objects matching a query. An event scheduler efficiently
+dispatches these with minimal overhead when no events are due.
 
 ## Configuration
 
-The MettaGrid environment is highly configurable through the use of YAML configuration files. These files specify the
-layout of the gridworld, the placement of objects, and various properties of the objects and agents.
+The MettaGrid environment is highly configurable through Pydantic-based configuration classes. The top-level
+`MettaGridConfig` contains:
 
-**Current settings:**
+- Game rules and episode length
+- Action definitions (move, attack, change vibe, noop) with per-action resource requirements
+- Agent properties including group, freeze duration, initial inventory, rewards, and per-tick handlers
+- Object type definitions with on-use handlers, area-of-effect configs, territory controls, and inventory
+- Handler and event definitions with filter and mutation chains
+- Observation feature configuration
+- Map generation settings
 
-1. Ore   - Base resource obtained from mines. Mines produce one ore when used. No resource requirements for use.   -
-   Reward value: 0.005 per unit (max 2)   - Used to create batteries and lasers
-2. Battery   - Intermediate resource created from ore at a generator. Generator turns one ore into one battery.   -
-   Reward value: 0.01 per unit (max 2)   - Used to create lasers
-3. Laser   - Weapon resource created from ore and batteries. Requires 1 ore and 2 batteries. Created at the lasery.
+### Map Generation
 
-- Consumed on use. When hitting an unarmored agent: freezes them and steals their whole inventory. When hitting an
-  armoured agent, destroys their armor. **Inventory System**
-- Agents have limited inventory space (default max: 50 items)
-- Resources provide rewards just by being in inventory (up to their max reward value)
-- Resources can be stolen through attacks Objects Various buildings: Mine, Generator, Armory, Lasery, Lab, Factory,
-  Temple.
-- HP — hitpoints, the number of times something can be hit before destruction.
-- Cooldown between uses (varies by building)
-- Can be damaged and destroyed by attacks
+MettaGrid includes a procedural map generation system. The `MapBuilder` base class has implementations for ASCII-based
+maps and random generation. The `MapGen` system provides advanced scene-based procedural generation with composable
+scene types including biomes (forest, desert, caves, city), shape generators (BSP, maze, spiral, wave function
+collapse), and transformations (mirror, rotate, copy). Pre-built map configurations are available in `configs/maps/`.
 
 ## Environment Architecture
 
-MettaGrid uses a modular architecture designed primarily for the Softmax Studio ML project, with lightweight adapters to
-maintain compatibility with external RL frameworks:
+### Core Simulation
 
-### Primary Training Environment
+The `Simulation` class provides the core simulation for running MettaGrid episodes. It offers direct access to the
+simulation without an environment API — use it when you need fine-grained control over simulation steps, agent actions,
+and state inspection. The `Simulator` class is a factory that creates `Simulation` instances with map caching and event
+handler support.
 
-**`PufferMettaGridEnv`** - The main environment actively developed for Softmax Studio training systems
+### Environment Adapters
 
-- Full-featured environment with comprehensive stats collection, replay recording, and curriculum support
-- PufferLib-compatible environment wrapper that provides reset/step API
-- **Exclusively used** by `metta.rl.trainer` and `metta.sim.simulation`
-- Continuously developed and optimized for Softmax Studio use cases
-- Backward compatible with existing training code
+**`MettaGridPufferEnv`** is the primary PufferLib-compatible environment used by the Metta training system. It provides
+the standard `reset()`/`step()` API with stats collection and supervisor policy support.
 
-### Core Infrastructure
+**`MettaGridPettingZooEnv`** is a PettingZoo ParallelEnv adapter for multi-agent research with standard dict-based
+observation and action interfaces.
 
-**`Simulation`** - Core simulation class for running MettaGrid simulations
+### Visualization
 
-- Foundation that provides the core game mechanics and performance
-- Direct simulation access without environment API (no reset/step)
-- Use when you need fine-grained control over simulation steps
-
-### External Framework Compatibility Adapters
-
-Lightweight wrappers around `MettaGridCore` to maintain compatibility with other training systems:
-
-- **`MettaGridGymEnv`** - Gymnasium compatibility for research workflows
-- **`MettaGridPettingZooEnv`** - PettingZoo compatibility for multi-agent research
-- **`MettaGridPufferEnv`** - PufferLib compatibility for high-performance external training
-
-**Important**: These adapters are **only used with their respective training systems**, not with the Metta trainer.
-
-### Design Philosophy
-
-- **Primary Focus**: `PufferMettaGridEnv` receives active development and new features for Softmax Studio
-- **Compatibility Maintenance**: External adapters ensure other frameworks continue working as the core evolves
-- **Testing for Compatibility**: Demos verify external frameworks remain functional during core development
-- **Clear Separation**: Each environment type serves its specific training system - no mixing between systems
+**Mettascope** is a Nim-based GUI viewer for simulation replay and real-time visualization, built as part of the
+package. **Vibescope** is a vibe picker visualization tool. **Miniscope** provides a terminal-based renderer with
+symbol-based map display.
 
 ### Compatibility Testing Demos
 
@@ -178,15 +153,12 @@ python -m mettagrid.demos.demo_train_pettingzoo
 
 # Verify PufferLib compatibility
 python -m mettagrid.demos.demo_train_puffer
-
-# Verify Gymnasium compatibility
-python -m mettagrid.demos.demo_train_gym
 ```
 
 The demos serve as regression tests to catch compatibility issues during core development, ensuring external users can
 continue using their preferred frameworks.
 
-## Building and testing
+## Building and Testing
 
 For local development, refer to the top-level [README.md](../README.md) in this repository.
 
@@ -209,9 +181,6 @@ For benchmarks you might prefer to use the optimized build:
 ```sh
 # Build with optimizations
 bazel build --config=opt //:mettagrid_c
-
-# Run benchmarks
-./build-release/benchmarks/grid_object_benchmark
 ```
 
 For a single-core benchmark of MettaGrid performance (triggers a rebuild on first run):
