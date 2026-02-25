@@ -6,6 +6,19 @@ import
 const
   TileSize = 128
   Ts = 1.0 / TileSize.float32
+  SplatMinSpacingPx = 500.0f
+  SplatMaxPlacementAttempts = 100
+  SplatDensityAreaPerSpritePx = 500_000.0f
+  RandomSplatSprites = @[
+    "terrain/splat1",
+    "terrain/splat2",
+    "terrain/splat3",
+    "terrain/splat4",
+    "terrain/splat5",
+    "terrain/splat6",
+    "terrain/splat7",
+    "terrain/splat8"
+  ]
 
 type
   SplatPassTarget* = enum
@@ -160,6 +173,46 @@ proc rebuildSplats*() =
       continue
 
     splats.add((sprite: stamp, pos: obj.location.at(firstAliveStep).xy * TileSize))
+
+  let
+    mapWidthPx = replay.mapSize[0] * TileSize
+    mapHeightPx = replay.mapSize[1] * TileSize
+    mapAreaPx = mapWidthPx.float32 * mapHeightPx.float32
+    randomSplatTarget = max(0, floor(mapAreaPx / SplatDensityAreaPerSpritePx).int)
+    minSpacingSq = SplatMinSpacingPx * SplatMinSpacingPx
+  if mapWidthPx <= 0 or mapHeightPx <= 0 or randomSplatTarget <= 0:
+    return
+
+  var randomSplatPositions: seq[IVec2] = @[]
+  for _ in 0 ..< randomSplatTarget:
+    var placed = false
+    for _ in 0 ..< SplatMaxPlacementAttempts:
+      let candidate = ivec2(
+        rand(mapWidthPx - 1).int32,
+        rand(mapHeightPx - 1).int32
+      )
+      var tooClose = false
+      for pos in randomSplatPositions:
+        let
+          dx = (candidate.x - pos.x).float32
+          dy = (candidate.y - pos.y).float32
+          distSq = dx * dx + dy * dy
+        if distSq < minSpacingSq:
+          tooClose = true
+          break
+      if tooClose:
+        continue
+
+      randomSplatPositions.add(candidate)
+      splats.add((
+        sprite: RandomSplatSprites[rand(RandomSplatSprites.high)],
+        pos: candidate
+      ))
+      placed = true
+      break
+    if not placed:
+      # Stop generation if no valid spot is found after many attempts.
+      break
 
 proc resetTerrainCaches*() =
   terrainMap = nil
