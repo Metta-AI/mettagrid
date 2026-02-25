@@ -671,18 +671,33 @@ proc agentRigName(agent: Entity): string =
       return "scrambler"
   return "agent"
 
+proc remnantSpriteName(obj: Entity): string =
+  ## Return a remnant sprite name when available for a dead building.
+  let resolvedAsset = replay.resolveRenderAsset(obj, step)
+  for name in @[
+    resolvedAsset,
+    obj.renderName,
+    obj.typeName,
+    stripTeamPrefix(obj.typeName),
+    stripTeamSuffix(obj.typeName)
+  ]:
+    if name.len == 0:
+      continue
+    let sprite = "objects/" & name & ".remnant"
+    if sprite in px:
+      return sprite
+  ""
+
 proc drawObjects*() {.measure.} =
   ## Draw the objects on the map, sorted for correct draw order.
 
   # Sort: lower Y first (farther away, drawn behind), buildings before agents
   # at same Y, then by object ID ascending.
 
-  # Collect non-wall, alive objects into a sortable list.
+  # Collect non-wall objects into a sortable list.
   var objects = newSeqOfCap[Entity](replay.objects.len)
   for obj in replay.objects:
     if obj.typeName == "wall":
-      continue
-    if not obj.alive.at:
       continue
     objects.add(obj)
 
@@ -727,6 +742,16 @@ proc drawObjects*() {.measure.} =
       )
 
     else:
+      if not thing.alive.at:
+        let remnantSprite = remnantSpriteName(thing)
+        if remnantSprite.len == 0:
+          continue
+        px.drawSprite(
+          remnantSprite,
+          (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
+        )
+        continue
+
       let resolvedAsset = replay.resolveRenderAsset(thing, step)
       let spriteName =
         if resolvedAsset.len > 0 and "objects/" & resolvedAsset in px:
