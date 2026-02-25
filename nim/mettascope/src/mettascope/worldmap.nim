@@ -83,6 +83,7 @@ proc withinAgentVisionMask(dx: int32, dy: int32, radius: int, radiusSq: int): bo
   # Expand pure cardinal tips from 1 tile to 3 tiles for radius >= 2.
   radius >= 2 and distSq == radiusSq + 1 and
     (abs(dxInt) == radius or abs(dyInt) == radius)
+
 proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
   ## Rebuild the visibility map.
   let
@@ -90,8 +91,8 @@ proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
     height = visibilityMap.height
 
   var fogOfWarMap: seq[bool] = newSeq[bool](width * height)
-  for y in 1 ..< replay.mapSize[1] - 1:
-    for x in 1 ..< replay.mapSize[0] - 1:
+  for y in 1 .. replay.mapSize[1]:
+    for x in 1 .. replay.mapSize[0]:
       fogOfWarMap[y * width + x] = true
 
   # Walk the agents and clear the visibility map.
@@ -112,7 +113,7 @@ proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
         let dy = int32(j) - center.y
         if not withinAgentVisionMask(dx, dy, visionRadius, visionRadiusSq):
           continue
-        let gridPos = pos.xy + ivec2(int32(i), int32(j)) - center
+        let gridPos = pos.xy + ivec2(int32(i), int32(j)) - center + ivec2(1, 1)
         if gridPos.x >= 0 and gridPos.x < width and
           gridPos.y >= 0 and gridPos.y < height:
           fogOfWarMap[gridPos.y * width + gridPos.x] = false
@@ -150,8 +151,8 @@ proc rebuildVisibilityMap*(visibilityMap: TileMap) {.measure.} =
 proc generateVisibilityMap(): TileMap {.measure.} =
   ## Generate a 1024x1024 texture where each pixel is a byte index into the 16x16 tile map.
   let
-    width = ceil(replay.mapSize[0].float32 / 32.0f).int * 32
-    height = ceil(replay.mapSize[1].float32 / 32.0f).int * 32
+    width = ceil((replay.mapSize[0] + 2).float32 / 32.0f).int * 32
+    height = ceil((replay.mapSize[1] + 2).float32 / 32.0f).int * 32
 
   var visibilityMap = newTileMap(
     width = width,
@@ -175,8 +176,8 @@ proc rebuildExplorationFogMap*(explorationFogMap: TileMap) {.measure.} =
     height = explorationFogMap.height
 
   var fogOfWarMap: seq[bool] = newSeq[bool](width * height)
-  for y in 1 ..< replay.mapSize[1] - 1:
-    for x in 1 ..< replay.mapSize[0] - 1:
+  for y in 1 .. replay.mapSize[1]:
+    for x in 1 .. replay.mapSize[0]:
       fogOfWarMap[y * width + x] = true
 
 
@@ -204,7 +205,7 @@ proc rebuildExplorationFogMap*(explorationFogMap: TileMap) {.measure.} =
           let dy = int32(j) - center.y
           if not withinAgentVisionMask(dx, dy, visionRadius, visionRadiusSq):
             continue
-          let gridPos = pos.xy + ivec2(int32(i), int32(j)) - center
+          let gridPos = pos.xy + ivec2(int32(i), int32(j)) - center + ivec2(1, 1)
           if gridPos.x >= 0 and gridPos.x < width and
             gridPos.y >= 0 and gridPos.y < height:
             fogOfWarMap[gridPos.y * width + gridPos.x] = false
@@ -242,8 +243,8 @@ proc rebuildExplorationFogMap*(explorationFogMap: TileMap) {.measure.} =
 proc generateExplorationFogMap(): TileMap {.measure.} =
   ## Generate persistent exploration fog tilemap.
   let
-    width = ceil(replay.mapSize[0].float32 / 32.0f).int * 32
-    height = ceil(replay.mapSize[1].float32 / 32.0f).int * 32
+    width = ceil((replay.mapSize[0] + 2).float32 / 32.0f).int * 32
+    height = ceil((replay.mapSize[1] + 2).float32 / 32.0f).int * 32
 
   var explorationFogMap = newTileMap(
     width = width,
@@ -300,6 +301,8 @@ proc rebuildAoeMap*(aoeMap: TileMap, teamIdx: int) {.measure.} =
   let
     width = aoeMap.width
     height = aoeMap.height
+    mapWidth = replay.mapSize[0]
+    mapHeight = replay.mapSize[1]
 
   reuseableCoverageMap.setLen(width * height)
   reuseableFriendlyScoreMap.setLen(width * height)
@@ -337,7 +340,7 @@ proc rebuildAoeMap*(aoeMap: TileMap, teamIdx: int) {.measure.} =
           let score = territoryInfluenceScore(spec, distSq)
           if score <= 0.0f:
             continue
-          if tx >= 0 and tx < width and ty >= 0 and ty < height:
+          if tx >= 0 and tx < mapWidth and ty >= 0 and ty < mapHeight:
             reuseableCoverageMap[ty * width + tx] = false
 
   proc accumulateInfluence(obj: Entity) =
@@ -360,7 +363,7 @@ proc rebuildAoeMap*(aoeMap: TileMap, teamIdx: int) {.measure.} =
             ty = pos.y + dy.int32
           if not withinTerritoryInfluenceRadius(dx, dy, range):
             continue
-          if tx >= 0 and tx < width and ty >= 0 and ty < height:
+          if tx >= 0 and tx < mapWidth and ty >= 0 and ty < mapHeight:
             let idx = ty * width + tx
             let distSq = dx * dx + dy * dy
             let score = territoryInfluenceScore(spec, distSq)
@@ -761,7 +764,7 @@ proc drawVisualRanges*(alpha = 0.5) {.measure.} =
     visibilityMap.updateVisibilityMap()
 
   visibilityMap.draw(
-    getProjectionView(),
+    getProjectionView() * translate(vec3(-1.0f, -1.0f, 0.0f)),
     zoom = 2.0f,
     zoomThreshold = 1.5f,
     tint = color(0, 0, 0, alpha)
@@ -784,7 +787,7 @@ proc drawFogOfWar*() {.measure.} =
     explorationFogMap.updateExplorationFogMap()
 
   explorationFogMap.draw(
-    getProjectionView(),
+    getProjectionView() * translate(vec3(-1.0f, -1.0f, 0.0f)),
     zoom = 2.0f,
     zoomThreshold = 1.5f,
     tint = color(0, 0, 0, 1.0)
@@ -1665,6 +1668,7 @@ proc drawWorldMap*(zoomInfo: ZoomInfo) {.measure.} =
   agentControls()
 
   if zoomInfo.zoom < MiniViewZoomThreshold:
+    drawStarfield()
     drawWorldMini()
   else:
     drawWorldMain()
