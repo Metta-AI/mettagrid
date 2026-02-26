@@ -43,11 +43,11 @@ def _upload_policy_logs(
     policy_log_dir: Path | None,
     policy_log_urls: dict[str, str] | None,
 ) -> None:
-    """Upload policy logs using presigned URLs.
+    """Upload policy logs to configured URIs.
 
     Args:
         policy_log_dir: Directory containing policy log files named like "{agent_idx}.log"
-        policy_log_urls: Dict mapping "{agent_idx}" to presigned PUT URLs
+        policy_log_urls: Dict mapping "{agent_idx}" to destination URIs
     """
     if policy_log_dir is None or policy_log_urls is None:
         return
