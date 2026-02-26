@@ -638,7 +638,7 @@ proc centerPanel(winW: float32, winH: float32) =
       let
         itemName = replay.itemNames[item.itemId]
         itemIcon = "resources/" & itemName
-      if itemName in @["hp", "energy", "solar"]:
+      if itemName in @["hp", "energy", "solar", "scrambler"]:
         continue
       if itemIcon notin sk.atlas.entries:
         continue
