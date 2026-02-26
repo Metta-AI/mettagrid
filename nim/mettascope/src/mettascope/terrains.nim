@@ -1,6 +1,6 @@
 import
   std/[math, random, os, strutils],
-  opengl, windy, silky/shaders, shady, vmath,
+  opengl, windy, silky/shaders, shady, vmath, chroma,
   common, tilemap, pixelator, shaderquad
 
 const
@@ -261,7 +261,10 @@ proc drawSplats*(mvp: Mat4, px: Pixelator) =
     let stamp = firstSprite(@[splat.sprite])
     if stamp.len == 0:
       continue
-    px.drawSprite(stamp, splat.pos)
+    var tint = WhiteTint
+    if splat.sprite.startsWith("terrain/splat"):
+      tint = rgbx(100, 100, 100, 100)
+    px.drawSprite(stamp, splat.pos, tint)
 
 proc maskedSplatVert*(fragmentWorldPos: var Vec2, fragmentUv: var Vec2) =
   let corner = ivec2(gl_VertexID mod 2, gl_VertexID div 2)
