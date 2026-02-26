@@ -64,7 +64,6 @@ proc init(dataDir: string, replay: string, autostart: bool = false): RenderRespo
     makeContextCurrent(window)
     loadExtensions()
     initMettascope()
-    onReplayLoaded()
     return
   except Exception:
     echo "############ Error initializing Mettascope #################"
@@ -81,6 +80,8 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
     common.replay.apply(replayStep)
     if worldHeatmap != nil:
       update(worldHeatmap, currentStep, replay)
+    if currentStep == 0:
+      onReplayLoaded()
     let currentStepFloat = currentStep.float32
     if playMode == Realtime:
       let delta = abs(currentStepFloat - stepFloat)
