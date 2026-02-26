@@ -4,7 +4,8 @@ import
   common, actions, replays, team,
   pathfinding, tilemap, pixelator, shaderquad, terrains, starfield,
   panels, heatmap, heatmapshader, colors,
-  panels/objectpanel
+  panels/objectpanel,
+  custom_hud
 
 const
   TileSize = 128
@@ -923,17 +924,42 @@ proc drawAgentDecorations*() {.measure.} =
     prevStep = max(0, step - 1)
     hud1Cfg = replay.hudItem1
     hud2Cfg = replay.hudItem2
-  for agent in replay.agents:
-    if not agent.alive.at:
-      continue
-    let pos = (agent.smoothPos * TileSize.float32).ivec2
-    let tint = getTeamColor(getEntityTeamIndex(agent))
-    let hud1 = getInventoryItem(agent, hud1Cfg.resource)
-    let hud1Prev = getInventoryItem(agent, hud1Cfg.resource, prevStep)
-    drawBar(ivec2(pos.x, pos.y - 68), tint, NumPips, hud1Cfg.max, hud1, hud1Prev, LargePip)
-    let hud2 = getInventoryItem(agent, hud2Cfg.resource)
-    let hud2Prev = getInventoryItem(agent, hud2Cfg.resource, prevStep)
-    drawBar(ivec2(pos.x, pos.y - 61), colors.Yellow, NumPips, hud2Cfg.max, hud2, hud2Prev, MediumPip)
+  if replay.hasCustomHuds:
+    const
+      BaseHudY = 68
+      HudYStep = 7
+    let hudConfigs = replay.hudItems
+    for agent in replay.agents:
+      if not agent.alive.at:
+        continue
+      let pos = (agent.smoothPos * TileSize.float32).ivec2
+      let tint = getTeamColor(getEntityTeamIndex(agent))
+      for i, hudCfg in hudConfigs:
+        let
+          hud = getInventoryItem(agent, hudCfg.resource)
+          hudPrev = getInventoryItem(agent, hudCfg.resource, prevStep)
+          y = pos.y - int32(BaseHudY - i * HudYStep)
+          barSize =
+            if i == 0: LargePip
+            else: MediumPip
+          barTint =
+            if i == 0: tint
+            else: colors.Yellow
+        drawBar(
+          ivec2(pos.x, y), barTint, NumPips,
+          hudCfg.max, hud, hudPrev, barSize)
+  else:
+    for agent in replay.agents:
+      if not agent.alive.at:
+        continue
+      let pos = (agent.smoothPos * TileSize.float32).ivec2
+      let tint = getTeamColor(getEntityTeamIndex(agent))
+      let hud1 = getInventoryItem(agent, hud1Cfg.resource)
+      let hud1Prev = getInventoryItem(agent, hud1Cfg.resource, prevStep)
+      drawBar(ivec2(pos.x, pos.y - 68), tint, NumPips, hud1Cfg.max, hud1, hud1Prev, LargePip)
+      let hud2 = getInventoryItem(agent, hud2Cfg.resource)
+      let hud2Prev = getInventoryItem(agent, hud2Cfg.resource, prevStep)
+      drawBar(ivec2(pos.x, pos.y - 61), colors.Yellow, NumPips, hud2Cfg.max, hud2, hud2Prev, MediumPip)
 
 proc drawGrid*() {.measure.} =
   # Draw the grid using a single quad and shader-based lines.

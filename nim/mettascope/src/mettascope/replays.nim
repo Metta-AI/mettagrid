@@ -1,4 +1,4 @@
-import std/[json, os, tables, strutils],
+import std/[algorithm, json, os, tables, strutils],
   zippy, vmath, jsony, silky, chroma,
   ./validation
 
@@ -53,6 +53,15 @@ type
     resource*: string
     short_name*: string
     max*: int
+    rank*: int
+
+  RenderStatusBarConfig* = object
+    resource*: string
+    short_name*: string
+    bar_type*: string
+    max*: int
+    divisions*: int
+    rank*: int
 
   RenderAssetRule* = object
     asset*: string
@@ -62,6 +71,8 @@ type
   RenderConfig* = object
     hud1*: RenderHudConfig
     hud2*: RenderHudConfig
+    agent_huds*: Table[string, RenderHudConfig]
+    object_status*: Table[string, Table[string, RenderStatusBarConfig]]
 
   GameConfig* = object
     resourceNames*: seq[string]
@@ -181,6 +192,9 @@ type
     territoryControlsByName*: Table[string, seq[TerritoryControl]]
     renderAssetsByType*: Table[string, seq[RenderAssetRule]]
 
+    # Cached render config, sorted by rank at load time.
+    sortedHudItems*: seq[RenderHudConfig]
+    sortedStatusItems*: Table[string, seq[RenderStatusBarConfig]]
     # Cached action IDs for common actions.
     noopActionId*: int
     attackActionId*: int
@@ -449,6 +463,36 @@ proc resolveRenderAsset*(replay: Replay, entity: Entity, atStep: int): string =
         return rule.asset
   ""
 
+proc sortByRank*(configs: Table[string, RenderHudConfig]): seq[RenderHudConfig] =
+  ## Sort HUD configs by rank, filtering empty resources.
+  var ordered: seq[tuple[key: string, rank: int]]
+  for key, hud in configs:
+    if hud.resource.len == 0:
+      continue
+    ordered.add((key: key, rank: hud.rank))
+  sort(ordered, proc(a, b: tuple[key: string, rank: int]): int =
+    let byRank = cmp(a.rank, b.rank)
+    if byRank != 0: return byRank
+    cmp(a.key, b.key)
+  )
+  for item in ordered:
+    result.add(configs[item.key])
+
+proc sortByRank*(configs: Table[string, RenderStatusBarConfig]): seq[RenderStatusBarConfig] =
+  ## Sort status bar configs by rank, filtering empty resources.
+  var ordered: seq[tuple[key: string, rank: int]]
+  for key, status in configs:
+    if status.resource.len == 0:
+      continue
+    ordered.add((key: key, rank: status.rank))
+  sort(ordered, proc(a, b: tuple[key: string, rank: int]): int =
+    let byRank = cmp(a.rank, b.rank)
+    if byRank != 0: return byRank
+    cmp(a.key, b.key)
+  )
+  for item in ordered:
+    result.add(configs[item.key])
+
 proc hudItem1*(replay: Replay): RenderHudConfig =
   ## HUD config for the primary bar.
   if replay.config.game.render.hud1.resource.len > 0:
@@ -460,6 +504,21 @@ proc hudItem2*(replay: Replay): RenderHudConfig =
   if replay.config.game.render.hud2.resource.len > 0:
     return replay.config.game.render.hud2
   RenderHudConfig(resource: "energy", short_name: "E", max: 20)
+
+proc hudItems*(replay: Replay): seq[RenderHudConfig] =
+  ## Pre-sorted custom HUD configs in display order.
+  replay.sortedHudItems
+
+proc statusItems*(replay: Replay, entity: Entity): seq[RenderStatusBarConfig] =
+  ## Pre-sorted custom status configs in display order for an entity type.
+  if replay.isNil or entity.isNil:
+    return @[]
+  if entity.typeName in replay.sortedStatusItems:
+    return replay.sortedStatusItems[entity.typeName]
+  let normalized = normalizeRenderTypeName(entity.typeName)
+  if normalized in replay.sortedStatusItems:
+    return replay.sortedStatusItems[normalized]
+  @[]
 
 proc parseTerritoryControls(objConfig: JsonNode, objectName: string): seq[TerritoryControl] =
   ## Parse and validate territory_controls from object config.
@@ -1265,6 +1324,11 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
   replay.moveSouthActionId = replay.actionNames.find("move_south")
   replay.moveWestActionId = replay.actionNames.find("move_west")
   replay.moveEastActionId = replay.actionNames.find("move_east")
+
+  # Pre-sort HUD and status bar configs by rank so render loops skip sorting.
+  replay.sortedHudItems = sortByRank(replay.config.game.render.agent_huds)
+  for typeName, statusMap in replay.config.game.render.object_status:
+    replay.sortedStatusItems[typeName] = sortByRank(statusMap)
 
   return replay
 

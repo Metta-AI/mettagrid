@@ -3,7 +3,8 @@ import
   opengl,
   bumpy, vmath, windy, silky, silky/atlas, chroma, pixie,
   common, worldmap, panels, configs, team,
-  replays, colors, minimap, actions, cognames, timelineslider
+  replays, colors, minimap, actions, cognames, timelineslider,
+  custom_hud
 
 var
   pendingCenter: Vec2
@@ -608,7 +609,10 @@ proc centerPanel(winW: float32, winH: float32) =
   discard sk.drawText("pixelated", displayName, at, Yellow, clip = false)
 
   # 2) Agent bars
-  if isAgent:
+  var useCustomStatus = replay.hasCustomStatus(selected)
+  if useCustomStatus:
+    discard drawCustomStatusBars(selected, bcPos)
+  elif isAgent:
     let
       prevStep = max(0, step - 1)
       hud1Cfg = replay.hudItem1
@@ -623,23 +627,27 @@ proc centerPanel(winW: float32, winH: float32) =
     drawStatBar(bcPos + vec2(69, 118), hud2Cfg.short_name, hud2, hud2Cfg.max, 20, deltaHud2)
 
   # 3) Object resources (inline, wrapped, no resource_bg) shared for agent/building.
-  for item in selected.inventory.at:
-    if item.count <= 0 or item.itemId < 0 or item.itemId >= replay.itemNames.len:
-      continue
-    let
-      itemName = replay.itemNames[item.itemId]
-      itemIcon = "resources/" & itemName
-    if itemName in @["hp", "energy", "solar"]:
-      continue
-    if itemIcon notin sk.atlas.entries:
-      continue
-    resourcesToDraw.add((icon: itemIcon, amount: item.count))
-
-  # Use `at` for resource anchor; buildings start higher since they have no bars.
-  at = vec2(
-    bcPos.x + 59,
-    if isAgent: bcPos.y + 156 else: bcPos.y + 112
-  )
+  if useCustomStatus:
+    let cr = collectCustomResources(selected, bcPos)
+    resourcesToDraw = cr.resources
+    at = cr.anchor
+  else:
+    for item in selected.inventory.at:
+      if item.count <= 0 or item.itemId < 0 or item.itemId >= replay.itemNames.len:
+        continue
+      let
+        itemName = replay.itemNames[item.itemId]
+        itemIcon = "resources/" & itemName
+      if itemName in @["hp", "energy", "solar"]:
+        continue
+      if itemIcon notin sk.atlas.entries:
+        continue
+      resourcesToDraw.add((icon: itemIcon, amount: item.count))
+    # Use `at` for resource anchor; buildings start higher since they have no bars.
+    at = vec2(
+      bcPos.x + 59,
+      if isAgent: bcPos.y + 156 else: bcPos.y + 112
+    )
   const
     ResourceMaxWidth = 300.0f
     IconSize = 48.0f

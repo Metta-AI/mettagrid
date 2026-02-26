@@ -47,7 +47,11 @@ from mettagrid.config.obs_config import (  # noqa: F401 - re-exported
     ObsConfig,
 )
 from mettagrid.config.query import MaterializedQuery
-from mettagrid.config.render_config import RenderConfig, RenderHudConfig  # noqa: F401 - re-exported
+from mettagrid.config.render_config import (  # noqa: F401 - unused here, re-exported for downstream consumers
+    RenderConfig,
+    RenderHudConfig,
+    RenderStatusBarConfig,
+)
 from mettagrid.config.reward_config import AgentReward
 from mettagrid.config.territory_config import TerritoryConfig, TerritoryControlConfig
 from mettagrid.map_builder.ascii import AsciiMapBuilder
