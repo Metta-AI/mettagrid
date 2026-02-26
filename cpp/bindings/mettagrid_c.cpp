@@ -176,7 +176,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   // Initialize reward entries (resolve stat names to IDs, get pointers)
   for (auto* agent : _agents) {
-    agent->init_reward(&_game_ctx, &resource_names);
+    agent->init_reward(_game_ctx);
   }
 
   // Validation configuration from environment variables

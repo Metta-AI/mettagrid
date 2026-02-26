@@ -108,6 +108,8 @@ public:
   py::dict get_episode_stats();
   std::optional<float> get_game_stat(const std::string& key) const;
   std::optional<float> get_agent_stat(uint32_t agent_id, const std::string& key) const;
+  int resolve_game_value(const GameValueConfig& game_value);
+  py::dict resolve_game_values();
   py::list action_success_py();
 
   using Actions = py::array_t<ActionType, py::array::c_style>;

@@ -34,10 +34,6 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("delta", &StatValueConfig::delta)
       .def_readwrite("stat_name", &StatValueConfig::stat_name);
 
-  py::class_<TagCountValueConfig>(m, "TagCountValueConfig")
-      .def(py::init<>())
-      .def_readwrite("id", &TagCountValueConfig::id);
-
   py::class_<ConstValueConfig>(m, "ConstValueConfig")
       .def(py::init<>())
       .def_readwrite("value", &ConstValueConfig::value);
@@ -48,6 +44,13 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "set_query",
           [](QueryInventoryValueConfig& self, const QueryConfigHolder& q) { self.query = q.config; },
+          py::arg("query"));
+
+  py::class_<QueryCountValueConfig>(m, "QueryCountValueConfig")
+      .def(py::init<>())
+      .def(
+          "set_query",
+          [](QueryCountValueConfig& self, const QueryConfigHolder& q) { self.query = q.config; },
           py::arg("query"));
 
   // EntityRef enum

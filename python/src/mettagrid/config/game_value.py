@@ -13,6 +13,7 @@ from pydantic import Field
 from mettagrid.base_config import Config, ConfigStrEnum
 
 if TYPE_CHECKING:
+    from mettagrid.config.filter import AnyFilter
     from mettagrid.config.query import AnyQuery
 
 
@@ -86,17 +87,17 @@ class ConstValue(GameValue):
     value: float
 
 
-class TagCountValue(GameValue):
-    """Count of objects with a given tag."""
-
-    tag: str
-
-
 class QueryInventoryValue(GameValue):
     """Sum of a resource across objects matched by a query."""
 
     query: "AnyQuery" = Field(description="Query to find objects whose inventory to sum")
     item: str = Field(description="Resource name to sum")
+
+
+class QueryCountValue(GameValue):
+    """Count of objects matched by a query."""
+
+    query: "AnyQuery" = Field(description="Query to find objects to count")
 
 
 # ---------------------------------------------------------------------------
@@ -107,9 +108,9 @@ AnyGameValue = Union[
     InventoryValue,
     StatValue,
     NumObjectsValue,
-    TagCountValue,
     ConstValue,
     QueryInventoryValue,
+    QueryCountValue,
 ]
 
 
@@ -130,11 +131,23 @@ def stat(s: str, delta: bool = False) -> StatValue:
     return StatValue(name=name, scope=scope, delta=delta)
 
 
-def num(s: str) -> NumObjectsValue:
-    """Create a NumObjectsValue."""
-    return NumObjectsValue(object_type=s)
+def num(
+    s: str,
+    filters: "AnyFilter | list[AnyFilter] | None" = None,
+) -> NumObjectsValue | QueryCountValue:
+    """Create an object-count GameValue, optionally filtered by query filters."""
+    if filters is None:
+        return NumObjectsValue(object_type=s)
+
+    from mettagrid.config.query import query  # noqa: PLC0415
+    from mettagrid.config.tag import typeTag  # noqa: PLC0415
+
+    normalized_filters = filters if isinstance(filters, list) else [filters]
+    return QueryCountValue(query=query(typeTag(s), normalized_filters))
 
 
-def tag(s: str) -> TagCountValue:
-    """Create a TagCountValue."""
-    return TagCountValue(tag=s)
+def tag(s: str) -> QueryCountValue:
+    """Create a QueryCountValue that counts objects with a given tag."""
+    from mettagrid.config.query import query  # noqa: PLC0415
+
+    return QueryCountValue(query=query(s))

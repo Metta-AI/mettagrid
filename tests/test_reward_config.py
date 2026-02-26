@@ -10,10 +10,11 @@ from mettagrid.config.game_value import (
     GameValue,
     InventoryValue,
     NumObjectsValue,
+    QueryCountValue,
     Scope,
     StatValue,
-    TagCountValue,
 )
+from mettagrid.config.query import query
 from mettagrid.config.reward_config import (
     AgentReward,
     inventoryReward,
@@ -24,6 +25,7 @@ from mettagrid.config.reward_config import (
     stat,
     statReward,
 )
+from mettagrid.config.tag import typeTag
 
 # =============================================================================
 # GameValue Type Tests
@@ -53,7 +55,7 @@ class TestGameValueInheritance:
         assert issubclass(InventoryValue, GameValue)
         assert issubclass(StatValue, GameValue)
         assert issubclass(NumObjectsValue, GameValue)
-        assert issubclass(TagCountValue, GameValue)
+        assert issubclass(QueryCountValue, GameValue)
 
     def test_instances_are_game_values(self):
         """Test that instances are GameValue instances."""
@@ -62,7 +64,8 @@ class TestGameValueInheritance:
             InventoryValue(item="heart"),
             InventoryValue(item="gold", scope=Scope.GAME),
             NumObjectsValue(object_type="junction"),
-            TagCountValue(tag="vibe:aligned"),
+            QueryCountValue(query=query("vibe:aligned")),
+            QueryCountValue(query=query(typeTag("junction"))),
         ]
         for v in values:
             assert isinstance(v, GameValue)
@@ -78,9 +81,10 @@ class TestAnyGameValueUnion:
             InventoryValue(item="heart"),
             InventoryValue(item="gold", scope=Scope.GAME),
             NumObjectsValue(object_type="junction"),
-            TagCountValue(tag="vibe:aligned"),
+            QueryCountValue(query=query("vibe:aligned")),
+            QueryCountValue(query=query(typeTag("junction"))),
         ]
-        assert len(values) == 5
+        assert len(values) == 6
 
 
 # =============================================================================
@@ -224,7 +228,7 @@ REWARD_HELPER_TEST_CASES = [
     # (helper_fn, args, expected_num_type, expected_field, expected_field_value)
     ("inventoryReward", ("heart",), InventoryValue, "item", "heart"),
     ("numObjectsReward", ("junction",), NumObjectsValue, "object_type", "junction"),
-    ("numTaggedReward", ("vibe:aligned",), TagCountValue, "tag", "vibe:aligned"),
+    ("numTaggedReward", ("vibe:aligned",), QueryCountValue, None, None),
 ]
 
 
@@ -244,7 +248,8 @@ class TestRewardHelpers:
         assert isinstance(r, AgentReward)
         assert len(r.nums) == 1
         assert isinstance(r.nums[0], expected_type)
-        assert getattr(r.nums[0], field) == value
+        if field is not None:
+            assert getattr(r.nums[0], field) == value
         assert r.weight == 1.0
         assert r.max is None
 
@@ -371,7 +376,8 @@ class TestRewardConfigSerialization:
             InventoryValue(item="heart"),
             InventoryValue(item="gold", scope=Scope.GAME),
             NumObjectsValue(object_type="junction"),
-            TagCountValue(tag="vibe:aligned"),
+            QueryCountValue(query=query("vibe:aligned")),
+            QueryCountValue(query=query(typeTag("junction"))),
         ],
     )
     def test_game_value_round_trip(self, game_value):

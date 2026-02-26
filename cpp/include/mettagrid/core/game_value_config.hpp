@@ -27,10 +27,6 @@ struct StatValueConfig {
   std::string stat_name;  // resolved to ID at C++ init time
 };
 
-struct TagCountValueConfig {
-  uint16_t id = 0;  // tag_id
-};
-
 struct ConstValueConfig {
   float value = 0.0f;
 };
@@ -40,7 +36,11 @@ struct QueryInventoryValueConfig {
   std::shared_ptr<mettagrid::QueryConfig> query;
 };
 
+struct QueryCountValueConfig {
+  std::shared_ptr<mettagrid::QueryConfig> query;
+};
+
 using GameValueConfig = std::
-    variant<InventoryValueConfig, StatValueConfig, TagCountValueConfig, ConstValueConfig, QueryInventoryValueConfig>;
+    variant<InventoryValueConfig, StatValueConfig, ConstValueConfig, QueryInventoryValueConfig, QueryCountValueConfig>;
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GAME_VALUE_CONFIG_HPP_
