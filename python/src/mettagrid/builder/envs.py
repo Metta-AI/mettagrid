@@ -2,6 +2,7 @@ from typing import Optional
 
 import mettagrid.mapgen.scenes.random
 from mettagrid.builder import building
+from mettagrid.config.game_value import InventoryValue
 
 # Local import moved to factory usage to avoid forbidden cross-package dependency at import time
 from mettagrid.config.mettagrid_config import (
@@ -17,7 +18,7 @@ from mettagrid.config.mettagrid_config import (
     NoopActionConfig,
     ResourceLimitsConfig,
 )
-from mettagrid.config.reward_config import inventoryReward
+from mettagrid.config.reward_config import reward
 from mettagrid.map_builder.map_builder import MapBuilderConfig
 from mettagrid.map_builder.perimeter_incontext import PerimeterInContextMapBuilder
 from mettagrid.map_builder.random_map import RandomMapBuilder
@@ -78,7 +79,7 @@ def make_arena(
                         "heart": ResourceLimitsConfig(min=255, resources=["heart"]),
                     },
                 ),
-                rewards={"heart": inventoryReward("heart")},
+                rewards={"heart": reward(InventoryValue(item="heart"))},
             ),
             map_builder=map_builder,
         ),
@@ -98,7 +99,7 @@ def make_navigation(num_agents: int) -> MettaGridConfig:
                 noop=NoopActionConfig(enabled=True),
             ),
             agent=AgentConfig(
-                rewards={"heart": inventoryReward("heart")},
+                rewards={"heart": reward(InventoryValue(item="heart"))},
             ),
             # Always provide a concrete map builder config so tests can set width/height
             map_builder=RandomMapBuilder.Config(agents=num_agents),
@@ -144,7 +145,7 @@ def make_assembly_lines(
                 move=MoveActionConfig(),
             ),
             agent=AgentConfig(
-                rewards={"heart": inventoryReward("heart")},
+                rewards={"heart": reward(InventoryValue(item="heart"))},
                 inventory=InventoryConfig(
                     default_limit=1,
                     limits={"heart": ResourceLimitsConfig(min=15, resources=["heart"])},

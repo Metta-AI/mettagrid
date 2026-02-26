@@ -63,6 +63,27 @@ inline void bind_handler_config(py::module& m) {
           [](SumValueConfig& self, const GameValueConfig& value) { self.values.push_back(value); },
           py::arg("value"));
 
+  py::class_<RatioValueConfig, std::shared_ptr<RatioValueConfig>>(m, "RatioValueConfig")
+      .def(py::init<>())
+      .def_readwrite("numerator", &RatioValueConfig::numerator)
+      .def_readwrite("denominator", &RatioValueConfig::denominator);
+
+  py::class_<MaxValueConfig, std::shared_ptr<MaxValueConfig>>(m, "MaxValueConfig")
+      .def(py::init<>())
+      .def_readwrite("values", &MaxValueConfig::values)
+      .def(
+          "add_value",
+          [](MaxValueConfig& self, const GameValueConfig& value) { self.values.push_back(value); },
+          py::arg("value"));
+
+  py::class_<MinValueConfig, std::shared_ptr<MinValueConfig>>(m, "MinValueConfig")
+      .def(py::init<>())
+      .def_readwrite("values", &MinValueConfig::values)
+      .def(
+          "add_value",
+          [](MinValueConfig& self, const GameValueConfig& value) { self.values.push_back(value); },
+          py::arg("value"));
+
   // EntityRef enum
   py::enum_<EntityRef>(m, "EntityRef").value("actor", EntityRef::actor).value("target", EntityRef::target);
 

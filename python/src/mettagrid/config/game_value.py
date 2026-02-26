@@ -75,16 +75,15 @@ class StatValue(GameValue):
     delta: bool = False
 
 
-class NumObjectsValue(GameValue):
-    """Count of objects by type."""
-
-    object_type: str
-
-
 class ConstValue(GameValue):
     """A constant numeric value."""
 
     value: float
+
+
+def val(x: int | float) -> ConstValue:
+    """Create a ConstValue from a numeric literal."""
+    return ConstValue(value=float(x))
 
 
 class QueryInventoryValue(GameValue):
@@ -98,6 +97,10 @@ class QueryCountValue(GameValue):
     """Count of objects matched by a query."""
 
     query: AnyQuery = Field(description="Query to find objects to count")
+
+
+# Backwards-friendly canonical naming.
+CountQueryValue = QueryCountValue
 
 
 class SumGameValue(GameValue):
@@ -136,7 +139,6 @@ class MinGameValue(GameValue):
 AnyGameValue = Union[
     InventoryValue,
     StatValue,
-    NumObjectsValue,
     ConstValue,
     QueryInventoryValue,
     QueryCountValue,
@@ -167,37 +169,42 @@ def stat(s: str, delta: bool = False) -> StatValue:
 def num(
     s: str,
     filters: "Filter | list[Filter] | None" = None,
-) -> NumObjectsValue | QueryCountValue:
-    """Create an object-count GameValue, optionally filtered by query filters."""
-    if filters is None:
-        return NumObjectsValue(object_type=s)
-
+) -> QueryCountValue:
+    """Create a count GameValue from a tag query source, optionally filtered."""
     from mettagrid.config.query import query  # noqa: PLC0415
-    from mettagrid.config.tag import typeTag  # noqa: PLC0415
 
-    normalized_filters = filters if isinstance(filters, list) else [filters]
-    return QueryCountValue(query=query(typeTag(s), normalized_filters))  # pyright: ignore[reportArgumentType]
+    normalized_filters = filters if isinstance(filters, list) else [filters] if filters is not None else []
+    return QueryCountValue(query=query(s, normalized_filters))  # pyright: ignore[reportArgumentType]
 
 
-def tag(s: str) -> QueryCountValue:
+def num_tagged(s: str) -> QueryCountValue:
     """Create a QueryCountValue that counts objects with a given tag."""
     from mettagrid.config.query import query  # noqa: PLC0415
 
     return QueryCountValue(query=query(s))
 
 
-def weighted_sum(weighted_values: list[tuple[float, AnyGameValue]]) -> SumGameValue:
-    """Create a weighted sum from ``[(weight, game_value), ...]``."""
-    values = [value for _, value in weighted_values]
-    weights = [weight for weight, _ in weighted_values]
-    return SumGameValue(values=values, weights=weights)
+def tag(s: str) -> QueryCountValue:
+    """Create a QueryCountValue that counts objects with a given tag."""
+    return num_tagged(s)
 
 
-def log_weighted_sum(weighted_values: list[tuple[float, AnyGameValue]]) -> SumGameValue:
-    """Create a weighted sum with per-term log transform enabled."""
+def weighted_sum(
+    weighted_values: list[tuple[float, AnyGameValue]],
+    *,
+    log: bool = False,
+    min: int | float | None = None,
+    max: int | float | None = None,
+) -> AnyGameValue:
+    """Create a weighted sum from ``[(weight, game_value), ...]``, optionally clamped."""
     values = [value for _, value in weighted_values]
     weights = [weight for weight, _ in weighted_values]
-    return SumGameValue(values=values, weights=weights, log=True)
+    summed_value: AnyGameValue = SumGameValue(values=values, weights=weights, log=log)
+    if min is not None:
+        summed_value = max_value([summed_value, val(min)])
+    if max is not None:
+        summed_value = min_value([summed_value, val(max)])
+    return summed_value
 
 
 def GameValueRatio(num_gv: AnyGameValue, denom_gv: AnyGameValue) -> RatioGameValue:

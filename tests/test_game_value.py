@@ -5,19 +5,17 @@ import pytest
 from mettagrid.config.cpp_id_maps import CppIdMaps
 from mettagrid.config.filter import hasTag
 from mettagrid.config.game_value import (
-    ConstValue,
     InventoryValue,
-    NumObjectsValue,
     QueryCountValue,
     QueryInventoryValue,
     Scope,
     StatValue,
     SumGameValue,
     inv,
-    log_weighted_sum,
     num,
     stat,
     tag,
+    val,
     weighted_sum,
 )
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
@@ -109,12 +107,12 @@ class TestStatHelper:
 
 class TestNumHelper:
     def test_basic(self):
-        v = num("junction")
-        assert isinstance(v, NumObjectsValue)
-        assert v.object_type == "junction"
+        v = num(typeTag("junction"))
+        assert isinstance(v, QueryCountValue)
+        assert v.query.source == typeTag("junction")
 
     def test_with_filter(self):
-        v = num("junction", hasTag("team:cogs"))
+        v = num(typeTag("junction"), hasTag("team:cogs"))
         assert isinstance(v, QueryCountValue)
 
 
@@ -133,7 +131,7 @@ class TestSumHelpers:
         assert value.log is False
 
     def test_log_weighted_sum(self):
-        value = log_weighted_sum([(2.0, StatValue(name="score")), (0.5, InventoryValue(item="gold"))])
+        value = weighted_sum([(2.0, StatValue(name="score")), (0.5, InventoryValue(item="gold"))], log=True)
         assert isinstance(value, SumGameValue)
         assert value.weights == [2.0, 0.5]
         assert value.log is True
@@ -161,13 +159,9 @@ class TestResolveGameValueConversion:
         assert cfg.stat_name == "score"
 
     def test_const_value(self):
-        cfg = resolve_game_value(ConstValue(value=3.5), self._id_maps())
+        cfg = resolve_game_value(val(3.5), self._id_maps())
         assert isinstance(cfg, CppConstValueConfig)
         assert cfg.value == pytest.approx(3.5)
-
-    def test_num_objects_value(self):
-        cfg = resolve_game_value(NumObjectsValue(object_type="junction"), self._id_maps())
-        assert isinstance(cfg, CppQueryCountValueConfig)
 
     def test_query_count_value(self):
         cfg = resolve_game_value(QueryCountValue(query=query("vibe:aligned")), self._id_maps())
@@ -180,7 +174,7 @@ class TestResolveGameValueConversion:
 
     def test_sum_value(self):
         value = SumGameValue(
-            values=[InventoryValue(item="gold"), ConstValue(value=2.0)],
+            values=[InventoryValue(item="gold"), val(2.0)],
             weights=[2.0, 0.5],
             log=True,
         )

@@ -100,11 +100,17 @@ protected:
     StatValueConfig stat_cfg;
     stat_cfg.scope = scope;
     stat_cfg.stat_name = stat_name;
-    entry.numerators = {stat_cfg};
-    entry.weight = weight;
+    auto sum_cfg = std::make_shared<SumValueConfig>();
+    sum_cfg->values = {stat_cfg};
+    sum_cfg->weights = {weight};
     if (max_val > 0.0f) {
-      entry.max_value = max_val;
-      entry.has_max = true;
+      auto min_cfg = std::make_shared<MinValueConfig>();
+      ConstValueConfig max_cfg;
+      max_cfg.value = max_val;
+      min_cfg->values = {GameValueConfig(sum_cfg), GameValueConfig(max_cfg)};
+      entry.reward = min_cfg;
+    } else {
+      entry.reward = sum_cfg;
     }
     return entry;
   }
@@ -257,6 +263,26 @@ TEST_F(MettaGridCppTest, ResolveGameValueSumLinearAndLog) {
   EXPECT_NEAR(log_resolved.read(), expected, 1e-6f);
 }
 
+TEST_F(MettaGridCppTest, ResolveGameValueMaxAndMin) {
+  auto max_cfg = std::make_shared<MaxValueConfig>();
+  ConstValueConfig c1;
+  c1.value = 2.0f;
+  ConstValueConfig c2;
+  c2.value = 7.0f;
+  ConstValueConfig c3;
+  c3.value = 4.0f;
+  max_cfg->values = {c1, c2, c3};
+
+  auto min_cfg = std::make_shared<MinValueConfig>();
+  min_cfg->values = {c1, c2, c3};
+
+  mettagrid::HandlerContext ctx;
+  auto max_resolved = resolve_game_value(GameValueConfig(max_cfg), ctx);
+  auto min_resolved = resolve_game_value(GameValueConfig(min_cfg), ctx);
+  EXPECT_FLOAT_EQ(max_resolved.read(), 7.0f);
+  EXPECT_FLOAT_EQ(min_resolved.read(), 2.0f);
+}
+
 TEST_F(MettaGridCppTest, AgentRewards) {
   AgentConfig agent_cfg = create_test_agent_config();
   auto resource_names = create_test_resource_names();
@@ -265,10 +291,10 @@ TEST_F(MettaGridCppTest, AgentRewards) {
   // Test reward config entries
   const auto& entries = agent->reward_helper.config.entries;
   EXPECT_EQ(entries.size(), 4);
-  EXPECT_FLOAT_EQ(entries[0].weight, 0.125f);  // ORE
-  EXPECT_FLOAT_EQ(entries[1].weight, 0.0f);    // LASER
-  EXPECT_FLOAT_EQ(entries[2].weight, 0.0f);    // ARMOR
-  EXPECT_FLOAT_EQ(entries[3].weight, 1.0f);    // HEART
+  EXPECT_TRUE(std::holds_alternative<std::shared_ptr<MinValueConfig>>(entries[0].reward));
+  EXPECT_TRUE(std::holds_alternative<std::shared_ptr<MinValueConfig>>(entries[1].reward));
+  EXPECT_TRUE(std::holds_alternative<std::shared_ptr<MinValueConfig>>(entries[2].reward));
+  EXPECT_TRUE(std::holds_alternative<std::shared_ptr<SumValueConfig>>(entries[3].reward));
 }
 
 TEST_F(MettaGridCppTest, AgentInventoryUpdate) {

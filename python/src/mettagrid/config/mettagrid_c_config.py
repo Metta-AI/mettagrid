@@ -14,11 +14,9 @@ from mettagrid.config.mettagrid_config import (
     WallConfig,
 )
 from mettagrid.config.query import Query
-from mettagrid.config.reward_config import Aggregation
 from mettagrid.config.tag import typeTag
 from mettagrid.mettagrid_c import ActionConfig as CppActionConfig
 from mettagrid.mettagrid_c import AgentConfig as CppAgentConfig
-from mettagrid.mettagrid_c import AggregationMode as CppAggregationMode
 from mettagrid.mettagrid_c import AOEConfig as CppAOEConfig
 from mettagrid.mettagrid_c import AttackActionConfig as CppAttackActionConfig
 from mettagrid.mettagrid_c import AttackOutcome as CppAttackOutcome
@@ -63,15 +61,6 @@ from mettagrid.mettagrid_c import (
 from mettagrid.mettagrid_c import VibeFilterConfig as CppVibeFilterConfig
 from mettagrid.mettagrid_c import WallConfig as CppWallConfig
 from mettagrid.mettagrid_c import make_query_config
-
-# ---------------------------------------------------------------------------
-# Enum conversion helpers
-# ---------------------------------------------------------------------------
-
-_AGGREGATION_TO_CPP = {
-    Aggregation.SUM: CppAggregationMode.SUM,
-    Aggregation.SUM_LOGS: CppAggregationMode.SUM_LOGS,
-}
 
 
 def _resolve_tag_prefix(prefix: str, tag_name_to_id: dict) -> list[int]:
@@ -603,17 +592,9 @@ def convert_to_cpp_game_config(
         agent_props = agent_cfg.model_dump()
 
         reward_entries = []
-        for reward_name, agent_reward in agent_cfg.rewards.items():
-            if not agent_reward.nums:
-                raise ValueError(f"Reward '{reward_name}' has no numerators.")
+        for _, agent_reward in agent_cfg.rewards.items():
             entry = CppRewardEntry()
-            entry.numerators = [resolve_game_value(n, id_maps) for n in agent_reward.nums]
-            entry.denominators = [resolve_game_value(d, id_maps) for d in agent_reward.denoms]
-            entry.weight = agent_reward.weight
-            entry.aggregation_mode = _AGGREGATION_TO_CPP[agent_reward.aggregation]
-            if agent_reward.max is not None:
-                entry.max_value = agent_reward.max
-                entry.has_max = True
+            entry.reward = resolve_game_value(agent_reward.reward, id_maps)
             entry.accumulate = agent_reward.per_tick
             reward_entries.append(entry)
 

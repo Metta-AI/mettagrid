@@ -42,18 +42,37 @@ struct QueryCountValueConfig {
 };
 
 struct SumValueConfig;
+struct RatioValueConfig;
+struct MaxValueConfig;
+struct MinValueConfig;
 
 using GameValueConfig = std::variant<InventoryValueConfig,
                                      StatValueConfig,
                                      ConstValueConfig,
                                      QueryInventoryValueConfig,
                                      QueryCountValueConfig,
-                                     std::shared_ptr<SumValueConfig>>;
+                                     std::shared_ptr<SumValueConfig>,
+                                     std::shared_ptr<RatioValueConfig>,
+                                     std::shared_ptr<MaxValueConfig>,
+                                     std::shared_ptr<MinValueConfig>>;
 
 struct SumValueConfig {
   std::vector<GameValueConfig> values;
   std::vector<float> weights;
   bool log = false;
+};
+
+struct RatioValueConfig {
+  GameValueConfig numerator = ConstValueConfig{};
+  GameValueConfig denominator = ConstValueConfig{};
+};
+
+struct MaxValueConfig {
+  std::vector<GameValueConfig> values;
+};
+
+struct MinValueConfig {
+  std::vector<GameValueConfig> values;
 };
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GAME_VALUE_CONFIG_HPP_

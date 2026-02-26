@@ -1,6 +1,6 @@
 """Tests for SetGameValueMutation."""
 
-from mettagrid.config.game_value import ConstValue, InventoryValue, Scope, StatValue
+from mettagrid.config.game_value import ConstValue, InventoryValue, Scope, StatValue, val
 from mettagrid.config.handler_config import Handler
 from mettagrid.config.mettagrid_config import MettaGridConfig, ResourceLimitsConfig
 from mettagrid.config.mutation import EntityTarget, SetGameValueMutation
@@ -60,7 +60,7 @@ def test_set_game_value_mutation_const_source_config():
     """Test SetGameValueMutation with ConstValue source."""
     m = SetGameValueMutation(
         value=InventoryValue(item="energy"),
-        source=ConstValue(value=42.0),
+        source=val(42.0),
         target=EntityTarget.ACTOR,
     )
     assert isinstance(m.source, ConstValue)
@@ -176,7 +176,7 @@ def test_const_source_via_on_tick():
                 mutations=[
                     SetGameValueMutation(
                         value=InventoryValue(item="energy"),
-                        source=ConstValue(value=3.0),
+                        source=val(3.0),
                         target=EntityTarget.ACTOR,
                     )
                 ]

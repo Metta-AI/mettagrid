@@ -46,6 +46,21 @@ class SumValueConfig:
     log: bool
     def add_value(self, value: "GameValueConfig") -> None: ...
 
+class RatioValueConfig:
+    def __init__(self) -> None: ...
+    numerator: "GameValueConfig"
+    denominator: "GameValueConfig"
+
+class MaxValueConfig:
+    def __init__(self) -> None: ...
+    values: list["GameValueConfig"]
+    def add_value(self, value: "GameValueConfig") -> None: ...
+
+class MinValueConfig:
+    def __init__(self) -> None: ...
+    values: list["GameValueConfig"]
+    def add_value(self, value: "GameValueConfig") -> None: ...
+
 GameValueConfig: TypeAlias = Union[
     InventoryValueConfig,
     StatValueConfig,
@@ -53,6 +68,9 @@ GameValueConfig: TypeAlias = Union[
     QueryInventoryValueConfig,
     QueryCountValueConfig,
     SumValueConfig,
+    RatioValueConfig,
+    MaxValueConfig,
+    MinValueConfig,
 ]
 
 # Handler enums from handler_config.hpp
@@ -500,19 +518,10 @@ class InventoryConfig:
     def __init__(self) -> None: ...
     limit_defs: list[LimitDef]
 
-class AggregationMode(Enum):
-    SUM = ...
-    SUM_LOGS = ...
-
 class RewardEntry:
     def __init__(self) -> None: ...
-    numerators: list[GameValueConfig]
-    denominators: list[GameValueConfig]
-    weight: float
-    max_value: float
-    has_max: bool
+    reward: GameValueConfig
     accumulate: bool
-    aggregation_mode: AggregationMode
 
 class RewardConfig:
     def __init__(self) -> None: ...
