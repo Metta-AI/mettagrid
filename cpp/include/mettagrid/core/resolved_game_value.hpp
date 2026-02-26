@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <functional>
+#include <stdexcept>
 
 #include "core/game_value_config.hpp"
 #include "core/tag_index.hpp"
@@ -13,6 +14,7 @@ struct ResolvedGameValue {
   float* value_ptr = nullptr;
   float prev_value = 0.0f;
   std::function<float()> compute_fn;  // For dynamic values (e.g. QUERY_INVENTORY)
+  std::function<void(float)> update_fn;
 
   float read() const {
     if (compute_fn) return compute_fn();
@@ -43,6 +45,19 @@ struct ResolvedGameValue {
     assert(mutable_ && "Cannot write to a read-only ResolvedGameValue (e.g. tag count)");
     if (value_ptr != nullptr) {
       *value_ptr = value;
+    }
+  }
+
+  void update(float delta_value) {
+    if (!mutable_) {
+      throw std::runtime_error("Cannot update a read-only ResolvedGameValue");
+    }
+    if (update_fn) {
+      update_fn(delta_value);
+      return;
+    }
+    if (value_ptr != nullptr) {
+      *value_ptr += delta_value;
     }
   }
 };

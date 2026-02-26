@@ -35,6 +35,7 @@ struct ObsValueConfig {
 struct GlobalObsConfig {
   bool episode_completion_pct = true;
   bool last_action = true;
+  bool last_action_move = false;
   bool last_reward = true;
   bool goal_obs = false;
   bool local_position = false;
@@ -87,15 +88,17 @@ inline void bind_obs_value_config(py::module& m) {
 inline void bind_global_obs_config(py::module& m) {
   py::class_<GlobalObsConfig>(m, "GlobalObsConfig")
       .def(py::init<>())
-      .def(py::init<bool, bool, bool, bool, bool, std::vector<ObsValueConfig>>(),
+      .def(py::init<bool, bool, bool, bool, bool, bool, std::vector<ObsValueConfig>>(),
            py::arg("episode_completion_pct") = true,
            py::arg("last_action") = true,
+           py::arg("last_action_move") = false,
            py::arg("last_reward") = true,
            py::arg("goal_obs") = false,
            py::arg("local_position") = false,
            py::arg("obs") = std::vector<ObsValueConfig>())
       .def_readwrite("episode_completion_pct", &GlobalObsConfig::episode_completion_pct)
       .def_readwrite("last_action", &GlobalObsConfig::last_action)
+      .def_readwrite("last_action_move", &GlobalObsConfig::last_action_move)
       .def_readwrite("last_reward", &GlobalObsConfig::last_reward)
       .def_readwrite("goal_obs", &GlobalObsConfig::goal_obs)
       .def_readwrite("local_position", &GlobalObsConfig::local_position)

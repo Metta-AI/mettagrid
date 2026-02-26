@@ -30,11 +30,18 @@ from mettagrid.config.derived_stat import AnyDerivedStat
 from mettagrid.config.event_config import EventConfig
 from mettagrid.config.game_value import (  # noqa: F401 - re-exported
     AnyGameValue,
+    ConstValue,
     GameValue,
     InventoryValue,
+    MaxGameValue,
+    MinGameValue,
     NumObjectsValue,
+    QueryCountValue,
+    QueryInventoryValue,
+    RatioGameValue,
     Scope,
     StatValue,
+    SumGameValue,
 )
 from mettagrid.config.handler_config import (
     AOEConfig,
@@ -342,3 +349,22 @@ class MettaGridConfig(Config):
         return MettaGridConfig(
             game=GameConfig(map_builder=map_builder, actions=actions, num_agents=num_agents, objects=objects)
         )
+
+
+_rebuild_ns = {
+    "AnyGameValue": AnyGameValue,
+    "GameValue": GameValue,
+    "InventoryValue": InventoryValue,
+    "StatValue": StatValue,
+    "NumObjectsValue": NumObjectsValue,
+    "ConstValue": ConstValue,
+    "QueryInventoryValue": QueryInventoryValue,
+    "QueryCountValue": QueryCountValue,
+    "SumGameValue": SumGameValue,
+    "RatioGameValue": RatioGameValue,
+    "MaxGameValue": MaxGameValue,
+    "MinGameValue": MinGameValue,
+}
+AgentConfig.model_rebuild(_types_namespace=_rebuild_ns)
+GameConfig.model_rebuild(_types_namespace=_rebuild_ns)
+MettaGridConfig.model_rebuild(_types_namespace=_rebuild_ns)

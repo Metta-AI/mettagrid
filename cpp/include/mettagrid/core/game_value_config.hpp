@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace mettagrid {
 struct QueryConfig;
@@ -40,7 +41,19 @@ struct QueryCountValueConfig {
   std::shared_ptr<mettagrid::QueryConfig> query;
 };
 
-using GameValueConfig = std::
-    variant<InventoryValueConfig, StatValueConfig, ConstValueConfig, QueryInventoryValueConfig, QueryCountValueConfig>;
+struct SumValueConfig;
+
+using GameValueConfig = std::variant<InventoryValueConfig,
+                                     StatValueConfig,
+                                     ConstValueConfig,
+                                     QueryInventoryValueConfig,
+                                     QueryCountValueConfig,
+                                     std::shared_ptr<SumValueConfig>>;
+
+struct SumValueConfig {
+  std::vector<GameValueConfig> values;
+  std::vector<float> weights;
+  bool log = false;
+};
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CORE_GAME_VALUE_CONFIG_HPP_

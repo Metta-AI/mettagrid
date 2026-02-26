@@ -39,12 +39,20 @@ class QueryCountValueConfig:
     def __init__(self) -> None: ...
     def set_query(self, query: Any) -> None: ...
 
+class SumValueConfig:
+    def __init__(self) -> None: ...
+    values: list["GameValueConfig"]
+    weights: list[float]
+    log: bool
+    def add_value(self, value: "GameValueConfig") -> None: ...
+
 GameValueConfig: TypeAlias = Union[
     InventoryValueConfig,
     StatValueConfig,
     ConstValueConfig,
     QueryInventoryValueConfig,
     QueryCountValueConfig,
+    SumValueConfig,
 ]
 
 # Handler enums from handler_config.hpp

@@ -53,6 +53,16 @@ inline void bind_handler_config(py::module& m) {
           [](QueryCountValueConfig& self, const QueryConfigHolder& q) { self.query = q.config; },
           py::arg("query"));
 
+  py::class_<SumValueConfig, std::shared_ptr<SumValueConfig>>(m, "SumValueConfig")
+      .def(py::init<>())
+      .def_readwrite("values", &SumValueConfig::values)
+      .def_readwrite("weights", &SumValueConfig::weights)
+      .def_readwrite("log", &SumValueConfig::log)
+      .def(
+          "add_value",
+          [](SumValueConfig& self, const GameValueConfig& value) { self.values.push_back(value); },
+          py::arg("value"));
+
   // EntityRef enum
   py::enum_<EntityRef>(m, "EntityRef").value("actor", EntityRef::actor).value("target", EntityRef::target);
 

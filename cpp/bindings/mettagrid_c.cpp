@@ -14,8 +14,6 @@
 #include <random>
 #include <string>
 #include <thread>
-#include <type_traits>
-#include <unordered_set>
 #include <vector>
 
 #include "actions/action_handler.hpp"
@@ -164,14 +162,6 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   // Initialize EventScheduler from config
   if (!game_config.events.empty()) {
     _event_scheduler = std::make_unique<mettagrid::EventScheduler>(game_config.events);
-  }
-
-  // Pre-compute goal_obs tokens for each agent
-  if (_global_obs_config.goal_obs) {
-    _agent_goal_obs_tokens.resize(_agents.size());
-    for (size_t i = 0; i < _agents.size(); i++) {
-      _compute_agent_goal_obs_tokens(i);
-    }
   }
 
   // Initialize reward entries (resolve stat names to IDs, get pointers)
@@ -347,49 +337,6 @@ void MettaGrid::init_action_handlers() {
 void MettaGrid::add_agent(Agent* agent) {
   agent->init(&_rewards.mutable_unchecked<1>()(_agents.size()));
   _agents.push_back(agent);
-  if (_global_obs_config.goal_obs) {
-    _agent_goal_obs_tokens.resize(_agents.size());
-    _compute_agent_goal_obs_tokens(_agents.size() - 1);
-  }
-}
-
-void MettaGrid::_compute_agent_goal_obs_tokens(size_t agent_idx) {
-  auto& agent = _agents[agent_idx];
-  std::vector<PartialObservationToken> goal_tokens;
-
-  // Track which resources we've already added goal tokens for
-  std::unordered_set<std::string> added_resources;
-
-  // Helper to add a goal token for a resource name
-  auto add_resource_goal = [&](const std::string& resource_name) {
-    if (added_resources.find(resource_name) != added_resources.end()) return;  // already added
-    for (size_t i = 0; i < resource_names.size(); i++) {
-      if (resource_names[i] == resource_name) {
-        ObservationType inventory_feature_id = _obs_encoder->get_inventory_feature_id(static_cast<InventoryItem>(i));
-        goal_tokens.push_back({ObservationFeature::Goal, inventory_feature_id});
-        added_resources.insert(resource_name);
-        break;
-      }
-    }
-  };
-
-  // Extract resource info from reward entries for goal observation tokens
-  for (const auto& entry : agent->reward_helper.config.entries) {
-    for (const auto& num : entry.numerators) {
-      std::visit(
-          [&](auto&& c) {
-            using T = std::decay_t<decltype(c)>;
-            if constexpr (std::is_same_v<T, InventoryValueConfig>) {
-              if (c.id < resource_names.size()) {
-                add_resource_goal(resource_names[c.id]);
-              }
-            }
-          },
-          num);
-    }
-  }
-
-  _agent_goal_obs_tokens[agent_idx] = std::move(goal_tokens);
 }
 
 void MettaGrid::_emit_tile_observability_tokens(size_t agent_idx,
@@ -591,7 +538,7 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
     global_tokens.push_back({ObservationFeature::LastAction, static_cast<ObservationType>(action)});
   }
 
-  if (ObservationFeature::LastActionMove != 0) {
+  if (_global_obs_config.last_action_move && ObservationFeature::LastActionMove != 0) {
     bool moved = !(_agents[agent_idx]->location == _prev_agent_locations[agent_idx]);
     global_tokens.push_back({ObservationFeature::LastActionMove, static_cast<ObservationType>(moved ? 1 : 0)});
   }
@@ -600,11 +547,6 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
     RewardType reward = rewards_view(agent_idx);
     ObservationType reward_int = static_cast<ObservationType>(std::round(reward * 100.0f));
     global_tokens.push_back({ObservationFeature::LastReward, reward_int});
-  }
-
-  if (_global_obs_config.goal_obs) {
-    global_tokens.insert(
-        global_tokens.end(), _agent_goal_obs_tokens[agent_idx].begin(), _agent_goal_obs_tokens[agent_idx].end());
   }
 
   if (_global_obs_config.local_position) {
@@ -759,7 +701,7 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
     global_tokens.push_back({ObservationFeature::LastAction, static_cast<ObservationType>(action)});
   }
 
-  if (ObservationFeature::LastActionMove != 0) {
+  if (_global_obs_config.last_action_move && ObservationFeature::LastActionMove != 0) {
     bool moved = !(_agents[agent_idx]->location == _prev_agent_locations[agent_idx]);
     global_tokens.push_back({ObservationFeature::LastActionMove, static_cast<ObservationType>(moved ? 1 : 0)});
   }
@@ -768,11 +710,6 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
     RewardType reward = rewards_view(agent_idx);
     ObservationType reward_int = static_cast<ObservationType>(std::round(reward * 100.0f));
     global_tokens.push_back({ObservationFeature::LastReward, reward_int});
-  }
-
-  if (_global_obs_config.goal_obs) {
-    global_tokens.insert(
-        global_tokens.end(), _agent_goal_obs_tokens[agent_idx].begin(), _agent_goal_obs_tokens[agent_idx].end());
   }
 
   if (_global_obs_config.local_position) {

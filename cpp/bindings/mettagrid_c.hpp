@@ -213,9 +213,6 @@ private:
   // Base HandlerContext with all system pointers — copied and specialized per interaction
   mettagrid::HandlerContext _game_ctx;
 
-  // Pre-computed goal_obs tokens per agent (when enabled)
-  std::vector<std::vector<PartialObservationToken>> _agent_goal_obs_tokens;
-
   // Pre-computed observation pattern offsets (Manhattan distance order)
   std::vector<std::pair<int, int>> _observation_offsets;
 
@@ -247,7 +244,6 @@ private:
   std::vector<std::thread> _obs_workers;  // must be last: destroyed first → joins before deps
 
   void init_action_handlers();
-  void _compute_agent_goal_obs_tokens(size_t agent_idx);
   size_t _emit_obs_value_tokens(size_t agent_idx, size_t tokens_written, ObservationType global_location);
   void _emit_tile_observability_tokens(size_t agent_idx,
                                        const GridLocation& object_loc,
