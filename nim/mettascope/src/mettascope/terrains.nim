@@ -130,30 +130,30 @@ proc generateTerrainMap(atlasPath: string): TileMap =
   tileMap.setupGPU()
   tileMap
 
-proc stampForTypeName(typeName: string): string =
+proc stampForTypeName(typeName: string): tuple[sprite: string, offset: IVec2] =
   let normalized = normalizeTypeName(typeName)
   case normalized
   of "carbon_extractor":
-    "terrain/stamp.carbon"
+    (sprite: "terrain/stamp.carbon", offset: ivec2(0, 0))
   of "germanium_extractor":
-    "terrain/stamp.germanium"
+    (sprite: "terrain/stamp.germanium", offset: ivec2(0, 0))
   of "germenium_extractor":
-    "terrain/stamp.germenium"
+    (sprite: "terrain/stamp.germenium", offset: ivec2(0, 0))
   of "silicon_extractor":
-    "terrain/stamp.silicon"
+    (sprite: "terrain/stamp.silicon", offset: ivec2(0, 0))
   of "oxygen_extractor":
-    "terrain/stamp.oxygen"
+    (sprite: "terrain/stamp.oxygen", offset: ivec2(0, 0))
   of "junction":
-    "terrain/stamp.junction"
+    (sprite: "terrain/stamp.junction", offset: ivec2(0, 0))
   of "hub":
-    "terrain/stamp.hub"
+    (sprite: "terrain/stamp.hub", offset: ivec2(0, 0))
   of "wall", "agent", "aligner", "scrambler", "miner", "scout":
-    ""
+    (sprite: "", offset: ivec2(0, 0))
   of "ship":
-    "" # TODO: Add ship shadow.
+    (sprite: "objects/ship.shadow", offset: ivec2(148, 148))
   else:
     echo "Missing splat stamp mapping for ", normalized
-    ""
+    (sprite: "", offset: ivec2(0, 0))
 
 proc rebuildSplats*() =
   splats.setLen(0)
@@ -161,7 +161,7 @@ proc rebuildSplats*() =
 
   for obj in replay.objects:
     let stamp = stampForTypeName(obj.renderName)
-    if stamp == "":
+    if stamp.sprite == "":
       continue
 
     var firstAliveStep = -1
@@ -172,7 +172,10 @@ proc rebuildSplats*() =
     if firstAliveStep < 0 or obj.location.len == 0:
       continue
 
-    splats.add((sprite: stamp, pos: obj.location.at(firstAliveStep).xy * TileSize))
+    splats.add((
+      sprite: stamp.sprite,
+      pos: obj.location.at(firstAliveStep).xy * TileSize + stamp.offset
+    ))
 
   let
     mapWidthPx = replay.mapSize[0] * TileSize
