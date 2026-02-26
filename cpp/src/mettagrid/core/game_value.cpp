@@ -1,6 +1,8 @@
 #include "core/game_value.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <type_traits>
 
@@ -94,6 +96,50 @@ ResolvedGameValue resolve_game_value(const GameValueConfig& gvc, const mettagrid
               total += term;
             }
             return total;
+          };
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<RatioValueConfig>>) {
+          rgv.mutable_ = false;
+          if (!c) {
+            rgv.compute_fn = []() -> float { return 0.0f; };
+            return rgv;
+          }
+          auto numerator = c->numerator;
+          auto denominator = c->denominator;
+          rgv.compute_fn = [numerator, denominator, ctx]() -> float {
+            float num = ctx.resolve_game_value(numerator, mettagrid::EntityRef::actor);
+            float den = ctx.resolve_game_value(denominator, mettagrid::EntityRef::actor);
+            if (den > 0.0f) {
+              return num / den;
+            }
+            return num;
+          };
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<MaxValueConfig>>) {
+          rgv.mutable_ = false;
+          if (!c || c->values.empty()) {
+            rgv.compute_fn = []() -> float { return 0.0f; };
+            return rgv;
+          }
+          auto values = c->values;
+          rgv.compute_fn = [values, ctx]() -> float {
+            float best = std::numeric_limits<float>::lowest();
+            for (const auto& value : values) {
+              best = std::max(best, ctx.resolve_game_value(value, mettagrid::EntityRef::actor));
+            }
+            return best;
+          };
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<MinValueConfig>>) {
+          rgv.mutable_ = false;
+          if (!c || c->values.empty()) {
+            rgv.compute_fn = []() -> float { return 0.0f; };
+            return rgv;
+          }
+          auto values = c->values;
+          rgv.compute_fn = [values, ctx]() -> float {
+            float best = std::numeric_limits<float>::max();
+            for (const auto& value : values) {
+              best = std::min(best, ctx.resolve_game_value(value, mettagrid::EntityRef::actor));
+            }
+            return best;
           };
         }
         return rgv;

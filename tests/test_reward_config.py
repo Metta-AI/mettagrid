@@ -1,418 +1,148 @@
-"""Tests for reward configuration in mettagrid.config.reward_config.
+"""Tests for reward and game value configuration models."""
 
-Also includes tests for GameValue types from mettagrid.config.game_value.
-"""
-
-import pytest
-
+import mettagrid.config.filter  # noqa: F401  # Ensure forward refs are rebuilt for game value models
 from mettagrid.config.game_value import (
-    AnyGameValue,
+    ConstValue,
     GameValue,
+    GameValueRatio,
     InventoryValue,
-    NumObjectsValue,
+    MaxGameValue,
+    MinGameValue,
     QueryCountValue,
+    RatioGameValue,
     Scope,
     StatValue,
     SumGameValue,
-    log_weighted_sum,
+    max_value,
+    min_value,
+    num,
+    stat,
+    val,
     weighted_sum,
 )
-from mettagrid.config.query import query
-from mettagrid.config.reward_config import (
-    AgentReward,
-    inventoryReward,
-    numObjects,
-    numObjectsReward,
-    numTaggedReward,
-    reward,
-    stat,
-    statReward,
-)
+from mettagrid.config.reward_config import AgentReward, reward
 from mettagrid.config.tag import typeTag
 
-# =============================================================================
-# GameValue Type Tests
-# =============================================================================
 
-
-class TestScope:
-    """Test Scope enum."""
-
-    def test_enum_values(self):
-        """Test that Scope has expected values."""
-        assert Scope.AGENT.value == "agent"
-        assert Scope.GAME.value == "game"
-
-    def test_all_scopes(self):
-        """Test that all expected scopes exist."""
-        scopes = list(Scope)
-        assert Scope.AGENT in scopes
-        assert Scope.GAME in scopes
-
-
-class TestGameValueInheritance:
-    """Test GameValue inheritance and type checking."""
-
-    def test_all_types_inherit_from_game_value(self):
-        """Test that all GameValue types inherit from GameValue base."""
-        assert issubclass(InventoryValue, GameValue)
-        assert issubclass(StatValue, GameValue)
-        assert issubclass(NumObjectsValue, GameValue)
-        assert issubclass(QueryCountValue, GameValue)
-        assert issubclass(SumGameValue, GameValue)
-
-    def test_instances_are_game_values(self):
-        """Test that instances are GameValue instances."""
-        values = [
-            StatValue(name="test"),
-            InventoryValue(item="heart"),
-            InventoryValue(item="gold", scope=Scope.GAME),
-            NumObjectsValue(object_type="junction"),
-            QueryCountValue(query=query("vibe:aligned")),
-            QueryCountValue(query=query(typeTag("junction"))),
-            SumGameValue(values=[StatValue(name="test"), InventoryValue(item="heart")]),
-        ]
-        for v in values:
-            assert isinstance(v, GameValue)
-
-
-class TestAnyGameValueUnion:
-    """Test the AnyGameValue union type."""
-
-    def test_union_accepts_all_types(self):
-        """Test that AnyGameValue union accepts all GameValue types."""
-        values: list[AnyGameValue] = [
-            StatValue(name="test"),
-            InventoryValue(item="heart"),
-            InventoryValue(item="gold", scope=Scope.GAME),
-            NumObjectsValue(object_type="junction"),
-            QueryCountValue(query=query("vibe:aligned")),
-            QueryCountValue(query=query(typeTag("junction"))),
-            SumGameValue(values=[StatValue(name="test"), InventoryValue(item="heart")]),
-        ]
-        assert len(values) == 7
-
-
-class TestSumGameValue:
-    """Test SumGameValue helpers and validation."""
-
-    def test_weighted_sum_helper(self):
-        gv = weighted_sum([(2.0, StatValue(name="a")), (0.5, InventoryValue(item="heart"))])
-        assert isinstance(gv, SumGameValue)
-        assert len(gv.values) == 2
-        assert gv.weights == [2.0, 0.5]
-        assert gv.log is False
-
-    def test_log_weighted_sum_helper(self):
-        gv = log_weighted_sum([(2.0, StatValue(name="a")), (0.5, InventoryValue(item="heart"))])
-        assert isinstance(gv, SumGameValue)
-        assert len(gv.values) == 2
-        assert gv.weights == [2.0, 0.5]
-        assert gv.log is True
-
-    def test_weights_length_must_match_values(self):
-        with pytest.raises(ValueError, match="weights must have same length as values"):
-            SumGameValue(values=[StatValue(name="a")], weights=[1.0, 2.0])
-
-
-# =============================================================================
-# AgentReward Tests
-# =============================================================================
-
-
-class TestAgentReward:
-    """Test AgentReward configuration class."""
-
-    def test_default_values(self):
-        """Test AgentReward default values."""
-        ar = AgentReward()
-        assert ar.nums == []
-        assert ar.denoms == []
-        assert ar.weight == 1.0
-        assert ar.max is None
-
-    def test_with_single_numerator(self):
-        """Test AgentReward with a single numerator."""
-        ar = AgentReward(nums=[StatValue(name="carbon.gained")])
-        assert len(ar.nums) == 1
-        assert isinstance(ar.nums[0], StatValue)
-        assert ar.nums[0].name == "carbon.gained"
-
-    def test_with_multiple_numerators(self):
-        """Test AgentReward with multiple numerators."""
-        ar = AgentReward(
-            nums=[
-                StatValue(name="a.b"),
-                InventoryValue(item="heart"),
-            ]
-        )
-        assert len(ar.nums) == 2
-
-    def test_with_denominator(self):
-        """Test AgentReward with denominator."""
-        ar = AgentReward(
-            nums=[StatValue(name="junction.held")],
-            denoms=[NumObjectsValue(object_type="junction")],
-        )
-        assert len(ar.denoms) == 1
-        assert isinstance(ar.denoms[0], NumObjectsValue)
-
-    def test_with_weight_and_max(self):
-        """Test AgentReward with custom weight and max cap."""
-        ar = AgentReward(nums=[InventoryValue(item="heart")], weight=0.5, max=10.0)
-        assert ar.weight == 0.5
-        assert ar.max == 10.0
-
-    def test_full_config(self):
-        """Test AgentReward with all fields."""
-        ar = AgentReward(
-            nums=[StatValue(name="junction.held", scope=Scope.GAME)],
-            denoms=[NumObjectsValue(object_type="junction")],
-            weight=0.1,
-            max=5.0,
-        )
-        assert len(ar.nums) == 1
-        assert len(ar.denoms) == 1
-        assert ar.weight == 0.1
-        assert ar.max == 5.0
-
-    def test_serialization(self):
-        """Test AgentReward serialization."""
-        ar = AgentReward(
-            nums=[InventoryValue(item="heart")],
-            weight=0.5,
-            max=10.0,
-        )
-        data = ar.model_dump()
-        assert data["weight"] == 0.5
-        assert data["max"] == 10.0
-        assert len(data["nums"]) == 1
-        assert data["nums"][0]["item"] == "heart"
-
-
-# =============================================================================
-# Helper Function Tests (Parameterized)
-# =============================================================================
-
-
-class TestStatHelper:
-    """Test the stat() helper function."""
-
-    def test_basic_stat(self):
-        """Test basic stat creation."""
-        s = stat("carbon.gained")
-        assert isinstance(s, StatValue)
-        assert s.name == "carbon.gained"
-        assert s.scope == Scope.AGENT
-        assert s.delta is False
-
-    def test_stat_with_scope(self):
-        """Test stat with custom scope."""
-        s = stat("junction.held", scope=Scope.GAME)
-        assert s.scope == Scope.GAME
-
-    def test_stat_with_delta(self):
-        """Test stat with delta flag."""
-        s = stat("score", delta=True)
-        assert s.delta is True
-
-    def test_stat_value_serialization_round_trip(self):
-        """Test StatValue serialization/deserialization."""
-        original = StatValue(name="carbon.gained", scope=Scope.GAME, delta=True)
-        data = original.model_dump()
-        restored = StatValue.model_validate(data)
-
-        assert restored.name == original.name
-        assert restored.scope == original.scope
-        assert restored.delta == original.delta
-
-
-class TestRewardHelper:
-    """Test the reward() helper function."""
-
-    def test_basic_reward(self):
-        """Test basic reward creation."""
-        r = reward(StatValue(name="test"))
-        assert isinstance(r, AgentReward)
-        assert len(r.nums) == 1
-        assert r.weight == 1.0
-        assert r.max is None
-
-    def test_reward_with_weight_max_denoms(self):
-        """Test reward with all options."""
-        r = reward(
-            StatValue(name="junction.held"),
-            weight=0.5,
-            max=10.0,
-            denoms=[NumObjectsValue(object_type="junction")],
-        )
-        assert r.weight == 0.5
-        assert r.max == 10.0
-        assert len(r.denoms) == 1
-
-
-# Parameterized tests for reward helper functions
-REWARD_HELPER_TEST_CASES = [
-    # (helper_fn, args, expected_num_type, expected_field, expected_field_value)
-    ("inventoryReward", ("heart",), InventoryValue, "item", "heart"),
-    ("numObjectsReward", ("junction",), NumObjectsValue, "object_type", "junction"),
-    ("numTaggedReward", ("vibe:aligned",), QueryCountValue, None, None),
-]
-
-
-class TestRewardHelpers:
-    """Parameterized tests for reward helper functions."""
-
-    @pytest.mark.parametrize("helper_name,args,expected_type,field,value", REWARD_HELPER_TEST_CASES)
-    def test_basic_creation(self, helper_name, args, expected_type, field, value):
-        """Test that helper creates correct reward with expected numerator type."""
-        helper_fn = {
-            "inventoryReward": inventoryReward,
-            "numObjectsReward": numObjectsReward,
-            "numTaggedReward": numTaggedReward,
-        }[helper_name]
-
-        r = helper_fn(*args)
-        assert isinstance(r, AgentReward)
-        assert len(r.nums) == 1
-        assert isinstance(r.nums[0], expected_type)
-        if field is not None:
-            assert getattr(r.nums[0], field) == value
-        assert r.weight == 1.0
-        assert r.max is None
-
-    @pytest.mark.parametrize("helper_name,args,expected_type,field,value", REWARD_HELPER_TEST_CASES)
-    def test_with_weight(self, helper_name, args, expected_type, field, value):
-        """Test that helper respects weight parameter."""
-        helper_fn = {
-            "inventoryReward": inventoryReward,
-            "numObjectsReward": numObjectsReward,
-            "numTaggedReward": numTaggedReward,
-        }[helper_name]
-
-        r = helper_fn(*args, weight=0.5)
-        assert r.weight == 0.5
-
-    @pytest.mark.parametrize("helper_name,args,expected_type,field,value", REWARD_HELPER_TEST_CASES)
-    def test_with_max(self, helper_name, args, expected_type, field, value):
-        """Test that helper respects max parameter."""
-        helper_fn = {
-            "inventoryReward": inventoryReward,
-            "numObjectsReward": numObjectsReward,
-            "numTaggedReward": numTaggedReward,
-        }[helper_name]
-
-        r = helper_fn(*args, max=100.0)
-        assert r.max == 100.0
-
-
-class TestNumObjectsHelper:
-    """Test the numObjects() helper function."""
-
-    def test_basic_num_objects(self):
-        """Test basic numObjects creation."""
-        no = numObjects("junction")
-        assert isinstance(no, NumObjectsValue)
-        assert no.object_type == "junction"
-
-    def test_serialization_round_trip(self):
-        """Test NumObjectsValue serialization/deserialization."""
-        original = NumObjectsValue(object_type="junction")
-        data = original.model_dump()
-        restored = NumObjectsValue.model_validate(data)
-        assert restored.object_type == original.object_type
-
-
-class TestStatReward:
-    """Test the statReward() helper function."""
-
-    def test_basic_stat_reward(self):
-        """Test basic stat reward."""
-        r = statReward("carbon.gained")
-        assert isinstance(r, AgentReward)
-        assert len(r.nums) == 1
-        assert isinstance(r.nums[0], StatValue)
-        assert r.nums[0].name == "carbon.gained"
-        assert r.nums[0].scope == Scope.AGENT
-
-    def test_stat_reward_with_scope(self):
-        """Test stat reward with custom scope."""
-        r = statReward("junction.held", scope=Scope.GAME)
-        assert r.nums[0].scope == Scope.GAME
-
-    def test_stat_reward_with_delta(self):
-        """Test stat reward with delta flag."""
-        r = statReward("score", delta=True)
-        assert r.nums[0].delta is True
-
-    def test_stat_reward_full_config(self):
-        """Test stat reward with all options."""
-        r = statReward(
-            "junction.held",
-            scope=Scope.GAME,
-            delta=False,
-            weight=0.1,
-            max=5.0,
-            denoms=[NumObjectsValue(object_type="junction")],
-        )
-        assert r.nums[0].name == "junction.held"
-        assert r.nums[0].scope == Scope.GAME
-        assert r.nums[0].delta is False
-        assert r.weight == 0.1
-        assert r.max == 5.0
-        assert len(r.denoms) == 1
-
-
-# =============================================================================
-# Serialization Round-Trip Tests
-# =============================================================================
-
-
-class TestRewardConfigSerialization:
-    """Test serialization/deserialization of reward configs."""
-
-    def test_round_trip_simple_reward(self):
-        """Test serialization round-trip for simple reward."""
-        original = inventoryReward("heart", weight=0.5, max=10.0)
-        data = original.model_dump()
-        restored = AgentReward.model_validate(data)
-
-        assert restored.weight == original.weight
-        assert restored.max == original.max
-        assert len(restored.nums) == len(original.nums)
-
-    def test_round_trip_complex_reward(self):
-        """Test serialization round-trip for complex reward with denoms."""
-        original = statReward(
-            "junction.held",
-            scope=Scope.GAME,
-            weight=0.1,
-            max=5.0,
-            denoms=[NumObjectsValue(object_type="junction")],
-        )
-        data = original.model_dump()
-        restored = AgentReward.model_validate(data)
-
-        assert restored.weight == original.weight
-        assert restored.max == original.max
-        assert len(restored.nums) == 1
-        assert len(restored.denoms) == 1
-
-    @pytest.mark.parametrize(
-        "game_value",
-        [
-            InventoryValue(item="heart"),
-            InventoryValue(item="gold", scope=Scope.GAME),
-            NumObjectsValue(object_type="junction"),
-            QueryCountValue(query=query("vibe:aligned")),
-            QueryCountValue(query=query(typeTag("junction"))),
-            SumGameValue(values=[StatValue(name="test"), InventoryValue(item="heart")]),
-        ],
+def test_weighted_sum_and_log_weighted_sum():
+    normal = weighted_sum([(2.0, StatValue(name="a")), (0.5, InventoryValue(item="heart"))])
+    logged = weighted_sum([(2.0, StatValue(name="a")), (0.5, InventoryValue(item="heart"))], log=True)
+    capped = weighted_sum([(2.0, StatValue(name="a"))], max=5.0)
+    floored = weighted_sum([(2.0, StatValue(name="a"))], min=-1.0)
+    assert isinstance(normal, SumGameValue)
+    assert normal.weights == [2.0, 0.5]
+    assert normal.log is False
+    assert isinstance(logged, SumGameValue)
+    assert logged.weights == [2.0, 0.5]
+    assert logged.log is True
+    assert isinstance(capped, MinGameValue)
+    assert isinstance(floored, MaxGameValue)
+
+
+def test_game_value_ratio_helper():
+    ratio = GameValueRatio(StatValue(name="junction.held"), num(typeTag("junction")))
+    assert isinstance(ratio, RatioGameValue)
+    assert isinstance(ratio.numerator, GameValue)
+    assert isinstance(ratio.denominator, GameValue)
+
+
+def test_reward_helper_with_denominator_uses_ratio():
+    ratio = GameValueRatio(
+        weighted_sum([(0.1, StatValue(name="junction.held", scope=Scope.GAME))]),
+        num(typeTag("junction")),
     )
-    def test_game_value_round_trip(self, game_value):
-        """Test serialization round-trip for individual GameValue types."""
-        data = game_value.model_dump()
-        restored = type(game_value).model_validate(data)
+    r = reward(min_value([ratio, val(5.0)]))
+    assert isinstance(r, AgentReward)
+    assert isinstance(r.reward, SumGameValue)
+    assert len(r.reward.values) == 1
+    inner = r.reward.values[0]
+    assert isinstance(inner, MinGameValue)
+    assert len(inner.values) == 2
+    assert isinstance(inner.values[0], RatioGameValue)
+    assert isinstance(inner.values[1], ConstValue)
+    assert inner.values[1].value == 5.0
 
-        # Compare all fields
-        assert data == restored.model_dump()
+
+def test_reward_helper_negative_cap_uses_max_game_value():
+    r = reward(max_value([weighted_sum([(-1.0, StatValue(name="aligner.lost"))]), val(-2.0)]))
+    assert isinstance(r.reward, SumGameValue)
+    assert len(r.reward.values) == 1
+    inner = r.reward.values[0]
+    assert isinstance(inner, MaxGameValue)
+    assert len(inner.values) == 2
+    assert isinstance(inner.values[1], ConstValue)
+    assert inner.values[1].value == -2.0
+
+
+def test_max_and_min_game_values():
+    max_gv = max_value([val(1.0), val(3.0), val(2.0)])
+    min_gv = min_value([val(1.0), val(3.0), val(2.0)])
+    assert len(max_gv.values) == 3
+    assert len(min_gv.values) == 3
+
+
+def test_reward_basic_constructors():
+    sr = reward(StatValue(name="score", delta=True), weight=0.2, per_tick=True)
+    ir = reward(InventoryValue(item="heart"), weight=0.5)
+    assert isinstance(sr.reward, SumGameValue)
+    assert isinstance(ir.reward, SumGameValue)
+    assert sr.per_tick is True
+
+
+def test_reward_helper_supports_weight_and_clamp():
+    r = reward(
+        [StatValue(name="a"), StatValue(name="b")],
+        weight=0.75,
+        log=True,
+        max=3.0,
+    )
+    assert isinstance(r.reward, MinGameValue)
+    assert len(r.reward.values) == 2
+    summed = r.reward.values[0]
+    assert isinstance(summed, SumGameValue)
+    assert summed.weights == [0.75, 0.75]
+    assert summed.log is True
+    assert isinstance(r.reward.values[1], ConstValue)
+    assert r.reward.values[1].value == 3.0
+
+
+def test_basic_value_helpers():
+    s = stat("game.junction.held")
+    o = num(typeTag("junction"))
+    assert s.scope == Scope.GAME
+    assert isinstance(o, QueryCountValue)
+    assert o.query.source == typeTag("junction")
+
+
+def test_reward_helper_preserves_ratio_denominator_order():
+    d1 = num(typeTag("junction"))
+    d2 = num(typeTag("hub"))
+    r = reward(
+        GameValueRatio(
+            GameValueRatio(weighted_sum([(0.25, StatValue(name="junction.held", scope=Scope.GAME))]), d1),
+            d2,
+        )
+    )
+
+    assert isinstance(r.reward, SumGameValue)
+    assert len(r.reward.values) == 1
+    inner = r.reward.values[0]
+    assert isinstance(inner, RatioGameValue)
+    assert isinstance(inner.denominator, QueryCountValue)
+    assert inner.denominator.query.source == typeTag("hub")
+    assert isinstance(inner.numerator, RatioGameValue)
+    assert isinstance(inner.numerator.denominator, QueryCountValue)
+    assert inner.numerator.denominator.query.source == typeTag("junction")
+
+
+def test_reward_helper_supports_log_aggregation_and_weight():
+    d = num(typeTag("junction"))
+    r = reward(GameValueRatio(weighted_sum([(0.75, StatValue(name="a")), (0.75, StatValue(name="b"))], log=True), d))
+
+    assert isinstance(r.reward, SumGameValue)
+    assert len(r.reward.values) == 1
+    inner = r.reward.values[0]
+    assert isinstance(inner, RatioGameValue)
+    assert isinstance(inner.numerator, SumGameValue)
+    assert inner.numerator.weights == [0.75, 0.75]
+    assert inner.numerator.log is True

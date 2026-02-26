@@ -1,7 +1,13 @@
 import math
 
-import pytest
-
+from mettagrid.config.game_value import (
+    GameValueRatio,
+    InventoryValue,
+    max_value,
+    min_value,
+    val,
+    weighted_sum,
+)
 from mettagrid.config.game_value import stat as game_stat
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
@@ -12,7 +18,7 @@ from mettagrid.config.mettagrid_config import (
     NoopActionConfig,
     WallConfig,
 )
-from mettagrid.config.reward_config import AgentReward, Aggregation, inventoryReward, reward, statReward
+from mettagrid.config.reward_config import reward
 from mettagrid.simulator import Action, Simulation
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
 
@@ -41,7 +47,7 @@ class TestStatReward:
             agent=AgentConfig(
                 inventory=InventoryConfig(initial={"gold": 5}),
                 rewards={
-                    "gold": statReward("gold.amount", weight=0.1),
+                    "gold": reward(weighted_sum([(0.1, game_stat("gold.amount"))])),
                 },
             ),
         )
@@ -84,8 +90,8 @@ class TestMultipleRewardTypes:
                 inventory=InventoryConfig(initial={"gold": 10, "silver": 5}),
                 rewards={
                     # Multiple reward sources
-                    "gold": inventoryReward("gold", weight=0.1),
-                    "silver": inventoryReward("silver", weight=0.2),
+                    "gold": reward(weighted_sum([(0.1, InventoryValue(item="gold"))])),
+                    "silver": reward(weighted_sum([(0.2, InventoryValue(item="silver"))])),
                 },
             ),
         )
@@ -127,7 +133,7 @@ class TestPerTickReward:
             agent=AgentConfig(
                 inventory=InventoryConfig(initial={"gold": 10}),
                 rewards={
-                    "gold": inventoryReward("gold", weight=0.1, per_tick=per_tick),
+                    "gold": reward(weighted_sum([(0.1, InventoryValue(item="gold"))]), per_tick=per_tick),
                 },
             ),
         )
@@ -229,9 +235,7 @@ class TestSumLogsAggregation:
                 inventory=InventoryConfig(initial={"gold": 10, "silver": 5}),
                 rewards={
                     "diversity": reward(
-                        [game_stat("gold.amount"), game_stat("silver.amount")],
-                        aggregation=Aggregation.SUM_LOGS,
-                        weight=1.0,
+                        weighted_sum([(1.0, game_stat("gold.amount")), (1.0, game_stat("silver.amount"))], log=True),
                     ),
                 },
             ),
@@ -269,9 +273,7 @@ class TestSumLogsAggregation:
                 inventory=InventoryConfig(initial={"gold": 0, "silver": 0}),
                 rewards={
                     "diversity": reward(
-                        [game_stat("gold.amount"), game_stat("silver.amount")],
-                        aggregation=Aggregation.SUM_LOGS,
-                        weight=1.0,
+                        weighted_sum([(1.0, game_stat("gold.amount")), (1.0, game_stat("silver.amount"))], log=True),
                     ),
                 },
             ),
@@ -310,9 +312,7 @@ class TestMultiNumeratorSum:
                 inventory=InventoryConfig(initial={"gold": 10, "silver": 5}),
                 rewards={
                     "total": reward(
-                        [game_stat("gold.amount"), game_stat("silver.amount")],
-                        aggregation=Aggregation.SUM,
-                        weight=0.5,
+                        weighted_sum([(0.5, game_stat("gold.amount")), (0.5, game_stat("silver.amount"))]),
                     ),
                 },
             ),
@@ -331,10 +331,10 @@ class TestMultiNumeratorSum:
         assert abs(agent.episode_reward - expected) < 0.01, f"Expected reward ~{expected}, got {agent.episode_reward}"
 
 
-class TestEmptyNumeratorsRejected:
-    """Reward entries with no numerators must fail fast during conversion."""
+class TestRatioReward:
+    """Reward ratios should handle denominator edge-cases safely."""
 
-    def test_empty_numerators_raises(self):
+    def test_ratio_with_zero_denominator_returns_numerator(self):
         game_map = [
             ["wall", "wall", "wall"],
             ["wall", "agent.red", "wall"],
@@ -349,13 +349,67 @@ class TestEmptyNumeratorsRejected:
             objects={"wall": WallConfig()},
             agent=AgentConfig(
                 rewards={
-                    "broken": AgentReward(nums=[], weight=1.0),
+                    "ratio": reward(
+                        weighted_sum(
+                            [
+                                (
+                                    1.0,
+                                    GameValueRatio(
+                                        game_stat("gold.amount"),
+                                        game_stat("silver.amount"),
+                                    ),
+                                )
+                            ]
+                        ),
+                    ),
                 },
+                inventory=InventoryConfig(initial={"gold": 10}),
             ),
         )
 
         cfg = MettaGridConfig(game=game_config)
         cfg.game.map_builder = ObjectNameMapBuilder.Config(map_data=game_map)
+        sim = Simulation(cfg, seed=42)
+        agent = sim.agent(0)
+        agent.set_action(Action(name="noop"))
+        sim.step()
+        assert abs(agent.episode_reward - 10.0) < 0.01
 
-        with pytest.raises(ValueError, match="no numerators"):
-            Simulation(cfg, seed=42)
+
+class TestMinMaxGameValueRewards:
+    """Runtime behavior tests for min/max combinator game values."""
+
+    def _make_single_agent_sim(self, reward_value):
+        game_map = [
+            ["wall", "wall", "wall"],
+            ["wall", "agent.red", "wall"],
+            ["wall", "wall", "wall"],
+        ]
+        game_config = GameConfig(
+            max_steps=100,
+            num_agents=1,
+            resource_names=["gold"],
+            actions=ActionsConfig(noop=NoopActionConfig(enabled=True)),
+            objects={"wall": WallConfig()},
+            agent=AgentConfig(
+                inventory=InventoryConfig(initial={"gold": 10}),
+                rewards={"combo": reward(weighted_sum([(1.0, reward_value)]))},
+            ),
+        )
+        cfg = MettaGridConfig(game=game_config)
+        cfg.game.map_builder = ObjectNameMapBuilder.Config(map_data=game_map)
+        return Simulation(cfg, seed=42)
+
+    def test_min_value_caps_reward(self):
+        sim = self._make_single_agent_sim(min_value([game_stat("gold.amount"), val(3.0)]))
+        agent = sim.agent(0)
+        agent.set_action(Action(name="noop"))
+        sim.step()
+        assert abs(agent.episode_reward - 3.0) < 0.01
+
+    def test_max_value_floors_reward(self):
+        sim = self._make_single_agent_sim(max_value([game_stat("gold.amount"), val(12.0)]))
+        agent = sim.agent(0)
+        agent.set_action(Action(name="noop"))
+        sim.step()
+        assert abs(agent.episode_reward - 12.0) < 0.01

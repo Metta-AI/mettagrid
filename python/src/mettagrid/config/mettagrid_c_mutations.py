@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from mettagrid.config.game_value import ConstValue
+from mettagrid.config.game_value import val
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mutation import (
     AddTagMutation,
@@ -160,7 +160,7 @@ def convert_mutations(
 
         elif isinstance(mutation, SetGameValueMutation):
             cpp_gv_cfg = resolve_game_value(mutation.value, id_maps)
-            source = mutation.source if mutation.source is not None else ConstValue(value=float(mutation.delta))
+            source = mutation.source if mutation.source is not None else val(mutation.delta)
             cpp_source_cfg = resolve_game_value(source, id_maps)
             cpp_mutation = CppGameValueMutationConfig(
                 value=cpp_gv_cfg,
