@@ -4,14 +4,17 @@ Mutations are the effects that handlers apply when triggered.
 """
 
 # AnyMutation defined here where all concrete types are real imports (no strings).
-from typing import Annotated, Union  # noqa: E402
+from typing import TYPE_CHECKING, Annotated, Any, Union  # noqa: E402
 
 from pydantic import (
     Discriminator,  # noqa: E402
     Tag,  # noqa: E402
 )
 
-from mettagrid.config.filter import AnyFilter
+if TYPE_CHECKING:
+    from mettagrid.config.filter import AnyFilter
+else:
+    AnyFilter = Any
 from mettagrid.config.mutation.attack_mutation import AttackMutation
 from mettagrid.config.mutation.clear_inventory_mutation import ClearInventoryMutation
 from mettagrid.config.mutation.freeze_mutation import FreezeMutation

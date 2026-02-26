@@ -6,15 +6,15 @@ Used for rewards (numerators/denominators) and observations.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Set, Tuple, Union
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from mettagrid.base_config import Config, ConfigStrEnum
+from mettagrid.config.query import AnyQuery
 
 if TYPE_CHECKING:
-    from mettagrid.config.filter import AnyFilter
-    from mettagrid.config.query import AnyQuery
+    from mettagrid.config.filter.filter import Filter
 
 
 class Scope(ConfigStrEnum):
@@ -90,19 +90,48 @@ class ConstValue(GameValue):
 class QueryInventoryValue(GameValue):
     """Sum of a resource across objects matched by a query."""
 
-    query: "AnyQuery" = Field(description="Query to find objects whose inventory to sum")
+    query: AnyQuery = Field(description="Query to find objects whose inventory to sum")
     item: str = Field(description="Resource name to sum")
 
 
 class QueryCountValue(GameValue):
     """Count of objects matched by a query."""
 
-    query: "AnyQuery" = Field(description="Query to find objects to count")
+    query: AnyQuery = Field(description="Query to find objects to count")
 
 
-# ---------------------------------------------------------------------------
-# Union of all GameValue types
-# ---------------------------------------------------------------------------
+class SumGameValue(GameValue):
+    """Sum a list of game values."""
+
+    values: list["AnyGameValue"] = Field(min_length=1)
+    weights: list[float] | None = None
+    log: bool = False
+
+    @model_validator(mode="after")
+    def _validate_weights(self) -> "SumGameValue":
+        if self.weights is not None and len(self.weights) != len(self.values):
+            raise ValueError("SumGameValue.weights must have same length as values")
+        return self
+
+
+class RatioGameValue(GameValue):
+    """Ratio of two game values."""
+
+    numerator: "AnyGameValue"
+    denominator: "AnyGameValue"
+
+
+class MaxGameValue(GameValue):
+    """Maximum value from a list of game values."""
+
+    values: list["AnyGameValue"] = Field(min_length=1)
+
+
+class MinGameValue(GameValue):
+    """Minimum value from a list of game values."""
+
+    values: list["AnyGameValue"] = Field(min_length=1)
+
 
 AnyGameValue = Union[
     InventoryValue,
@@ -111,6 +140,10 @@ AnyGameValue = Union[
     ConstValue,
     QueryInventoryValue,
     QueryCountValue,
+    SumGameValue,
+    RatioGameValue,
+    MaxGameValue,
+    MinGameValue,
 ]
 
 
@@ -133,7 +166,7 @@ def stat(s: str, delta: bool = False) -> StatValue:
 
 def num(
     s: str,
-    filters: "AnyFilter | list[AnyFilter] | None" = None,
+    filters: "Filter | list[Filter] | None" = None,
 ) -> NumObjectsValue | QueryCountValue:
     """Create an object-count GameValue, optionally filtered by query filters."""
     if filters is None:
@@ -143,7 +176,7 @@ def num(
     from mettagrid.config.tag import typeTag  # noqa: PLC0415
 
     normalized_filters = filters if isinstance(filters, list) else [filters]
-    return QueryCountValue(query=query(typeTag(s), normalized_filters))
+    return QueryCountValue(query=query(typeTag(s), normalized_filters))  # pyright: ignore[reportArgumentType]
 
 
 def tag(s: str) -> QueryCountValue:
@@ -151,3 +184,48 @@ def tag(s: str) -> QueryCountValue:
     from mettagrid.config.query import query  # noqa: PLC0415
 
     return QueryCountValue(query=query(s))
+
+
+def weighted_sum(weighted_values: list[tuple[float, AnyGameValue]]) -> SumGameValue:
+    """Create a weighted sum from ``[(weight, game_value), ...]``."""
+    values = [value for _, value in weighted_values]
+    weights = [weight for weight, _ in weighted_values]
+    return SumGameValue(values=values, weights=weights)
+
+
+def log_weighted_sum(weighted_values: list[tuple[float, AnyGameValue]]) -> SumGameValue:
+    """Create a weighted sum with per-term log transform enabled."""
+    values = [value for _, value in weighted_values]
+    weights = [weight for weight, _ in weighted_values]
+    return SumGameValue(values=values, weights=weights, log=True)
+
+
+def GameValueRatio(num_gv: AnyGameValue, denom_gv: AnyGameValue) -> RatioGameValue:
+    """Create a ratio game value with safe denominator handling in C++ runtime."""
+    return RatioGameValue(numerator=num_gv, denominator=denom_gv)
+
+
+def max_value(values: list[AnyGameValue]) -> MaxGameValue:
+    """Create a max combinator game value."""
+    return MaxGameValue(values=values)
+
+
+def min_value(values: list[AnyGameValue]) -> MinGameValue:
+    """Create a min combinator game value."""
+    return MinGameValue(values=values)
+
+
+# Rebuild recursive combinator schemas after all concrete variants are defined.
+_rebuild_ns = {
+    "AnyFilter": Any,
+    "AnyQuery": AnyQuery,
+    "AnyGameValue": AnyGameValue,
+    "SumGameValue": SumGameValue,
+    "RatioGameValue": RatioGameValue,
+    "MaxGameValue": MaxGameValue,
+    "MinGameValue": MinGameValue,
+}
+SumGameValue.model_rebuild(_types_namespace=_rebuild_ns)
+RatioGameValue.model_rebuild(_types_namespace=_rebuild_ns)
+MaxGameValue.model_rebuild(_types_namespace=_rebuild_ns)
+MinGameValue.model_rebuild(_types_namespace=_rebuild_ns)

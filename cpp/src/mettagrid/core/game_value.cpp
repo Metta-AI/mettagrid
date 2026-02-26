@@ -1,5 +1,7 @@
 #include "core/game_value.hpp"
 
+#include <cmath>
+#include <stdexcept>
 #include <type_traits>
 
 #include "core/query_config.hpp"
@@ -16,10 +18,12 @@ ResolvedGameValue resolve_game_value(const GameValueConfig& gvc, const mettagrid
         if constexpr (std::is_same_v<T, InventoryValueConfig>) {
           HasInventory* inventory_entity = ctx.actor;
           if (inventory_entity) {
-            rgv.mutable_ = false;
             auto resource_id = c.id;
             rgv.compute_fn = [inventory_entity, resource_id]() -> float {
               return static_cast<float>(inventory_entity->inventory.amount(resource_id));
+            };
+            rgv.update_fn = [inventory_entity, resource_id](float delta) {
+              inventory_entity->inventory.update(resource_id, static_cast<InventoryDelta>(delta));
             };
           } else {
             StatsTracker* tracker = ctx.resolve_stats_tracker(c.scope, ctx.actor);
@@ -64,6 +68,32 @@ ResolvedGameValue resolve_game_value(const GameValueConfig& gvc, const mettagrid
             if (!query) return 0.0f;
             auto results = query->evaluate(ctx);
             return static_cast<float>(results.size());
+          };
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<SumValueConfig>>) {
+          rgv.mutable_ = false;
+          if (!c) {
+            rgv.compute_fn = []() -> float { return 0.0f; };
+            return rgv;
+          }
+          auto values = c->values;
+          auto weights = c->weights;
+          bool apply_log = c->log;
+          if (!weights.empty() && weights.size() != values.size()) {
+            throw std::runtime_error("SumValueConfig.weights size must match values size");
+          }
+          rgv.compute_fn = [values, weights, apply_log, ctx]() -> float {
+            float total = 0.0f;
+            for (size_t i = 0; i < values.size(); ++i) {
+              float term = ctx.resolve_game_value(values[i], mettagrid::EntityRef::actor);
+              if (apply_log) {
+                term = std::log(term + 1.0f);
+              }
+              if (!weights.empty()) {
+                term *= weights[i];
+              }
+              total += term;
+            }
+            return total;
           };
         }
         return rgv;

@@ -840,6 +840,7 @@ def convert_to_cpp_game_config(
     global_obs_cpp = CppGlobalObsConfig(
         episode_completion_pct=global_obs_config.episode_completion_pct,
         last_action=global_obs_config.last_action,
+        last_action_move=global_obs_config.last_action_move,
         last_reward=global_obs_config.last_reward,
         goal_obs=global_obs_config.goal_obs,
         local_position=global_obs_config.local_position,

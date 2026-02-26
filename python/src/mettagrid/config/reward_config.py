@@ -10,11 +10,17 @@ from pydantic import Field
 from mettagrid.base_config import Config
 from mettagrid.config.game_value import (
     AnyGameValue,
+    ConstValue,
     InventoryValue,
+    MaxGameValue,
+    MinGameValue,
     NumObjectsValue,
     QueryCountValue,
+    QueryInventoryValue,
+    RatioGameValue,
     Scope,
     StatValue,
+    SumGameValue,
 )
 from mettagrid.config.query import query
 
@@ -168,3 +174,20 @@ def statReward(
         max=max,
         per_tick=per_tick,
     )
+
+
+AgentReward.model_rebuild(
+    _types_namespace={
+        "AnyGameValue": AnyGameValue,
+        "InventoryValue": InventoryValue,
+        "StatValue": StatValue,
+        "NumObjectsValue": NumObjectsValue,
+        "ConstValue": ConstValue,
+        "QueryInventoryValue": QueryInventoryValue,
+        "QueryCountValue": QueryCountValue,
+        "SumGameValue": SumGameValue,
+        "RatioGameValue": RatioGameValue,
+        "MaxGameValue": MaxGameValue,
+        "MinGameValue": MinGameValue,
+    }
+)

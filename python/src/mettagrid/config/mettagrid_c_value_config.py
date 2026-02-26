@@ -13,6 +13,7 @@ from mettagrid.config.game_value import (
     QueryInventoryValue,
     Scope,
     StatValue,
+    SumGameValue,
 )
 from mettagrid.config.tag import typeTag
 from mettagrid.mettagrid_c import ConstValueConfig as CppConstValueConfig
@@ -21,6 +22,7 @@ from mettagrid.mettagrid_c import InventoryValueConfig as CppInventoryValueConfi
 from mettagrid.mettagrid_c import QueryCountValueConfig as CppQueryCountValueConfig
 from mettagrid.mettagrid_c import QueryInventoryValueConfig as CppQueryInventoryValueConfig
 from mettagrid.mettagrid_c import StatValueConfig as CppStatValueConfig
+from mettagrid.mettagrid_c import SumValueConfig as CppSumValueConfig
 
 if TYPE_CHECKING:
     from mettagrid.config.cpp_id_maps import CppIdMaps
@@ -71,6 +73,15 @@ def resolve_game_value(gv: GameValue, id_maps: CppIdMaps):
         cfg = CppQueryCountValueConfig()
         cpp_query = _convert_tag_query(gv.query, id_maps, context="QueryCountValue")
         cfg.set_query(cpp_query)
+        return cfg
+
+    if isinstance(gv, SumGameValue):
+        cfg = CppSumValueConfig()
+        for value in gv.values:
+            cfg.add_value(resolve_game_value(value, id_maps))
+        if gv.weights is not None:
+            cfg.weights = gv.weights
+        cfg.log = gv.log
         return cfg
 
     raise ValueError(f"Unknown GameValue type: {type(gv)}")

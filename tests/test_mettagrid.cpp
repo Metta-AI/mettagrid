@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cmath>
 #include <random>
 #include <utility>
 
@@ -9,8 +10,10 @@
 #include "actions/noop.hpp"
 #include "config/mettagrid_config.hpp"
 #include "config/observation_features.hpp"
+#include "core/game_value.hpp"
 #include "core/game_value_config.hpp"
 #include "core/grid.hpp"
+#include "core/query_config.hpp"
 #include "core/types.hpp"
 #include "handler/handler_context.hpp"
 #include "objects/agent.hpp"
@@ -131,6 +134,128 @@ protected:
 };
 
 // ==================== Agent Tests ====================
+
+TEST_F(MettaGridCppTest, ResolveGameValueConst) {
+  ConstValueConfig cfg;
+  cfg.value = 4.5f;
+
+  mettagrid::HandlerContext ctx;
+  auto resolved = resolve_game_value(cfg, ctx);
+  EXPECT_FLOAT_EQ(resolved.read(), 4.5f);
+}
+
+TEST_F(MettaGridCppTest, ResolveGameValueInventory) {
+  AgentConfig agent_cfg = create_test_agent_config();
+  auto resources = create_test_resource_names();
+  std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resources));
+  agent->inventory.update(TestItems::ORE, 7);
+
+  InventoryValueConfig cfg;
+  cfg.id = TestItems::ORE;
+  cfg.scope = GameValueScope::AGENT;
+
+  mettagrid::HandlerContext ctx;
+  ctx.actor = agent.get();
+  auto resolved = resolve_game_value(cfg, ctx);
+  EXPECT_FLOAT_EQ(resolved.read(), 7.0f);
+}
+
+TEST_F(MettaGridCppTest, ResolveGameValueStatAgentAndGame) {
+  AgentConfig agent_cfg = create_test_agent_config();
+  auto resources = create_test_resource_names();
+  std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resources));
+  agent->stats.add("agent.score", 12.0f);
+  stats_tracker->add("game.score", 21.0f);
+
+  StatValueConfig agent_stat_cfg;
+  agent_stat_cfg.scope = GameValueScope::AGENT;
+  agent_stat_cfg.stat_name = "agent.score";
+
+  StatValueConfig game_stat_cfg;
+  game_stat_cfg.scope = GameValueScope::GAME;
+  game_stat_cfg.stat_name = "game.score";
+
+  mettagrid::HandlerContext ctx;
+  ctx.actor = agent.get();
+  ctx.game_stats = stats_tracker.get();
+
+  auto agent_resolved = resolve_game_value(agent_stat_cfg, ctx);
+  auto game_resolved = resolve_game_value(game_stat_cfg, ctx);
+  EXPECT_FLOAT_EQ(agent_resolved.read(), 12.0f);
+  EXPECT_FLOAT_EQ(game_resolved.read(), 21.0f);
+}
+
+TEST_F(MettaGridCppTest, ResolveGameValueQueryCount) {
+  mettagrid::TagIndex tag_index;
+  WallConfig wall_cfg(1, "wall");
+  wall_cfg.tag_ids = {42};
+  Wall wall1(0, 0, wall_cfg);
+  Wall wall2(1, 0, wall_cfg);
+  tag_index.register_object(&wall1);
+  tag_index.register_object(&wall2);
+
+  auto tag_query = std::make_shared<mettagrid::TagQueryConfig>();
+  tag_query->tag_id = 42;
+
+  QueryCountValueConfig cfg;
+  cfg.query = tag_query;
+
+  mettagrid::HandlerContext ctx;
+  ctx.tag_index = &tag_index;
+  auto resolved = resolve_game_value(cfg, ctx);
+  EXPECT_FLOAT_EQ(resolved.read(), 2.0f);
+}
+
+TEST_F(MettaGridCppTest, ResolveGameValueQueryInventory) {
+  mettagrid::TagIndex tag_index;
+  AgentConfig agent_cfg = create_test_agent_config();
+  agent_cfg.tag_ids = {77};
+  auto resources = create_test_resource_names();
+  Agent agent1(0, 0, agent_cfg, &resources);
+  Agent agent2(1, 0, agent_cfg, &resources);
+  agent1.inventory.update(TestItems::ORE, 3);
+  agent2.inventory.update(TestItems::ORE, 4);
+  tag_index.register_object(&agent1);
+  tag_index.register_object(&agent2);
+
+  auto tag_query = std::make_shared<mettagrid::TagQueryConfig>();
+  tag_query->tag_id = 77;
+
+  QueryInventoryValueConfig cfg;
+  cfg.id = TestItems::ORE;
+  cfg.query = tag_query;
+
+  mettagrid::HandlerContext ctx;
+  ctx.tag_index = &tag_index;
+  auto resolved = resolve_game_value(cfg, ctx);
+  EXPECT_FLOAT_EQ(resolved.read(), 7.0f);
+}
+
+TEST_F(MettaGridCppTest, ResolveGameValueSumLinearAndLog) {
+  auto linear_cfg = std::make_shared<SumValueConfig>();
+  ConstValueConfig c1;
+  c1.value = 2.0f;
+  ConstValueConfig c2;
+  c2.value = 3.0f;
+  linear_cfg->values = {c1, c2};
+
+  mettagrid::HandlerContext ctx;
+  auto linear_resolved = resolve_game_value(GameValueConfig(linear_cfg), ctx);
+  EXPECT_FLOAT_EQ(linear_resolved.read(), 5.0f);
+
+  auto log_cfg = std::make_shared<SumValueConfig>();
+  ConstValueConfig c3;
+  c3.value = 3.0f;
+  ConstValueConfig c4;
+  c4.value = 8.0f;
+  log_cfg->values = {c3, c4};
+  log_cfg->weights = {2.0f, 0.5f};
+  log_cfg->log = true;
+
+  auto log_resolved = resolve_game_value(GameValueConfig(log_cfg), ctx);
+  float expected = 2.0f * std::log(3.0f + 1.0f) + 0.5f * std::log(8.0f + 1.0f);
+  EXPECT_NEAR(log_resolved.read(), expected, 1e-6f);
+}
 
 TEST_F(MettaGridCppTest, AgentRewards) {
   AgentConfig agent_cfg = create_test_agent_config();

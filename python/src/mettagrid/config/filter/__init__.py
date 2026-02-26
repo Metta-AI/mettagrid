@@ -27,7 +27,19 @@ from mettagrid.config.filter.shared_tag_prefix_filter import (
 from mettagrid.config.filter.tag_filter import TagFilter, actorHasTag, hasTag, isA
 from mettagrid.config.filter.tag_prefix_filter import TagPrefixFilter, actorHasTagPrefix, hasTagPrefix
 from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVibe
-from mettagrid.config.game_value import QueryCountValue, QueryInventoryValue
+from mettagrid.config.game_value import (
+    AnyGameValue,
+    ConstValue,
+    InventoryValue,
+    MaxGameValue,
+    MinGameValue,
+    NumObjectsValue,
+    QueryCountValue,
+    QueryInventoryValue,
+    RatioGameValue,
+    StatValue,
+    SumGameValue,
+)
 from mettagrid.config.query import (
     AnyQuery,
     ClosureQuery,
@@ -58,6 +70,15 @@ AnyFilter = Annotated[
 _rebuild_ns = {
     "AnyFilter": AnyFilter,
     "AnyQuery": AnyQuery,
+    "AnyGameValue": AnyGameValue,
+    "InventoryValue": InventoryValue,
+    "StatValue": StatValue,
+    "NumObjectsValue": NumObjectsValue,
+    "ConstValue": ConstValue,
+    "SumGameValue": SumGameValue,
+    "RatioGameValue": RatioGameValue,
+    "MaxGameValue": MaxGameValue,
+    "MinGameValue": MinGameValue,
     "Query": Query,
     "MaterializedQuery": MaterializedQuery,
     "ClosureQuery": ClosureQuery,

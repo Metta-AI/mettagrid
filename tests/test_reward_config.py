@@ -13,6 +13,9 @@ from mettagrid.config.game_value import (
     QueryCountValue,
     Scope,
     StatValue,
+    SumGameValue,
+    log_weighted_sum,
+    weighted_sum,
 )
 from mettagrid.config.query import query
 from mettagrid.config.reward_config import (
@@ -56,6 +59,7 @@ class TestGameValueInheritance:
         assert issubclass(StatValue, GameValue)
         assert issubclass(NumObjectsValue, GameValue)
         assert issubclass(QueryCountValue, GameValue)
+        assert issubclass(SumGameValue, GameValue)
 
     def test_instances_are_game_values(self):
         """Test that instances are GameValue instances."""
@@ -66,6 +70,7 @@ class TestGameValueInheritance:
             NumObjectsValue(object_type="junction"),
             QueryCountValue(query=query("vibe:aligned")),
             QueryCountValue(query=query(typeTag("junction"))),
+            SumGameValue(values=[StatValue(name="test"), InventoryValue(item="heart")]),
         ]
         for v in values:
             assert isinstance(v, GameValue)
@@ -83,8 +88,31 @@ class TestAnyGameValueUnion:
             NumObjectsValue(object_type="junction"),
             QueryCountValue(query=query("vibe:aligned")),
             QueryCountValue(query=query(typeTag("junction"))),
+            SumGameValue(values=[StatValue(name="test"), InventoryValue(item="heart")]),
         ]
-        assert len(values) == 6
+        assert len(values) == 7
+
+
+class TestSumGameValue:
+    """Test SumGameValue helpers and validation."""
+
+    def test_weighted_sum_helper(self):
+        gv = weighted_sum([(2.0, StatValue(name="a")), (0.5, InventoryValue(item="heart"))])
+        assert isinstance(gv, SumGameValue)
+        assert len(gv.values) == 2
+        assert gv.weights == [2.0, 0.5]
+        assert gv.log is False
+
+    def test_log_weighted_sum_helper(self):
+        gv = log_weighted_sum([(2.0, StatValue(name="a")), (0.5, InventoryValue(item="heart"))])
+        assert isinstance(gv, SumGameValue)
+        assert len(gv.values) == 2
+        assert gv.weights == [2.0, 0.5]
+        assert gv.log is True
+
+    def test_weights_length_must_match_values(self):
+        with pytest.raises(ValueError, match="weights must have same length as values"):
+            SumGameValue(values=[StatValue(name="a")], weights=[1.0, 2.0])
 
 
 # =============================================================================
@@ -378,6 +406,7 @@ class TestRewardConfigSerialization:
             NumObjectsValue(object_type="junction"),
             QueryCountValue(query=query("vibe:aligned")),
             QueryCountValue(query=query(typeTag("junction"))),
+            SumGameValue(values=[StatValue(name="test"), InventoryValue(item="heart")]),
         ],
     )
     def test_game_value_round_trip(self, game_value):
