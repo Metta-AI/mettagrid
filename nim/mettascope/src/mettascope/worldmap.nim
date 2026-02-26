@@ -1010,6 +1010,58 @@ proc getPreviewStartPos(agentId: int): IVec2 =
         discard
   lastPos
 
+proc cardinalDirection(fromPos: IVec2, toPos: IVec2): Orientation =
+  ## Resolve a cardinal direction for a single tile step.
+  let
+    dx = toPos.x - fromPos.x
+    dy = toPos.y - fromPos.y
+  if dx > 0 and dy == 0:
+    return E
+  if dx < 0 and dy == 0:
+    return W
+  if dx == 0 and dy > 0:
+    return S
+  if dx == 0 and dy < 0:
+    return N
+  raise newException(
+    ValueError,
+    "Expected cardinal move from " & $fromPos & " to " & $toPos
+  )
+
+proc drawPlannedSegment(
+  fromPos: IVec2,
+  toPos: IVec2,
+  prevDirection: var Orientation,
+  hasPrevDirection: var bool,
+  drawTile: bool = true
+) =
+  ## Draw one planned segment using directional plan sprites with path fallback.
+  let thisDirection = cardinalDirection(fromPos, toPos)
+
+  let
+    incomingDirection = if hasPrevDirection: prevDirection else: thisDirection
+    planSprite = "agents/plan." & incomingDirection.char & thisDirection.char
+    pathSprite = "agents/path." & incomingDirection.char & thisDirection.char
+    isUTurn =
+      (incomingDirection == N and thisDirection == S) or
+      (incomingDirection == S and thisDirection == N) or
+      (incomingDirection == E and thisDirection == W) or
+      (incomingDirection == W and thisDirection == E)
+    uTurnSprite = "agents/plan." & thisDirection.char
+
+  if drawTile:
+    if isUTurn and uTurnSprite in px:
+      px.drawSprite(uTurnSprite, fromPos.ivec2 * TileSize)
+    elif planSprite in px:
+      px.drawSprite(planSprite, fromPos.ivec2 * TileSize)
+    elif pathSprite in px:
+      px.drawSprite(pathSprite, fromPos.ivec2 * TileSize)
+    else:
+      px.drawSprite("agents/path", fromPos.ivec2 * TileSize)
+
+  prevDirection = thisDirection
+  hasPrevDirection = true
+
 proc drawMovePreview*() {.measure.} =
   ## Draw a prediction path from the selected agent to the mouse position when move mode is active.
   if not moveToggleActive or selected == nil or not selected.isAgent or replay == nil:
@@ -1021,10 +1073,21 @@ proc drawMovePreview*() {.measure.} =
     return
   let startPos = getPreviewStartPos(selected.agentId)
   let previewPath = findPath(startPos, gridPos)
-  var currentPos = startPos
+  var
+    currentPos = startPos
+    prevDirection = S
+    hasPrevDirection = false
+    isFirstSegment = true
   for pos in previewPath:
     if pos != startPos:
-      px.drawSprite("agents/path", currentPos.ivec2 * TileSize)
+      drawPlannedSegment(
+        currentPos,
+        pos,
+        prevDirection,
+        hasPrevDirection,
+        drawTile = not isFirstSegment
+      )
+      isFirstSegment = false
       currentPos = pos
   px.drawSprite("objects/selection", gridPos.ivec2 * TileSize)
 
@@ -1042,33 +1105,40 @@ proc drawPlannedPath*() {.measure.} =
     let
       agent = getAgentById(agentId)
       baseStep = floor(stepFloat).int
-    var currentPos = agent.location.at(baseStep + 1).xy
+    var
+      currentPos = agent.location.at(baseStep + 1).xy
+      prevDirection = S
+      hasPrevDirection = false
+      isFirstSegment = true
 
     for action in pathActions:
-      if action.kind != Move:
-        continue
-      # Draw arrow from current position to target position.
-      let
-        pos0 = currentPos
-        pos1 = action.pos
-        dx = pos1.x - pos0.x
-        dy = pos1.y - pos0.y
+      case action.kind
+      of Move:
+        let
+          pos0 = currentPos
+          pos1 = action.pos
 
-      var rotation: float32 = 0
-      if dx > 0 and dy == 0:
-        rotation = 0
-      elif dx < 0 and dy == 0:
-        rotation = Pi
-      elif dx == 0 and dy > 0:
-        rotation = -Pi / 2
-      elif dx == 0 and dy < 0:
-        rotation = Pi / 2
-
-      px.drawSprite(
-        "agents/path",
-        pos0.ivec2 * TileSize
-      )
-      currentPos = action.pos
+        drawPlannedSegment(
+          pos0,
+          pos1,
+          prevDirection,
+          hasPrevDirection,
+          drawTile = not isFirstSegment
+        )
+        isFirstSegment = false
+        currentPos = action.pos
+      of Bump:
+        # Draw the bump as a final path segment into the target tile.
+        drawPlannedSegment(
+          currentPos,
+          action.bumpPos,
+          prevDirection,
+          hasPrevDirection,
+          drawTile = true
+        )
+        isFirstSegment = false
+      of Vibe:
+        discard
 
     # Draw final queued objective.
     if agentObjectives.hasKey(agentId):
@@ -1081,24 +1151,6 @@ proc drawPlannedPath*() {.measure.} =
             objective.pos.ivec2 * TileSize
           )
 
-      # Draw approach arrows for bump objectives.
-      for objective in objectives:
-        if objective.kind == Bump and (objective.approachDir.x != 0 or objective.approachDir.y != 0):
-          let approachPos = ivec2(objective.pos.x + objective.approachDir.x, objective.pos.y + objective.approachDir.y)
-          let offset = vec2(-objective.approachDir.x.float32 * 0.35, -objective.approachDir.y.float32 * 0.35)
-          var rotation: float32 = 0
-          if objective.approachDir.x > 0:
-            rotation = Pi / 2
-          elif objective.approachDir.x < 0:
-            rotation = -Pi / 2
-          elif objective.approachDir.y > 0:
-            rotation = 0
-          elif objective.approachDir.y < 0:
-            rotation = Pi
-          px.drawSprite(
-            "agents/arrow",
-            approachPos.ivec2 * TileSize + offset.ivec2
-          )
 
 proc drawSelection*() {.measure.} =
   # Draw selected.
