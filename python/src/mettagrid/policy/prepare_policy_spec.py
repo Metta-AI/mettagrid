@@ -57,7 +57,7 @@ def _ensure_setup_script_ran(setup_script: str, extraction_root: Path) -> None:
         done_path.touch()
 
 
-def _validate_archive_member(entry: zipfile.ZipInfo, destination_root: Path) -> None:
+def validate_submission_archive_member(entry: zipfile.ZipInfo, destination_root: Path) -> None:
     """Ensure a zip entry extracts within destination_root without using symlinks."""
     member_path = Path(entry.filename)
 
@@ -73,13 +73,13 @@ def _validate_archive_member(entry: zipfile.ZipInfo, destination_root: Path) -> 
         raise ValueError(f"Submission archive entry escapes extraction directory: {entry.filename}")
 
 
-def _extract_submission_archive(archive_path: Path, destination: Path) -> None:
+def extract_submission_archive(archive_path: Path, destination: Path) -> None:
     """Extract a submission archive into destination."""
     destination_root = destination.resolve()
     try:
         with zipfile.ZipFile(archive_path, "r") as archive:
             for entry in archive.infolist():
-                _validate_archive_member(entry, destination_root)
+                validate_submission_archive_member(entry, destination_root)
             archive.extractall(destination_root)
     except zipfile.BadZipFile as exc:
         raise ValueError(f"Invalid submission archive: {archive_path}") from exc
@@ -271,7 +271,7 @@ def load_policy_spec_from_path(
         extraction_root.mkdir(parents=True, exist_ok=True)
         with _exclusive_file_lock(extraction_root / ".extraction.lock"):
             if not (extraction_root / ".extraction_complete").exists():
-                _extract_submission_archive(local_path, extraction_root)
+                extract_submission_archive(local_path, extraction_root)
                 (extraction_root / ".extraction_complete").touch()
 
                 if remove_downloaded_copy_on_exit and extraction_root not in _registered_cleanup_dirs:
