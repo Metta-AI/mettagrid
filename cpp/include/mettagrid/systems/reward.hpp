@@ -3,14 +3,11 @@
 
 #include <algorithm>
 #include <cmath>
-#include <functional>
 #include <string>
-#include <type_traits>
 #include <vector>
 
-#include "core/query_config.hpp"
+#include "core/game_value.hpp"
 #include "core/resolved_game_value.hpp"
-#include "core/tag_index.hpp"
 #include "core/types.hpp"
 #include "handler/handler_context.hpp"
 #include "objects/reward_config.hpp"
@@ -52,17 +49,15 @@ public:
   }
 
   // Initialize resolved entries from config.entries
-  void init_entries(StatsTracker* agent_stats_tracker,
-                    const mettagrid::HandlerContext* game_ctx,
-                    const std::vector<std::string>* resource_names) {
+  void init_entries(const mettagrid::HandlerContext& ctx) {
     _resolved_entries.clear();
     for (const auto& entry : config.entries) {
       ResolvedEntry re;
       for (const auto& num : entry.numerators) {
-        re.numerators.push_back(resolve_game_value(num, agent_stats_tracker, game_ctx, resource_names));
+        re.numerators.push_back(resolve_game_value(num, ctx));
       }
       for (const auto& denom : entry.denominators) {
-        re.denominators.push_back(resolve_game_value(denom, agent_stats_tracker, game_ctx, resource_names));
+        re.denominators.push_back(resolve_game_value(denom, ctx));
       }
       re.weight = entry.weight;
       re.max_value = entry.max_value;
@@ -75,7 +70,9 @@ public:
 
   // Compute rewards using resolved entries
   RewardType compute_entries() {
-    if (_resolved_entries.empty()) return 0;
+    if (_resolved_entries.empty()) {
+      return 0;
+    }
 
     float total_delta = 0.0f;
     for (auto& entry : _resolved_entries) {
@@ -117,72 +114,6 @@ public:
       *reward_ptr += total_delta;
     }
     return total_delta;
-  }
-
-private:
-  StatsTracker* resolve_tracker(GameValueScope scope, StatsTracker* agent_stats, StatsTracker* game_stats) {
-    switch (scope) {
-      case GameValueScope::AGENT:
-        return agent_stats;
-      case GameValueScope::GAME:
-        return game_stats;
-    }
-    return nullptr;
-  }
-
-  ResolvedGameValue resolve_game_value(const GameValueConfig& gvc,
-                                       StatsTracker* agent_stats,
-                                       const mettagrid::HandlerContext* game_ctx,
-                                       const std::vector<std::string>* resource_names) {
-    return std::visit(
-        [&](auto&& c) -> ResolvedGameValue {
-          using T = std::decay_t<decltype(c)>;
-          ResolvedGameValue rgv;
-
-          if constexpr (std::is_same_v<T, TagCountValueConfig>) {
-            rgv.mutable_ = false;
-            if (game_ctx && game_ctx->tag_index) {
-              rgv.value_ptr = game_ctx->tag_index->get_count_ptr(c.id);
-            }
-          } else if constexpr (std::is_same_v<T, QueryInventoryValueConfig>) {
-            rgv.mutable_ = false;
-            auto query = c.query;
-            auto resource_id = c.id;
-            rgv.compute_fn = [query, resource_id, game_ctx]() -> float {
-              if (!query || !game_ctx) return 0.0f;
-              auto results = query->evaluate(*game_ctx);
-              float total = 0.0f;
-              for (auto* obj : results) {
-                total += static_cast<float>(obj->inventory.amount(resource_id));
-              }
-              return total;
-            };
-          } else if constexpr (std::is_same_v<T, ConstValueConfig>) {
-            rgv.mutable_ = false;
-            float val = c.value;
-            rgv.compute_fn = [val]() -> float { return val; };
-          } else if constexpr (std::is_same_v<T, InventoryValueConfig>) {
-            StatsTracker* tracker = resolve_tracker(c.scope, agent_stats, game_ctx ? game_ctx->game_stats : nullptr);
-            if (tracker != nullptr && resource_names != nullptr && c.id < resource_names->size()) {
-              std::string stat_name = (*resource_names)[c.id] + ".amount";
-              uint16_t sid = tracker->get_or_create_id(stat_name);
-              rgv.value_ptr = tracker->get_ptr(sid);
-            }
-          } else if constexpr (std::is_same_v<T, StatValueConfig>) {
-            rgv.delta = c.delta;
-            StatsTracker* tracker = resolve_tracker(c.scope, agent_stats, game_ctx ? game_ctx->game_stats : nullptr);
-            if (tracker != nullptr) {
-              if (!c.stat_name.empty()) {
-                uint16_t sid = tracker->get_or_create_id(c.stat_name);
-                rgv.value_ptr = tracker->get_ptr(sid);
-              } else {
-                rgv.value_ptr = tracker->get_ptr(c.id);
-              }
-            }
-          }
-          return rgv;
-        },
-        gvc);
   }
 };
 

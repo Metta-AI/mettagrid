@@ -27,8 +27,11 @@ void Agent::init(RewardType* reward_ptr) {
   this->reward_helper.init(reward_ptr);
 }
 
-void Agent::init_reward(const mettagrid::HandlerContext* game_ctx, const std::vector<std::string>* resource_names) {
-  this->reward_helper.init_entries(&this->stats, game_ctx, resource_names);
+void Agent::init_reward(const mettagrid::HandlerContext& game_ctx) {
+  mettagrid::HandlerContext reward_ctx = game_ctx;
+  reward_ctx.actor = this;
+  reward_ctx.target = this;
+  this->reward_helper.init_entries(reward_ctx);
 }
 
 void Agent::set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers) {

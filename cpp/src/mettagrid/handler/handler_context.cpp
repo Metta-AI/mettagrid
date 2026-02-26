@@ -1,43 +1,16 @@
 #include "handler/handler_context.hpp"
 
-#include <type_traits>
-
-#include "core/query_system.hpp"
+#include "core/game_value.hpp"
 #include "objects/agent.hpp"
 
 namespace mettagrid {
 
 float HandlerContext::resolve_game_value(const GameValueConfig& cfg, EntityRef entity_ref) const {
-  return std::visit(
-      [&](auto&& c) -> float {
-        using T = std::decay_t<decltype(c)>;
-        if constexpr (std::is_same_v<T, InventoryValueConfig>) {
-          GridObject* entity = resolve(entity_ref);
-          if (!entity) return 0.0f;
-          return static_cast<float>(entity->inventory.amount(c.id));
-        } else if constexpr (std::is_same_v<T, StatValueConfig>) {
-          GridObject* entity = resolve(entity_ref);
-          StatsTracker* tracker = resolve_stats_tracker(c.scope, entity);
-          if (!tracker) return 0.0f;
-          if (!c.stat_name.empty()) return tracker->get(c.stat_name);
-          return *tracker->get_ptr(c.id);
-        } else if constexpr (std::is_same_v<T, TagCountValueConfig>) {
-          if (!tag_index) return 0.0f;
-          return static_cast<float>(tag_index->count_objects_with_tag(c.id));
-        } else if constexpr (std::is_same_v<T, ConstValueConfig>) {
-          return c.value;
-        } else if constexpr (std::is_same_v<T, QueryInventoryValueConfig>) {
-          if (!c.query) return 0.0f;
-          auto results = c.query->evaluate(*this);
-          float total = 0.0f;
-          for (auto* obj : results) {
-            total += static_cast<float>(obj->inventory.amount(c.id));
-          }
-          return total;
-        }
-        return 0.0f;
-      },
-      cfg);
+  GridObject* entity = resolve(entity_ref);
+  HandlerContext value_ctx = *this;
+  value_ctx.actor = entity;
+  auto rgv = ::resolve_game_value(cfg, value_ctx);
+  return rgv.read();
 }
 
 StatsTracker* HandlerContext::resolve_stats_tracker(GameValueScope scope, GridObject* entity) const {

@@ -41,8 +41,6 @@ public:
               float* ptr = tracker->get_ptr(c.id);
               if (ptr) *ptr += delta;
             }
-          } else if constexpr (std::is_same_v<T, TagCountValueConfig>) {
-            throw std::runtime_error("Cannot mutate TAG_COUNT game value (read-only)");
           } else if constexpr (std::is_same_v<T, ConstValueConfig>) {
             throw std::runtime_error("Cannot mutate CONST game value (read-only)");
           } else if constexpr (std::is_same_v<T, QueryInventoryValueConfig>) {

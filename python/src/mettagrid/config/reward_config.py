@@ -12,10 +12,11 @@ from mettagrid.config.game_value import (
     AnyGameValue,
     InventoryValue,
     NumObjectsValue,
+    QueryCountValue,
     Scope,
     StatValue,
-    TagCountValue,
 )
+from mettagrid.config.query import query
 
 
 class Aggregation(str, Enum):
@@ -139,7 +140,9 @@ def numTaggedReward(
     Examples:
         numTaggedReward("vibe:aligned", weight=0.5)
     """
-    return AgentReward(nums=[TagCountValue(tag=tag)], denoms=denoms or [], weight=weight, max=max, per_tick=per_tick)
+    return AgentReward(
+        nums=[QueryCountValue(query=query(tag))], denoms=denoms or [], weight=weight, max=max, per_tick=per_tick
+    )
 
 
 def statReward(

@@ -153,7 +153,9 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate) {
 
   float agent_reward = 0.0f;
   agent->init(&agent_reward);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, &resource_names);
+  mettagrid::HandlerContext reward_ctx;
+  reward_ctx.actor = agent.get();
+  agent->reward_helper.init_entries(reward_ctx);
 
   // Test adding items
   int delta = agent->inventory.update(TestItems::ORE, 5);
@@ -293,7 +295,9 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate_RewardCappingBehavior) {
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
   float agent_reward = 0.0f;
   agent->init(&agent_reward);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, &resource_names);
+  mettagrid::HandlerContext reward_ctx;
+  reward_ctx.actor = agent.get();
+  agent->reward_helper.init_entries(reward_ctx);
 
   // Test 1: Add items up to the cap
   // 16 ORE * 0.125 = 2.0 (exactly at cap)
@@ -361,7 +365,9 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate_MultipleItemCaps) {
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
   float agent_reward = 0.0f;
   agent->init(&agent_reward);
-  agent->reward_helper.init_entries(&agent->stats, nullptr, &resource_names);
+  mettagrid::HandlerContext reward_ctx;
+  reward_ctx.actor = agent.get();
+  agent->reward_helper.init_entries(reward_ctx);
 
   // Add ORE beyond its cap
   agent->inventory.update(TestItems::ORE, 50);  // 50 * 0.125 = 6.25, capped at 2.0

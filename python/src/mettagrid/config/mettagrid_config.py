@@ -35,7 +35,6 @@ from mettagrid.config.game_value import (  # noqa: F401 - re-exported
     NumObjectsValue,
     Scope,
     StatValue,
-    TagCountValue,
 )
 from mettagrid.config.handler_config import (
     AOEConfig,

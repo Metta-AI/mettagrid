@@ -9,18 +9,18 @@ from mettagrid.config.game_value import (
     GameValue,
     InventoryValue,
     NumObjectsValue,
+    QueryCountValue,
     QueryInventoryValue,
     Scope,
     StatValue,
-    TagCountValue,
 )
 from mettagrid.config.tag import typeTag
 from mettagrid.mettagrid_c import ConstValueConfig as CppConstValueConfig
 from mettagrid.mettagrid_c import GameValueScope
 from mettagrid.mettagrid_c import InventoryValueConfig as CppInventoryValueConfig
+from mettagrid.mettagrid_c import QueryCountValueConfig as CppQueryCountValueConfig
 from mettagrid.mettagrid_c import QueryInventoryValueConfig as CppQueryInventoryValueConfig
 from mettagrid.mettagrid_c import StatValueConfig as CppStatValueConfig
-from mettagrid.mettagrid_c import TagCountValueConfig as CppTagCountValueConfig
 
 if TYPE_CHECKING:
     from mettagrid.config.cpp_id_maps import CppIdMaps
@@ -42,14 +42,13 @@ def resolve_game_value(gv: GameValue, id_maps: CppIdMaps):
         return cfg
 
     if isinstance(gv, NumObjectsValue):
-        cfg = CppTagCountValueConfig()
-        tag_name = typeTag(gv.object_type)
-        cfg.id = id_maps.tag_name_to_id[tag_name]
-        return cfg
+        from mettagrid.config.mettagrid_c_config import _convert_tag_query  # noqa: PLC0415
+        from mettagrid.config.query import query  # noqa: PLC0415
 
-    if isinstance(gv, TagCountValue):
-        cfg = CppTagCountValueConfig()
-        cfg.id = id_maps.tag_name_to_id[gv.tag]
+        cfg = CppQueryCountValueConfig()
+        tag_name = typeTag(gv.object_type)
+        cpp_query = _convert_tag_query(query(tag_name), id_maps, context="NumObjectsValue")
+        cfg.set_query(cpp_query)
         return cfg
 
     if isinstance(gv, ConstValue):
@@ -63,6 +62,14 @@ def resolve_game_value(gv: GameValue, id_maps: CppIdMaps):
         cfg = CppQueryInventoryValueConfig()
         cfg.id = id_maps.resource_name_to_id[gv.item]
         cpp_query = _convert_tag_query(gv.query, id_maps, context="QueryInventoryValue")
+        cfg.set_query(cpp_query)
+        return cfg
+
+    if isinstance(gv, QueryCountValue):
+        from mettagrid.config.mettagrid_c_config import _convert_tag_query  # noqa: PLC0415
+
+        cfg = CppQueryCountValueConfig()
+        cpp_query = _convert_tag_query(gv.query, id_maps, context="QueryCountValue")
         cfg.set_query(cpp_query)
         return cfg
 

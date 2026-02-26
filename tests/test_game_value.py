@@ -2,12 +2,13 @@
 
 import pytest
 
+from mettagrid.config.filter import hasTag
 from mettagrid.config.game_value import (
     InventoryValue,
     NumObjectsValue,
+    QueryCountValue,
     Scope,
     StatValue,
-    TagCountValue,
     inv,
     num,
     stat,
@@ -85,9 +86,13 @@ class TestNumHelper:
         assert isinstance(v, NumObjectsValue)
         assert v.object_type == "junction"
 
+    def test_with_filter(self):
+        v = num("junction", hasTag("team:cogs"))
+        assert isinstance(v, QueryCountValue)
+
 
 class TestTagHelper:
     def test_basic(self):
         v = tag("vibe:aligned")
-        assert isinstance(v, TagCountValue)
-        assert v.tag == "vibe:aligned"
+        assert isinstance(v, QueryCountValue)
+        assert v.query.source == "vibe:aligned"

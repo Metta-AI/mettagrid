@@ -27,7 +27,7 @@ from mettagrid.config.filter.shared_tag_prefix_filter import (
 from mettagrid.config.filter.tag_filter import TagFilter, actorHasTag, hasTag, isA
 from mettagrid.config.filter.tag_prefix_filter import TagPrefixFilter, actorHasTagPrefix, hasTagPrefix
 from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVibe
-from mettagrid.config.game_value import QueryInventoryValue
+from mettagrid.config.game_value import QueryCountValue, QueryInventoryValue
 from mettagrid.config.query import (
     AnyQuery,
     ClosureQuery,
@@ -69,6 +69,7 @@ MaterializedQuery.model_rebuild(_types_namespace=_rebuild_ns)
 ClosureQuery.model_rebuild(_types_namespace=_rebuild_ns)
 MaxDistanceFilter.model_rebuild(_types_namespace=_rebuild_ns)
 QueryInventoryValue.model_rebuild(_types_namespace=_rebuild_ns)
+QueryCountValue.model_rebuild(_types_namespace=_rebuild_ns)
 
 __all__ = [
     # Enums
