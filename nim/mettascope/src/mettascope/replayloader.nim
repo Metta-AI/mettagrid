@@ -1,7 +1,8 @@
 import
-  std/tables,
+  std/[tables, strutils],
   windy,
-  replays, worldmap, common, configs, panels, team
+  replays, worldmap, common, configs, panels, team,
+  panels/objectpanel
 
 
 proc onReplayLoaded*() =
@@ -25,6 +26,7 @@ proc onReplayLoaded*() =
   stepFloatSmoothing = false
   previousStep = -1
   selected = nil
+  lastSelectedTeam = -1
   requestPython = false
   agentPaths = initTable[int, seq[PathAction]]()
   agentObjectives = initTable[int, seq[Objective]]()
@@ -34,6 +36,15 @@ proc onReplayLoaded*() =
 
   let config = loadConfig()
   applyUIState(config)
+  if selected != nil:
+    # Route restored selection through selectObject so team tracking is consistent.
+    selectObject(selected)
+  if lastSelectedTeam < 0:
+    # Auto-select the first cogs team if no team is selected.
+    for i, info in replay.teams:
+      if info.name.startsWith("cogs"):
+        lastSelectedTeam = i
+        break
   rebuildSplats()
 
   # Update zoom info rect based on game mode (same logic as switchGameMode)

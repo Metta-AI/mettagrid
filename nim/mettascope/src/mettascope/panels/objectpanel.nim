@@ -1,7 +1,7 @@
 import
   std/[json, algorithm, tables, sets, strutils, strformat],
   vmath, silky, windy,
-  ../common, ../replays, ../configs, ../cognames, ../colors,
+  ../common, ../replays, ../configs, ../cognames, ../colors, ../team,
   widgets
 
 type
@@ -381,5 +381,11 @@ proc selectObject*(obj: Entity) =
   if obj != nil and not obj.alive.at:
     return
   selected = obj
+  if obj != nil:
+    let teamIdx = getEntityTeamIndex(obj)
+    if teamIdx >= 0:
+      let teamName = getTeamName(teamIdx)
+      if teamName.startsWith("cogs"):
+        lastSelectedTeam = teamIdx
   settings.lockFocus = not obj.isNil
   saveUIState()

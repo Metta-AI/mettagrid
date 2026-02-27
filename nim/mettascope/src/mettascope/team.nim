@@ -61,20 +61,6 @@ proc getEntityTeamIndex*(entity: Entity): int =
       return i
   return -1
 
-var activeTeam*: int = -1
-
-proc getActiveTeam*(): int =
-  ## Get the active team index. Auto-selects from the selected entity or defaults to first.
-  if activeTeam >= 0 and activeTeam < replay.teams.len:
-    return activeTeam
-  if selected != nil:
-    let idx = getEntityTeamIndex(selected)
-    if idx >= 0:
-      return idx
-  if replay.teams.len > 0:
-    return 0
-  return -1
-
 proc getGlobalResourceCount*(teamIdx: int, itemName: string): int =
   ## Sum an inventory item across all living hubs in a team.
   if replay.isNil or teamIdx < 0 or teamIdx >= replay.teams.len:

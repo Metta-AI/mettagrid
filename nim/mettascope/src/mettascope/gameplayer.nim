@@ -76,12 +76,11 @@ proc computeScore(): float =
   ## Computes the average score for the active team's agents.
   if replay.isNil:
     return 0.0
-  let teamIdx = getActiveTeam()
   var
     totalScore = 0.0
     agentCount = 0
   for obj in replay.objects:
-    if obj.isAgent and (teamIdx < 0 or getEntityTeamIndex(obj) == teamIdx):
+    if obj.isAgent and getEntityTeamIndex(obj) == lastSelectedTeam:
       totalScore += obj.totalReward.at
       agentCount += 1
   if agentCount > 0:
@@ -92,11 +91,10 @@ proc computeJunctionCount(): int =
   ## Computes the junction count for the active team.
   if replay.isNil:
     return 0
-  let teamIdx = getActiveTeam()
   var junctionCount = 0
   for obj in replay.objects:
     if normalizeTypeName(obj.typeName) == "junction" and
-        (teamIdx < 0 or getEntityTeamIndex(obj) == teamIdx):
+        getEntityTeamIndex(obj) == lastSelectedTeam:
       junctionCount += 1
   return junctionCount
 
@@ -293,7 +291,7 @@ proc topRightPanel(winW: float32) =
   sk.drawImage("ui/panel_topright", trPos)
 
   if not replay.isNil:
-    let teamIdx = getActiveTeam()
+    let teamIdx = lastSelectedTeam
     const
       CellSpacing = 32.0f
       YPad = 42.0f

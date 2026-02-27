@@ -100,6 +100,7 @@ proc scaleTransform*(s: Vec2) =
 var
   settings* = Settings()
   selected*: Entity
+  lastSelectedTeam*: int = -1
   policyTarget*: Option[IVec2]  ## Target cell from policy_infos to highlight on map.
 
   step*: int = 0
