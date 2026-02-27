@@ -1507,6 +1507,12 @@ proc drawObjectPips*() {.measure.} =
       loc.ivec2 * MiniTileSize,
       pipTint
     )
+    if selected != nil and obj.id == selected.id:
+      pxMini.drawSprite(
+        "minimap/selection",
+        loc.ivec2 * MiniTileSize,
+        WhiteTint
+      )
 
 proc drawWorldMini*() {.measure.} =
   ## Draw the world map at minimap zoom level using pxMini.

@@ -36,6 +36,9 @@ proc playControls*() =
   if window.buttonPressed[KeyF10] or window.buttonPressed[KeyG]:
     let newMode = if gameMode == Editor: Game else: Editor
     switchGameMode(newMode)
+  if window.buttonPressed[KeyF] and selected != nil:
+    settings.lockFocus = true
+    saveUIState()
   if window.buttonPressed[KeyEscape]:
     moveToggleActive = false
     queueToggleActive = false
