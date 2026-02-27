@@ -361,8 +361,7 @@ class VariedTerrain(Scene[VariedTerrainConfig]):
                         maze_thick[i, j + 1] = "empty"
                     if self.rng.random() < thick_prob and i + 1 < h:
                         maze_thick[i + 1, j] = "empty"
-        maze = maze_thick
-        return maze
+        return maze_thick
 
     def _has_gap(self, line: np.ndarray) -> bool:
         contiguous = 0

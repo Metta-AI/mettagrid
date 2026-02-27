@@ -36,7 +36,7 @@ class TokenPolicyNet(torch.nn.Module):
         self.hidden_size = 192
 
         feature_norms = {feature.id: feature.normalization for feature in features}
-        max_feature_id = max((int(feature_id) for feature_id in feature_norms.keys()), default=-1)
+        max_feature_id = max((int(feature_id) for feature_id in feature_norms), default=-1)
         num_feature_embeddings = max(256, max_feature_id + 1)
         feature_scale = torch.ones(num_feature_embeddings, dtype=torch.float32)
         for feature_id, norm in feature_norms.items():

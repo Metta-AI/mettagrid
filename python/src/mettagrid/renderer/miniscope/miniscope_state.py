@@ -122,7 +122,7 @@ class MiniscopeState:
 
         self.mode = RenderMode.VIBE_PICKER
         # Hide all sidebar panels except agent_info and vibe_picker
-        for name in self.sidebar_visibility.keys():
+        for name in self.sidebar_visibility:
             self.sidebar_visibility[name] = name in ("agent_info", "vibe_picker")
 
     def exit_vibe_picker(self) -> None:

@@ -186,7 +186,7 @@ class MemoryMonitor:
             removed = True
 
         # Remove all attributes
-        keys_to_remove = [key for key in self._tracked_objects.keys() if key.startswith(f"{name}.")]
+        keys_to_remove = [key for key in self._tracked_objects if key.startswith(f"{name}.")]
         for key in keys_to_remove:
             self._tracked_objects.pop(key)
             removed = True

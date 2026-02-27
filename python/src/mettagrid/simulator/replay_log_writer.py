@@ -272,7 +272,7 @@ class EpisodeReplay:
                 if grid_object[key][-1][1] != value:
                     grid_object[key].append([step, value])
         # If key has vanished, add a default entry.
-        for key in grid_object.keys():
+        for key in grid_object:
             if key not in update_object:
                 last = grid_object[key][-1][1]
                 default = self._default_for(last)

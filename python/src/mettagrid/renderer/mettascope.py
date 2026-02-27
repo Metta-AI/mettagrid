@@ -173,7 +173,7 @@ class MettascopeRenderer(Renderer):
                     self._sim.agent(action.agent_id).set_action(Action(name=action_name))
                 except KeyError as e:
                     logger.error("Unknown action '%s' - %s", action_name, e)
-                    available_actions = [a for a in self._sim.action_ids.keys() if "change_vibe" in a]
+                    available_actions = [a for a in self._sim.action_ids if "change_vibe" in a]
                     logger.error("Available change_vibe actions: %s", available_actions)
                     continue
 

@@ -34,7 +34,7 @@ def _make_sim(ascii_map, objects=None, tags=None, resource_names=None, num_agent
     """Create a simple simulation from an ASCII map."""
     cfg = MettaGridConfig.EmptyRoom(num_agents=num_agents, with_walls=True).with_ascii_map(
         ascii_map,
-        char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", **{k: k for k in (objects or {}).keys()}},
+        char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", **{k: k for k in (objects or {})}},
     )
     cfg.game.actions.noop.enabled = True
     if tags:

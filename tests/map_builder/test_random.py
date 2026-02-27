@@ -138,7 +138,7 @@ class TestRandomMapBuilder:
         count_dict = dict(zip(unique, counts, strict=False))
 
         # No agent types should be present
-        agent_types = [key for key in count_dict.keys() if key.startswith("agent.")]
+        agent_types = [key for key in count_dict if key.startswith("agent.")]
         assert len(agent_types) == 0
 
     def test_multiple_agent_types(self):
