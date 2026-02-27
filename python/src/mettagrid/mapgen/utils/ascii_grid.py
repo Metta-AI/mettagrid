@@ -54,8 +54,7 @@ def add_pretty_border(lines: list[str]) -> list[str]:
     for row in lines:
         border_lines.append("│" + row + "│")
     border_lines.append("└" + "─" * width + "┘")
-    lines = border_lines
-    return lines
+    return border_lines
 
 
 def grid_to_lines(grid: MapGrid, name_to_char: dict[str, str] | None = None, border: bool = False) -> list[str]:

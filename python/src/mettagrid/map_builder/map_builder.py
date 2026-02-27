@@ -90,9 +90,7 @@ class MapBuilderConfig(Config, Generic[TBuilder]):
         """Load a builder config from a serialized string or mapping."""
 
         parsed = yaml.safe_load(data)
-        builder_config = cls.model_validate(parsed)
-
-        return builder_config
+        return cls.model_validate(parsed)
 
     @classmethod
     def _type_str(cls) -> str:
