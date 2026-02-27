@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 from mettagrid import MettaGridConfig
@@ -69,6 +71,16 @@ class RuntimeInfo(BaseModel):
     git_commit: str | None = None
     cogames_version: str | None = None
     instance_type: str | None = None
+
+
+RunnerErrorType = Literal["config_error", "policy_error", "unknown"]
+
+
+class RunnerError(BaseModel):
+    """Structured error written by the runner to S3 on failure."""
+
+    error_type: RunnerErrorType
+    message: str
 
 
 class SingleEpisodeJob(EpisodeSpec):

@@ -13,13 +13,23 @@ from urllib.parse import parse_qs, urlparse
 import requests
 
 from mettagrid.runner.policy_server.manager import LocalPolicyServerHandle, launch_local_policy_server
-from mettagrid.runner.types import EpisodeSpec, PureSingleEpisodeJob, PureSingleEpisodeResult
+from mettagrid.runner.types import EpisodeSpec, PureSingleEpisodeJob, PureSingleEpisodeResult, RunnerError
 from mettagrid.util.file import read
 from mettagrid.util.uri_resolvers.schemes import localize_uri, resolve_uri
 
 logger = logging.getLogger(__name__)
 
 MAX_POLICY_LOG_BYTES = 100 * 1024 * 1024  # 100MB
+
+
+class EpisodeSubprocessError(RuntimeError):
+    """Raised when the episode subprocess exits non-zero."""
+
+    def __init__(self, message: str, runner_error: RunnerError | None = None):
+        super().__init__(message)
+        self.runner_error = runner_error
+
+
 MAX_POLICY_SIZE_BYTES = 500 * 1024 * 1024  # 500MB
 
 
@@ -89,8 +99,8 @@ def _spawn_policy_servers(
     try:
         with ThreadPoolExecutor(max_workers=len(local_policy_uris)) as pool:
             futures = [pool.submit(launch_local_policy_server, uri) for uri in local_policy_uris]
-            # Read results in submission order so returned URIs line up with local_policy_uris.
-            servers = [future.result() for future in futures]
+            for future in futures:
+                servers.append(future.result())
     except Exception:
         for future in futures:
             future.cancel()
@@ -133,6 +143,17 @@ def _per_agent_policy_mapping(
             compact_policy_uris.append(local_policy_uris[assignment])
         compact_assignments.append(remapped_index)
     return compact_policy_uris, compact_assignments
+
+
+def _read_subprocess_error(error_file: Path) -> RunnerError | None:
+    """Read the error file written by the subprocess, if it exists."""
+    if not error_file.exists():
+        return None
+    try:
+        return RunnerError.model_validate_json(error_file.read_text())
+    except Exception:
+        logger.warning("Failed to parse subprocess error file %s", error_file, exc_info=True)
+        return None
 
 
 def run_episode_isolated(
@@ -193,7 +214,10 @@ def run_episode_isolated(
             overage_budget_ms=spec.overage_budget_ms,
         )
 
-        with tempfile.NamedTemporaryFile(delete=True) as job_spec_tmp_file:
+        with (
+            tempfile.NamedTemporaryFile(delete=True) as job_spec_tmp_file,
+            tempfile.NamedTemporaryFile(delete=True, suffix=".json") as error_tmp_file,
+        ):
             pure_job_spec = {
                 "job": pure_job.model_dump(),
                 "device": "cpu",
@@ -201,11 +225,19 @@ def run_episode_isolated(
             job_spec_tmp_file.write(json.dumps(pure_job_spec).encode("utf-8"))
             job_spec_tmp_file.flush()
 
+            error_file_path = Path(error_tmp_file.name)
+
             env = {**os.environ, "PYTHONPERFSUPPORT": "1"} if debug_dir else None
             t2 = time.monotonic()
             logger.info("Launching episode subprocess")
             proc = subprocess.Popen(
-                [sys.executable, "-m", "mettagrid.runner.episode_subprocess", job_spec_tmp_file.name],
+                [
+                    sys.executable,
+                    "-m",
+                    "mettagrid.runner.episode_subprocess",
+                    job_spec_tmp_file.name,
+                    error_tmp_file.name,
+                ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -232,7 +264,8 @@ def run_episode_isolated(
                         )
                 code = proc.returncode
                 detail = f"signal {-code}" if code < 0 else f"exit {code}"
-                raise RuntimeError(f"episode_subprocess failed ({detail})")
+                runner_error = _read_subprocess_error(error_file_path)
+                raise EpisodeSubprocessError(f"episode_subprocess failed ({detail})", runner_error=runner_error)
 
         # Copy policy logs to output directory if requested.
         # We keep one log artifact per agent index for compatibility with

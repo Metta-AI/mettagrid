@@ -12,12 +12,35 @@ from contextlib import nullcontext
 from pathlib import Path
 
 from mettagrid.base_config import LENIENT_CONTEXT
-from mettagrid.runner.episode_runner import _read_log_with_limit, run_episode_isolated
-from mettagrid.runner.types import RuntimeInfo, SingleEpisodeJob
+from mettagrid.runner.episode_runner import (
+    EpisodeSubprocessError,
+    _read_log_with_limit,
+    run_episode_isolated,
+)
+from mettagrid.runner.types import RunnerError, RunnerErrorType, RuntimeInfo, SingleEpisodeJob
 from mettagrid.util.file import copy_data, read, write_data
 from mettagrid.util.tracer import Tracer
 
 logger = logging.getLogger(__name__)
+
+
+def _write_runner_error(
+    error_info_uri: str | None,
+    error_type: RunnerErrorType,
+    message: str,
+) -> None:
+    """Write a structured error artifact to S3 so the event processor can read it directly.
+
+    Best-effort: never masks the original exception if S3 write fails.
+    """
+    if not error_info_uri:
+        return
+    try:
+        error = RunnerError(error_type=error_type, message=message[:2000])
+        write_data(error_info_uri, error.model_dump_json().encode("utf-8"), content_type="application/json")
+        logger.info(f"Wrote runner error: type={error_type}")
+    except Exception as e:
+        logger.warning(f"Failed to write runner error: {e}")
 
 
 def _upload_debug_dir(local_debug_dir: str | None, debug_uri: str | None) -> None:
@@ -120,6 +143,8 @@ def main() -> None:
         print("Set JOB_SPEC_URI, RESULTS_URI, REPLAY_URI env vars")
         sys.exit(1)
 
+    error_info_uri = os.environ.get("ERROR_INFO_URI")
+
     t0 = time.monotonic()
     logger.info(f"Running with spec={job_spec_uri[:80]}")
 
@@ -132,7 +157,13 @@ def main() -> None:
         except Exception as e:
             logger.warning(f"Failed to upload runtime info: {e}")
 
-    job = SingleEpisodeJob.model_validate_json(read(job_spec_uri), context=LENIENT_CONTEXT)
+    # Phase 1: Fetch + validate job spec (separate so fetch errors aren't misclassified)
+    raw_spec = read(job_spec_uri)
+    try:
+        job = SingleEpisodeJob.model_validate_json(raw_spec, context=LENIENT_CONTEXT)
+    except Exception as e:
+        _write_runner_error(error_info_uri, "config_error", str(e))
+        raise
     logger.info(f"Job spec loaded in {time.monotonic() - t0:.1f}s")
 
     debug_uri = os.environ.get("DEBUG_URI")
@@ -198,6 +229,20 @@ def main() -> None:
             logger.info(f"Upload completed in {time.monotonic() - t_upload:.1f}s")
 
             logger.info(f"Job completed successfully, total time {time.monotonic() - t0:.1f}s")
+        except EpisodeSubprocessError as e:
+            if e.runner_error:
+                _write_runner_error(
+                    error_info_uri,
+                    e.runner_error.error_type,
+                    e.runner_error.message,
+                )
+            else:
+                _write_runner_error(error_info_uri, "unknown", str(e))
+            raise
+        except Exception as e:
+            # Pre-subprocess: only policy localization/spawn can fail here
+            _write_runner_error(error_info_uri, "policy_error", str(e))
+            raise
         finally:
             if tracer:
                 tracer.flush()
