@@ -7,9 +7,21 @@ from mettagrid.types import EpisodeStats
 from mettagrid.util.uri_resolvers.schemes import parse_uri
 
 
-class EpisodeSpec(BaseModel):
+class EpisodeJobSummary(BaseModel):
+    """Minimal job fields needed to record an episode in observatory.
+
+    extra="ignore" ensures runner schema changes never break recording.
+    SingleEpisodeJob extends this (via EpisodeSpec) so the fields can't diverge.
+    """
+
+    model_config = {"extra": "ignore"}
+
     policy_uris: list[str]
     assignments: list[int]
+    episode_tags: dict[str, str] = Field(default_factory=dict)
+
+
+class EpisodeSpec(EpisodeJobSummary):
     env: MettaGridConfig
     seed: int = 0
     max_action_time_ms: int = 10000
@@ -85,8 +97,6 @@ class RunnerError(BaseModel):
 
 class SingleEpisodeJob(EpisodeSpec):
     model_config = {"extra": "ignore"}
-
-    episode_tags: dict[str, str] = Field(default_factory=dict)
 
     def episode_spec(self) -> EpisodeSpec:
         return EpisodeSpec(
