@@ -1023,10 +1023,7 @@ proc cardinalDirection(fromPos: IVec2, toPos: IVec2): Orientation =
     return S
   if dx == 0 and dy < 0:
     return N
-  raise newException(
-    ValueError,
-    "Expected cardinal move from " & $fromPos & " to " & $toPos
-  )
+  Invalid
 
 proc drawPlannedSegment(
   fromPos: IVec2,
@@ -1036,7 +1033,14 @@ proc drawPlannedSegment(
   drawTile: bool = true
 ) =
   ## Draw one planned segment using directional plan sprites with path fallback.
+  if fromPos == toPos:
+    return
   let thisDirection = cardinalDirection(fromPos, toPos)
+  if thisDirection == Invalid:
+    echo "Expected cardinal move from ", fromPos, " to ", toPos
+    if drawTile:
+      px.drawSprite("agents/path", fromPos.ivec2 * TileSize)
+    return
 
   let
     incomingDirection = if hasPrevDirection: prevDirection else: thisDirection

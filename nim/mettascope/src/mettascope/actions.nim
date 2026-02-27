@@ -5,6 +5,7 @@ import
 
 type
   Orientation* = enum
+    Invalid = 'x'
     N = 'n'
     S = 's'
     W = 'w'
@@ -29,7 +30,7 @@ proc getOrientationFromDelta(dx, dy: int): Orientation =
   elif dx == 1 and dy == 0:
     return E
   else:
-    return N
+    return Invalid
 
 proc agentHasEnergy(agent: Entity): bool =
   let energyId = replay.itemNames.find("energy")
@@ -45,10 +46,19 @@ proc agentHasEnergy(agent: Entity): bool =
 proc getMoveActionName(orientation: Orientation): string =
   ## Get the move action name from an orientation.
   case orientation
+  of Invalid:
+    raise newException(ValueError, "Invalid move orientation.")
   of N: return "move_north"
   of S: return "move_south"
   of E: return "move_east"
   of W: return "move_west"
+
+proc isCardinalStep(fromPos, toPos: IVec2): bool =
+  ## Return true when two positions are a single cardinal move apart.
+  let
+    dx = abs(toPos.x - fromPos.x)
+    dy = abs(toPos.y - fromPos.y)
+  (dx == 1 and dy == 0) or (dx == 0 and dy == 1)
 
 proc processActions*() =
   ## Process path actions and send actions for the current step while in play mode.
@@ -63,40 +73,49 @@ proc processActions*() =
       continue
 
     let agent = getAgentById(agentId)
-    let currentPos = agent.location.at(replay.maxSteps - 1).xy
-    let pathActions = agentPaths[agentId]
+    let
+      currentPos = agent.location.at(replay.maxSteps - 1).xy
 
-    if pathActions.len == 0:
+    if agentPaths[agentId].len == 0:
       agentPaths.del(agentId)
       continue
-
-    let nextAction = pathActions[0]
 
     # If the agent has no energy, wait and do not issue new path actions this step.
     if not agentHasEnergy(agent):
       continue
 
+    if not agentPaths.hasKey(agentId) or agentPaths[agentId].len == 0:
+      continue
+
+    let nextAction = agentPaths[agentId][0]
+
     case nextAction.kind
     of Move:
+      # If replay position already reached this queued step, pop it now.
+      if currentPos == nextAction.pos:
+        agentPaths[agentId].delete(0)
+        if agentObjectives.hasKey(agentId) and agentObjectives[agentId].len > 0:
+          let objective = agentObjectives[agentId][0]
+          if objective.kind == Move and currentPos == objective.pos:
+            agentObjectives[agentId].delete(0)
+            if objective.repeat:
+              agentObjectives[agentId].add(objective)
+              recomputePath(agentId, currentPos)
+            elif agentObjectives[agentId].len == 0:
+              agentPaths.del(agentId)
+        continue
+
       # Execute movement action.
-      let dx = nextAction.pos.x - currentPos.x
-      let dy = nextAction.pos.y - currentPos.y
+      if not isCardinalStep(currentPos, nextAction.pos):
+        echo "Stale/non-cardinal move in queue for agent ", agentId, ": ",
+          currentPos, " -> ", nextAction.pos, ". Recomputing."
+        recomputePath(agentId, currentPos)
+        continue
+      let
+        dx = nextAction.pos.x - currentPos.x
+        dy = nextAction.pos.y - currentPos.y
       let orientation = getOrientationFromDelta(dx.int, dy.int)
       sendAction(agentId, getMoveActionName(orientation))
-      # Remove this action from the queue.
-      agentPaths[agentId].delete(0)
-      # Check if we completed an objective.
-      let objective = agentObjectives[agentId][0]
-      if objective.kind == Move and nextAction.pos == objective.pos:
-        # Completed this Move objective.
-        agentObjectives[agentId].delete(0)
-        if objective.repeat:
-          # Re-queue this objective at the end.
-          agentObjectives[agentId].add(objective)
-          recomputePath(agentId, nextAction.pos)
-        elif agentObjectives[agentId].len == 0:
-          # No more objectives, clear the path.
-          agentPaths.del(agentId)
     of Bump:
       # Execute bump action.
       let targetOrientation = getOrientationFromDelta(nextAction.bumpDir.x.int,

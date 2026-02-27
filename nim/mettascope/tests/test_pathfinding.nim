@@ -1,7 +1,7 @@
 import
-  std/[strutils, random],
+  std/[strutils, random, tables],
   vmath,
-  ../src/mettascope/[pathfinding, replays, common]
+  ../src/mettascope/[pathfinding, replays, common, actions]
 
 type
   TestMap = object
@@ -197,6 +197,71 @@ block large_scale_tests:
     doAssert path.len > 0, "large map path should be found"
     doAssert path[0] == ivec2(1, 1), "path should start correctly"
     doAssert path[^1] == ivec2(98, 98), "path should end at goal"
+
+block action_queue_sync_tests:
+  block blocked_move_does_not_pop_prematurely:
+    let map = parseAsciiMap("""
+#####
+#...#
+#...#
+#...#
+#####""")
+    setupTestMap(map)
+    let agent = Entity(
+      id: 999,
+      agentId: 7,
+      isAgent: true,
+      typeName: "agent",
+      location: @[ivec2(1, 1)]
+    )
+    replay.objects.add(agent)
+    play = true
+    requestPython = false
+    requestActions = @[]
+    agentPaths = initTable[int, seq[PathAction]]()
+    agentObjectives = initTable[int, seq[Objective]]()
+
+    let objective = Objective(
+      kind: Move,
+      pos: ivec2(1, 3),
+      approachDir: ivec2(0, 0),
+      repeat: false
+    )
+    agentObjectives[agent.agentId] = @[objective]
+    recomputePath(agent.agentId, ivec2(1, 1))
+    doAssert agentPaths[agent.agentId][0].kind == Move,
+      "first planned action should be a move"
+    doAssert agentPaths[agent.agentId][0].pos == ivec2(1, 2),
+      "first planned move should target the next cardinal tile"
+
+    processActions()
+    doAssert requestActions.len == 1,
+      "first processActions call should enqueue exactly one movement action"
+    doAssert agentPaths[agent.agentId][0].kind == Move,
+      "move should stay queued until replay confirms progression"
+    doAssert agentPaths[agent.agentId][0].pos == ivec2(1, 2),
+      "queued move should not be popped before confirmation"
+
+    replay.maxSteps = 2
+    replay.objects[^1].location.add(ivec2(1, 1))
+    processActions()
+    doAssert requestActions.len == 2,
+      "blocked movement should not pop the queued step and should retry next step"
+    doAssert agentPaths[agent.agentId][0].kind == Move,
+      "blocked movement should keep the queued move at the head"
+    doAssert agentPaths[agent.agentId][0].pos == ivec2(1, 2),
+      "queued move should still target the same next tile after a blocked step"
+
+    replay.maxSteps = 3
+    replay.objects[^1].location.add(ivec2(1, 2))
+    processActions()
+    doAssert requestActions.len == 2,
+      "replay-confirmed movement should pop queue entry without sending again"
+    doAssert agentPaths[agent.agentId][0].kind == Move,
+      "after confirmation, queue should advance to the next move"
+    doAssert agentPaths[agent.agentId][0].pos == ivec2(1, 3),
+      "queue should advance toward the objective after confirmation"
+    play = false
 
 when isMainModule:
   discard
