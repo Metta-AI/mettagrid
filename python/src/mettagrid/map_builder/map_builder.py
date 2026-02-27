@@ -240,7 +240,8 @@ class MapBuilder(ABC, Generic[ConfigT]):
         Shuffle the spawn indices. This method can be overridden to implement a
         different (seed-dependent) shuffle algorithm.
         """
-        np.random.shuffle(indices)
+        seed = self.config.seed if isinstance(self.config, HasSeed) else None
+        np.random.default_rng(seed).shuffle(indices)
 
     def _designate_agent_spawn_points(self, game_map: GameMap, num_agents: int) -> None:
         """

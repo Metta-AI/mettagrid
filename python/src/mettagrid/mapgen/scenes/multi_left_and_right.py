@@ -1,5 +1,3 @@
-from numpy import random
-
 from mettagrid.mapgen.area import AreaWhere
 from mettagrid.mapgen.scene import ChildrenAction, Scene, SceneConfig
 from mettagrid.mapgen.scenes.random import Random
@@ -23,17 +21,15 @@ class MultiLeftAndRight(Scene[MultiLeftAndRightConfig]):
 
     def get_children(self):
         # Pregenerate seeds so that we could make rooms deterministic.
-        agent_seed = random.randint(0, int(1e9))
-        hub_seed = random.randint(0, int(1e9))
-        hub_distribution_seed = random.randint(0, int(1e9))
+        agent_seed = int(self.rng.integers(0, int(1e9)))
+        hub_seed = int(self.rng.integers(0, int(1e9)))
 
         # Calculate hub counts based on ratio
         more_hubs = int(self.config.total_hubs * self.config.hub_ratio)
         less_hubs = self.config.total_hubs - more_hubs
 
         # Randomly determine which side gets more hubs
-        random.seed(hub_distribution_seed)
-        left_hubs = more_hubs if random.random() < 0.5 else less_hubs
+        left_hubs = more_hubs if self.rng.random() < 0.5 else less_hubs
         right_hubs = self.config.total_hubs - left_hubs
 
         agent_groups = [

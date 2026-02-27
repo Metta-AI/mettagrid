@@ -44,7 +44,7 @@ class Random(Scene[RandomConfig]):
             if not config.too_many_is_ok:
                 raise ValueError(f"Too many objects for available empty cells: {len(symbols)} > {empty_count}")
             # Cap to available space when too_many_is_ok=True
-            symbols = list(np.random.choice(symbols, size=empty_count, replace=False))
+            symbols = list(self.rng.choice(symbols, size=empty_count, replace=False))
 
         symbols.extend(agents)
 

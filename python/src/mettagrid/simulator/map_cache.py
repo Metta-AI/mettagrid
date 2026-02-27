@@ -5,7 +5,6 @@ import hashlib
 import json
 import logging
 import os
-import random
 import tempfile
 
 os.environ.setdefault("MP_NO_RESOURCE_TRACKER", "1")
@@ -93,6 +92,16 @@ class SharedMapCache:
         """
         self._maps_per_key = maps_per_key
         self._shm_registry: dict[str, shared_memory.SharedMemory] = {}
+        self._rng: np.random.Generator | None = None
+        self._rng_pid: int | None = None
+
+    def _get_rng(self) -> np.random.Generator:
+        pid = os.getpid()
+        if self._rng is None or self._rng_pid != pid:
+            # Reinitialize after fork (PID change) to avoid inherited RNG state.
+            self._rng = np.random.default_rng()
+            self._rng_pid = pid
+        return self._rng
 
     def start(self) -> None:
         """Start the shared cache (no-op, registry is file-based)."""
@@ -195,12 +204,12 @@ class SharedMapCache:
                             return game_map
                         else:
                             # Another process created it, use the cached one instead
-                            random_idx = random.randint(0, len(maps_list) - 1)
+                            random_idx = int(self._get_rng().integers(0, len(maps_list)))
                             cache_entry = maps_list[random_idx]
                             return _reconstruct_or_refresh(cache_entry)
                     else:
                         # Array is full, return a random one
-                        random_idx = random.randint(0, len(maps_list) - 1)
+                        random_idx = int(self._get_rng().integers(0, len(maps_list)))
                         cache_entry = maps_list[random_idx]
 
                         return _reconstruct_or_refresh(cache_entry)
@@ -238,11 +247,11 @@ class SharedMapCache:
                     return game_map
                 else:
                     # Another process created it, use the cached one instead
-                    random_idx = random.randint(0, len(maps_list) - 1)
+                    random_idx = int(self._get_rng().integers(0, len(maps_list)))
                     cache_entry = maps_list[random_idx]
                     return _reconstruct_or_refresh(cache_entry)
             else:
-                random_idx = random.randint(0, len(maps_list) - 1)
+                random_idx = int(self._get_rng().integers(0, len(maps_list)))
                 cache_entry = maps_list[random_idx]
                 return _reconstruct_or_refresh(cache_entry)
 
