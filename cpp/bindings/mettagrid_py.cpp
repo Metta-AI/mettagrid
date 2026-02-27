@@ -200,31 +200,19 @@ std::optional<float> MettaGrid::get_agent_stat(uint32_t agent_id, const std::str
   return agent->stats.get_if_present(key);
 }
 
-void MettaGrid::_compute_derived_stats() {
-  using mettagrid::DerivedStatType;
-
-  // Pass 1: TagCount, TagInventory (set absolute values from current simulation state)
-  for (const auto& ds : _derived_stats) {
-    if (ds.type == DerivedStatType::TagCount) {
-      auto count = static_cast<float>(_tag_index.count_objects_with_tag(ds.tag_id));
-      _stats->set(ds.name, std::max(0.0f, count - static_cast<float>(ds.count_offset)));
-    } else if (ds.type == DerivedStatType::TagInventory) {
-      float total = 0.0f;
-      for (auto* obj : _tag_index.get_objects_with_tag(ds.tag_id)) {
-        if (ds.require_tag_id >= 0 && !obj->has_tag(ds.require_tag_id)) continue;
-        if (auto* inv = dynamic_cast<HasInventory*>(obj)) {
-          total += static_cast<float>(inv->inventory.amount(static_cast<InventoryItem>(ds.resource_id)));
-        }
-      }
-      _stats->set(ds.name, total);
+void MettaGrid::_compute_stat_writers() {
+  // Pass 1: set-mode writers (accumulate=false)
+  for (const auto& sw : _stat_writers) {
+    if (!sw.accumulate) {
+      float val = _game_ctx.resolve_game_value(sw.value, mettagrid::EntityRef::actor);
+      _stats->set(sw.name, val);
     }
   }
-
-  // Pass 2: Cumulative (accumulate source stat's current value)
-  for (const auto& ds : _derived_stats) {
-    if (ds.type == DerivedStatType::Cumulative) {
-      float source_value = _stats->get(ds.source_stat);
-      _stats->add(ds.name, source_value);
+  // Pass 2: accumulate-mode writers (accumulate=true)
+  for (const auto& sw : _stat_writers) {
+    if (sw.accumulate) {
+      float val = _game_ctx.resolve_game_value(sw.value, mettagrid::EntityRef::actor);
+      _stats->add(sw.name, val);
     }
   }
 }
@@ -399,7 +387,7 @@ PYBIND11_MODULE(mettagrid_c, m) {
   bind_obs_value_config(m);
   bind_global_obs_config(m);
   bind_query_config(m);
-  bind_derived_stat_config(m);
+  bind_stat_writer_config(m);
   bind_game_config(m);
 
   // Handler bindings

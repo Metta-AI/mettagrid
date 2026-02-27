@@ -26,7 +26,6 @@ from mettagrid.config.action_config import (  # noqa: F401 - re-exported for bac
     MoveActionConfig,
     NoopActionConfig,
 )
-from mettagrid.config.derived_stat import AnyDerivedStat
 from mettagrid.config.event_config import EventConfig
 from mettagrid.config.game_value import (  # noqa: F401 - re-exported
     AnyGameValue,
@@ -58,6 +57,7 @@ from mettagrid.config.render_config import (  # noqa: F401 - unused here, re-exp
     RenderStatusBarConfig,
 )
 from mettagrid.config.reward_config import AgentReward
+from mettagrid.config.stat_writer import StatWriter
 from mettagrid.config.territory_config import TerritoryConfig, TerritoryControlConfig
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.map_builder.map_builder import AnyMapBuilderConfig
@@ -287,9 +287,9 @@ class GameConfig(Config):
         description="Queries whose results are materialized as tags, recomputed via RecomputeMaterializedQueryMutation",
     )
 
-    derived_stats: list[AnyDerivedStat] = Field(
+    stat_writers: list[StatWriter] = Field(
         default_factory=list,
-        description="Stats computed from simulation state each step (tag counts, inventory totals, cumulatives)",
+        description="GameValue expressions evaluated each step and written to StatsTracker",
     )
 
     @model_validator(mode="after")

@@ -645,20 +645,11 @@ class GlobalObsConfig:
     local_position: bool
     obs: list[ObsValueConfig]
 
-class DerivedStatType(Enum):
-    TagCount = ...
-    TagInventory = ...
-    Cumulative = ...
-
-class DerivedStatConfig:
+class StatWriterConfig:
     def __init__(self) -> None: ...
     name: str
-    type: DerivedStatType
-    tag_id: int
-    count_offset: int
-    resource_id: int
-    require_tag_id: int
-    source_stat: str
+    value: GameValueConfig
+    accumulate: bool
 
 class GameConfig:
     def __init__(
@@ -679,7 +670,7 @@ class GameConfig:
         protocol_details_obs: bool = True,
         reward_estimates: Optional[dict[str, float]] = None,
         token_value_base: int = 256,
-        derived_stats: list[DerivedStatConfig] | None = None,
+        stat_writers: list[StatWriterConfig] | None = None,
     ) -> None: ...
     num_agents: int
     max_steps: int
@@ -696,7 +687,7 @@ class GameConfig:
     protocol_details_obs: bool
     reward_estimates: Optional[dict[str, float]]
     token_value_base: int
-    derived_stats: list[DerivedStatConfig]
+    stat_writers: list[StatWriterConfig]
 
 class TagIndex:
     def __init__(self) -> None: ...

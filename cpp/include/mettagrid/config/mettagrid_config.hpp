@@ -16,7 +16,7 @@
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/territory_config.hpp"
-#include "systems/derived_stat.hpp"
+#include "systems/stat_writer.hpp"
 
 // Forward declarations
 #include "actions/action_handler.hpp"
@@ -72,8 +72,8 @@ struct GameConfig {
   // Materialized queries - computed tag membership from spatial queries
   std::vector<mettagrid::MaterializedQueryTag> materialized_queries;
 
-  // Derived stats - computed from simulation state each step, written to StatsTracker
-  std::vector<mettagrid::DerivedStatConfig> derived_stats;
+  // Stat writers - GameValue expressions evaluated each step, written to StatsTracker
+  std::vector<mettagrid::StatWriterConfig> stat_writers;
 };
 
 namespace py = pybind11;
@@ -299,23 +299,14 @@ inline void bind_query_config(py::module& m) {
       .def_readwrite("tag_id", &RecomputeMaterializedQueryMutationConfig::tag_id);
 }
 
-inline void bind_derived_stat_config(py::module& m) {
+inline void bind_stat_writer_config(py::module& m) {
   using namespace mettagrid;
 
-  py::enum_<DerivedStatType>(m, "DerivedStatType")
-      .value("TagCount", DerivedStatType::TagCount)
-      .value("TagInventory", DerivedStatType::TagInventory)
-      .value("Cumulative", DerivedStatType::Cumulative);
-
-  py::class_<DerivedStatConfig>(m, "DerivedStatConfig")
+  py::class_<StatWriterConfig>(m, "StatWriterConfig")
       .def(py::init<>())
-      .def_readwrite("name", &DerivedStatConfig::name)
-      .def_readwrite("type", &DerivedStatConfig::type)
-      .def_readwrite("tag_id", &DerivedStatConfig::tag_id)
-      .def_readwrite("count_offset", &DerivedStatConfig::count_offset)
-      .def_readwrite("resource_id", &DerivedStatConfig::resource_id)
-      .def_readwrite("require_tag_id", &DerivedStatConfig::require_tag_id)
-      .def_readwrite("source_stat", &DerivedStatConfig::source_stat);
+      .def_readwrite("name", &StatWriterConfig::name)
+      .def_readwrite("value", &StatWriterConfig::value)
+      .def_readwrite("accumulate", &StatWriterConfig::accumulate);
 }
 
 inline void bind_game_config(py::module& m) {
@@ -349,8 +340,8 @@ inline void bind_game_config(py::module& m) {
                     // Materialized queries
                     const std::vector<mettagrid::MaterializedQueryTag>&,
 
-                    // Derived stats
-                    const std::vector<mettagrid::DerivedStatConfig>&>(),
+                    // Stat writers
+                    const std::vector<mettagrid::StatWriterConfig>&>(),
            py::arg("num_agents"),
            py::arg("max_steps"),
            py::arg("episode_truncates"),
@@ -380,8 +371,8 @@ inline void bind_game_config(py::module& m) {
            // Materialized queries
            py::arg("materialized_queries") = std::vector<mettagrid::MaterializedQueryTag>(),
 
-           // Derived stats
-           py::arg("derived_stats") = std::vector<mettagrid::DerivedStatConfig>())
+           // Stat writers
+           py::arg("stat_writers") = std::vector<mettagrid::StatWriterConfig>())
       .def_readwrite("num_agents", &GameConfig::num_agents)
       .def_readwrite("max_steps", &GameConfig::max_steps)
       .def_readwrite("episode_truncates", &GameConfig::episode_truncates)
@@ -416,8 +407,8 @@ inline void bind_game_config(py::module& m) {
       // Materialized queries
       .def_readwrite("materialized_queries", &GameConfig::materialized_queries)
 
-      // Derived stats
-      .def_readwrite("derived_stats", &GameConfig::derived_stats);
+      // Stat writers
+      .def_readwrite("stat_writers", &GameConfig::stat_writers);
 }
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CONFIG_METTAGRID_CONFIG_HPP_
