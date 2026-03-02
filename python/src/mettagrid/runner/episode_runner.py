@@ -12,9 +12,12 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
+from mettagrid.policy.loader import discover_and_register_policies
+from mettagrid.policy.policy_registry import get_policy_registry
 from mettagrid.runner.policy_server.manager import LocalPolicyServerHandle, launch_local_policy_server
 from mettagrid.runner.types import EpisodeSpec, PureSingleEpisodeJob, PureSingleEpisodeResult, RunnerError
 from mettagrid.util.file import read
+from mettagrid.util.module import load_symbol
 from mettagrid.util.uri_resolvers.schemes import localize_uri, resolve_uri
 
 logger = logging.getLogger(__name__)
@@ -77,7 +80,28 @@ def _download_presigned_policy(url: str, temp_dirs: list[Path]) -> Path:
     return local_path
 
 
+def _is_builtin_or_classpath_metta_policy_uri(uri: str) -> bool:
+    parsed = urlparse(uri)
+    if parsed.scheme != "metta" or parsed.netloc != "policy":
+        return False
+
+    identifier = parsed.path.lstrip("/")
+    if not identifier:
+        return False
+
+    # Preserve explicit class paths (metta://policy/package.module.Class) so policy
+    # loading semantics match local execution.
+    if "." in identifier and ":v" not in identifier and not identifier.endswith(":latest"):
+        if load_symbol(identifier, strict=False) is not None:
+            return True
+
+    discover_and_register_policies()
+    return identifier in get_policy_registry()
+
+
 def _localize_policy_uri(uri: str, temp_dirs: list[Path]) -> str:
+    if _is_builtin_or_classpath_metta_policy_uri(uri):
+        return uri
     if _is_presigned_url(uri):
         return _download_presigned_policy(uri, temp_dirs).as_uri()
     resolved = resolve_uri(uri)

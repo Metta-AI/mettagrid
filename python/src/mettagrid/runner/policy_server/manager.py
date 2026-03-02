@@ -1,3 +1,4 @@
+import importlib
 import logging
 import os
 import shutil
@@ -34,6 +35,29 @@ def _get_mettagrid_source() -> str:
     return f"mettagrid=={pkg_version('mettagrid')}"
 
 
+def _get_package_source(module_name: str, package_name: str) -> str | None:
+    """Return a pip-installable spec for an optional dependency package."""
+    try:
+        module = importlib.import_module(module_name)
+    except Exception:
+        try:
+            return f"{package_name}=={pkg_version(package_name)}"
+        except Exception:
+            return None
+
+    module_paths = getattr(module, "__path__", ())
+    first_path = next(iter(module_paths), None)
+    if first_path is not None:
+        pkg_root = _find_package_root(Path(first_path))
+        if pkg_root is not None:
+            return str(pkg_root)
+
+    try:
+        return f"{package_name}=={pkg_version(package_name)}"
+    except Exception:
+        return None
+
+
 _POLICY_REQUIREMENTS = Path("/opt/policy-requirements.txt")
 _POLICY_OVERRIDES = Path("/opt/policy-overrides.txt")
 _POLICY_WHEELS = Path("/opt/wheels")
@@ -54,8 +78,12 @@ def _create_policy_venv() -> Path:
             cmd.extend(["--override", str(_POLICY_OVERRIDES)])
         subprocess.run(cmd, check=True)
     else:
-        mettagrid_source = _get_mettagrid_source()
-        logger.info("Creating policy server venv with mettagrid source %s", mettagrid_source)
+        install_targets = [_get_mettagrid_source()]
+        for module_name, package_name in (("metta", "metta"), ("cogames_agents", "cogames-agents")):
+            package_source = _get_package_source(module_name, package_name)
+            if package_source is not None:
+                install_targets.append(package_source)
+        logger.info("Creating policy server venv with core sources %s", install_targets)
         subprocess.run(
             [
                 "uv",
@@ -63,7 +91,7 @@ def _create_policy_venv() -> Path:
                 "install",
                 "--python",
                 str(venv_python),
-                mettagrid_source,
+                *install_targets,
                 "safetensors",
                 "packaging",
                 "tensordict",

@@ -6,7 +6,9 @@ import pytest
 
 from mettagrid.runner.episode_runner import (
     _download_presigned_policy,
+    _is_builtin_or_classpath_metta_policy_uri,
     _is_presigned_url,
+    _localize_policy_uri,
     _per_agent_policy_mapping,
     _to_file_uri,
 )
@@ -65,6 +67,28 @@ def test_per_agent_policy_mapping_rejects_bad_assignments() -> None:
             assignments=[0, 1],
             num_agents=2,
         )
+
+
+def test_is_builtin_or_classpath_metta_policy_uri_detects_builtin_policy() -> None:
+    assert _is_builtin_or_classpath_metta_policy_uri("metta://policy/random")
+
+
+def test_localize_policy_uri_preserves_builtin_metta_policy_uri() -> None:
+    with patch("mettagrid.runner.episode_runner.localize_uri") as mock_localize:
+        uri = "metta://policy/random?vibe_action_p=0.01"
+        assert _localize_policy_uri(uri, temp_dirs=[]) == uri
+        mock_localize.assert_not_called()
+
+
+def test_localize_policy_uri_still_localizes_non_builtin_uris() -> None:
+    with (
+        patch("mettagrid.runner.episode_runner._is_builtin_or_classpath_metta_policy_uri", return_value=False),
+        patch("mettagrid.runner.episode_runner.resolve_uri") as mock_resolve,
+        patch("mettagrid.runner.episode_runner.localize_uri", return_value=Path("/tmp/policy.zip")) as mock_localize,
+    ):
+        mock_resolve.return_value = type("Resolved", (), {"scheme": "metta", "canonical": "metta://policy/x"})()
+        assert _localize_policy_uri("metta://policy/not_builtin:v1", temp_dirs=[]) == "file:///tmp/policy.zip"
+        mock_localize.assert_called_once()
 
 
 class TestDownloadPresignedPolicy:
