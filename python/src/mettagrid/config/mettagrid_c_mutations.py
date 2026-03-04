@@ -120,10 +120,10 @@ def convert_mutations(
         elif isinstance(mutation, StatsMutation):
             cpp_mutation = CppStatsMutationConfig(
                 stat_name=mutation.stat,
-                delta=mutation.delta,
                 target=_STATS_TARGET_TO_CPP[mutation.target],
                 entity=_STATS_ENTITY_TO_CPP[mutation.entity],
             )
+            cpp_mutation.source = resolve_game_value(mutation.source, id_maps)
             target_obj.add_stats_mutation(cpp_mutation)
 
         elif isinstance(mutation, AddTagMutation):

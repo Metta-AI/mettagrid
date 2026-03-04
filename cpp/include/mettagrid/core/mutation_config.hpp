@@ -64,10 +64,10 @@ struct AttackMutationConfig {
 };
 
 struct StatsMutationConfig {
-  std::string stat_name;                     // Name of the stat to log
-  float delta = 1.0f;                        // Delta to add to the stat
-  StatsTarget target = StatsTarget::game;    // Which stats tracker to log to
+  std::string stat_name;                     // Name of the stat to set
+  StatsTarget target = StatsTarget::game;    // Which stats tracker to set
   StatsEntity entity = StatsEntity::target;  // Which entity to use for resolving target
+  GameValueConfig source;                    // Game value expression to compute the new stat value
 };
 
 struct AddTagMutationConfig {

@@ -299,14 +299,13 @@ class StatsMutationConfig:
     def __init__(
         self,
         stat_name: str = "",
-        delta: float = 1.0,
         target: StatsTarget = ...,
         entity: StatsEntity = ...,
     ) -> None: ...
     stat_name: str
-    delta: float
     target: StatsTarget
     entity: StatsEntity
+    source: GameValueConfig
 
 class AddTagMutationConfig:
     def __init__(

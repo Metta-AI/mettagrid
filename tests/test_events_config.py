@@ -12,6 +12,7 @@ from mettagrid.config.filter import (
     query,
 )
 from mettagrid.config.filter.filter import HandlerTarget
+from mettagrid.config.game_value import SumGameValue, stat, val
 from mettagrid.config.mettagrid_config import (
     GameConfig,
     MettaGridConfig,
@@ -119,15 +120,15 @@ class TestStatsMutation:
 
     def test_stats_mutation_creation(self):
         """Test creating StatsMutation directly."""
-        m = StatsMutation(stat="event.boundary_crossed", delta=1)
+        m = StatsMutation(stat="event.boundary_crossed", source=val(1))
         assert m.mutation_type == "stats"
         assert m.stat == "event.boundary_crossed"
-        assert m.delta == 1
+        assert m.source == val(1)
 
-    def test_stats_mutation_default_delta(self):
-        """Test StatsMutation with default delta."""
-        m = StatsMutation(stat="custom.metric")
-        assert m.delta == 1
+    def test_stats_mutation_with_sum_source(self):
+        """Test StatsMutation with SumGameValue source."""
+        m = StatsMutation(stat="custom.metric", source=SumGameValue(values=[stat("game.custom.metric"), val(0)]))
+        assert m.target.value == "game"
 
     def test_log_stat_helper(self):
         """Test logStat helper function."""
@@ -135,21 +136,20 @@ class TestStatsMutation:
         assert isinstance(m, StatsMutation)
         assert m.mutation_type == "stats"
         assert m.stat == "event.test"
-        assert m.delta == 1
+        assert m.source == SumGameValue(values=[stat("game.event.test"), val(1)])
 
     def test_log_stat_helper_with_delta(self):
         """Test logStat helper function with custom delta."""
         m = logStat(stat="event.damage", delta=5)
         assert m.stat == "event.damage"
-        assert m.delta == 5
+        assert m.source == SumGameValue(values=[stat("game.event.damage"), val(5)])
 
     def test_stats_mutation_serialization(self):
         """Test StatsMutation serialization."""
-        m = StatsMutation(stat="event.test", delta=3)
+        m = StatsMutation(stat="event.test", source=val(3))
         data = m.model_dump()
         assert data["mutation_type"] == "stats"
         assert data["stat"] == "event.test"
-        assert data["delta"] == 3
 
 
 class TestEventConfig:
@@ -364,7 +364,7 @@ class TestMutationPolymorphism:
         restored = EventConfig.model_validate_json(json_str)
         assert len(restored.mutations) == 1
         assert isinstance(restored.mutations[0], StatsMutation)
-        assert restored.mutations[0].delta == 5
+        assert restored.mutations[0].source == SumGameValue(values=[stat("game.event.test"), val(5)])
 
 
 if __name__ == "__main__":

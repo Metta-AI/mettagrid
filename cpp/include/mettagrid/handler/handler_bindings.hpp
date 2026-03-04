@@ -345,22 +345,20 @@ inline void bind_handler_config(py::module& m) {
 
   py::class_<StatsMutationConfig>(m, "StatsMutationConfig")
       .def(py::init<>())
-      .def(py::init([](std::string stat_name, float delta, StatsTarget target, StatsEntity entity) {
+      .def(py::init([](std::string stat_name, StatsTarget target, StatsEntity entity) {
              StatsMutationConfig cfg;
              cfg.stat_name = stat_name;
-             cfg.delta = delta;
              cfg.target = target;
              cfg.entity = entity;
              return cfg;
            }),
            py::arg("stat_name") = "",
-           py::arg("delta") = 1.0f,
            py::arg("target") = StatsTarget::game,
            py::arg("entity") = StatsEntity::target)
       .def_readwrite("stat_name", &StatsMutationConfig::stat_name)
-      .def_readwrite("delta", &StatsMutationConfig::delta)
       .def_readwrite("target", &StatsMutationConfig::target)
-      .def_readwrite("entity", &StatsMutationConfig::entity);
+      .def_readwrite("entity", &StatsMutationConfig::entity)
+      .def_readwrite("source", &StatsMutationConfig::source);
 
   py::class_<AddTagMutationConfig>(m, "AddTagMutationConfig")
       .def(py::init<>())

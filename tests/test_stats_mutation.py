@@ -1,15 +1,17 @@
 """Tests for StatsMutation end-to-end in C++ simulation.
 
 These tests verify that:
-1. StatsMutation correctly logs stats in the C++ simulation
-2. Stats are properly accumulated across multiple handler firings
+1. StatsMutation correctly sets stats in the C++ simulation
+2. Stats are properly accumulated via self-referencing SumGameValue
 3. Different StatsTarget values (game, agent) work correctly
 """
 
+from mettagrid.config.game_value import SumGameValue, inv, stat, val
 from mettagrid.config.handler_config import AOEConfig
 from mettagrid.config.mettagrid_config import (
     GridObjectConfig,
     MettaGridConfig,
+    ResourceLimitsConfig,
 )
 from mettagrid.config.mutation import (
     StatsMutation,
@@ -24,40 +26,54 @@ class TestStatsMutationClass:
 
     def test_stats_mutation_class(self):
         """StatsMutation should have correct attributes."""
-        m = StatsMutation(stat="hits", delta=1, target=StatsTarget.GAME)
+        m = StatsMutation(stat="hits", source=val(1), target=StatsTarget.GAME)
         assert m.mutation_type == "stats"
         assert m.stat == "hits"
-        assert m.delta == 1
+        assert m.source == val(1)
         assert m.target == StatsTarget.GAME
 
     def test_stats_mutation_defaults(self):
         """StatsMutation should have sensible defaults."""
-        m = StatsMutation(stat="count")
-        assert m.delta == 1
+        m = StatsMutation(stat="count", source=val(0))
         assert m.target == StatsTarget.GAME
+
+    def test_stats_mutation_source_is_required(self):
+        """StatsMutation requires source field."""
+        m = StatsMutation(stat="x", source=inv("gold"))
+        assert m.source == inv("gold")
 
 
 class TestStatsMutationHelper:
     """Test logStat() helper function."""
 
     def test_log_stat_helper(self):
-        """logStat() should create a StatsMutation with the given stat."""
+        """logStat() should create a StatsMutation with accumulation source."""
         m = logStat("events")
         assert isinstance(m, StatsMutation)
         assert m.stat == "events"
-        assert m.delta == 1
+        assert m.source == SumGameValue(values=[stat("game.events"), val(1)])
         assert m.target == StatsTarget.GAME
 
     def test_log_stat_helper_with_delta(self):
-        """logStat() should accept delta parameter."""
+        """logStat() should wrap delta in SumGameValue for accumulation."""
         m = logStat("damage", delta=50)
         assert m.stat == "damage"
-        assert m.delta == 50
+        assert m.source == SumGameValue(values=[stat("game.damage"), val(50)])
 
     def test_log_stat_helper_with_target(self):
         """logStat() should accept target parameter."""
         m = logStat("global_events", target=StatsTarget.GAME)
         assert m.target == StatsTarget.GAME
+
+    def test_log_stat_helper_agent_target(self):
+        """logStat() with agent target should use agent-scoped self-reference."""
+        m = logStat("hits", target=StatsTarget.AGENT)
+        assert m.source == SumGameValue(values=[stat("hits"), val(1)])
+
+    def test_log_stat_helper_with_source(self):
+        """logStat() with source should wrap source in SumGameValue."""
+        m = logStat("gold_total", source=inv("gold"))
+        assert m.source == SumGameValue(values=[stat("game.gold_total"), inv("gold")])
 
 
 class TestStatsMutationEndToEnd:
@@ -146,3 +162,40 @@ class TestStatsMutationEndToEnd:
         ticks = stats.get("ticks", 0)
 
         assert ticks == 15, f"Game stat 'ticks' should be 15 after 3 steps with delta=5, got {ticks}"
+
+    def test_source_inv_logs_inventory_count(self):
+        """StatsMutation with source=inv("gold") accumulates the agent's gold count."""
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+            [
+                ["#", "#", "#", "#", "#"],
+                ["#", ".", ".", ".", "#"],
+                ["#", ".", "@", ".", "#"],
+                ["#", ".", "S", ".", "#"],
+                ["#", "#", "#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "S": "counter"},
+        )
+
+        cfg.game.resource_names = ["gold"]
+        cfg.game.agent.inventory.initial = {"gold": 42}
+        cfg.game.agent.inventory.limits = {"resources": ResourceLimitsConfig(resources=["gold"])}
+        cfg.game.actions.noop.enabled = True
+
+        cfg.game.objects["counter"] = GridObjectConfig(
+            name="counter",
+            map_name="counter",
+            aoes={
+                "default": AOEConfig(
+                    radius=2,
+                    filters=[],
+                    mutations=[logStat("gold_count", source=inv("gold"), target=StatsTarget.GAME)],
+                )
+            },
+        )
+
+        sim = Simulation(cfg)
+        sim.agent(0).set_action("noop")
+        sim.step()
+
+        stats = sim.episode_stats["game"]
+        assert stats.get("gold_count", 0) == 42, f"Expected gold_count=42, got {stats.get('gold_count', 0)}"
