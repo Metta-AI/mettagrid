@@ -54,28 +54,26 @@ def test_boto3_sigv4_presigned_url_is_detected(fake_aws_credentials):
     assert _is_presigned_s3_url(url), f"_is_presigned_s3_url should detect SigV4 URL: {url}"
 
 
-def test_is_presigned_s3_url_with_sigv4():
-    url = "https://bucket.s3.amazonaws.com/key?X-Amz-Algorithm=AWS4-HMAC-SHA256"
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://bucket.s3.amazonaws.com/key?X-Amz-Algorithm=AWS4-HMAC-SHA256",
+        "https://bucket.s3.amazonaws.com/key?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Signature=xyz",
+        # http presigned URLs are valid (e.g. localstack in local dev)
+        "http://bucket.s3.amazonaws.com/key?X-Amz-Algorithm=AWS4-HMAC-SHA256",
+    ],
+)
+def test_is_presigned_s3_url_detects_valid_forms(url: str):
     assert _is_presigned_s3_url(url)
 
 
-def test_is_presigned_s3_url_with_sigv2():
-    url = "https://bucket.s3.amazonaws.com/key?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Signature=xyz"
-    assert _is_presigned_s3_url(url)
-
-
-def test_is_presigned_s3_url_with_s3_scheme():
-    assert not _is_presigned_s3_url("s3://bucket/key")
-
-
-def test_is_presigned_s3_url_with_plain_https():
-    assert not _is_presigned_s3_url("https://example.com/file")
-
-
-def test_is_presigned_s3_url_with_file_scheme():
-    assert not _is_presigned_s3_url("file:///tmp/foo")
-
-
-def test_is_presigned_s3_url_with_http():
-    # http presigned URLs are valid (e.g. localstack in local dev)
-    assert _is_presigned_s3_url("http://bucket.s3.amazonaws.com/key?X-Amz-Algorithm=AWS4-HMAC-SHA256")
+@pytest.mark.parametrize(
+    "url",
+    [
+        "s3://bucket/key",
+        "https://example.com/file",
+        "file:///tmp/foo",
+    ],
+)
+def test_is_presigned_s3_url_rejects_non_presigned_forms(url: str):
+    assert not _is_presigned_s3_url(url)

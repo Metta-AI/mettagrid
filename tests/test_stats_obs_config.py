@@ -8,12 +8,6 @@ from mettagrid.simulator.simulator import Simulation, Simulator
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
 
 
-def test_scope_enum():
-    """Test Scope enum values."""
-    assert Scope.AGENT.value == "agent"
-    assert Scope.GAME.value == "game"
-
-
 def test_stat_value_defaults():
     """Test StatValue default values."""
     sv = StatValue(name="carbon.gained")

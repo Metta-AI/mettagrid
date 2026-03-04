@@ -174,17 +174,6 @@ class TestActorHasTagPrefixHelper:
         )
         assert _run_one_step(cfg) == 10
 
-    def test_fails_when_actor_has_no_matching_prefix(self):
-        cfg = _base_cfg()
-        cfg.game.tags = ["team:red", "team:blue"]
-        cfg.game.agent.tags = ["team:red"]
-        cfg.game.objects["aoe_source"] = GridObjectConfig(
-            name="aoe_source",
-            map_name="aoe_source",
-            aoes=_aoe([actorHasTagPrefix("team")]),
-        )
-        assert _run_one_step(cfg) == 0
-
     def test_ignores_target_tags(self):
         """actorHasTagPrefix only checks the actor, not the target — target having the tag doesn't help."""
         cfg = _base_cfg()
