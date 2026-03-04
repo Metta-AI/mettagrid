@@ -142,44 +142,42 @@ def launch_local_policy_server(
     startup_timeout: float = 300.0,
 ) -> LocalPolicyServerHandle:
     """Launch a local policy server subprocess using WebSocket."""
-    ready_file_fd = tempfile.NamedTemporaryFile(suffix=".ready", delete=False)
-    ready_file_fd.close()
-    ready_file_path = Path(ready_file_fd.name)
+    with tempfile.NamedTemporaryFile(suffix=".ready", delete=False) as ready_file_fd:
+        ready_file_path = Path(ready_file_fd.name)
     ready_file_path.unlink()
 
-    log_file = tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as log_file:
+        log_path = Path(log_file.name)
 
-    if os.environ.get("EPISODE_RUNNER_USE_ISOLATED_VENVS") != "0":
-        venv_dir = _create_policy_venv()
-        logger.info("Policy server venv created at %s for policy %s", venv_dir, policy_uri)
-        python = str(venv_dir / ".venv" / "bin" / "python")
-    else:
-        logger.info("Using system Python for policy server for policy %s", policy_uri)
-        python = sys.executable
-        venv_dir = None
+        if os.environ.get("EPISODE_RUNNER_USE_ISOLATED_VENVS") != "0":
+            venv_dir = _create_policy_venv()
+            logger.info("Policy server venv created at %s for policy %s", venv_dir, policy_uri)
+            python = str(venv_dir / ".venv" / "bin" / "python")
+        else:
+            logger.info("Using system Python for policy server for policy %s", policy_uri)
+            python = sys.executable
+            venv_dir = None
 
-    cmd = [
-        python,
-        "-m",
-        "mettagrid.runner.policy_server.server",
-        "--policy",
-        policy_uri,
-        "--host",
-        "127.0.0.1",
-        "--port",
-        "0",
-        "--ready-file",
-        str(ready_file_path),
-    ]
+        cmd = [
+            python,
+            "-m",
+            "mettagrid.runner.policy_server.server",
+            "--policy",
+            policy_uri,
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "0",
+            "--ready-file",
+            str(ready_file_path),
+        ]
 
-    logger.info("Launching policy server for policy %s with command %s", policy_uri, cmd)
-    process = subprocess.Popen(
-        cmd,
-        stdout=log_file,
-        stderr=log_file,
-    )
-    log_file.close()
-    log_path = Path(log_file.name)
+        logger.info("Launching policy server for policy %s with command %s", policy_uri, cmd)
+        process = subprocess.Popen(
+            cmd,
+            stdout=log_file,
+            stderr=log_file,
+        )
 
     deadline = time.monotonic() + startup_timeout
     logger.info("Waiting for policy server to become ready for policy %s with deadline %s", policy_uri, deadline)
