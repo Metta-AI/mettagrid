@@ -181,6 +181,29 @@ proc at*[T](sequence: seq[T]): T =
   ## Get the value at the current step.
   sequence.at(step)
 
+proc effectiveRadius*(spec: TerritoryControl): int =
+  ## Matches C++ effective_radius: strength / decay.
+  spec.strength div spec.decay
+
+proc influenceAoeSpecs*(obj: Entity): seq[TerritoryControl] =
+  ## Return territory control specs for this object.
+  if obj.isNil or obj.typeName == "agent" or replay.isNil:
+    return @[]
+  replay.getTerritoryControls(obj.typeName)
+
+proc hasInfluenceAoe*(obj: Entity): bool =
+  ## Check whether an object has any territory influence specs.
+  influenceAoeSpecs(obj).len > 0
+
+proc maxInfluenceRange*(obj: Entity): float32 =
+  ## Return the maximum effective AoE radius for an object.
+  var maxRange = 0
+  for spec in influenceAoeSpecs(obj):
+    let radius = spec.effectiveRadius
+    if radius > maxRange:
+      maxRange = radius
+  maxRange.float32
+
 proc irect*(x, y, w, h: SomeNumber): IRect =
   IRect(x: x.int32, y: y.int32, w: w.int32, h: h.int32)
 

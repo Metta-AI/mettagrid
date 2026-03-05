@@ -2,13 +2,15 @@ import
   std/[tables, strutils],
   windy,
   replays, worldmap, common, configs, panels, team,
-  panels/objectpanel
+  panels/objectpanel,
+  pipegrid
 
 
 proc onReplayLoaded*() =
   ## Called when a replay is loaded.
   # Clear cached maps that depend on the old replay
   resetTerrainCaches()
+  resetPipegridState()
   visibilityMap = nil
   visibilityMapStep = -1
   visibilityMapSelectionId = -1

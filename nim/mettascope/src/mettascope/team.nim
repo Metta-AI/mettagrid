@@ -51,15 +51,19 @@ proc getTeamName*(teamIdx: int): string =
     return ""
   replay.teams[teamIdx].name
 
-proc getEntityTeamIndex*(entity: Entity): int =
-  ## Get the team index for an entity at the current step. Returns -1 if no team.
+proc getEntityTeamIndexAtStep*(entity: Entity, stepIdx: int): int =
+  ## Get the team index for an entity at a specific step. Returns -1 if no team.
   if entity.isNil or replay.isNil or replay.teams.len == 0:
     return -1
-  let tagIds = entity.tagIds.at(step)
+  let tagIds = entity.tagIds.at(stepIdx)
   for i, team in replay.teams:
     if team.tagId in tagIds:
       return i
   return -1
+
+proc getEntityTeamIndex*(entity: Entity): int =
+  ## Get the team index for an entity at the current step. Returns -1 if no team.
+  getEntityTeamIndexAtStep(entity, step)
 
 proc getGlobalResourceCount*(teamIdx: int, itemName: string): int =
   ## Sum an inventory item across all living hubs in a team.
