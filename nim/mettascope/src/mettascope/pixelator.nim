@@ -1,5 +1,5 @@
 import
-  std/[os, strutils, tables],
+  std/[algorithm, os, strutils, tables],
   pixie, opengl, silky, silky/[shaders], jsony, shady, vmath,
   allocator
 
@@ -74,33 +74,46 @@ proc generatePixelAtlas*(
   let atlas = PixelAtlas(size: size)
   let allocator = newSkylineAllocator(size, margin)
 
+  # Collect all PNG files, then sort largest-first for optimal packing.
+  # walkDir order varies across filesystems; sorting ensures deterministic,
+  # efficient allocation regardless of platform.
+  var pngFiles: seq[string]
   for dir in dirsToScan:
     for file in walkDir(dir):
       if file.path.endsWith(".png"):
-        let image = readImage(file.path)
-        let allocation = allocator.allocate(image.width, image.height)
-        if allocation.success:
-          atlasImage.draw(
-            image,
-            translate(vec2(allocation.x.float32, allocation.y.float32)),
-            OverwriteBlend
-          )
-        else:
-          raise newException(
-            ValueError,
-            "Failed to allocate space for " & file.path & "\n" &
-            "You need to increase the size of the atlas"
-          )
-        let entry = Entry(
-          x: allocation.x,
-          y: allocation.y,
-          width: image.width,
-          height: image.height
-        )
-        var key = file.path
-        key.removePrefix(stripPrefix)
-        key.removeSuffix(".png")
-        atlas.entries[key] = entry
+        pngFiles.add(file.path)
+
+  # Read images and sort by area descending (best practice for rectangle packing).
+  var images: seq[tuple[path: string, image: Image]]
+  for path in pngFiles:
+    images.add((path: path, image: readImage(path)))
+  images.sort(proc(a, b: tuple[path: string, image: Image]): int =
+    (b.image.width * b.image.height) - (a.image.width * a.image.height))
+
+  for item in images:
+    let allocation = allocator.allocate(item.image.width, item.image.height)
+    if allocation.success:
+      atlasImage.draw(
+        item.image,
+        translate(vec2(allocation.x.float32, allocation.y.float32)),
+        OverwriteBlend
+      )
+    else:
+      raise newException(
+        ValueError,
+        "Failed to allocate space for " & item.path & "\n" &
+        "You need to increase the size of the atlas"
+      )
+    let entry = Entry(
+      x: allocation.x,
+      y: allocation.y,
+      width: item.image.width,
+      height: item.image.height
+    )
+    var key = item.path
+    key.removePrefix(stripPrefix)
+    key.removeSuffix(".png")
+    atlas.entries[key] = entry
 
   atlasImage.writeFile(outputImagePath)
   writeFile(outputJsonPath, atlas.toJson())
