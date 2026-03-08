@@ -1,5 +1,6 @@
 """Tests for cumulative overage budget in Rollout."""
 
+import threading
 import time
 
 from mettagrid.config.mettagrid_config import (
@@ -44,6 +45,38 @@ class FastAgentPolicy(AgentPolicy):
     def step(self, obs: AgentObservation) -> Action:
         self.call_count += 1
         return Action(name="noop")
+
+
+class BarrierPolicy(AgentPolicy):
+    def __init__(self, barrier: threading.Barrier):
+        self._barrier = barrier
+        self._infos: dict = {}
+        self.call_count = 0
+
+    def step(self, obs: AgentObservation) -> Action:
+        _ = obs
+        self.call_count += 1
+        self._barrier.wait(timeout=1.0)
+        return Action(name="noop")
+
+
+class BatchGroupPolicy(AgentPolicy):
+    def __init__(self):
+        self._infos: dict = {}
+        self.step_calls = 0
+        self.step_group_calls = 0
+
+    def step(self, obs: AgentObservation) -> Action:
+        _ = obs
+        self.step_calls += 1
+        return Action(name="noop")
+
+    def can_step_group(self, policies: list[AgentPolicy]) -> bool:
+        return all(isinstance(policy, BatchGroupPolicy) for policy in policies)
+
+    def step_group(self, observations: list[tuple[int, AgentObservation]]) -> list[Action]:
+        self.step_group_calls += 1
+        return [Action(name="noop") for _ in observations]
 
 
 def _make_config(num_agents: int = 2, max_steps: int = 10) -> MettaGridConfig:
@@ -199,3 +232,60 @@ def test_disabled_agent_still_sets_policy_name():
     # After disabling, policy_infos should still have the policy_name
     assert 0 in rollout._policy_infos
     assert rollout._policy_infos[0]["policy_name"] == "test_policy"
+
+
+def test_parallel_policy_groups_execute_concurrently():
+    config = _make_config(num_agents=2, max_steps=1)
+    barrier = threading.Barrier(2)
+
+    policy_0 = BarrierPolicy(barrier)
+    policy_1 = BarrierPolicy(barrier)
+
+    rollout = Rollout(
+        config,
+        [policy_0, policy_1],
+        max_action_time_ms=10_000,
+        policy_group_keys=[0, 1],
+    )
+    rollout.step()
+
+    assert policy_0.call_count == 1
+    assert policy_1.call_count == 1
+
+
+def test_group_step_uses_batch_path_when_available():
+    config = _make_config(num_agents=2, max_steps=1)
+    policy_0 = BatchGroupPolicy()
+    policy_1 = BatchGroupPolicy()
+
+    rollout = Rollout(
+        config,
+        [policy_0, policy_1],
+        max_action_time_ms=10_000,
+        policy_group_keys=[0, 0],
+    )
+    rollout.step()
+
+    assert policy_0.step_group_calls == 1
+    assert policy_0.step_calls == 0
+    assert policy_1.step_calls == 0
+
+
+def test_group_step_does_not_reuse_stale_agent_infos():
+    config = _make_config(num_agents=2, max_steps=1)
+    policy_0 = BatchGroupPolicy()
+    policy_1 = BatchGroupPolicy()
+    policy_0._infos = {"stale": "old"}
+    policy_1._infos = {"stale": "old"}
+
+    rollout = Rollout(
+        config,
+        [policy_0, policy_1],
+        policy_names=["policy_0", "policy_1"],
+        max_action_time_ms=10_000,
+        policy_group_keys=[0, 0],
+    )
+    rollout.step()
+
+    assert rollout._policy_infos[0] == {"policy_name": "policy_0"}
+    assert rollout._policy_infos[1] == {"policy_name": "policy_1"}

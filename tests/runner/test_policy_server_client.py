@@ -7,6 +7,7 @@ from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.runner.policy_server.server import LocalPolicyServer
 from mettagrid.runner.policy_server.websocket_transport import (
     WebSocketPolicyServer,
+    WebSocketPolicyServerAgentClient,
     WebSocketPolicyServerClient,
     _serialize_triplet_v1,
 )
@@ -58,7 +59,7 @@ def _run_ws_test(policy: MultiAgentPolicy, env: PolicyEnvInterface, test_fn):
         server_thread.start()
 
         port = server.port
-        client = WebSocketPolicyServerClient(env, url=f"ws://127.0.0.1:{port}")
+        client = WebSocketPolicyServerClient(env, url=f"ws://127.0.0.1:{port}", agent_ids=list(range(env.num_agents)))
 
         try:
             test_fn(client, env)
@@ -114,6 +115,24 @@ def test_ws_policy_multiple_agents():
         assert action1.vibe is None
 
     _run_ws_test(_ConstantPolicy(env, "noop"), env, check)
+
+
+def test_ws_policy_step_group_batches_agents():
+    env = _env_interface()
+
+    def check(client: WebSocketPolicyServerClient, env: PolicyEnvInterface):
+        agent0 = client.agent_policy(0)
+        agent1 = client.agent_policy(1)
+        assert isinstance(agent0, WebSocketPolicyServerAgentClient)
+        assert agent0.can_step_group([agent0, agent1])
+
+        obs0 = AgentObservation(agent_id=0, tokens=[])
+        obs1 = AgentObservation(agent_id=1, tokens=[])
+        actions = agent0.step_group([(0, obs0), (1, obs1)])
+        assert [action.name for action in actions] == ["move", "move"]
+        assert [action.vibe for action in actions] == [None, None]
+
+    _run_ws_test(_ConstantPolicy(env, "move"), env, check)
 
 
 def test_agent_policy_deduplicates():

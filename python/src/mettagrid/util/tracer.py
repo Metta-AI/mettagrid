@@ -107,6 +107,10 @@ class Tracer:
         """Create a span context manager for timing a block of code."""
         return Span(self, name, pid=pid, **metadata)
 
+    def record_span(self, name: str, start_ns: int, duration_ns: int, pid: int | None = None, **metadata) -> None:
+        """Record a completed span with explicit timing."""
+        self._write_span(name, start_ns, duration_ns, metadata, pid=pid)
+
     def _write_event(self, event: dict) -> None:
         """Write a single event to the trace file.
 
@@ -173,6 +177,9 @@ class NullTracer(Tracer):
 
     def span(self, name: str, pid: int | None = None, **metadata) -> Span:
         return _NULL_SPAN
+
+    def record_span(self, name: str, start_ns: int, duration_ns: int, pid: int | None = None, **metadata) -> None:
+        pass
 
     def _write_span(self, name: str, ts_ns: int, dur_ns: int, metadata: dict, *, pid: int | None = None) -> None:
         pass

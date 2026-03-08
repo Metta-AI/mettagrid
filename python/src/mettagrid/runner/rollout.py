@@ -105,6 +105,7 @@ def single_episode_rollout(
         seed=seed,
         event_handlers=event_handlers,
         tracer=tracer,
+        policy_group_keys=assignments,
     )
     rollout.run_until_done()
 

@@ -59,6 +59,25 @@ class AgentPolicy:
         """
         raise NotImplementedError("Subclasses must implement step()")
 
+    def can_step_group(self, policies: Sequence["AgentPolicy"]) -> bool:
+        """Return True if step_group can batch all given policies in one call.
+
+        Override in subclasses that support batched stepping (e.g. remote policy
+        clients that can send multiple agent observations in a single RPC).
+        This is separate from MultiAgentPolicy.step_batch: step_group batches
+        per-agent rollout handles, while step_batch is the lower-level raw-buffer
+        API used by training/env codepaths.
+        """
+        return False
+
+    def step_group(self, observations: list[tuple[int, AgentObservation]]) -> list[Action]:
+        """Step multiple agents in a single batched call.
+
+        Only called when can_step_group returned True for the group.
+        Default raises; subclasses that return True from can_step_group must override.
+        """
+        raise NotImplementedError("Subclasses returning True from can_step_group must implement step_group()")
+
     def reset(self, simulation: Optional[Simulation] = None) -> None:
         """Reset the policy state. Default implementation does nothing."""
         pass
@@ -123,7 +142,9 @@ class MultiAgentPolicy(metaclass=PolicyRegistryMeta):
         """Optional fast-path for policies that consume raw buffers.
 
         Override this method in policies that support batch stepping.
-        The default implementation raises NotImplementedError.
+        The default implementation raises NotImplementedError. This is distinct
+        from AgentPolicy.step_group, which batches already-materialized
+        per-agent rollout calls rather than operating on raw env buffers.
         """
         raise NotImplementedError(f"{self.__class__.__name__} does not implement step_batch.")
 

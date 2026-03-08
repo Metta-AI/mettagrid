@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
@@ -33,6 +34,13 @@ def _classify(exc: Exception) -> RunnerErrorType:
     return "unknown"
 
 
+def _compute_policy_agent_ids(assignments: list[int], *, policy_count: int) -> list[list[int]]:
+    policy_agent_ids: list[list[int]] = [[] for _ in range(policy_count)]
+    for agent_id, policy_index in enumerate(assignments):
+        policy_agent_ids[policy_index].append(agent_id)
+    return policy_agent_ids
+
+
 def _write_error(path: str, exc: Exception) -> None:
     error = {"error_type": _classify(exc), "message": str(exc)[:2000]}
     Path(path).write_text(json.dumps(error))
@@ -41,8 +49,18 @@ def _write_error(path: str, exc: Exception) -> None:
 def _run(job: PureSingleEpisodeJob) -> None:
     env_for_rollout = resolve_env_for_seed(job.env, job.seed)
     env_interface = PolicyEnvInterface.from_mg_cfg(env_for_rollout)
-    # TODO: spawn these in parallel since each will need to handle its own prepare step
-    policies = [WebSocketPolicyServerClient(env_interface, url=uri) for uri in job.policy_uris]
+    policy_agent_ids = _compute_policy_agent_ids(job.assignments, policy_count=len(job.policy_uris))
+    with ThreadPoolExecutor(max_workers=max(1, len(job.policy_uris))) as pool:
+        futures = [
+            pool.submit(
+                WebSocketPolicyServerClient,
+                env_interface,
+                url=uri,
+                agent_ids=policy_agent_ids[policy_index],
+            )
+            for policy_index, uri in enumerate(job.policy_uris)
+        ]
+        policies = [future.result() for future in futures]
     trace_path = _setup_trace_path(job.debug_dir)
 
     try:
