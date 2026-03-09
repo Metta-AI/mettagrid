@@ -237,7 +237,7 @@ def main() -> None:
                     e.runner_error.message,
                 )
             else:
-                _write_runner_error(error_info_uri, "unknown", str(e))
+                _write_runner_error(error_info_uri, "crash", str(e))
             raise
         except Exception as e:
             # Pre-subprocess: only policy localization/spawn can fail here

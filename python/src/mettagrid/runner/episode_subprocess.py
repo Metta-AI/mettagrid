@@ -31,7 +31,7 @@ def _classify(exc: Exception) -> RunnerErrorType:
         return "policy_error"
     if isinstance(exc, ValidationError):
         return "config_error"
-    return "unknown"
+    return "crash"
 
 
 def _compute_policy_agent_ids(assignments: list[int], *, policy_count: int) -> list[list[int]]:

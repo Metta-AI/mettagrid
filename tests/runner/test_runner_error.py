@@ -18,7 +18,7 @@ class TestRunnerError:
         assert parsed.message == "validation failed"
 
     def test_all_valid_error_types(self):
-        for error_type in ("config_error", "policy_error", "unknown"):
+        for error_type in ("config_error", "policy_error", "crash", "unknown"):
             error = RunnerError(error_type=error_type, message="test")
             assert error.error_type == error_type
 
@@ -52,3 +52,9 @@ class TestEpisodeSubprocessError:
         err = EpisodeSubprocessError("subprocess failed (exit 1)", runner_error=runner_error)
         assert err.runner_error.error_type == "config_error"
         assert err.runner_error.message == "validation failed"
+
+    def test_with_crash_error(self):
+        runner_error = RunnerError(error_type="crash", message="segmentation fault")
+        err = EpisodeSubprocessError("subprocess failed (signal 11)", runner_error=runner_error)
+        assert err.runner_error.error_type == "crash"
+        assert err.runner_error.message == "segmentation fault"

@@ -85,7 +85,7 @@ class RuntimeInfo(BaseModel):
     instance_type: str | None = None
 
 
-RunnerErrorType = Literal["config_error", "policy_error", "unknown"]
+RunnerErrorType = Literal["config_error", "policy_error", "crash", "unknown"]
 
 
 class RunnerError(BaseModel):
