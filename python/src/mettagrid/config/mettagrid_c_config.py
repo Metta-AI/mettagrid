@@ -45,7 +45,6 @@ from mettagrid.mettagrid_c import RewardEntry as CppRewardEntry
 from mettagrid.mettagrid_c import (
     SharedTagPrefixFilterConfig as CppSharedTagPrefixFilterConfig,  # pyright: ignore[reportAttributeAccessIssue]
 )
-from mettagrid.mettagrid_c import StatWriterConfig as CppStatWriterConfig
 from mettagrid.mettagrid_c import TagPrefixFilterConfig as CppTagPrefixFilterConfig
 from mettagrid.mettagrid_c import TagQueryConfig as CppTagQueryConfig
 from mettagrid.mettagrid_c import TerritoryConfig as CppTerritoryConfig  # pyright: ignore[reportAttributeAccessIssue]
@@ -790,8 +789,8 @@ def convert_to_cpp_game_config(
         del game_cpp_params["territories"]
     if "render" in game_cpp_params:
         del game_cpp_params["render"]
-    if "stat_writers" in game_cpp_params:
-        del game_cpp_params["stat_writers"]
+    if "on_tick" in game_cpp_params:
+        del game_cpp_params["on_tick"]
 
     if "obs" in game_cpp_params:
         obs_config = game_cpp_params.pop("obs")
@@ -904,16 +903,9 @@ def convert_to_cpp_game_config(
     if materialized_queries_cpp:
         game_cpp_params["materialized_queries"] = materialized_queries_cpp
 
-    # --- Stat writers ---
+    # --- Game-level on_tick handlers ---
 
-    stat_writers_cpp = []
-    for sw in game_config.stat_writers:
-        cpp_sw = CppStatWriterConfig()
-        cpp_sw.name = sw.name
-        cpp_sw.value = resolve_game_value(sw.value, id_maps)
-        cpp_sw.accumulate = sw.accumulate
-        stat_writers_cpp.append(cpp_sw)
-    if stat_writers_cpp:
-        game_cpp_params["stat_writers"] = stat_writers_cpp
+    if game_config.on_tick:
+        game_cpp_params["on_tick"] = _convert_handlers(game_config.on_tick, id_maps)
 
     return CppGameConfig(**game_cpp_params), agent_renames

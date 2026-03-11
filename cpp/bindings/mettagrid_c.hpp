@@ -24,12 +24,12 @@
 #include "config/mettagrid_config.hpp"
 #include "core/aoe_tracker.hpp"
 #include "core/territory_tracker.hpp"
+#include "handler/handler.hpp"
 #include "handler/handler_context.hpp"
 #include "core/game_value_config.hpp"
 #include "core/grid_object.hpp"
 #include "core/query_system.hpp"
 #include "core/tag_index.hpp"
-#include "systems/stat_writer.hpp"
 #include "core/types.hpp"
 #include "handler/event_scheduler.hpp"
 #include "profiling.hpp"
@@ -207,8 +207,8 @@ private:
   // Tag index for efficient tag-based object lookup
   mettagrid::TagIndex _tag_index;
 
-  // Stat writers - GameValue expressions evaluated each step
-  std::vector<mettagrid::StatWriterConfig> _stat_writers;
+  // Game-level on_tick handlers executed every step
+  std::vector<std::shared_ptr<mettagrid::Handler>> _game_on_tick;
 
   // Base HandlerContext with all system pointers — copied and specialized per interaction
   mettagrid::HandlerContext _game_ctx;
@@ -300,7 +300,6 @@ private:
                                     double primary_time_ns,
                                     bool primary_was_optimized);
 
-  void _compute_stat_writers();
   void _compute_observations(const std::vector<ActionType>& executed_actions);
   void _step();
 

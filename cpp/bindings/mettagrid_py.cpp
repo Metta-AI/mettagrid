@@ -200,23 +200,6 @@ std::optional<float> MettaGrid::get_agent_stat(uint32_t agent_id, const std::str
   return agent->stats.get_if_present(key);
 }
 
-void MettaGrid::_compute_stat_writers() {
-  // Pass 1: set-mode writers (accumulate=false)
-  for (const auto& sw : _stat_writers) {
-    if (!sw.accumulate) {
-      float val = _game_ctx.resolve_game_value(sw.value, mettagrid::EntityRef::actor);
-      _stats->set(sw.name, val);
-    }
-  }
-  // Pass 2: accumulate-mode writers (accumulate=true)
-  for (const auto& sw : _stat_writers) {
-    if (sw.accumulate) {
-      float val = _game_ctx.resolve_game_value(sw.value, mettagrid::EntityRef::actor);
-      _stats->add(sw.name, val);
-    }
-  }
-}
-
 py::list MettaGrid::action_success_py() {
   return py::cast(_action_success);
 }
@@ -387,7 +370,6 @@ PYBIND11_MODULE(mettagrid_c, m) {
   bind_obs_value_config(m);
   bind_global_obs_config(m);
   bind_query_config(m);
-  bind_stat_writer_config(m);
   bind_game_config(m);
 
   // Handler bindings

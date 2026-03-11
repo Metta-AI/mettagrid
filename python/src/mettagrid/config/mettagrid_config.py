@@ -57,7 +57,6 @@ from mettagrid.config.render_config import (  # noqa: F401 - unused here, re-exp
     RenderStatusBarConfig,
 )
 from mettagrid.config.reward_config import AgentReward
-from mettagrid.config.stat_writer import StatWriter
 from mettagrid.config.territory_config import TerritoryConfig, TerritoryControlConfig
 from mettagrid.map_builder.ascii import AsciiMapBuilder
 from mettagrid.map_builder.map_builder import AnyMapBuilderConfig
@@ -287,9 +286,9 @@ class GameConfig(Config):
         description="Queries whose results are materialized as tags, recomputed via RecomputeMaterializedQueryMutation",
     )
 
-    stat_writers: list[StatWriter] = Field(
-        default_factory=list,
-        description="GameValue expressions evaluated each step and written to StatsTracker",
+    on_tick: dict[str, Handler] = Field(
+        default_factory=dict,
+        description="Handlers run every tick at game level (actor=target=nullptr). Name -> handler.",
     )
 
     @model_validator(mode="after")

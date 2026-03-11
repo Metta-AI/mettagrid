@@ -74,8 +74,6 @@ Handler::Handler(const HandlerConfig& config) : _name(config.name) {
 }
 
 bool Handler::try_apply(HandlerContext& ctx) {
-  assert(ctx.actor != nullptr && "Handler::try_apply requires actor");
-  assert(ctx.target != nullptr && "Handler::try_apply requires target");
   if (!check_filters(ctx)) {
     log_handler_result(_name, ctx, false);
     return false;
@@ -90,8 +88,6 @@ bool Handler::try_apply(HandlerContext& ctx) {
 }
 
 bool Handler::check_filters(const HandlerContext& ctx) const {
-  assert(ctx.actor != nullptr && "Handler::check_filters requires actor");
-  assert(ctx.target != nullptr && "Handler::check_filters requires target");
   for (const auto& filter : _filters) {
     if (!filter->passes(ctx)) {
       return false;

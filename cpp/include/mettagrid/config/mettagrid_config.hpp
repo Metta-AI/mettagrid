@@ -16,7 +16,6 @@
 #include "core/types.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/territory_config.hpp"
-#include "systems/stat_writer.hpp"
 
 // Forward declarations
 #include "actions/action_handler.hpp"
@@ -72,8 +71,8 @@ struct GameConfig {
   // Materialized queries - computed tag membership from spatial queries
   std::vector<mettagrid::MaterializedQueryTag> materialized_queries;
 
-  // Stat writers - GameValue expressions evaluated each step, written to StatsTracker
-  std::vector<mettagrid::StatWriterConfig> stat_writers;
+  // Game-level on_tick handlers executed every step
+  std::vector<mettagrid::HandlerConfig> on_tick;
 };
 
 namespace py = pybind11;
@@ -299,16 +298,6 @@ inline void bind_query_config(py::module& m) {
       .def_readwrite("tag_id", &RecomputeMaterializedQueryMutationConfig::tag_id);
 }
 
-inline void bind_stat_writer_config(py::module& m) {
-  using namespace mettagrid;
-
-  py::class_<StatWriterConfig>(m, "StatWriterConfig")
-      .def(py::init<>())
-      .def_readwrite("name", &StatWriterConfig::name)
-      .def_readwrite("value", &StatWriterConfig::value)
-      .def_readwrite("accumulate", &StatWriterConfig::accumulate);
-}
-
 inline void bind_game_config(py::module& m) {
   py::class_<GameConfig>(m, "GameConfig")
       .def(py::init<unsigned int,
@@ -340,8 +329,8 @@ inline void bind_game_config(py::module& m) {
                     // Materialized queries
                     const std::vector<mettagrid::MaterializedQueryTag>&,
 
-                    // Stat writers
-                    const std::vector<mettagrid::StatWriterConfig>&>(),
+                    // Game-level on_tick handlers
+                    const std::vector<mettagrid::HandlerConfig>&>(),
            py::arg("num_agents"),
            py::arg("max_steps"),
            py::arg("episode_truncates"),
@@ -371,8 +360,8 @@ inline void bind_game_config(py::module& m) {
            // Materialized queries
            py::arg("materialized_queries") = std::vector<mettagrid::MaterializedQueryTag>(),
 
-           // Stat writers
-           py::arg("stat_writers") = std::vector<mettagrid::StatWriterConfig>())
+           // Game-level on_tick handlers
+           py::arg("on_tick") = std::vector<mettagrid::HandlerConfig>())
       .def_readwrite("num_agents", &GameConfig::num_agents)
       .def_readwrite("max_steps", &GameConfig::max_steps)
       .def_readwrite("episode_truncates", &GameConfig::episode_truncates)
@@ -407,8 +396,8 @@ inline void bind_game_config(py::module& m) {
       // Materialized queries
       .def_readwrite("materialized_queries", &GameConfig::materialized_queries)
 
-      // Stat writers
-      .def_readwrite("stat_writers", &GameConfig::stat_writers);
+      // Game-level on_tick handlers
+      .def_readwrite("on_tick", &GameConfig::on_tick);
 }
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CONFIG_METTAGRID_CONFIG_HPP_

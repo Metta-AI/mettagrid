@@ -644,12 +644,6 @@ class GlobalObsConfig:
     local_position: bool
     obs: list[ObsValueConfig]
 
-class StatWriterConfig:
-    def __init__(self) -> None: ...
-    name: str
-    value: GameValueConfig
-    accumulate: bool
-
 class GameConfig:
     def __init__(
         self,
@@ -669,7 +663,7 @@ class GameConfig:
         protocol_details_obs: bool = True,
         reward_estimates: Optional[dict[str, float]] = None,
         token_value_base: int = 256,
-        stat_writers: list[StatWriterConfig] | None = None,
+        on_tick: list[HandlerConfig] | None = None,
     ) -> None: ...
     num_agents: int
     max_steps: int
@@ -686,7 +680,7 @@ class GameConfig:
     protocol_details_obs: bool
     reward_estimates: Optional[dict[str, float]]
     token_value_base: int
-    stat_writers: list[StatWriterConfig]
+    on_tick: list[HandlerConfig]
 
 class TagIndex:
     def __init__(self) -> None: ...
