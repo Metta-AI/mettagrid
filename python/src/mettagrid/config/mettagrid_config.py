@@ -236,6 +236,11 @@ class GameConfig(Config):
             "blueprint",
         ]
     )
+
+    def add_resource(self, name: str) -> None:
+        assert name not in self.resource_names, f"Resource '{name}' already registered"
+        self.resource_names.append(name)
+
     vibe_names: list[str] = Field(default_factory=list)
     num_agents: int = Field(ge=1, default=24)
     # max_steps = zero means "no limit"
@@ -342,10 +347,18 @@ class MettaGridConfig(Config):
         map_builder = RandomMapBuilder.Config(agents=num_agents, width=width, height=height, border_width=border_width)
         actions = ActionsConfig(move=MoveActionConfig(), change_vibe=ChangeVibeActionConfig())
         objects = {}
+        render = RenderConfig()
         if border_width > 0 or with_walls:
-            objects["wall"] = WallConfig(render_symbol="⬛")
+            objects["wall"] = WallConfig()
+            render.symbols["wall"] = "⬛"
         return MettaGridConfig(
-            game=GameConfig(map_builder=map_builder, actions=actions, num_agents=num_agents, objects=objects)
+            game=GameConfig(
+                map_builder=map_builder,
+                actions=actions,
+                num_agents=num_agents,
+                objects=objects,
+                render=render,
+            )
         )
 
 

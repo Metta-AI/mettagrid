@@ -510,10 +510,7 @@ class MettaGridPufferEnv(PufferEnv):
         sim = self._sim
         assert sim is not None
         symbol_map = DEFAULT_SYMBOL_MAP.copy()
-        for obj in self._current_cfg.game.objects.values():
-            if obj.render_name:
-                symbol_map[obj.render_name] = obj.render_symbol
-            symbol_map[obj.name] = obj.render_symbol
+        symbol_map.update(self._current_cfg.game.render.symbols)
 
         return MapBuffer(
             symbol_map=symbol_map,

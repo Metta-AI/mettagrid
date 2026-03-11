@@ -92,12 +92,8 @@ class MiniscopeRenderer(Renderer):
         self._state.resource_names = self._sim.resource_names
         self._state.symbol_map = DEFAULT_SYMBOL_MAP.copy()
 
-        # Add custom symbols from game config
-        for obj in self._sim.config.game.objects.values():
-            # Key by render_name (preferred) and also alias by name for convenience
-            self._state.symbol_map[obj.render_name or obj.name] = obj.render_symbol
-            if obj.render_name and obj.render_name != obj.name:
-                self._state.symbol_map[obj.name] = obj.render_symbol
+        # Add custom symbols from render config
+        self._state.symbol_map.update(self._sim.config.game.render.symbols)
 
         self._state.vibes = [g.symbol for g in VIBE_DATA] if VIBE_DATA else None
 

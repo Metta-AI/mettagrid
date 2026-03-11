@@ -12,7 +12,7 @@ DEFAULT_EXTRACTORS: tuple[str, str, str, str] = (
 )
 
 
-class BaseHubConfig(SceneConfig):
+class CompoundConfig(SceneConfig):
     hub_object: str = "hub"
     corner_generator: str | None = None
     spawn_symbol: str = "agent.agent"
@@ -25,9 +25,9 @@ class BaseHubConfig(SceneConfig):
     outer_clearance: int = 3
     # Order: top-left, top-right, bottom-left, bottom-right.
     # Notes:
-    # - If corner_objects is provided (len==4), BaseHub will use that set directly.
+    # - If corner_objects is provided (len==4), Compound will use that set directly.
     # - corner_bundle/cross_bundle can be "none" | "extractors" | "custom".
-    # - When both objects and bundle are provided, objects win (per BaseHub logic).
+    # - When both objects and bundle are provided, objects win (per Compound logic).
     corner_objects: list[str] | None = None
     corner_bundle: Literal["extractors", "none", "custom"] = "extractors"
     cross_objects: list[str] | None = None
@@ -40,7 +40,7 @@ class BaseHubConfig(SceneConfig):
     stations: list[str] = []
 
 
-class BaseHub(Scene[BaseHubConfig]):
+class Compound(Scene[CompoundConfig]):
     """
     Build a symmetric 11x11 base:
     - Center cell: hub with junction two cells above

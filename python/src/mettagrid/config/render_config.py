@@ -71,6 +71,10 @@ class RenderConfig(Config):
         default_factory=dict,
         description="Custom per-object status bars. When set, replaces default agent bars. Pre-sorted by rank.",
     )
+    symbols: dict[str, str] = Field(
+        default_factory=dict,
+        description="Object name -> symbol (emoji) for text rendering",
+    )
     assets: dict[str, RenderAssetValue] = Field(
         default_factory=dict,
         description="Type-name to asset mapping, optionally with resource/tag conditions",
