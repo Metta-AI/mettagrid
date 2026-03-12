@@ -71,6 +71,8 @@ proc drawPolicyInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
     let agentPos = selected.location.at(step)
 
     for key, value in policyInfo.pairs:
+      if key.startsWith("__"):
+        continue
       if key == "target":
         let relOpt = parseRelativeTarget(value)
         if relOpt.isSome:

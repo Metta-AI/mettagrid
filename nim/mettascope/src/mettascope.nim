@@ -3,7 +3,7 @@ import
   opengl, windy, bumpy, vmath, silky, webby,
   mettascope/[replays, common, worldmap, panels,
   footer, timeline, minimap, header, replayloader, configs, gameplayer],
-  mettascope/panels/[objectpanel, policyinfopanel, envpanel, vibespanel, scorepanel]
+  mettascope/panels/[objectpanel, policyinfopanel, envpanel, vibespanel, scorepanel, dialoguepanel]
 
 when isMainModule:
   let config = loadConfig()
@@ -159,13 +159,7 @@ proc createDefaultPanelLayout() =
 
   rootArea.areas[1].areas[1].addPanel("Vibes", drawVibes)
   rootArea.areas[1].areas[1].addPanel("Score", drawScorePanel)
-
-proc collectPanelNames(area: Area): seq[string] =
-  ## Collect all panel names from an area tree.
-  for panel in area.panels:
-    result.add(panel.name)
-  for subarea in area.areas:
-    result.add(collectPanelNames(subarea))
+  rootArea.areas[1].areas[1].addPanel("Dialogue", drawDialoguePanel)
 
 proc findFirstLeafArea(area: Area): Area =
   ## Find the first leaf area (one that has panels) in the tree.
@@ -176,6 +170,28 @@ proc findFirstLeafArea(area: Area): Area =
     if leaf != nil:
       return leaf
   return nil
+
+proc insertMissingDialoguePanel(area: Area) =
+  if getPanelByName(area, "Dialogue") != nil:
+    return
+
+  let scorePanel = getPanelByName(area, "Score")
+  if scorePanel != nil and scorePanel.parentArea != nil:
+    var insertIndex = scorePanel.parentArea.panels.len
+    for idx, panel in scorePanel.parentArea.panels:
+      if panel == scorePanel:
+        insertIndex = idx + 1
+        break
+    let dialoguePanel = Panel(name: "Dialogue", parentArea: scorePanel.parentArea, draw: drawDialoguePanel)
+    scorePanel.parentArea.panels.insert(dialoguePanel, insertIndex)
+    echo "Added missing panel: Dialogue"
+    return
+
+  let fallbackArea = findFirstLeafArea(area)
+  if fallbackArea != nil:
+    let dialoguePanel = Panel(name: "Dialogue", parentArea: fallbackArea, draw: drawDialoguePanel)
+    fallbackArea.panels.add(dialoguePanel)
+    echo "Added missing panel: Dialogue"
 
 proc initPanels() =
   ## Initialize panels, loading layout from config if available.
@@ -198,23 +214,8 @@ proc initPanels() =
       echo "Error loading panel layout from config, using default: ", getCurrentExceptionMsg()
       rootArea = defaultArea
 
-  # Add any new panels from the default layout that are missing from the saved layout.
   if layoutLoaded:
-    let savedNames = collectPanelNames(rootArea)
-    let defaultNames = collectPanelNames(defaultArea)
-    var missingPanels: seq[Panel] = @[]
-    for name in defaultNames:
-      if name notin savedNames:
-        let refPanel = getPanelByName(defaultArea, name)
-        if refPanel != nil:
-          missingPanels.add(refPanel)
-    if missingPanels.len > 0:
-      let targetArea = findFirstLeafArea(rootArea)
-      if targetArea != nil:
-        for panel in missingPanels:
-          let newPanel = Panel(name: panel.name, parentArea: targetArea, draw: panel.draw)
-          targetArea.panels.add(newPanel)
-          echo "Added missing panel: ", panel.name
+    insertMissingDialoguePanel(rootArea)
 
 
 proc onFrame() =
