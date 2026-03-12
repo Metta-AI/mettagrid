@@ -80,7 +80,7 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
     common.replay.apply(replayStep)
     if worldHeatmap != nil:
       update(worldHeatmap, currentStep, replay)
-    if currentStep == 0:
+    if not hadAgentsBefore and common.replay.agents.len > 0:
       onReplayLoaded()
     let currentStepFloat = currentStep.float32
     if playMode == Realtime:
@@ -134,6 +134,64 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
     result.shouldClose = true
     return
 
+proc renderPending(currentStep: int, replayStep: string): RenderResponse =
+  try:
+    let hadAgentsBefore = common.replay.agents.len > 0
+    common.replay.apply(replayStep)
+    if worldHeatmap != nil:
+      update(worldHeatmap, currentStep, replay)
+    if not hadAgentsBefore and common.replay.agents.len > 0:
+      onReplayLoaded()
+    let currentStepFloat = currentStep.float32
+    if playMode == Realtime:
+      let delta = abs(currentStepFloat - stepFloat)
+      if delta > 0.0f and delta <= RealtimeSmoothMaxStepDelta:
+        realtimeTransitionStart = stepFloat
+        realtimeTransitionTarget = currentStepFloat
+        realtimeTransitionStartTime = epochTime()
+        realtimeTransitionDurationSeconds = 1.0 / max(playSpeed.float64, 0.001)
+        realtimeTransitionActive = true
+        stepFloatSmoothing = true
+      else:
+        realtimeTransitionActive = false
+        stepFloatSmoothing = false
+        stepFloat = currentStepFloat
+    else:
+      realtimeTransitionActive = false
+      stepFloatSmoothing = false
+      stepFloat = currentStepFloat
+    step = currentStep
+    previousStep = currentStep
+    requestPython = false
+
+    if not hadAgentsBefore and common.replay.agents.len > 0:
+      needsInitialFit = true
+      let config = loadConfig()
+      applyUIState(config)
+    result = RenderResponse(shouldClose: false, actions: @[])
+    if window.closeRequested:
+      window.close()
+      result.shouldClose = true
+      return
+    updateStepFloat()
+    tickMettascope()
+    if requestPython:
+      onRequestPython()
+      for action in requestActions:
+        result.actions.add(ActionRequest(
+          agentId: action.agentId,
+          actionName: action.actionName.cstring
+        ))
+      requestActions.setLen(0)
+    return
+  except Exception:
+    echo "########### Error rendering pending Mettascope #############"
+    echo getCurrentException().getStackTrace()
+    echo getCurrentExceptionMsg()
+    echo "############################################################"
+    result.shouldClose = true
+    return
+
 exportObject ActionRequest:
   discard
 
@@ -145,6 +203,7 @@ exportRefObject RenderResponse:
 exportProcs:
   init
   render
+  renderPending
 
 writeFiles("bindings/generated", "Mettascope")
 

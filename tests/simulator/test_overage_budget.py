@@ -3,6 +3,7 @@
 import threading
 import time
 
+import mettagrid.simulator.rollout as rollout_module
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
     GameConfig,
@@ -15,8 +16,10 @@ from mettagrid.config.mettagrid_config import (
 from mettagrid.map_builder.random_map import RandomMapBuilder
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
+from mettagrid.renderer.renderer import Renderer
 from mettagrid.runner.rollout import single_episode_rollout
 from mettagrid.simulator.interface import AgentObservation
+from mettagrid.simulator.policy_debug_projection import project_policy_debug_infos
 from mettagrid.simulator.rollout import Rollout
 from mettagrid.types import Action
 
@@ -77,6 +80,135 @@ class BatchGroupPolicy(AgentPolicy):
     def step_group(self, observations: list[tuple[int, AgentObservation]]) -> list[Action]:
         self.step_group_calls += 1
         return [Action(name="noop") for _ in observations]
+
+
+class SidecarDebugPolicy(AgentPolicy):
+    def __init__(self):
+        self._infos: dict = {}
+
+    def step(self, obs: AgentObservation) -> Action:
+        _ = obs
+        self._infos = {
+            "directive_role": "miner",
+            "__sidecar_debug__": {
+                "last_event_id": 2,
+                "transcript_tail": (
+                    "## Step 8 Agent 0 runtime -> llm\n"
+                    "sdk.log:\n"
+                    '- [info] Enemy on east lane. (step 8) data={"trigger":"enemy_seen"}\n'
+                    "review_request:\n"
+                    "- source: sdk.log.write(trigger=...)\n"
+                    "- details: trigger=enemy_seen, target=policy, prompt=Enemy on east lane.\n\n"
+                    "## Step 8 Agent 0 llm -> runtime\n"
+                    "review_request:\n"
+                    "- source: sdk.log.write(trigger=...)\n"
+                    "- trigger: enemy_seen\n"
+                    "- request: Enemy on east lane.\n"
+                    "review_outcome: action=memory_and_policy, policy_updated=yes, "
+                    "scratchpad_updated=yes, plan_updated=yes\n"
+                    "summary: Rotate to aligner pressure.\n"
+                ),
+                "events": [
+                    {
+                        "event_id": 1,
+                        "kind": "policy_step",
+                        "logs": [
+                            {
+                                "level": "info",
+                                "message": "Enemy on east lane.",
+                                "step": 8,
+                                "data": {"trigger": "enemy_seen"},
+                            }
+                        ],
+                        "selected_review_request": {
+                            "trigger_name": "enemy_seen",
+                            "target": "policy",
+                            "prompt": "Enemy on east lane.",
+                        },
+                        "selected_review_source": "sdk.log.write(trigger=...)",
+                        "triggering_log": {
+                            "level": "info",
+                            "message": "Enemy on east lane.",
+                            "step": 8,
+                            "data": {"trigger": "enemy_seen"},
+                        },
+                    },
+                    {
+                        "event_id": 2,
+                        "kind": "llm_review",
+                        "trigger_name": "enemy_seen",
+                        "source": "sdk.log.write(trigger=...)",
+                        "request_summary": "Enemy on east lane.",
+                        "action": "memory_and_policy",
+                        "review_summary": "Rotate to aligner pressure.",
+                        "policy_updated": True,
+                        "scratchpad_updated": True,
+                        "plan_updated": True,
+                        "api_latency_ms": 12.5,
+                        "input_tokens": 42,
+                        "output_tokens": 17,
+                    },
+                ],
+            },
+        }
+        return Action(name="noop")
+
+
+class RecordingRenderer(Renderer):
+    def __init__(self):
+        super().__init__()
+        self.render_steps: list[int] = []
+
+    def render(self) -> None:
+        self.render_steps.append(self._sim.current_step)
+
+    def on_episode_end(self) -> None:
+        pass
+
+
+class PendingMethodRenderer(Renderer):
+    def __init__(self):
+        super().__init__()
+        self.pending_calls = 0
+        self.render_calls = 0
+
+    def supports_pending_render(self) -> bool:
+        return True
+
+    def render(self) -> None:
+        self.render_calls += 1
+
+    def render_pending(self) -> None:
+        self.pending_calls += 1
+
+    def on_episode_end(self) -> None:
+        pass
+
+
+class PendingDebugPolicy(AgentPolicy):
+    def __init__(self, sleep_ms: float = 50.0):
+        self._sleep_ms = sleep_ms
+        self._infos: dict = {}
+
+    def step(self, obs: AgentObservation) -> Action:
+        _ = obs
+        self._infos = {"directive_role": "miner", "__sidecar_debug__": {}}
+        time.sleep(self._sleep_ms / 1000.0)
+        self._infos = {
+            "directive_role": "miner",
+            "__sidecar_debug__": {
+                "last_event_id": 1,
+                "transcript_tail": "## Step 1 Agent 0 llm -> runtime\nsummary: opened with miners.\n",
+                "events": [
+                    {
+                        "event_id": 1,
+                        "kind": "llm_review",
+                        "trigger_name": "initial_generation",
+                    }
+                ],
+            },
+        }
+        return Action(name="noop")
 
 
 def _make_config(num_agents: int = 2, max_steps: int = 10) -> MettaGridConfig:
@@ -289,3 +421,90 @@ def test_group_step_does_not_reuse_stale_agent_infos():
 
     assert rollout._policy_infos[0] == {"policy_name": "policy_0"}
     assert rollout._policy_infos[1] == {"policy_name": "policy_1"}
+
+
+def test_rollout_keeps_sidecar_debug_payload_out_of_policy_infos():
+    config = _make_config(num_agents=1, max_steps=1)
+    rollout = Rollout(
+        config,
+        [SidecarDebugPolicy()],
+        policy_names=["debug_policy"],
+        max_action_time_ms=10_000,
+    )
+
+    rollout.step()
+
+    assert rollout._policy_infos[0] == {
+        "directive_role": "miner",
+        "policy_name": "debug_policy",
+        "__dialogue_transcript_tail": (
+            "## Step 8 Agent 0 runtime -> llm\n"
+            "sdk.log:\n"
+            '- [info] Enemy on east lane. (step 8) data={"trigger":"enemy_seen"}\n'
+            "review_request:\n"
+            "- source: sdk.log.write(trigger=...)\n"
+            "- details: trigger=enemy_seen, target=policy, prompt=Enemy on east lane.\n\n"
+            "## Step 8 Agent 0 llm -> runtime\n"
+            "review_request:\n"
+            "- source: sdk.log.write(trigger=...)\n"
+            "- trigger: enemy_seen\n"
+            "- request: Enemy on east lane.\n"
+            "review_outcome: action=memory_and_policy, policy_updated=yes, "
+            "scratchpad_updated=yes, plan_updated=yes\n"
+            "summary: Rotate to aligner pressure.\n"
+        ),
+    }
+    assert "__sidecar_debug__" not in rollout._policy_infos[0]
+
+
+def test_rollout_renders_initial_gui_frame_before_first_policy_step(
+    monkeypatch,
+) -> None:
+    config = _make_config(num_agents=1, max_steps=1)
+    renderer = RecordingRenderer()
+    monkeypatch.setattr(rollout_module, "create_renderer", lambda *args, **kwargs: renderer)
+
+    policy = FastAgentPolicy()
+    rollout = Rollout(
+        config,
+        [policy],
+        max_action_time_ms=10_000,
+        render_mode="gui",
+    )
+
+    assert renderer.render_steps == [0]
+    assert policy.call_count == 0
+    assert rollout._sim.current_step == 0
+
+
+def test_rollout_uses_pending_render_hook_while_policy_step_is_running(
+    monkeypatch,
+) -> None:
+    config = _make_config(num_agents=1, max_steps=1)
+    renderer = PendingMethodRenderer()
+    monkeypatch.setattr(rollout_module, "create_renderer", lambda *args, **kwargs: renderer)
+
+    rollout = Rollout(
+        config,
+        [PendingDebugPolicy()],
+        policy_names=["pending_policy"],
+        max_action_time_ms=10_000,
+        render_mode="gui",
+    )
+
+    rollout.step()
+
+    assert renderer.pending_calls > 0
+    assert renderer.render_calls >= 1
+
+
+def test_project_sidecar_policy_infos_emits_dialogue_tail_only() -> None:
+    projected = project_policy_debug_infos(
+        {
+            "transcript_tail": "## Step 10 Agent 0 llm -> runtime\nsummary: rotate\n",
+        },
+    )
+
+    assert projected == {
+        "__dialogue_transcript_tail": "## Step 10 Agent 0 llm -> runtime\nsummary: rotate\n",
+    }

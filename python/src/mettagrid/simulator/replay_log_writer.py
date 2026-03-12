@@ -162,6 +162,7 @@ class EpisodeReplay:
     def log_step(self, current_step: int, actions: np.ndarray, rewards: np.ndarray):
         """Log a single step of the episode."""
         self.total_rewards += rewards
+        all_policy_infos = self.sim._context.get("policy_infos", {})
 
         # On first step, get ALL objects (including walls) to set up the replay
         # On subsequent steps, use ignore_types to skip static objects at the C++ level
@@ -192,6 +193,7 @@ class EpisodeReplay:
                 self.sim.action_success,
                 rewards,
                 self.total_rewards,
+                policy_infos=all_policy_infos.get(grid_object.get("agent_id")),
             )
 
             # Convert raw per-resource capacities to per-capacity-group format

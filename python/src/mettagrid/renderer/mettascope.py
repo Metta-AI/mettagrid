@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import numpy as np
+from typing_extensions import override
 
 from mettagrid.renderer.renderer import Renderer
 from mettagrid.types import Action
@@ -81,9 +82,11 @@ class MettascopeRenderer(Renderer):
             self._sim.end_episode()
             return
 
-    def render(self) -> None:
-        """Render current state and capture user input."""
-        # Generate replay data for current state
+    @override
+    def supports_pending_render(self) -> bool:
+        return True
+
+    def _build_step_replay(self) -> dict:
         grid_objects = []
         total_rewards = self._sim.episode_rewards
 
@@ -134,19 +137,16 @@ class MettascopeRenderer(Renderer):
         }
         if tutorial_overlay_phases:
             step_replay["tutorial_overlay_phases"] = tutorial_overlay_phases
+        return step_replay
 
-        # Render and get user input
-        try:
-            self.response = self._mettascope.render(self._sim.current_step, json.dumps(step_replay, allow_nan=False))
-        except KeyboardInterrupt:
-            logger.info("Interrupt received during mettascope render; ending episode.")
-            self._sim.end_episode()
-            return
+    def _apply_render_response(self) -> None:
         if self.response.should_close:
             self._sim.end_episode()
             return
 
         # Apply user actions immediately (overriding any policy actions)
+        if self._sim._context.get("allow_manual_actions", True) is False:
+            return
         if self.response.actions:
             for action in self.response.actions:
                 # ctypes c_char_p returns bytes, we need to decode immediately
@@ -176,6 +176,32 @@ class MettascopeRenderer(Renderer):
                     available_actions = [a for a in self._sim.action_ids if "change_vibe" in a]
                     logger.error("Available change_vibe actions: %s", available_actions)
                     continue
+
+    def render(self) -> None:
+        """Render current state and capture user input."""
+        step_replay = self._build_step_replay()
+        try:
+            self.response = self._mettascope.render(self._sim.current_step, json.dumps(step_replay, allow_nan=False))
+        except KeyboardInterrupt:
+            logger.info("Interrupt received during mettascope render; ending episode.")
+            self._sim.end_episode()
+            return
+        self._apply_render_response()
+
+    @override
+    def render_pending(self) -> None:
+        step_replay = self._build_step_replay()
+        render_pending = getattr(self._mettascope, "renderPending", None)
+        if render_pending is None:
+            self.render()
+            return
+        try:
+            self.response = render_pending(self._sim.current_step, json.dumps(step_replay, allow_nan=False))
+        except KeyboardInterrupt:
+            logger.info("Interrupt received during mettascope render; ending episode.")
+            self._sim.end_episode()
+            return
+        self._apply_render_response()
 
 
 def _extract_tutorial_overlay_phases(all_policy_infos: dict[int, dict]) -> list[str]:

@@ -2,7 +2,7 @@ import gc
 import logging
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional, Sequence
 
@@ -11,6 +11,7 @@ from mettagrid.envs.stats_tracker import StatsTracker
 from mettagrid.policy.policy import AgentPolicy
 from mettagrid.renderer.renderer import Renderer, RenderMode, create_renderer
 from mettagrid.simulator.interface import SimulatorEventHandler
+from mettagrid.simulator.policy_debug_projection import project_policy_debug_infos
 from mettagrid.simulator.simulator import Simulator
 from mettagrid.types import Action
 from mettagrid.util.stats_writer import StatsWriter
@@ -38,6 +39,7 @@ def gc_disabled() -> Iterator[None]:
 
 logger = logging.getLogger(__name__)
 StepResult = tuple[int, Action, float, dict[str, Any], int, int]
+_PENDING_RENDER_INTERVAL_SECONDS = 1.0 / 30.0
 
 
 class Rollout:
@@ -76,6 +78,7 @@ class Rollout:
         )
         self._overage_exceeded_at: list[int | None] = [None] * len(policies)
         self._renderer: Optional[Renderer] = None
+        self._render_initial_frame = render_mode in {"gui", "vibescope"}
         self._timeout_counts: list[int] = [0] * len(policies)
         self._tracer: Tracer = tracer or NullTracer()
 
@@ -110,6 +113,9 @@ class Rollout:
 
         self._policy_infos: dict[int, dict] = {}
         self._step_count = 0
+        self._sim._context["policy_infos"] = self._policy_infos
+        if self._renderer is not None and self._render_initial_frame:
+            self._renderer.render()
 
     def step(self) -> None:
         """Execute one step of the rollout."""
@@ -137,7 +143,14 @@ class Rollout:
                 group_steps = self._execute_group_steps(list(groups.values()))
                 # Apply results after worker execution so action setting, timeout
                 # accounting, and trace writes stay on the main rollout thread.
-                for index, action, elapsed_ms, infos, start_ns, duration_ns in group_steps:
+                for (
+                    index,
+                    action,
+                    elapsed_ms,
+                    infos,
+                    start_ns,
+                    duration_ns,
+                ) in group_steps:
                     timed_out = self._apply_step_result(index, action, elapsed_ms, infos)
                     self._tracer.record_span(
                         "agent_step",
@@ -186,7 +199,7 @@ class Rollout:
 
     def _step_single_index(self, index: int) -> None:
         with self._tracer.span("agent_step", step=self._step_count, agent=index) as span:
-            action, elapsed_ms, infos, _, _ = self._measure_single_step(index)
+            action, elapsed_ms, infos, _, _ = self._measure_single_step_with_pending_render(index)
             timed_out = self._apply_step_result(index, action, elapsed_ms, infos)
             span.set(timed_out=timed_out, elapsed_ms=elapsed_ms)
 
@@ -237,7 +250,7 @@ class Rollout:
         # but defer mutation until the caller applies the collected results.
         group_results: list[StepResult] = []
         for index in indices:
-            action, elapsed_ms, infos, start_ns, duration_ns = self._measure_single_step(index)
+            action, elapsed_ms, infos, start_ns, duration_ns = self._measure_single_step_with_pending_render(index)
             group_results.append((index, action, elapsed_ms, infos, start_ns, duration_ns))
         return group_results
 
@@ -250,6 +263,17 @@ class Rollout:
         infos = self._policies[index].infos
         merged_infos = dict(infos) if infos else {}
         return action, elapsed_ms, merged_infos, start_ns, duration_ns
+
+    def _measure_single_step_with_pending_render(self, index: int) -> tuple[Action, float, dict[str, Any], int, int]:
+        if self._renderer is None or not self._renderer.supports_pending_render():
+            return self._measure_single_step(index)
+        future = self._policy_executor().submit(self._measure_single_step, index)
+        while True:
+            try:
+                return future.result(timeout=_PENDING_RENDER_INTERVAL_SECONDS)
+            except TimeoutError:
+                pass
+            self._render_pending_frame()
 
     def _apply_step_result(self, index: int, action: Action, elapsed_ms: float, infos: dict[str, Any]) -> bool:
         # Centralize the rollout-side effects so single and grouped paths stay aligned.
@@ -278,6 +302,10 @@ class Rollout:
         return self._config.game.actions.noop.Noop(), True
 
     def _update_policy_infos(self, index: int, infos: dict[str, Any]) -> None:
+        debug_infos = infos.pop("__sidecar_debug__", None)
+        if isinstance(debug_infos, dict) and debug_infos:
+            infos.update(project_policy_debug_infos(debug_infos))
+
         if index < len(self._policy_names):
             infos.setdefault("policy_name", self._policy_names[index])
 
@@ -285,3 +313,17 @@ class Rollout:
             self._policy_infos[index] = infos
         else:
             self._policy_infos.pop(index, None)
+
+    def _policy_executor(self) -> ThreadPoolExecutor:
+        if self._policy_step_pool is None:
+            self._policy_step_pool = ThreadPoolExecutor(max_workers=max(1, os.cpu_count() or 1))
+        return self._policy_step_pool
+
+    def _render_pending_frame(self) -> None:
+        assert self._renderer is not None
+        self._sim._context["policy_infos"] = self._policy_infos
+        self._sim._context["allow_manual_actions"] = False
+        try:
+            self._renderer.render_pending()
+        finally:
+            self._sim._context["allow_manual_actions"] = True

@@ -25,6 +25,14 @@ class Renderer(SimulatorEventHandler):
         """Render the current state. Override this for interactive renderers that need to handle input."""
         pass
 
+    def render_pending(self) -> None:
+        """Render one pending frame while rollout is waiting on a policy step."""
+        self.render()
+
+    def supports_pending_render(self) -> bool:
+        """Whether rollout should keep repainting while a policy step is blocked."""
+        return False
+
     @override
     def on_step(self) -> None:
         """Called after each simulator step. Subclasses can access simulator state."""
