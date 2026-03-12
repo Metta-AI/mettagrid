@@ -43,7 +43,6 @@ class TestFindPackageRoot:
 class TestGetMettagridSource:
     def test_local_source_returns_path(self):
         source = _get_mettagrid_source()
-        # In dev, this should be a local path (not a version pin)
         assert not source.startswith("mettagrid==")
         assert Path(source).is_dir()
         assert (Path(source) / "pyproject.toml").exists()
