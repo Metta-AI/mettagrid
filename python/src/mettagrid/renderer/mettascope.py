@@ -82,6 +82,9 @@ class MettascopeRenderer(Renderer):
             self._sim.end_episode()
             return
 
+    def supports_pending_render(self) -> bool:
+        return True
+
     def _build_step_replay(self) -> dict:
         grid_objects = []
         total_rewards = self._sim.episode_rewards
@@ -180,6 +183,16 @@ class MettascopeRenderer(Renderer):
             self.response = self._mettascope.render(self._sim.current_step, json.dumps(step_replay, allow_nan=False))
         except KeyboardInterrupt:
             logger.info("Interrupt received during mettascope render; ending episode.")
+            self._sim.end_episode()
+            return
+        self._apply_render_response()
+
+    def render_pending(self) -> None:
+        """Pump one UI frame while rollout waits on a blocking policy step."""
+        try:
+            self.response = self._mettascope.render_pending()
+        except KeyboardInterrupt:
+            logger.info("Interrupt received during mettascope pending render; ending episode.")
             self._sim.end_episode()
             return
         self._apply_render_response()

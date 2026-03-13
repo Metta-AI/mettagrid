@@ -55,16 +55,15 @@ def test_dialogue_update_helpers_ignore_invalid_payloads() -> None:
 class _FakeMettascopeModule(ModuleType):
     def __init__(self) -> None:
         super().__init__("mettascope")
-        self.calls: list[tuple[str, int]] = []
+        self.calls: list[str] = []
 
     def render(self, step: int, replay_step: str):  # type: ignore[no-untyped-def]
         _ = replay_step
-        self.calls.append(("render", step))
+        self.calls.append(f"render:{step}")
         return SimpleNamespace(should_close=False, actions=[])
 
-    def renderPending(self, step: int, replay_step: str):  # type: ignore[no-untyped-def]
-        _ = replay_step
-        self.calls.append(("renderPending", step))
+    def render_pending(self):  # type: ignore[no-untyped-def]
+        self.calls.append("render_pending")
         return SimpleNamespace(should_close=False, actions=[])
 
 
@@ -86,16 +85,21 @@ class _FakeSimulation:
         raise AssertionError("render_pending should not close the episode")
 
 
-def test_mettascope_renderer_does_not_use_pending_binding(monkeypatch) -> None:
+def test_mettascope_renderer_uses_pending_binding_without_building_replay(monkeypatch) -> None:
     fake_module = _FakeMettascopeModule()
     monkeypatch.setitem(sys.modules, "mettascope", fake_module)
     monkeypatch.setattr("mettagrid.renderer.mettascope._resolve_nim_root", lambda: Path("/tmp"))
 
     renderer = MettascopeRenderer()
     renderer.set_simulation(cast(Any, _FakeSimulation()))
+    monkeypatch.setattr(
+        renderer,
+        "_build_step_replay",
+        lambda: (_ for _ in ()).throw(AssertionError("render_pending should not rebuild replay state")),
+    )
 
-    assert renderer.supports_pending_render() is False
+    assert renderer.supports_pending_render() is True
 
     renderer.render_pending()
 
-    assert fake_module.calls == [("render", 7)]
+    assert fake_module.calls == ["render_pending"]

@@ -1,7 +1,7 @@
 import
   std/[strutils, random, tables],
   vmath,
-  ../src/mettascope/[pathfinding, replays, common, actions]
+  ../src/mettascope/[pathfinding, replays, common, actions, timeline]
 
 type
   TestMap = object
@@ -261,6 +261,64 @@ block action_queue_sync_tests:
       "after confirmation, queue should advance to the next move"
     doAssert agentPaths[agent.agentId][0].pos == ivec2(1, 3),
       "queue should advance toward the objective after confirmation"
+    play = false
+
+  block pending_frame_does_not_consume_queued_objectives:
+    let map = parseAsciiMap("""
+#####
+#...#
+#...#
+#...#
+#####""")
+    setupTestMap(map)
+    let agent = Entity(
+      id: 1000,
+      agentId: 8,
+      isAgent: true,
+      typeName: "agent",
+      location: @[ivec2(1, 1)]
+    )
+    replay.objects.add(agent)
+    play = true
+    requestPython = false
+    requestActions = @[]
+    agentPaths = initTable[int, seq[PathAction]]()
+    agentObjectives = initTable[int, seq[Objective]]()
+
+    let objective = Objective(
+      kind: Move,
+      pos: ivec2(1, 3),
+      approachDir: ivec2(0, 0),
+      repeat: false
+    )
+    agentObjectives[agent.agentId] = @[objective]
+    recomputePath(agent.agentId, ivec2(1, 1))
+    doAssert agentPaths[agent.agentId][0].kind == Move,
+      "first planned action should be a move"
+    doAssert agentPaths[agent.agentId][0].pos == ivec2(1, 2),
+      "first planned move should target the next cardinal tile"
+
+    requestPython = true
+    let pendingActions = takeRequestActions(false)
+    doAssert pendingActions.len == 0,
+      "pending-only frames should drop manual actions instead of returning them"
+    doAssert requestActions.len == 0,
+      "pending-only frames should clear any queued manual actions"
+    doAssert requestPython == false,
+      "pending-only frames should reset the Python handoff flag"
+    doAssert agentPaths[agent.agentId][0].kind == Move,
+      "pending-only frames should not advance queued objectives"
+    doAssert agentPaths[agent.agentId][0].pos == ivec2(1, 2),
+      "pending-only frames should keep the current queued move"
+
+    requestPython = true
+    let activeActions = takeRequestActions(true)
+    doAssert activeActions.len == 1,
+      "live frames should still return the queued movement action"
+    doAssert agentPaths[agent.agentId][0].kind == Move,
+      "live frames should still wait for replay confirmation before popping"
+    doAssert agentPaths[agent.agentId][0].pos == ivec2(1, 2),
+      "live frames should keep the same queued move until replay advances"
     play = false
 
 when isMainModule:

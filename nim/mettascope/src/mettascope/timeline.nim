@@ -13,6 +13,14 @@ proc onRequestPython*() =
   ## Called before requesting Python to process the next step.
   processActions()
 
+proc takeRequestActions*(processPython: bool): seq[ActionRequest] =
+  ## Return queued actions for Python or drop them during pending-only renders.
+  if processPython:
+    processActions()
+    result = requestActions
+  requestActions.setLen(0)
+  requestPython = false
+
 proc playControls*() =
   let now = epochTime()
   let deltaTime = now - lastFrameTime

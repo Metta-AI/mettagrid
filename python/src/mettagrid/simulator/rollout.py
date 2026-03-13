@@ -2,7 +2,7 @@ import gc
 import logging
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional, Sequence
 
@@ -41,6 +41,11 @@ def gc_disabled() -> Iterator[None]:
 
 logger = logging.getLogger(__name__)
 StepResult = tuple[int, Action, float, dict[str, Any], int, int]
+_PENDING_RENDER_INTERVAL_SECONDS = 1.0 / 30.0
+
+
+class _PendingRenderAborted(Exception):
+    pass
 
 
 class Rollout:
@@ -79,6 +84,7 @@ class Rollout:
         )
         self._overage_exceeded_at: list[int | None] = [None] * len(policies)
         self._renderer: Optional[Renderer] = None
+        self._render_initial_frame = render_mode in {"gui", "vibescope"}
         self._timeout_counts: list[int] = [0] * len(policies)
         self._tracer: Tracer = tracer or NullTracer()
 
@@ -115,8 +121,11 @@ class Rollout:
         self._dialogue_tail_by_agent: dict[int, str] = {}
         self._dialogue_updates: dict[int, dict[str, Any]] = {}
         self._step_count = 0
+        self._skip_wait_on_policy_shutdown = False
         self._sim._context["policy_infos"] = self._policy_infos
         self._sim._context["dialogue_updates"] = self._dialogue_updates
+        if self._renderer is not None and self._render_initial_frame:
+            self._renderer.render()
 
     def step(self) -> None:
         """Execute one step of the rollout."""
@@ -124,48 +133,56 @@ class Rollout:
             logger.debug(f"Step {self._step_count}")
         self._dialogue_updates.clear()
 
-        if self._policy_group_keys is None:
-            for i in range(len(self._policies)):
-                if self._overage_exceeded_at[i] is not None:
-                    self._apply_disabled_action(i)
-                    continue
-                self._step_single_index(i)
-        else:
-            # Group agents that share a batching boundary so each group can be
-            # stepped together, while different groups can run concurrently.
-            groups: dict[object, list[int]] = {}
-            for i in range(len(self._policies)):
-                if self._overage_exceeded_at[i] is not None:
-                    self._apply_disabled_action(i)
-                    continue
-                group_key = self._policy_group_keys[i]
-                groups.setdefault(group_key, []).append(i)
+        try:
+            if self._policy_group_keys is None:
+                for i in range(len(self._policies)):
+                    if self._overage_exceeded_at[i] is not None:
+                        self._apply_disabled_action(i)
+                        continue
+                    self._step_single_index(i)
+            else:
+                # Group agents that share a batching boundary so each group can be
+                # stepped together, while different groups can run concurrently.
+                groups: dict[object, list[int]] = {}
+                for i in range(len(self._policies)):
+                    if self._overage_exceeded_at[i] is not None:
+                        self._apply_disabled_action(i)
+                        continue
+                    group_key = self._policy_group_keys[i]
+                    groups.setdefault(group_key, []).append(i)
 
-            if groups:
-                group_steps = self._execute_group_steps(list(groups.values()))
-                # Apply results after worker execution so action setting, timeout
-                # accounting, and trace writes stay on the main rollout thread.
-                for (
-                    index,
-                    action,
-                    elapsed_ms,
-                    infos,
-                    start_ns,
-                    duration_ns,
-                ) in group_steps:
-                    timed_out = self._apply_step_result(index, action, elapsed_ms, infos)
-                    self._tracer.record_span(
-                        "agent_step",
+                if groups:
+                    group_steps = self._execute_group_steps(list(groups.values()))
+                    # Apply results after worker execution so action setting, timeout
+                    # accounting, and trace writes stay on the main rollout thread.
+                    for (
+                        index,
+                        action,
+                        elapsed_ms,
+                        infos,
                         start_ns,
                         duration_ns,
-                        agent=index,
-                        step=self._step_count,
-                        timed_out=timed_out,
-                        elapsed_ms=elapsed_ms,
-                    )
+                    ) in group_steps:
+                        timed_out = self._apply_step_result(index, action, elapsed_ms, infos)
+                        self._tracer.record_span(
+                            "agent_step",
+                            start_ns,
+                            duration_ns,
+                            agent=index,
+                            step=self._step_count,
+                            timed_out=timed_out,
+                            elapsed_ms=elapsed_ms,
+                        )
+        except _PendingRenderAborted:
+            return
+
+        if self.is_done():
+            return
 
         if self._renderer is not None:
             self._renderer.render()
+        if self.is_done():
+            return
 
         with self._tracer.span("env_step", step=self._step_count):
             self._sim.step()
@@ -180,7 +197,10 @@ class Rollout:
                     self.step()
         finally:
             if self._policy_step_pool is not None:
-                self._policy_step_pool.shutdown(wait=True, cancel_futures=True)
+                self._policy_step_pool.shutdown(
+                    wait=not self._skip_wait_on_policy_shutdown,
+                    cancel_futures=True,
+                )
                 self._policy_step_pool = None
             self._tracer.flush()
 
@@ -199,7 +219,7 @@ class Rollout:
 
     def _step_single_index(self, index: int) -> None:
         with self._tracer.span("agent_step", step=self._step_count, agent=index) as span:
-            action, elapsed_ms, infos, _, _ = self._measure_single_step(index)
+            action, elapsed_ms, infos, _, _ = self._measure_single_step_with_pending_render(index)
             timed_out = self._apply_step_result(index, action, elapsed_ms, infos)
             span.set(timed_out=timed_out, elapsed_ms=elapsed_ms)
 
@@ -250,7 +270,7 @@ class Rollout:
         # but defer mutation until the caller applies the collected results.
         group_results: list[StepResult] = []
         for index in indices:
-            action, elapsed_ms, infos, start_ns, duration_ns = self._measure_single_step(index)
+            action, elapsed_ms, infos, start_ns, duration_ns = self._measure_single_step_with_pending_render(index)
             group_results.append((index, action, elapsed_ms, infos, start_ns, duration_ns))
         return group_results
 
@@ -263,6 +283,20 @@ class Rollout:
         infos = self._policies[index].infos
         merged_infos = dict(infos) if infos else {}
         return action, elapsed_ms, merged_infos, start_ns, duration_ns
+
+    def _measure_single_step_with_pending_render(self, index: int) -> tuple[Action, float, dict[str, Any], int, int]:
+        if self._renderer is None or not self._renderer.supports_pending_render():
+            return self._measure_single_step(index)
+        future = self._policy_executor().submit(self._measure_single_step, index)
+        while True:
+            try:
+                return future.result(timeout=_PENDING_RENDER_INTERVAL_SECONDS)
+            except TimeoutError as err:
+                self._render_pending_frame()
+                if self.is_done():
+                    self._skip_wait_on_policy_shutdown = True
+                    future.cancel()
+                    raise _PendingRenderAborted from err
 
     def _apply_step_result(self, index: int, action: Action, elapsed_ms: float, infos: dict[str, Any]) -> bool:
         # Centralize the rollout-side effects so single and grouped paths stay aligned.
@@ -316,3 +350,18 @@ class Rollout:
                 "dialogue_append": dialogue_append,
                 "dialogue_reset": dialogue_reset,
             }
+
+    def _policy_executor(self) -> ThreadPoolExecutor:
+        if self._policy_step_pool is None:
+            self._policy_step_pool = ThreadPoolExecutor(max_workers=max(1, os.cpu_count() or 1))
+        return self._policy_step_pool
+
+    def _render_pending_frame(self) -> None:
+        assert self._renderer is not None
+        self._sim._context["policy_infos"] = self._policy_infos
+        self._sim._context["dialogue_updates"] = self._dialogue_updates
+        self._sim._context["allow_manual_actions"] = False
+        try:
+            self._renderer.render_pending()
+        finally:
+            self._sim._context["allow_manual_actions"] = True

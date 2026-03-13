@@ -118,16 +118,35 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
       updateStepFloat()
       tickMettascope()
       if requestPython:
-        onRequestPython()
-        for action in requestActions:
+        for action in takeRequestActions(true):
           result.actions.add(ActionRequest(
             agentId: action.agentId,
             actionName: action.actionName.cstring
           ))
-        requestActions.setLen(0)
         return
   except Exception:
     echo "############## Error rendering Mettascope ##################"
+    echo getCurrentException().getStackTrace()
+    echo getCurrentExceptionMsg()
+    echo "############################################################"
+    result.shouldClose = true
+    return
+
+proc renderPending(): RenderResponse =
+  try:
+    result = RenderResponse(shouldClose: false, actions: @[])
+    requestPython = false
+    if window.closeRequested:
+      window.close()
+      result.shouldClose = true
+      return
+    updateStepFloat()
+    tickMettascope()
+    if requestPython:
+      discard takeRequestActions(false)
+    return
+  except Exception:
+    echo "########### Error rendering pending Mettascope #############"
     echo getCurrentException().getStackTrace()
     echo getCurrentExceptionMsg()
     echo "############################################################"
@@ -145,6 +164,7 @@ exportRefObject RenderResponse:
 exportProcs:
   init
   render
+  renderPending
 
 writeFiles("bindings/generated", "Mettascope")
 
