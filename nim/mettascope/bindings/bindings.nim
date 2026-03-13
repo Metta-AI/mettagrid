@@ -80,7 +80,7 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
     common.replay.apply(replayStep)
     if worldHeatmap != nil:
       update(worldHeatmap, currentStep, replay)
-    if not hadAgentsBefore and common.replay.agents.len > 0:
+    if currentStep == 0:
       onReplayLoaded()
     let currentStepFloat = currentStep.float32
     if playMode == Realtime:

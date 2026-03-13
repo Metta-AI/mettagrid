@@ -152,6 +152,8 @@ type
 
     # Policy info (per-step arbitrary metadata from policy).
     policyInfos*: seq[JsonNode]
+    dialogueAppend*: seq[string]
+    dialogueReset*: seq[bool]
 
     # Computed fields.
     gainMap*: seq[seq[ItemAmount]]
@@ -257,6 +259,8 @@ type
 
     # Policy info (arbitrary metadata from policy).
     policyInfos*: JsonNode
+    dialogueAppend*: string = ""
+    dialogueReset*: bool = false
 
   ReplayStep* = ref object
     step*: int
@@ -1301,6 +1305,8 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
 
     # Policy info is sourced from streamed replay steps only.
     entity.policyInfos = @[newJNull()]
+    entity.dialogueAppend = if "dialogue_append" in obj: expand[string](obj["dialogue_append"], replay.maxSteps, "") else: @[""]
+    entity.dialogueReset = if "dialogue_reset" in obj: expand[bool](obj["dialogue_reset"], replay.maxSteps, false) else: @[false]
 
     if "protocols" in obj:
       entity.protocols = fromJson($(obj["protocols"]), seq[Protocol])
@@ -1421,6 +1427,8 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
         entity.policyInfos.add(entity.policyInfos[^1])
       else:
         entity.policyInfos.add(newJNull())
+    entity.dialogueAppend.add(obj.dialogueAppend)
+    entity.dialogueReset.add(obj.dialogueReset)
 
   # Mark objects as dead if they existed before but weren't in this step.
   if replay.objects.len > 0:

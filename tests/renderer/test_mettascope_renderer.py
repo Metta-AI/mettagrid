@@ -5,7 +5,13 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 
-from mettagrid.renderer.mettascope import MettascopeRenderer, _extract_tutorial_overlay_phases
+from mettagrid.renderer.mettascope import (
+    MettascopeRenderer,
+    _dialogue_append,
+    _dialogue_reset,
+    _extract_tutorial_overlay_phases,
+)
+from mettagrid.simulator.policy_debug_projection import strip_dialogue_transcript_tail
 
 
 def test_extract_tutorial_overlay_phases_prefers_first_non_empty_list() -> None:
@@ -23,6 +29,27 @@ def test_extract_tutorial_overlay_phases_prefers_first_non_empty_list() -> None:
 def test_extract_tutorial_overlay_phases_ignores_non_dict_infos() -> None:
     overlay = _extract_tutorial_overlay_phases({0: "not-a-dict", 1: {"other_key": "value"}})
     assert overlay == []
+
+
+def test_strip_dialogue_transcript_tail_keeps_other_policy_infos() -> None:
+    policy_infos = {
+        "__dialogue_transcript_tail": "assistant: hello",
+        "policy_name": "debug_policy",
+        "target": [1, 2],
+    }
+
+    assert strip_dialogue_transcript_tail(policy_infos) == {
+        "policy_name": "debug_policy",
+        "target": [1, 2],
+    }
+
+
+def test_dialogue_update_helpers_ignore_invalid_payloads() -> None:
+    assert _dialogue_append({"dialogue_append": "assistant: hello"}) == "assistant: hello"
+    assert _dialogue_append({"dialogue_append": 123}) == ""
+    assert _dialogue_reset({"dialogue_reset": True}) is True
+    assert _dialogue_reset({"dialogue_reset": "yes"}) is True
+    assert _dialogue_reset(None) is False
 
 
 class _FakeMettascopeModule(ModuleType):
