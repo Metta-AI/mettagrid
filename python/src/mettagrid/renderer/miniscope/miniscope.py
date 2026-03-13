@@ -91,8 +91,6 @@ class MiniscopeRenderer(Renderer):
         # Initialize configuration in state
         self._state.resource_names = self._sim.resource_names
         self._state.symbol_map = DEFAULT_SYMBOL_MAP.copy()
-
-        # Add custom symbols from render config
         self._state.symbol_map.update(self._sim.config.game.render.symbols)
 
         self._state.vibes = [g.symbol for g in VIBE_DATA] if VIBE_DATA else None

@@ -2,7 +2,7 @@
 
 import std/[os, strutils, json, unicode, strformat]
 
-let pythonVibes = "../../../cogames/src/cogames/cogs_vs_clips/vibes.py"
+let pythonVibes = "../../../cogames/src/cogames/games/cogs_vs_clips/vibes.py"
 let data = readFile(pythonVibes)
 let lines = data.splitLines()
 for line in lines:

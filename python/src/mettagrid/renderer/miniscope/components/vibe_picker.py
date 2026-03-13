@@ -109,7 +109,7 @@ class VibePickerComponent(MiniscopeComponent):
             lines.append("Vibe Picker".ljust(width))
             lines.append("-" * width)
             lines.append("VIBE_DATA not available".ljust(width))
-            lines.append("Install cogames".ljust(width))
+            lines.append("Install cogames.games.cogs_vs_clips".ljust(width))
             return lines
 
         # Header
