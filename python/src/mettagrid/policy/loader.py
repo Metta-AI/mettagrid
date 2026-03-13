@@ -142,6 +142,7 @@ def discover_and_register_policies(*packages: str) -> None:
         "metta.agent.policy",
         "cogames.policy",
         "cogames_agents.policy",
+        "cog_cyborg.policy",
         *packages,
     ]:
         _walk_and_import_package(package_name)
