@@ -59,7 +59,7 @@ class _FakeSimulation:
         raise AssertionError("render_pending should not close the episode")
 
 
-def test_mettascope_renderer_uses_pending_binding(monkeypatch) -> None:
+def test_mettascope_renderer_does_not_use_pending_binding(monkeypatch) -> None:
     fake_module = _FakeMettascopeModule()
     monkeypatch.setitem(sys.modules, "mettascope", fake_module)
     monkeypatch.setattr("mettagrid.renderer.mettascope._resolve_nim_root", lambda: Path("/tmp"))
@@ -67,6 +67,8 @@ def test_mettascope_renderer_uses_pending_binding(monkeypatch) -> None:
     renderer = MettascopeRenderer()
     renderer.set_simulation(cast(Any, _FakeSimulation()))
 
+    assert renderer.supports_pending_render() is False
+
     renderer.render_pending()
 
-    assert fake_module.calls == [("renderPending", 7)]
+    assert fake_module.calls == [("render", 7)]

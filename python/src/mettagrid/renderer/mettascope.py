@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import numpy as np
-from typing_extensions import override
 
 from mettagrid.renderer.renderer import Renderer
 from mettagrid.types import Action
@@ -81,10 +80,6 @@ class MettascopeRenderer(Renderer):
             logger.info("Interrupt received during mettascope init; ending episode.")
             self._sim.end_episode()
             return
-
-    @override
-    def supports_pending_render(self) -> bool:
-        return True
 
     def _build_step_replay(self) -> dict:
         grid_objects = []
@@ -182,21 +177,6 @@ class MettascopeRenderer(Renderer):
         step_replay = self._build_step_replay()
         try:
             self.response = self._mettascope.render(self._sim.current_step, json.dumps(step_replay, allow_nan=False))
-        except KeyboardInterrupt:
-            logger.info("Interrupt received during mettascope render; ending episode.")
-            self._sim.end_episode()
-            return
-        self._apply_render_response()
-
-    @override
-    def render_pending(self) -> None:
-        step_replay = self._build_step_replay()
-        render_pending = getattr(self._mettascope, "renderPending", None)
-        if render_pending is None:
-            self.render()
-            return
-        try:
-            self.response = render_pending(self._sim.current_step, json.dumps(step_replay, allow_nan=False))
         except KeyboardInterrupt:
             logger.info("Interrupt received during mettascope render; ending episode.")
             self._sim.end_episode()

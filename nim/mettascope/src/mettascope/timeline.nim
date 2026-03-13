@@ -45,17 +45,23 @@ proc playControls*() =
     repeatToggleActive = false
 
   if play:
-    stepFloat += playSpeed * deltaTime
     case playMode:
     of Historical:
+      stepFloat += playSpeed * deltaTime
       if stepFloat >= replay.maxSteps.float32:
         # Loop back to the start.
         stepFloat -= replay.maxSteps.float32
     of Realtime:
-      if stepFloat >= replay.maxSteps.float32:
-        # Requesting more steps from Python.
+      # In realtime mode, Python owns the next step. The local timeline only
+      # catches up when the user has scrubbed behind the latest available step.
+      let latestStepFloat = replay.maxSteps.float32 - 1.0f
+      if stepFloatSmoothing:
+        discard
+      elif stepFloat < latestStepFloat:
+        stepFloat += playSpeed * deltaTime
+        stepFloat = min(stepFloat, latestStepFloat)
+      else:
         requestPython = true
-        stepFloat = replay.maxSteps.float32 - 1
     step = stepFloat.int
     step = step.clamp(0, replay.maxSteps - 1)
 
