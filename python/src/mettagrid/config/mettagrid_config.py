@@ -80,7 +80,8 @@ class ResourceLimitsConfig(Config):
         )
     """
 
-    min: int = Field(default=0, description="Minimum limit (floor for effective limit)")
+    # Require min, since it's easy to forget to set it, and `min` is sort of counterintuitive.
+    min: int = Field(description="Minimum limit (floor for effective limit)")
     max: int = Field(default=65535, description="Maximum limit (cap for effective limit)")
     resources: list[str]
     modifiers: dict[str, int] = Field(
@@ -125,8 +126,6 @@ class GridObjectConfig(Config):
 
     name: str = Field(description="Canonical type_name (human-readable)")
     map_name: str = Field(default="", description="Stable key used by maps to select this config")
-    render_name: str = Field(default="", description="Stable display-class identifier for theming")
-    render_symbol: str = Field(default="❓", description="Symbol used for rendering (e.g., emoji)")
     tags: list[str] = Field(default_factory=list, description="Tags for this object instance")
     vibe: int = Field(default=0, ge=0, le=255, description="Vibe value for this object instance")
     aoes: dict[str, AOEConfig] = Field(
@@ -159,9 +158,6 @@ class GridObjectConfig(Config):
     def _defaults_from_name(self) -> "GridObjectConfig":
         if not self.map_name:
             self.map_name = self.name
-        if not self.render_name:
-            self.render_name = self.name
-        # Type tags are auto-generated during C++ conversion via typeTag(object.name)
         return self
 
 
