@@ -71,7 +71,6 @@ def format_converter_properties(grid_object: dict, update_object: dict) -> None:
     update_object["conversion_remaining"] = 0  # TODO: Waiting for env to support this
     update_object["is_converting"] = grid_object.get("is_converting", False)
     update_object["conversion_duration"] = grid_object.get("conversion_duration", 0)
-    update_object["cooldown_remaining"] = 0  # TODO: Waiting for env to support this
     update_object["is_cooling_down"] = grid_object.get("is_cooling_down", False)
     update_object["cooldown_duration"] = grid_object.get("cooldown_duration", 0)
 

@@ -51,7 +51,7 @@ def make_token_feature(name: str, feature_id: int, normalization: float) -> tupl
     """Create a single observation feature token.
 
     Args:
-        name: Feature name (e.g. "vibe", "tag", "cooldown_remaining")
+        name: Feature name (e.g. "vibe", "tag", "goal")
         feature_id: Current feature ID
         normalization: Normalization value for this feature
 
@@ -186,10 +186,6 @@ class IdMap:
 
         # Tag feature (always included)
         add_feature("tag", 10.0)
-
-        # Object features
-        add_feature("cooldown_remaining", 255.0)
-        add_feature("remaining_uses", 255.0)
 
         # Local position features (directional offset from spawn)
         add_feature("lp:east", 255.0)

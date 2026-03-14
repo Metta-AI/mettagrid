@@ -65,8 +65,6 @@ protected:
         {"vibe", 11},
         {"agent:vibe", 12},
         {"tag", 15},
-        {"cooldown_remaining", 16},
-        {"remaining_uses", 17},
     };
     ObservationFeature::Initialize(feature_ids);
     resource_names = create_test_resource_names();

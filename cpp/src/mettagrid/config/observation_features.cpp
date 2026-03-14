@@ -13,8 +13,6 @@ ObservationType LastReward;
 ObservationType LastActionMove;
 ObservationType Vibe;
 ObservationType Tag;
-ObservationType CooldownRemaining;
-ObservationType RemainingUses;
 ObservationType Goal;
 ObservationType LpEast;
 ObservationType LpWest;
@@ -35,8 +33,6 @@ void Initialize(const std::unordered_map<std::string, ObservationType>& feature_
   LastActionMove = _instance->LastActionMove;
   Vibe = _instance->Vibe;
   Tag = _instance->Tag;
-  CooldownRemaining = _instance->CooldownRemaining;
-  RemainingUses = _instance->RemainingUses;
   Goal = _instance->Goal;
   LpEast = _instance->LpEast;
   LpWest = _instance->LpWest;

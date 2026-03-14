@@ -24,8 +24,6 @@ public:
     _last_action_move = has("last_action_move") ? get("last_action_move") : 0;
     _vibe = get("vibe");
     _tag = get("tag");
-    _cooldown_remaining = get("cooldown_remaining");
-    _remaining_uses = get("remaining_uses");
     _goal = get("goal");
     _lp_east = has("lp:east") ? get("lp:east") : 0;
     _lp_west = has("lp:west") ? get("lp:west") : 0;
@@ -43,8 +41,6 @@ public:
     LastActionMove = _last_action_move;
     Vibe = _vibe;
     Tag = _tag;
-    CooldownRemaining = _cooldown_remaining;
-    RemainingUses = _remaining_uses;
     Goal = _goal;
     LpEast = _lp_east;
     LpWest = _lp_west;
@@ -77,8 +73,6 @@ public:
   ObservationType LastActionMove;
   ObservationType Vibe;
   ObservationType Tag;
-  ObservationType CooldownRemaining;
-  ObservationType RemainingUses;
   ObservationType Goal;
   ObservationType LpEast;
   ObservationType LpWest;
@@ -99,8 +93,6 @@ private:
   ObservationType _last_action_move;
   ObservationType _vibe;
   ObservationType _tag;
-  ObservationType _cooldown_remaining;
-  ObservationType _remaining_uses;
   ObservationType _goal;
   ObservationType _lp_east;
   ObservationType _lp_west;
@@ -128,8 +120,6 @@ extern ObservationType LastReward;
 extern ObservationType LastActionMove;
 extern ObservationType Vibe;
 extern ObservationType Tag;
-extern ObservationType CooldownRemaining;
-extern ObservationType RemainingUses;
 extern ObservationType Goal;
 extern ObservationType LpEast;
 extern ObservationType LpWest;

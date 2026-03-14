@@ -90,8 +90,6 @@ protected:
         {"goal", 5},
         {"vibe", 6},
         {"tag", 7},
-        {"cooldown_remaining", 8},
-        {"remaining_uses", 9},
     };
     ObservationFeature::Initialize(feature_ids);
   }
