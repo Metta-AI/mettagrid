@@ -10,7 +10,7 @@ produce actions.
 ## Overview
 
 MettaGrid uses a **discrete action space** where actions are represented as a single integer index (action ID). Each
-action ID corresponds to a fully qualified action variant such as `move_north`, `attack_3`, or `change_vibe_happy`.
+action ID corresponds to a fully qualified action variant such as `move_north`, `move_east`, or `change_vibe_happy`.
 Verb/argument combinations are flattened during environment construction, so policies only need to emit a scalar
 `action_id` per agent.
 
@@ -36,26 +36,24 @@ etc.).
 
 ### Getting Action Information from Configuration
 
-There is not currently a clean way to get available action names from configuration. Action names can be gotten from an
-instantiated `Simulation`:
+Action names can be obtained directly from configuration:
 
 ```python
-from mettagrid.simulator import Simulator
 from mettagrid.config.mettagrid_config import MettaGridConfig
 
-# Create or load a configuration
 config = MettaGridConfig(...)
 
-# Create a simulator
-sim = Simulator(config)
+# Get action names from config
+action_names = [action.name for action in config.game.actions.actions()]
 
-# Get action ID to name mapping
+# Or from an instantiated Simulation
+from mettagrid.simulator import Simulator
+
+simulator = Simulator()
+sim = simulator.new_simulation(config, seed=0)
+
 action_ids = sim.action_ids  # dict[str, int] e.g., {"noop": 0, "move_north": 1, ...}
-
-# Get list of action names (in ID order)
 action_names = sim.action_names  # list[str] e.g., ["noop", "move_north", "move_south", ...]
-
-# Get action space size
 num_actions = len(action_names)
 ```
 
@@ -101,9 +99,8 @@ Example action names:
 
 ### Attack Actions
 
-- **Name pattern**: `attack_...`
-- **Description**: Attack a target to freeze (stun) them.
-- **Note**: Currently inoperable and needs to be refactored to work.
+- **Description**: Attack triggers via movement onto another agent (when vibes match), not as a standalone action. On success the attacker can freeze the target, transfer inventory, and loot resources. Targets can defend if they hold sufficient defense resources; weapon and armor inventories modify the defense cost threshold. Per-vibe armor bonuses are supported.
+- **Configuration**: `attack.defense_resources`, `attack.armor_resources`, `attack.weapon_resources`, `attack.success` (freeze duration, inventory deltas, loot), `attack.vibes`, `attack.vibe_bonus`, `attack.enabled`.
 
 ## Policy Action Emission
 

@@ -141,7 +141,7 @@ agents = sim.agents()
 while not sim.is_done():
     # Set actions for each agent
     for agent in agents:
-        action = Action(name="move_forward")
+        action = Action(name="move_north")
         agent.set_action(action)
 
     # Execute timestep
@@ -198,7 +198,7 @@ agent.set_inventory({"food": 10, "wood": 5})
 
 # Set action
 from mettagrid.types import Action
-agent.set_action(Action(name="harvest"))
+agent.set_action(Action(name="move_east"))
 
 # Check if last action succeeded
 if not agent.last_action_success:
@@ -252,9 +252,9 @@ class AgentObservation:
 
 Observations are token-based, where each token represents a feature at a specific location:
 
-- **Spatial features**: Object types, terrain, other agents (vary by location)
-- **Inventory features**: Resources held by the agent (appear at agent's center position)
-- **Global features**: Episode progress, last action/reward (appear at agent's center position)
+- **Spatial features**: Tags, vibes, agent group/frozen status (vary by location)
+- **Inventory features**: Resources held by the agent (at agent's grid position)
+- **Global features**: Episode progress, last action/reward (use `0xFE` global location marker, not spatial coordinates)
 
 Example:
 
@@ -263,8 +263,8 @@ agent = sim.agent(0)
 obs = agent.observation
 
 for token in obs.tokens:
-    if token.feature.name == "object_type":
-        print(f"Object at ({token.col()}, {token.row()}): {token.value}")
+    if token.feature.name == "tag":
+        print(f"Tag at ({token.col()}, {token.row()}): {token.value}")
 
 # For inventory, use the agent.inventory property which handles the encoding
 inventory = agent.inventory
