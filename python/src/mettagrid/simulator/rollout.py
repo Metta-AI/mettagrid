@@ -128,7 +128,14 @@ class Rollout:
             self._renderer.render()
 
     def step(self) -> None:
-        """Execute one step of the rollout."""
+        """Execute one step of the rollout.
+
+        Order: policy step → apply deferred user actions → sim.step → render.
+
+        Render happens AFTER sim.step so the user sees the result of their
+        input immediately. User actions captured during render are deferred
+        and applied after the next policy step, overriding policy actions.
+        """
         if self._step_count % 100 == 0:
             logger.debug(f"Step {self._step_count}")
         self._dialogue_updates.clear()
@@ -179,13 +186,22 @@ class Rollout:
         if self.is_done():
             return
 
+        # Apply deferred user actions from the previous render, overriding
+        # whatever the policy just set for user-controlled agents.
         if self._renderer is not None:
-            self._renderer.render()
-        if self.is_done():
-            return
+            self._renderer.apply_deferred_user_actions()
 
         with self._tracer.span("env_step", step=self._step_count):
             self._sim.step()
+
+        if self.is_done():
+            self._step_count += 1
+            return
+
+        # Render AFTER sim.step so the user sees the post-step state.
+        # User input captured here is deferred until after the next policy step.
+        if self._renderer is not None:
+            self._renderer.render()
 
         self._step_count += 1
 

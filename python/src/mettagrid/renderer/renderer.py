@@ -1,11 +1,15 @@
 """Base renderer classes for game rendering."""
 
+import logging
 from abc import abstractmethod
 from typing import Literal
 
 from typing_extensions import override
 
 from mettagrid.simulator.interface import SimulatorEventHandler
+from mettagrid.types import Action
+
+logger = logging.getLogger(__name__)
 
 RenderMode = Literal["gui", "vibescope", "unicode", "log", "none"]
 
@@ -15,6 +19,20 @@ class Renderer(SimulatorEventHandler):
 
     def __init__(self):
         super().__init__()
+        self._deferred_user_actions: list[tuple[int, Action]] = []
+
+    def defer_user_action(self, agent_id: int, action: Action) -> None:
+        """Store a user action to be applied after the next policy step."""
+        self._deferred_user_actions.append((agent_id, action))
+
+    def apply_deferred_user_actions(self) -> None:
+        """Apply all deferred user actions (overriding policy actions), then clear."""
+        for agent_id, action in self._deferred_user_actions:
+            try:
+                self._sim.agent(agent_id).set_action(action)
+            except KeyError:
+                logger.error("Unknown deferred action '%s' for agent %d — skipping", action.name, agent_id)
+        self._deferred_user_actions.clear()
 
     @override
     def on_episode_start(self) -> None:

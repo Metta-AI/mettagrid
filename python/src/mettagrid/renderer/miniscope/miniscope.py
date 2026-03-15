@@ -216,11 +216,11 @@ class MiniscopeRenderer(Renderer):
             # Clear input after processing
             self._state.user_input = None
 
-            # If we have a manual action ready, set it and return
+            # If we have a manual action ready, defer it and return
             if self._state.user_action is not None and self._state.selected_agent is not None:
-                # Set the action for the manually controlled agent
-                self._sim.agent(self._state.selected_agent).set_action(self._state.user_action)
-                # Clear should_step and action after setting it
+                # Defer the action to be applied after the next policy step
+                self.defer_user_action(self._state.selected_agent, self._state.user_action)
+                # Clear should_step and action after deferring it
                 self._state.should_step = False
                 self._state.user_action = None
                 break
