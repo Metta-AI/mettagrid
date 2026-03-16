@@ -140,6 +140,7 @@ def launch_local_policy_server(
     policy_uri: str,
     *,
     startup_timeout: float = 300.0,
+    extra_env: dict[str, str] | None = None,
 ) -> LocalPolicyServerHandle:
     """Launch a local policy server subprocess using WebSocket."""
     with tempfile.NamedTemporaryFile(suffix=".ready", delete=False) as ready_file_fd:
@@ -172,11 +173,13 @@ def launch_local_policy_server(
             str(ready_file_path),
         ]
 
+        child_env = {**os.environ, **(extra_env or {})}
         logger.info("Launching policy server for policy %s with command %s", policy_uri, cmd)
         process = subprocess.Popen(
             cmd,
             stdout=log_file,
             stderr=log_file,
+            env=child_env,
         )
 
     deadline = time.monotonic() + startup_timeout

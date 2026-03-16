@@ -114,6 +114,7 @@ def _localize_policy_uri(uri: str, temp_dirs: list[Path]) -> str:
 
 def _spawn_policy_servers(
     local_policy_uris: list[str],
+    per_policy_envs: dict[int, dict[str, str]] | None = None,
 ) -> tuple[list[LocalPolicyServerHandle], list[str]]:
     if not local_policy_uris:
         return [], []
@@ -122,9 +123,16 @@ def _spawn_policy_servers(
     futures: list = []
     try:
         with ThreadPoolExecutor(max_workers=len(local_policy_uris)) as pool:
-            futures = [pool.submit(launch_local_policy_server, uri) for uri in local_policy_uris]
-            for future in futures:
-                servers.append(future.result())
+            futures = [
+                pool.submit(
+                    launch_local_policy_server,
+                    uri,
+                    extra_env=(per_policy_envs or {}).get(i) or None,
+                )
+                for i, uri in enumerate(local_policy_uris)
+            ]
+            # Read results in submission order so returned URIs line up with local_policy_uris.
+            servers = [future.result() for future in futures]
     except Exception:
         for future in futures:
             future.cancel()
@@ -148,7 +156,7 @@ def _per_agent_policy_mapping(
     local_policy_uris: list[str],
     assignments: list[int],
     num_agents: int,
-) -> tuple[list[str], list[int]]:
+) -> tuple[list[str], list[int], dict[int, int]]:
     if len(assignments) != num_agents or not all(
         0 <= assignment < len(local_policy_uris) for assignment in assignments
     ):
@@ -166,7 +174,7 @@ def _per_agent_policy_mapping(
             policy_index_remap[assignment] = remapped_index
             compact_policy_uris.append(local_policy_uris[assignment])
         compact_assignments.append(remapped_index)
-    return compact_policy_uris, compact_assignments
+    return compact_policy_uris, compact_assignments, policy_index_remap
 
 
 def _read_subprocess_error(error_file: Path) -> RunnerError | None:
@@ -187,6 +195,7 @@ def run_episode_isolated(
     replay_path: Path | None = None,
     debug_dir: Path | None = None,
     policy_log_dir: Path | None = None,
+    policy_secrets: dict[int, dict[str, str]] | None = None,
 ) -> PureSingleEpisodeResult:
     """Run a single episode in a sandboxed subprocess with process-level isolation.
 
@@ -200,6 +209,9 @@ def run_episode_isolated(
         debug_dir: Optional directory for debug output.
         policy_log_dir: Optional directory for per-agent policy server logs.
             If provided, logs are copied as {agent_idx}.log after the episode completes.
+        policy_secrets: Per-policy environment variables keyed by policy index
+            (matches position in spec.policy_uris). Each policy subprocess will only
+            receive its own secrets.
     """
     servers: list[LocalPolicyServerHandle] = []
     policy_temp_dirs: list[Path] = []
@@ -209,13 +221,22 @@ def run_episode_isolated(
         logger.info(f"Policy localization took {time.monotonic() - t0:.1f}s for {len(spec.policy_uris)} policies")
 
         t1 = time.monotonic()
-        per_agent_policy_uris, per_agent_assignments = _per_agent_policy_mapping(
+        per_agent_policy_uris, per_agent_assignments, policy_index_remap = _per_agent_policy_mapping(
             local_policy_uris,
             spec.assignments,
             spec.env.game.num_agents,
         )
 
-        servers, http_policy_uris = _spawn_policy_servers(per_agent_policy_uris)
+        # Remap policy_secrets from original indices to compact indices
+        compact_secrets: dict[int, dict[str, str]] | None = None
+        if policy_secrets:
+            compact_secrets = {
+                compact_idx: policy_secrets[orig_idx]
+                for orig_idx, compact_idx in policy_index_remap.items()
+                if orig_idx in policy_secrets
+            }
+
+        servers, http_policy_uris = _spawn_policy_servers(per_agent_policy_uris, compact_secrets)
         logger.info(
             "Policy servers spawned in %.1fs for %d compact policies (%d agents)",
             time.monotonic() - t1,

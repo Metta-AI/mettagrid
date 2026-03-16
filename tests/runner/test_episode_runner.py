@@ -1,6 +1,6 @@
 import shutil
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -10,6 +10,7 @@ from mettagrid.runner.episode_runner import (
     _is_presigned_url,
     _localize_policy_uri,
     _per_agent_policy_mapping,
+    _spawn_policy_servers,
     _to_file_uri,
 )
 
@@ -39,7 +40,7 @@ def test_to_file_uri_resolves_relative_paths() -> None:
 
 
 def test_per_agent_policy_mapping_compacts_by_policy_index() -> None:
-    uris, remapped_assignments = _per_agent_policy_mapping(
+    uris, remapped_assignments, index_remap = _per_agent_policy_mapping(
         ["file:///policy0.zip", "file:///policy1.zip", "file:///policy2.zip"],
         assignments=[0, 0, 2, 2, 0, 2],
         num_agents=6,
@@ -47,10 +48,11 @@ def test_per_agent_policy_mapping_compacts_by_policy_index() -> None:
 
     assert uris == ["file:///policy0.zip", "file:///policy2.zip"]
     assert remapped_assignments == [0, 0, 1, 1, 0, 1]
+    assert index_remap == {0: 0, 2: 1}
 
 
 def test_per_agent_policy_mapping_keeps_distinct_duplicate_indices() -> None:
-    uris, remapped_assignments = _per_agent_policy_mapping(
+    uris, remapped_assignments, index_remap = _per_agent_policy_mapping(
         ["file:///same.zip", "file:///same.zip"],
         assignments=[0, 1, 0, 1],
         num_agents=4,
@@ -58,6 +60,7 @@ def test_per_agent_policy_mapping_keeps_distinct_duplicate_indices() -> None:
 
     assert uris == ["file:///same.zip", "file:///same.zip"]
     assert remapped_assignments == [0, 1, 0, 1]
+    assert index_remap == {0: 0, 1: 1}
 
 
 def test_per_agent_policy_mapping_rejects_bad_assignments() -> None:
@@ -89,6 +92,97 @@ def test_localize_policy_uri_still_localizes_non_builtin_uris() -> None:
         mock_resolve.return_value = type("Resolved", (), {"scheme": "metta", "canonical": "metta://policy/x"})()
         assert _localize_policy_uri("metta://policy/not_builtin:v1", temp_dirs=[]) == "file:///tmp/policy.zip"
         mock_localize.assert_called_once()
+
+
+class TestSpawnPolicyServersSecretsInjection:
+    """Verify that per-policy secrets are threaded to the correct policy server."""
+
+    def _make_handle(self, port: int) -> MagicMock:
+        handle = MagicMock()
+        handle.base_url = f"ws://127.0.0.1:{port}"
+        return handle
+
+    def test_passes_correct_extra_env_per_policy(self) -> None:
+        secrets = {0: {"ANTHROPIC_API_KEY": "sk-policy0"}, 1: {"ANTHROPIC_API_KEY": "sk-policy1"}}
+        uris = ["file:///policy0.zip", "file:///policy1.zip"]
+
+        with patch(
+            "mettagrid.runner.episode_runner.launch_local_policy_server",
+            side_effect=[self._make_handle(9000), self._make_handle(9001)],
+        ) as mock_launch:
+            _spawn_policy_servers(uris, per_policy_envs=secrets)
+
+        assert mock_launch.call_count == 2
+        calls = mock_launch.call_args_list
+        assert calls[0] == call("file:///policy0.zip", extra_env={"ANTHROPIC_API_KEY": "sk-policy0"})
+        assert calls[1] == call("file:///policy1.zip", extra_env={"ANTHROPIC_API_KEY": "sk-policy1"})
+
+    def test_passes_none_extra_env_when_no_secrets_for_policy(self) -> None:
+        """Policy index 1 has no secrets — extra_env should be None."""
+        secrets = {0: {"API_KEY": "abc"}}
+        uris = ["file:///policy0.zip", "file:///policy1.zip"]
+
+        with patch(
+            "mettagrid.runner.episode_runner.launch_local_policy_server",
+            side_effect=[self._make_handle(9000), self._make_handle(9001)],
+        ) as mock_launch:
+            _spawn_policy_servers(uris, per_policy_envs=secrets)
+
+        calls = mock_launch.call_args_list
+        assert calls[0] == call("file:///policy0.zip", extra_env={"API_KEY": "abc"})
+        assert calls[1] == call("file:///policy1.zip", extra_env=None)
+
+    def test_no_secrets_passes_none_for_all(self) -> None:
+        uris = ["file:///policy0.zip", "file:///policy1.zip"]
+
+        with patch(
+            "mettagrid.runner.episode_runner.launch_local_policy_server",
+            side_effect=[self._make_handle(9000), self._make_handle(9001)],
+        ) as mock_launch:
+            _spawn_policy_servers(uris, per_policy_envs=None)
+
+        calls = mock_launch.call_args_list
+        assert calls[0] == call("file:///policy0.zip", extra_env=None)
+        assert calls[1] == call("file:///policy1.zip", extra_env=None)
+
+
+def test_secrets_remap_follows_policy_index_remap() -> None:
+    """Secrets keyed by original policy index are remapped to compact indices."""
+    # Original indices: policy 0 used by agents 0,1; policy 2 used by agents 2,3.
+    # Compact mapping: 0→0, 2→1.
+    _, _, index_remap = _per_agent_policy_mapping(
+        ["file:///p0.zip", "file:///p1.zip", "file:///p2.zip"],
+        assignments=[0, 0, 2, 2],
+        num_agents=4,
+    )
+    assert index_remap == {0: 0, 2: 1}
+
+    policy_secrets = {0: {"KEY_A": "val0"}, 2: {"KEY_A": "val2"}}
+    compact_secrets = {
+        compact_idx: policy_secrets[orig_idx]
+        for orig_idx, compact_idx in index_remap.items()
+        if orig_idx in policy_secrets
+    }
+    assert compact_secrets == {0: {"KEY_A": "val0"}, 1: {"KEY_A": "val2"}}
+
+
+def test_secrets_remap_drops_policies_with_no_secrets() -> None:
+    """Compact secrets only includes policies that actually have secrets."""
+    _, _, index_remap = _per_agent_policy_mapping(
+        ["file:///p0.zip", "file:///p1.zip"],
+        assignments=[0, 1, 0, 1],
+        num_agents=4,
+    )
+    assert index_remap == {0: 0, 1: 1}
+
+    policy_secrets = {0: {"API_KEY": "abc"}}  # only policy 0 has secrets
+    compact_secrets = {
+        compact_idx: policy_secrets[orig_idx]
+        for orig_idx, compact_idx in index_remap.items()
+        if orig_idx in policy_secrets
+    }
+    assert compact_secrets == {0: {"API_KEY": "abc"}}
+    assert 1 not in compact_secrets
 
 
 class TestDownloadPresignedPolicy:

@@ -166,6 +166,14 @@ def main() -> None:
         raise
     logger.info(f"Job spec loaded in {time.monotonic() - t0:.1f}s")
 
+    policy_secrets: dict[int, dict[str, str]] | None = None
+    secrets_uri = os.environ.pop("POLICY_SECRETS_URI", None)
+    if secrets_uri:
+        bundle = json.loads(read(secrets_uri))
+        policy_secrets = {int(k): v for k, v in bundle["policies"].items()}
+        del bundle
+        logger.info("Loaded policy secrets bundle for %d policies", len(policy_secrets))
+
     debug_uri = os.environ.get("DEBUG_URI")
     policy_log_urls_json = os.environ.get("POLICY_LOG_URLS")
     policy_log_urls: dict[str, str] | None = json.loads(policy_log_urls_json) if policy_log_urls_json else None
@@ -209,6 +217,7 @@ def main() -> None:
                     replay_path=replay_path,
                     debug_dir=debug_dir,
                     policy_log_dir=policy_log_dir,
+                    policy_secrets=policy_secrets,
                 )
             logger.info(f"Episode run completed in {time.monotonic() - t_episode:.1f}s")
 
