@@ -279,9 +279,6 @@ class Rollout:
                 (index, actions[offset], elapsed_ms, {}, start_ns, duration_ns) for offset, index in enumerate(indices)
             ]
 
-        return self._step_group_sequential(indices)
-
-    def _step_group_sequential(self, indices: list[int]) -> list[StepResult]:
         # Reuse the single-agent measurement path when a group cannot be batched,
         # but defer mutation until the caller applies the collected results.
         group_results: list[StepResult] = []
@@ -303,7 +300,9 @@ class Rollout:
     def _measure_single_step_with_pending_render(self, index: int) -> tuple[Action, float, dict[str, Any], int, int]:
         if self._renderer is None or not self._renderer.supports_pending_render():
             return self._measure_single_step(index)
-        future = self._policy_executor().submit(self._measure_single_step, index)
+        if self._policy_step_pool is None:
+            self._policy_step_pool = ThreadPoolExecutor(max_workers=max(1, os.cpu_count() or 1))
+        future = self._policy_step_pool.submit(self._measure_single_step, index)
         while True:
             try:
                 return future.result(timeout=_PENDING_RENDER_INTERVAL_SECONDS)
@@ -366,11 +365,6 @@ class Rollout:
                 "dialogue_append": dialogue_append,
                 "dialogue_reset": dialogue_reset,
             }
-
-    def _policy_executor(self) -> ThreadPoolExecutor:
-        if self._policy_step_pool is None:
-            self._policy_step_pool = ThreadPoolExecutor(max_workers=max(1, os.cpu_count() or 1))
-        return self._policy_step_pool
 
     def _render_pending_frame(self) -> None:
         assert self._renderer is not None

@@ -453,7 +453,6 @@ def test_rollout_pending_close_aborts_blocked_step_without_waiting_for_policy_sh
     future = NeverCompletingFuture()
     executor = FakeExecutor(future)
     rollout._policy_step_pool = executor  # type: ignore[assignment]
-    monkeypatch.setattr(rollout, "_policy_executor", lambda: executor)
 
     rollout.run_until_done()
 
