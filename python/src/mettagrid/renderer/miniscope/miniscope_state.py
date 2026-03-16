@@ -28,6 +28,10 @@ class PlaybackState(Enum):
     STEPPING = "stepping"  # Single step mode
 
 
+_DEFAULT_VISIBLE_SIDEBAR_PANELS = frozenset({"agent_info", "object_info", "symbols"})
+_HIDDEN_MODAL_PANELS = frozenset({"vibe_picker", "help"})
+
+
 @dataclass
 class MiniscopeState:
     """State container for miniscope renderer."""
@@ -128,18 +132,7 @@ class MiniscopeState:
     def exit_vibe_picker(self) -> None:
         """Exit vibe picker mode and restore previous state."""
         self.mode = RenderMode.FOLLOW
-
-        # Restore saved sidebar visibility if available
-        if self._saved_sidebar_visibility is not None:
-            self.sidebar_visibility = self._saved_sidebar_visibility.copy()
-            self._saved_sidebar_visibility = None
-        else:
-            # Fallback to default if no saved state
-            for name in self.sidebar_visibility.keys():
-                if name in ("agent_info", "object_info", "symbols"):
-                    self.sidebar_visibility[name] = True
-                else:
-                    self.sidebar_visibility[name] = False
+        self._restore_sidebar_visibility()
 
     def enter_help(self) -> None:
         """Enter help mode and configure sidebar."""
@@ -154,18 +147,7 @@ class MiniscopeState:
     def exit_help(self) -> None:
         """Exit help mode and restore previous state."""
         self.mode = RenderMode.FOLLOW
-
-        # Restore saved sidebar visibility if available
-        if self._saved_sidebar_visibility is not None:
-            self.sidebar_visibility = self._saved_sidebar_visibility.copy()
-            self._saved_sidebar_visibility = None
-        else:
-            # Fallback to default if no saved state
-            for name in self.sidebar_visibility.keys():
-                if name in ("agent_info", "object_info", "symbols"):
-                    self.sidebar_visibility[name] = True
-                else:
-                    self.sidebar_visibility[name] = False
+        self._restore_sidebar_visibility()
 
     def toggle_manual_control(self, agent_id: int) -> None:
         """Toggle manual control for an agent."""
@@ -236,11 +218,7 @@ class MiniscopeState:
     def initialize_sidebar_visibility(self, panels: list[str]) -> None:
         """Initialize visibility of sidebar panels, defaulting to visible for regular panels."""
         for name in panels:
-            # Modal panels (vibe_picker, help) start hidden
-            if name in ("vibe_picker", "help"):
-                self.sidebar_visibility[name] = False
-            else:
-                self.sidebar_visibility[name] = True
+            self.sidebar_visibility[name] = name not in _HIDDEN_MODAL_PANELS
 
     def toggle_sidebar_panel(self, name: str) -> None:
         """Toggle visibility for a specific sidebar panel."""
@@ -254,3 +232,11 @@ class MiniscopeState:
     def set_sidebar_visibility(self, name: str, visible: bool) -> None:
         """Set explicit visibility for a sidebar panel."""
         self.sidebar_visibility[name] = visible
+
+    def _restore_sidebar_visibility(self) -> None:
+        if self._saved_sidebar_visibility is not None:
+            self.sidebar_visibility = self._saved_sidebar_visibility.copy()
+            self._saved_sidebar_visibility = None
+            return
+        for name in self.sidebar_visibility:
+            self.sidebar_visibility[name] = name in _DEFAULT_VISIBLE_SIDEBAR_PANELS

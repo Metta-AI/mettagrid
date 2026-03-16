@@ -200,6 +200,48 @@ class TestMiniscopeState:
         state.toggle_manual_control(2)
         assert state.manual_agents == {0, 1, 2}
 
+    def test_initialize_sidebar_visibility_hides_modal_panels(self):
+        """Modal sidebar panels should start hidden."""
+        state = MiniscopeState()
+
+        state.initialize_sidebar_visibility(["agent_info", "object_info", "symbols", "vibe_picker", "help"])
+
+        assert state.sidebar_visibility["agent_info"] is True
+        assert state.sidebar_visibility["object_info"] is True
+        assert state.sidebar_visibility["symbols"] is True
+        assert state.sidebar_visibility["vibe_picker"] is False
+        assert state.sidebar_visibility["help"] is False
+
+    def test_exit_help_without_saved_sidebar_state_restores_defaults(self):
+        """Help exit should restore the standard visible panels when no prior state was saved."""
+        state = MiniscopeState()
+        state.initialize_sidebar_visibility(["agent_info", "object_info", "symbols", "help"])
+        state.sidebar_visibility = {"agent_info": False, "object_info": False, "symbols": False, "help": True}
+
+        state.exit_help()
+
+        assert state.sidebar_visibility == {
+            "agent_info": True,
+            "object_info": True,
+            "symbols": True,
+            "help": False,
+        }
+
+    def test_exit_vibe_picker_without_saved_sidebar_state_restores_defaults(self):
+        """Vibe picker exit should restore the standard visible panels when no prior state was saved."""
+        state = MiniscopeState()
+        state.initialize_sidebar_visibility(["agent_info", "object_info", "symbols", "vibe_picker"])
+        state.sidebar_visibility = {"agent_info": False, "object_info": False, "symbols": False, "vibe_picker": True}
+
+        state.exit_vibe_picker()
+
+        assert state.sidebar_visibility == {
+            "agent_info": True,
+            "object_info": True,
+            "symbols": True,
+            "vibe_picker": False,
+        }
+
     def test_select_agents(self):
         """Test select_next_agent and select_previous_agent methods."""
         state = MiniscopeState()

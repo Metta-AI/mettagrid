@@ -45,20 +45,11 @@ class MiniscopeRenderer(Renderer):
         self._state = MiniscopeState()
 
         # Rich console for rendering - reduce size by 1 to prevent wrapping
-        try:
-            term_size = shutil.get_terminal_size()
-            if term_size.columns > 0 and term_size.lines > 0:
-                self._initial_terminal_columns = term_size.columns
-                self._initial_terminal_lines = term_size.lines
-            else:
-                raise ValueError("Invalid terminal size")
-            console_width = max(80, term_size.columns - 1)
-            console_height = max(24, term_size.lines - 1)
-        except Exception:
-            console_width = 119
-            console_height = 39
-            self._initial_terminal_columns = console_width + 1
-            self._initial_terminal_lines = console_height + 1
+        term_size = shutil.get_terminal_size(fallback=(120, 40))
+        self._initial_terminal_columns = term_size.columns or 120
+        self._initial_terminal_lines = term_size.lines or 40
+        console_width = max(80, self._initial_terminal_columns - 1)
+        console_height = max(24, self._initial_terminal_lines - 1)
         self._console = Console(width=console_width, height=console_height)
 
         # Panel layout
@@ -105,29 +96,32 @@ class MiniscopeRenderer(Renderer):
             ("3", "symbols", SymbolsTableComponent),
         ]
         self._sidebar_hotkeys = {hotkey: name for hotkey, name, _ in sidebar_defs}
+        sidebar_panel_names = [name for _, name, _ in sidebar_defs]
 
         self._panels.reset_sidebar_panels()
         # Register all panels including modal ones
-        for _, name, _ in sidebar_defs:
+        for name in sidebar_panel_names:
             self._panels.register_sidebar_panel(name)
         self._panels.register_sidebar_panel("vibe_picker")
         self._panels.register_sidebar_panel("help")
 
         # Initialize sidebar visibility state
-        self._state.initialize_sidebar_visibility([name for _, name, _ in sidebar_defs] + ["vibe_picker", "help"])
+        self._state.initialize_sidebar_visibility(sidebar_panel_names + ["vibe_picker", "help"])
 
-        # Create all components with panel layout
-        self._components = []
-
-        # Create components - all get the same PanelLayout
-        self._components.append(MapComponent(sim=self._sim, state=self._state, panels=self._panels))
-        self._components.append(SimControlComponent(sim=self._sim, state=self._state, panels=self._panels))
-        self._components.append(AgentControlComponent(sim=self._sim, state=self._state, panels=self._panels))
-        self._components.append(AgentInfoComponent(sim=self._sim, state=self._state, panels=self._panels))
-        self._components.append(ObjectInfoComponent(sim=self._sim, state=self._state, panels=self._panels))
-        self._components.append(SymbolsTableComponent(sim=self._sim, state=self._state, panels=self._panels))
-        self._components.append(VibePickerComponent(sim=self._sim, state=self._state, panels=self._panels))
-        self._components.append(HelpPanelComponent(sim=self._sim, state=self._state, panels=self._panels))
+        component_classes = (
+            MapComponent,
+            SimControlComponent,
+            AgentControlComponent,
+            AgentInfoComponent,
+            ObjectInfoComponent,
+            SymbolsTableComponent,
+            VibePickerComponent,
+            HelpPanelComponent,
+        )
+        self._components = [
+            component_class(sim=self._sim, state=self._state, panels=self._panels)
+            for component_class in component_classes
+        ]
 
         # Set up terminal (hide cursor and set up input handling)
         self._setup_terminal()
@@ -378,10 +372,7 @@ class MiniscopeRenderer(Renderer):
 
     def _is_sidebar_visible(self) -> bool:
         """Check if any sidebar panels are currently visible."""
-        for _name, visible in self._state.sidebar_visibility.items():
-            if visible:
-                return True
-        return False
+        return any(self._state.sidebar_visibility.values())
 
     def _setup_terminal(self) -> None:
         """Set up terminal for interactive mode."""
