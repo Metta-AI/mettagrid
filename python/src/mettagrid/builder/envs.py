@@ -59,7 +59,7 @@ def make_arena(
             border_width=6,
             instance_border_width=0,
             instance=mettagrid.mapgen.scenes.random.Random.Config(
-                agents=6,
+                agents=num_agents,
                 objects={
                     "wall": 10,
                 },
