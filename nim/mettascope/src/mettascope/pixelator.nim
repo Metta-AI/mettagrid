@@ -26,7 +26,7 @@ type
     image: Image
     shader: Shader
     vao: GLuint              ## Vertex array object
-    instanceVbo: GLuint      ## Per-instance buffer: aPos(2 x uint16), aUv(4 x uint16), aTint(4 x uint8)
+    instanceVbo: GLuint      ## Per-instance buffer: aPos(2 x uint16), aUv(4 x uint16), aTint(4 x uint8), aMaskUv(4 x uint16)
     atlasTexture: GLuint     ## GL texture for the atlas image
     instanceData: seq[uint16]
     instanceCount: int
@@ -36,7 +36,8 @@ var
   atlasSize: Uniform[Vec2]
   atlas: Uniform[Sampler2D]
 
-proc pixelatorVert*(vertexPos: UVec2, uv: UVec4, tint: Vec4, fragmentUv: var Vec2, vTint: var Vec4) =
+proc pixelatorVert*(vertexPos: UVec2, uv: UVec4, tint: Vec4, maskUv: UVec4,
+                    fragmentUv: var Vec2, vTint: var Vec4, vMaskUv: var Vec2) =
   # Compute the corner of the quad based on the vertex ID.
   # 0:(0,0), 1:(1,0), 2:(0,1), 3:(1,1)
   let corner = ivec2(gl_VertexID mod 2, gl_VertexID div 2)
@@ -51,15 +52,32 @@ proc pixelatorVert*(vertexPos: UVec2, uv: UVec4, tint: Vec4, fragmentUv: var Vec
   let sy = float(uv.y) + float(corner.y) * float(uv.w)
   fragmentUv = vec2(sx, sy) / atlasSize
 
+  # Compute mask UV. When maskUv.z == 0 (no mask), output -1.0 sentinel.
+  if float(maskUv.z) < 0.5:
+    vMaskUv = vec2(-1.0)
+  else:
+    let msx = float(maskUv.x) + float(corner.x) * float(maskUv.z)
+    let msy = float(maskUv.y) + float(corner.y) * float(maskUv.w)
+    vMaskUv = vec2(msx, msy) / atlasSize
+
   # Tint is auto-normalized from 4 x uint8 by GL.
   vTint = tint
 
-proc pixelatorFrag*(fragmentUv: Vec2, vTint: Vec4, FragColor: var Vec4) =
+proc pixelatorFrag*(fragmentUv: Vec2, vTint: Vec4, vMaskUv: Vec2, FragColor: var Vec4) =
   # Compute the texture coordinates of the pixel.
   let pixCoord = fragmentUv * atlasSize
   # Compute the AA pixel coordinates.
   let pixAA = floor(pixCoord) + min(fract(pixCoord) / fwidth(pixCoord), 1.0) - 0.5
-  FragColor = texture(atlas, pixAA / atlasSize) * vTint
+  let base = texture(atlas, pixAA / atlasSize)
+  if vMaskUv.x < 0.0:
+    # No mask: apply tint to entire sprite (original behavior).
+    FragColor = base * vTint
+  else:
+    # Mask: tint only where mask is white.
+    let maskCoord = vMaskUv * atlasSize
+    let maskAA = floor(maskCoord) + min(fract(maskCoord) / fwidth(maskCoord), 1.0) - 0.5
+    let maskR = texture(atlas, maskAA / atlasSize).r
+    FragColor = vec4(base.rgb * mix(vec3(1.0), vTint.rgb, maskR), base.a * vTint.a)
 
 proc generatePixelAtlas*(
   size: int,
@@ -165,13 +183,13 @@ proc newPixelator*(imagePath, jsonPath: string): Pixelator {.measure.} =
   glBindBuffer(GL_ARRAY_BUFFER, result.instanceVbo)
   glBufferData(GL_ARRAY_BUFFER, 0, nil, GL_STREAM_DRAW)  # will resize each frame
 
-  # Interleaved attributes of 16 bytes (8 * uint16).
-  let stride = 8 * sizeof(uint16)
+  # Interleaved attributes of 24 bytes (12 * uint16).
+  let stride = 12 * sizeof(uint16)
   # Location 0: aPos (2 x uint16) at offset 0.
   glEnableVertexAttribArray(0)
   glVertexAttribIPointer(0, 2, GL_UNSIGNED_SHORT, stride.GLsizei, cast[pointer](0))
   glVertexAttribDivisor(0, 1)
-  # Location 1: aUv (4 x uint16) at offset 2 * uint16.
+  # Location 1: aUv (4 x uint16) at offset 4 bytes.
   glEnableVertexAttribArray(1)
   glVertexAttribIPointer(1, 4, GL_UNSIGNED_SHORT, stride.GLsizei, cast[pointer](2 * sizeof(uint16)))
   glVertexAttribDivisor(1, 1)
@@ -179,6 +197,10 @@ proc newPixelator*(imagePath, jsonPath: string): Pixelator {.measure.} =
   glEnableVertexAttribArray(2)
   glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride.GLsizei, cast[pointer](6 * sizeof(uint16)))
   glVertexAttribDivisor(2, 1)
+  # Location 3: aMaskUv (4 x uint16) at offset 16 bytes.
+  glEnableVertexAttribArray(3)
+  glVertexAttribIPointer(3, 4, GL_UNSIGNED_SHORT, stride.GLsizei, cast[pointer](8 * sizeof(uint16)))
+  glVertexAttribDivisor(3, 1)
 
   # Unbind the buffers.
   glBindBuffer(GL_ARRAY_BUFFER, 0)
@@ -190,9 +212,11 @@ proc drawSprite*(
   px: Pixelator,
   name: string,
   x, y: uint16,
-  tint: ColorRGBX = WhiteTint
+  tint: ColorRGBX = WhiteTint,
+  mask: string = ""
 ) =
   ## Draws a sprite at the given position with optional tint color.
+  ## When mask is non-empty, tint is applied only where the mask is white.
   if name notin px.atlas.entries:
     echo "[Warning] Sprite not found in atlas: " & name
     return
@@ -206,16 +230,29 @@ proc drawSprite*(
   # Pack 4 tint bytes into 2 uint16 slots (read as 4 x GL_UNSIGNED_BYTE on GPU)
   px.instanceData.add(uint16(tint.r) or (uint16(tint.g) shl 8))
   px.instanceData.add(uint16(tint.b) or (uint16(tint.a) shl 8))
+  # Mask UV: use mask entry if provided, otherwise emit zeros (no mask).
+  if mask.len > 0 and mask in px.atlas.entries:
+    let m = px.atlas.entries[mask]
+    px.instanceData.add(m.x.uint16)
+    px.instanceData.add(m.y.uint16)
+    px.instanceData.add(m.width.uint16)
+    px.instanceData.add(m.height.uint16)
+  else:
+    px.instanceData.add(0'u16)
+    px.instanceData.add(0'u16)
+    px.instanceData.add(0'u16)
+    px.instanceData.add(0'u16)
   inc px.instanceCount
 
 proc drawSprite*(
   px: Pixelator,
   name: string,
   pos: IVec2,
-  tint: ColorRGBX = WhiteTint
+  tint: ColorRGBX = WhiteTint,
+  mask: string = ""
 ) =
   ## Draws a sprite at the given position with optional tint color.
-  px.drawSprite(name, pos.x.uint16, pos.y.uint16, tint)
+  px.drawSprite(name, pos.x.uint16, pos.y.uint16, tint, mask)
 
 proc contains*(px: Pixelator, name: string): bool =
   ## Checks if the given sprite is in the atlas.

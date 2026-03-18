@@ -721,9 +721,16 @@ proc drawObjects*() {.measure.} =
       if agentImage notin px:
         agentImage = "agents/" & agentRigName(agent) & "." & orientation.char
 
+      # Tint sprite by team color using mask for selective coloring.
+      let teamIdx = getEntityTeamIndex(agent)
+      let tint = if teamIdx >= 0: getTeamColor(teamIdx) else: WhiteTint
+      let mask = if teamIdx >= 0: agentImage & ".mask" else: ""
+
       px.drawSprite(
         agentImage,
-        (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
+        (pos * TileSize.float32 + SpriteOffset.vec2).ivec2,
+        tint,
+        mask
       )
 
     else:
