@@ -5,11 +5,20 @@
 from mettagrid.config.event_config import EventConfig, once, periodic
 from mettagrid.config.filter import (
     MaxDistanceFilter,
+    OrFilter,
+    Query,
+    ResourceFilter,
     TagFilter,
+    TagPrefixFilter,
+    VibeFilter,
+    actorVibe,
+    anyOf,
     hasTag,
+    hasTagPrefix,
     isA,
     isNear,
     query,
+    targetHas,
 )
 from mettagrid.config.filter.filter import HandlerTarget
 from mettagrid.config.game_value import SumGameValue, stat, val
@@ -104,6 +113,11 @@ class TestMaxDistanceFilter:
         f = isNear(query("wall", [hasTag("team:a")]))
         assert f.radius == 1
         assert f.query.source == "wall"
+
+    def test_max_distance_filter_wraps_string_query(self):
+        f = isNear("hub", radius=2)
+        assert isinstance(f.query, Query)
+        assert f.query.source == "hub"
 
     def test_max_distance_filter_serialization(self):
         """Test MaxDistanceFilter serialization."""
@@ -329,6 +343,20 @@ class TestFilterPolymorphism:
         assert len(restored.filters) == 2
         assert isinstance(restored.filters[0], TagFilter)
         assert isinstance(restored.filters[1], MaxDistanceFilter)
+
+    def test_nested_or_filter_deserialization(self):
+        event = EventConfig(
+            name="nested_or",
+            target_query=query(typeTag("wall")),
+            timesteps=[100],
+            filters=[anyOf([actorVibe("up"), targetHas({"gold": 1}), hasTagPrefix("team")])],
+            mutations=[],
+        )
+        restored = EventConfig.model_validate_json(event.model_dump_json())
+        assert isinstance(restored.filters[0], OrFilter)
+        assert isinstance(restored.filters[0].inner[0], VibeFilter)
+        assert isinstance(restored.filters[0].inner[1], ResourceFilter)
+        assert isinstance(restored.filters[0].inner[2], TagPrefixFilter)
 
 
 class TestMutationPolymorphism:

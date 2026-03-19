@@ -6,7 +6,10 @@ These tests verify that:
 """
 
 from mettagrid.config.filter import (
+    OrFilter,
     VibeFilter,
+    actorHas,
+    actorHasAnyOf,
     anyOf,
     isNot,
     targetHas,
@@ -179,6 +182,13 @@ class TestVibeFilterOnAOE:
 
         energy = sim.agent(0).inventory.get("energy", 0)
         assert energy == 0, f"Should NOT get energy with wrong vibe, got {energy}"
+
+
+def test_actor_has_any_of_expands_to_actor_filters():
+    filter_ = actorHasAnyOf(["gold", "silver"])
+
+    assert isinstance(filter_, OrFilter)
+    assert filter_ == anyOf([actorHas({"gold": 1}), actorHas({"silver": 1})])
 
 
 class TestNotFilterOnAOE:

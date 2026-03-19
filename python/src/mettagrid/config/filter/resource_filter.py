@@ -2,24 +2,23 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from pydantic import Field
 
-if TYPE_CHECKING:
-    from mettagrid.config.filter.filter import Filter, HandlerTarget, OrFilter
-else:
-    from mettagrid.config.filter.filter import Filter, HandlerTarget
+from mettagrid.config.filter.filter import (
+    Filter,
+    HandlerTarget,
+    OrFilter,
+    anyOf,
+)
 
 
 class ResourceFilter(Filter):
     """Filter that checks if the target entity has required resources."""
 
     filter_type: Literal["resource"] = "resource"
-    resources: dict[str, int] = Field(
-        default_factory=dict,
-        description="Minimum resource amounts required",
-    )
+    resources: dict[str, int] = Field(default_factory=dict, description="Minimum resource amounts required")
 
 
 # ===== Helper Filter Functions =====
@@ -47,10 +46,7 @@ def actorHasAnyOf(resources: list[str]) -> OrFilter:
     Returns:
         OrFilter that passes if actor has any of the resources
     """
-    # Import here to avoid circular import at module load time
-    from mettagrid.config.filter.filter import OrFilter as _OrFilter  # noqa: PLC0415
-
-    return _OrFilter(inner=[ResourceFilter(target=HandlerTarget.ACTOR, resources={r: 1}) for r in resources])
+    return anyOf([actorHas({resource: 1}) for resource in resources])
 
 
 def targetHasAnyOf(resources: list[str]) -> OrFilter:
@@ -65,7 +61,4 @@ def targetHasAnyOf(resources: list[str]) -> OrFilter:
     Returns:
         OrFilter that passes if target has any of the resources
     """
-    # Import here to avoid circular import at module load time
-    from mettagrid.config.filter.filter import OrFilter as _OrFilter  # noqa: PLC0415
-
-    return _OrFilter(inner=[ResourceFilter(target=HandlerTarget.TARGET, resources={r: 1}) for r in resources])
+    return anyOf([targetHas({resource: 1}) for resource in resources])

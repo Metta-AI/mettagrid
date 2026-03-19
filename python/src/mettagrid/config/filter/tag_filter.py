@@ -17,11 +17,10 @@ class TagFilter(Filter):
     This is useful for events that should only affect certain object types.
 
     Example:
-        TagFilter(target=HandlerTarget.TARGET, tag=typeTag("hub"))
+        hasTag(typeTag("hub"))
     """
 
     filter_type: Literal["tag"] = "tag"
-    target: HandlerTarget = Field(description="Entity to check the filter against")
     tag: str = Field(description="Full tag in name:value format")
 
 

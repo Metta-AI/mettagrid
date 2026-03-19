@@ -65,6 +65,7 @@ AnyFilter = Annotated[
     Discriminator("filter_type"),
 ]
 
+
 # Rebuild models that reference "AnyFilter" or "AnyQuery" as string annotations.
 _rebuild_ns = {
     "AnyFilter": AnyFilter,
@@ -81,14 +82,17 @@ _rebuild_ns = {
     "MaterializedQuery": MaterializedQuery,
     "ClosureQuery": ClosureQuery,
 }
-NotFilter.model_rebuild(_types_namespace=_rebuild_ns)
-OrFilter.model_rebuild(_types_namespace=_rebuild_ns)
-Query.model_rebuild(_types_namespace=_rebuild_ns)
-MaterializedQuery.model_rebuild(_types_namespace=_rebuild_ns)
-ClosureQuery.model_rebuild(_types_namespace=_rebuild_ns)
-MaxDistanceFilter.model_rebuild(_types_namespace=_rebuild_ns)
-QueryInventoryValue.model_rebuild(_types_namespace=_rebuild_ns)
-QueryCountValue.model_rebuild(_types_namespace=_rebuild_ns)
+for model in (
+    NotFilter,
+    OrFilter,
+    Query,
+    MaterializedQuery,
+    ClosureQuery,
+    MaxDistanceFilter,
+    QueryInventoryValue,
+    QueryCountValue,
+):
+    model.model_rebuild(_types_namespace=_rebuild_ns)
 
 __all__ = [
     # Enums

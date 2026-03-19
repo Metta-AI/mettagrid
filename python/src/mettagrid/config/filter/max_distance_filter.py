@@ -7,7 +7,7 @@ from typing import Literal, Optional
 from pydantic import Field
 
 from mettagrid.config.filter.filter import Filter, HandlerTarget
-from mettagrid.config.query import AnyQuery
+from mettagrid.config.query import AnyQuery, Query
 
 
 class MaxDistanceFilter(Filter):
@@ -36,7 +36,7 @@ class MaxDistanceFilter(Filter):
         default=HandlerTarget.TARGET,
         description="Entity to check the filter against",
     )
-    query: Optional["AnyQuery"] = Field(
+    query: Optional[AnyQuery] = Field(
         default=None,
         description="Query to find nearby objects (None = binary mode)",
     )
@@ -58,7 +58,7 @@ def maxDistance(radius: int) -> MaxDistanceFilter:
     return MaxDistanceFilter(target=HandlerTarget.TARGET, radius=radius)
 
 
-def isNear(query: "str | AnyQuery", radius: int = 1) -> MaxDistanceFilter:
+def isNear(query: str | AnyQuery, radius: int = 1) -> MaxDistanceFilter:
     """Unary filter: target is within radius of an object matching the query.
 
     Accepts a tag string or a Query. Strings are auto-wrapped into Query(source=str).
@@ -67,8 +67,6 @@ def isNear(query: "str | AnyQuery", radius: int = 1) -> MaxDistanceFilter:
         isNear(typeTag("junction"), radius=3)
         isNear(query(typeTag("agent"), [hasTag("type:agent")]))
     """
-    from mettagrid.config.query import Query  # noqa: PLC0415
-
     if isinstance(query, str):
         query = Query(source=query)
     return MaxDistanceFilter(target=HandlerTarget.TARGET, query=query, radius=radius)

@@ -20,7 +20,6 @@ class TagPrefixFilter(Filter):
     """
 
     filter_type: Literal["tag_prefix"] = "tag_prefix"
-    target: HandlerTarget = Field(description="Entity to check the filter against")
     tag_prefix: str = Field(description="Tag prefix to match (e.g., 'team' matches 'team:red', 'team:blue')")
 
 
