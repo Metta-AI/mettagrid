@@ -5,7 +5,6 @@ from __future__ import annotations
 import ctypes
 import json
 from abc import abstractmethod
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Optional, Sequence, Tuple, TypeVar, cast
 
@@ -22,14 +21,6 @@ from mettagrid.simulator import Action, AgentObservation, Simulation
 
 # Type variable for agent state - can be any type
 StateType = TypeVar("StateType")
-
-
-@dataclass(frozen=True)
-class PolicyEpisodeContext:
-    episode_id: str
-    agent_ids: tuple[int, ...]
-    observations_format: int
-    game_rule_actions: tuple[str, ...]
 
 
 class AgentPolicy:
@@ -146,14 +137,6 @@ class MultiAgentPolicy(metaclass=PolicyRegistryMeta):
     def reset(self) -> None:
         """Reset any policy state; default no-op."""
         pass
-
-    def prepare_episode(self, episode: PolicyEpisodeContext) -> None:
-        """Observe episode metadata before the first step; default no-op."""
-        _ = episode
-
-    def close_episode(self, episode: PolicyEpisodeContext) -> None:
-        """Observe episode teardown; default no-op."""
-        _ = episode
 
     def step_batch(self, raw_observations: np.ndarray, raw_actions: np.ndarray) -> None:
         """Optional fast-path for policies that consume raw buffers.

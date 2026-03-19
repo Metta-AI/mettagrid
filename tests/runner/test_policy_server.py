@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from mettagrid.config.id_map import ObservationFeatureSpec
-from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy, PolicyEpisodeContext
+from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.protobuf.sim.policy_v1 import policy_pb2
 from mettagrid.runner.policy_server.server import (
@@ -33,19 +33,6 @@ class ConstantActionPolicy(MultiAgentPolicy):
     def agent_policy(self, agent_id: int) -> AgentPolicy:
         _ = agent_id
         return ConstantActionAgentPolicy(self.policy_env_info, self._action)
-
-
-class LifecycleRecordingPolicy(ConstantActionPolicy):
-    def __init__(self, policy_env_info: PolicyEnvInterface, action: Action):
-        super().__init__(policy_env_info, action)
-        self.prepare_calls: list[PolicyEpisodeContext] = []
-        self.close_calls: list[PolicyEpisodeContext] = []
-
-    def prepare_episode(self, episode: PolicyEpisodeContext) -> None:
-        self.prepare_calls.append(episode)
-
-    def close_episode(self, episode: PolicyEpisodeContext) -> None:
-        self.close_calls.append(episode)
 
 
 def _policy_env(with_vibes: bool = False) -> PolicyEnvInterface:
@@ -96,23 +83,6 @@ def test_prepare_policy():
     env = _policy_env()
     resp = _prepare(service, ConstantActionPolicy(env, Action(name="move")), env)
     assert resp == policy_pb2.PreparePolicyResponse()
-
-
-def test_prepare_policy_calls_episode_lifecycle_hooks():
-    service = _make_service()
-    env = _policy_env()
-    policy = LifecycleRecordingPolicy(env, Action(name="move"))
-
-    _prepare(service, policy, env, episode_id="ep-lifecycle", agent_ids=[1, 4])
-    service.close_episode("ep-lifecycle")
-
-    assert [episode.episode_id for episode in policy.prepare_calls] == ["ep-lifecycle"]
-    assert [episode.agent_ids for episode in policy.prepare_calls] == [(1, 4)]
-    assert [episode.game_rule_actions for episode in policy.prepare_calls] == [("noop", "move")]
-    assert [episode.observations_format for episode in policy.prepare_calls] == [
-        policy_pb2.AgentObservations.Format.TRIPLET_V1
-    ]
-    assert [episode.episode_id for episode in policy.close_calls] == ["ep-lifecycle"]
 
 
 def test_prepare_policy_unsupported_observation_format():
