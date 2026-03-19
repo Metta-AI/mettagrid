@@ -7,7 +7,8 @@ from typing import Callable, Optional, Sequence
 from mettagrid import MettaGridConfig
 from mettagrid.map_builder.map_builder import HasSeed
 from mettagrid.policy.loader import AgentPolicy, PolicyEnvInterface, initialize_or_load_policy
-from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
+from mettagrid.policy.policy import MultiAgentPolicy, PolicyEpisodeContext, PolicySpec
+from mettagrid.protobuf.sim.policy_v1 import policy_pb2
 from mettagrid.renderer.renderer import RenderMode
 from mettagrid.runner.types import PureSingleEpisodeResult
 from mettagrid.simulator.multi_episode.rollout import EpisodeRolloutResult, MultiEpisodeRolloutResult
@@ -25,6 +26,31 @@ def _policy_display_name(policy: MultiAgentPolicy, fallback: str) -> str:
     if isinstance(name, str) and name:
         return name
     return fallback
+
+
+def _episode_contexts_for_policies(
+    policies: Sequence[MultiAgentPolicy],
+    assignments: Sequence[int],
+    env_interface: PolicyEnvInterface,
+) -> list[tuple[MultiAgentPolicy, PolicyEpisodeContext]]:
+    episode_id = str(uuid.uuid4())
+    prepared: list[tuple[MultiAgentPolicy, PolicyEpisodeContext]] = []
+    for policy_index, policy in enumerate(policies):
+        agent_ids = tuple(agent_id for agent_id, assignment in enumerate(assignments) if assignment == policy_index)
+        if not agent_ids:
+            continue
+        prepared.append(
+            (
+                policy,
+                PolicyEpisodeContext(
+                    episode_id=episode_id,
+                    agent_ids=agent_ids,
+                    observations_format=policy_pb2.AgentObservations.Format.TRIPLET_V1,
+                    game_rule_actions=tuple(env_interface.all_action_names),
+                ),
+            )
+        )
+    return prepared
 
 
 def resolve_env_for_seed(env: MettaGridConfig, seed: int) -> MettaGridConfig:
@@ -65,69 +91,79 @@ def single_episode_rollout(
     episode_subprocess (which receives policies over HTTP).
     """
     env_for_rollout = resolve_env_for_seed(env, seed)
+    env_interface = PolicyEnvInterface.from_mg_cfg(env_for_rollout)
+    episode_contexts = _episode_contexts_for_policies(policies, assignments, env_interface)
+    prepared_policies: list[tuple[MultiAgentPolicy, PolicyEpisodeContext]] = []
 
-    agent_policies: list[AgentPolicy] = [
-        policies[assignment].agent_policy(agent_id) for agent_id, assignment in enumerate(assignments)
-    ]
-    if policy_names is not None:
-        if len(policy_names) != len(policies):
-            raise ValueError("policy_names must have the same length as policies")
-        agent_policy_names = [policy_names[assignment] for assignment in assignments]
-    else:
-        agent_policy_names = [
-            _policy_display_name(
-                policies[assignment],
-                fallback=f"policy_{assignment}",
-            )
-            for assignment in assignments
+    try:
+        for policy, episode_context in episode_contexts:
+            policy.prepare_episode(episode_context)
+            prepared_policies.append((policy, episode_context))
+        agent_policies: list[AgentPolicy] = [
+            policies[assignment].agent_policy(agent_id) for agent_id, assignment in enumerate(assignments)
         ]
-    replay_writer: Optional[InMemoryReplayWriter] = None
-    if capture_replay:
-        replay_writer = InMemoryReplayWriter()
+        if policy_names is not None:
+            if len(policy_names) != len(policies):
+                raise ValueError("policy_names must have the same length as policies")
+            agent_policy_names = [policy_names[assignment] for assignment in assignments]
+        else:
+            agent_policy_names = [
+                _policy_display_name(
+                    policies[assignment],
+                    fallback=f"policy_{assignment}",
+                )
+                for assignment in assignments
+            ]
+        replay_writer: Optional[InMemoryReplayWriter] = None
+        if capture_replay:
+            replay_writer = InMemoryReplayWriter()
 
-    tracer: Optional[Tracer] = None
-    if trace_path:
-        tracer = Tracer(trace_path)
+        tracer: Optional[Tracer] = None
+        if trace_path:
+            tracer = Tracer(trace_path)
 
-    stats_handler = TimeAveragedStatsHandler()
-    event_handlers: list = [stats_handler]
-    if replay_writer is not None:
-        event_handlers.append(replay_writer)
+        stats_handler = TimeAveragedStatsHandler()
+        event_handlers: list = [stats_handler]
+        if replay_writer is not None:
+            event_handlers.append(replay_writer)
 
-    rollout = Rollout(
-        env_for_rollout,
-        agent_policies,
-        policy_names=agent_policy_names,
-        max_action_time_ms=max_action_time_ms,
-        overage_budget_ms=overage_budget_ms,
-        render_mode=render_mode,
-        autostart=autostart,
-        seed=seed,
-        event_handlers=event_handlers,
-        tracer=tracer,
-        policy_group_keys=assignments,
-    )
-    rollout.run_until_done()
+        rollout = Rollout(
+            env_for_rollout,
+            agent_policies,
+            policy_names=agent_policy_names,
+            max_action_time_ms=max_action_time_ms,
+            overage_budget_ms=overage_budget_ms,
+            render_mode=render_mode,
+            autostart=autostart,
+            seed=seed,
+            event_handlers=event_handlers,
+            tracer=tracer,
+            policy_group_keys=assignments,
+        )
+        rollout.run_until_done()
 
-    if tracer:
-        tracer.flush()
+        if tracer:
+            tracer.flush()
 
-    results = PureSingleEpisodeResult(
-        rewards=list(rollout._sim.episode_rewards),
-        action_timeouts=list(rollout.timeout_counts),
-        stats=rollout._sim.episode_stats,
-        steps=rollout._sim.current_step,
-        time_averaged_game_stats=stats_handler.time_averaged_game_stats,
-        overage_exceeded_at=list(rollout.overage_exceeded_at),
-    )
-    replay: Optional[EpisodeReplay] = None
-    if replay_writer is not None:
-        replays = replay_writer.get_completed_replays()
-        if len(replays) != 1:
-            raise ValueError(f"Expected 1 replay, got {len(replays)}")
-        replay = replays[0]
+        results = PureSingleEpisodeResult(
+            rewards=list(rollout._sim.episode_rewards),
+            action_timeouts=list(rollout.timeout_counts),
+            stats=rollout._sim.episode_stats,
+            steps=rollout._sim.current_step,
+            time_averaged_game_stats=stats_handler.time_averaged_game_stats,
+            overage_exceeded_at=list(rollout.overage_exceeded_at),
+        )
+        replay: Optional[EpisodeReplay] = None
+        if replay_writer is not None:
+            replays = replay_writer.get_completed_replays()
+            if len(replays) != 1:
+                raise ValueError(f"Expected 1 replay, got {len(replays)}")
+            replay = replays[0]
 
-    return results, replay
+        return results, replay
+    finally:
+        for policy, episode_context in reversed(prepared_policies):
+            policy.close_episode(episode_context)
 
 
 def run_episode_local(
