@@ -2,7 +2,7 @@ import gc
 import logging
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from concurrent.futures import ThreadPoolExecutor, TimeoutError, wait
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional, Sequence
 
@@ -251,13 +251,37 @@ class Rollout:
             self._policy_step_pool = ThreadPoolExecutor(
                 max_workers=max(1, min(len(group_indices), os.cpu_count() or 1))
             )
-        futures = [self._policy_step_pool.submit(self._step_group, indices) for indices in group_indices]
-        results: list[StepResult] = []
-        for future in futures:
-            results.extend(future.result())
-        return results
+        futures = [self._policy_step_pool.submit(self._step_group, indices, False) for indices in group_indices]
+        if self._renderer is None or not self._renderer.supports_pending_render():
+            results: list[StepResult] = []
+            for future in futures:
+                results.extend(future.result())
+            return results
 
-    def _step_group(self, indices: list[int]) -> list[StepResult]:
+        completed_results: dict[object, list[StepResult]] = {}
+        pending = set(futures)
+        while pending:
+            done, pending = wait(pending, timeout=_PENDING_RENDER_INTERVAL_SECONDS)
+            for future in done:
+                completed_results[future] = future.result()
+            if pending:
+                self._render_pending_frame()
+                if self.is_done():
+                    self._skip_wait_on_policy_shutdown = True
+                    for future in pending:
+                        future.cancel()
+                    raise _PendingRenderAborted
+
+        ordered_results: list[StepResult] = []
+        for future in futures:
+            ordered_results.extend(completed_results[future])
+        return ordered_results
+
+    def _step_group(
+        self,
+        indices: list[int],
+        allow_pending_render: bool = True,
+    ) -> list[StepResult]:
         group_policies = [self._policies[index] for index in indices]
         first_policy = group_policies[0]
         if first_policy.can_step_group(group_policies):
@@ -282,8 +306,12 @@ class Rollout:
         # Reuse the single-agent measurement path when a group cannot be batched,
         # but defer mutation until the caller applies the collected results.
         group_results: list[StepResult] = []
+        if allow_pending_render:
+            measure_step = self._measure_single_step_with_pending_render
+        else:
+            measure_step = self._measure_single_step
         for index in indices:
-            action, elapsed_ms, infos, start_ns, duration_ns = self._measure_single_step_with_pending_render(index)
+            action, elapsed_ms, infos, start_ns, duration_ns = measure_step(index)
             group_results.append((index, action, elapsed_ms, infos, start_ns, duration_ns))
         return group_results
 

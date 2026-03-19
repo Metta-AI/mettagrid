@@ -184,6 +184,60 @@ class FakeExecutor:
         self.shutdown_calls.append((wait, cancel_futures))
 
 
+class GroupStepFuture:
+    def __init__(self, executor, fn, *args, **kwargs):  # type: ignore[no-untyped-def]
+        self._executor = executor
+        self._fn = fn
+        self._args = args
+        self._kwargs = kwargs
+        self._released = False
+        self._cancelled = False
+        self._result = None
+        self._error: Exception | None = None
+
+    def release(self) -> None:
+        if self._released or self._cancelled:
+            return
+        self._executor.submit_depth += 1
+        try:
+            self._result = self._fn(*self._args, **self._kwargs)
+        except Exception as err:
+            self._error = err
+        finally:
+            self._executor.submit_depth -= 1
+        self._released = True
+
+    def result(self, timeout: float | None = None):  # type: ignore[no-untyped-def]
+        _ = timeout
+        if not self._released:
+            raise AssertionError("group future should not be consumed before the rollout wait loop releases it")
+        if self._error is not None:
+            raise self._error
+        return self._result
+
+    def cancel(self) -> bool:
+        self._cancelled = True
+        return True
+
+
+class GroupStepExecutor:
+    def __init__(self):
+        self.submit_depth = 0
+        self.nested_submit_attempts = 0
+        self.submitted_futures: list[GroupStepFuture] = []
+
+    def submit(self, fn, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if self.submit_depth > 0:
+            self.nested_submit_attempts += 1
+            raise AssertionError("group worker should not resubmit policy steps onto the same executor")
+        future = GroupStepFuture(self, fn, *args, **kwargs)
+        self.submitted_futures.append(future)
+        return future
+
+    def shutdown(self, wait: bool = True, cancel_futures: bool = False) -> None:
+        _ = (wait, cancel_futures)
+
+
 def _make_config(num_agents: int = 2, max_steps: int = 10) -> MettaGridConfig:
     return MettaGridConfig(
         game=GameConfig(
@@ -462,3 +516,43 @@ def test_rollout_pending_close_aborts_blocked_step_without_waiting_for_policy_sh
     assert executor.shutdown_calls == [(False, True)]
     assert rollout.is_done() is True
     assert rollout._sim.current_step == 0
+
+
+def test_rollout_group_pending_render_waits_on_main_thread_without_nested_submit(
+    monkeypatch,
+) -> None:
+    config = _make_config(num_agents=2, max_steps=1)
+    renderer = PendingMethodRenderer()
+    monkeypatch.setattr(rollout_module, "create_renderer", lambda *args, **kwargs: renderer)
+
+    rollout = Rollout(
+        config,
+        [FastAgentPolicy(), FastAgentPolicy()],
+        max_action_time_ms=10_000,
+        render_mode="gui",
+        policy_group_keys=["group-0", "group-1"],
+    )
+    executor = GroupStepExecutor()
+    rollout._policy_step_pool = executor  # type: ignore[assignment]
+
+    wait_calls = 0
+
+    def fake_wait(futures, timeout=None):  # type: ignore[no-untyped-def]
+        _ = timeout
+        nonlocal wait_calls
+        wait_calls += 1
+        future_list = list(futures)
+        if wait_calls == 1:
+            return set(), set(future_list)
+        for future in future_list:
+            future.release()
+        return set(future_list), set()
+
+    monkeypatch.setattr(rollout_module, "wait", fake_wait)
+
+    rollout.step()
+
+    assert wait_calls == 2
+    assert executor.nested_submit_attempts == 0
+    assert renderer.pending_calls == 1
+    assert renderer.render_calls == 1
