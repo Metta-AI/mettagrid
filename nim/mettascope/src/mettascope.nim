@@ -3,7 +3,7 @@ import
   opengl, windy, bumpy, vmath, silky, webby,
   mettascope/[replays, common, worldmap, panels,
   footer, timeline, minimap, header, replayloader, configs, gameplayer],
-  mettascope/panels/[objectpanel, policyinfopanel, envpanel, vibespanel, scorepanel, dialoguepanel]
+  mettascope/panels/[objectpanel, policyinfopanel, envpanel, vibespanel, scorepanel, monologuepanel]
 
 when isMainModule:
   let config = loadConfig()
@@ -159,7 +159,7 @@ proc createDefaultPanelLayout() =
 
   rootArea.areas[1].areas[1].addPanel("Vibes", drawVibes)
   rootArea.areas[1].areas[1].addPanel("Score", drawScorePanel)
-  rootArea.areas[1].areas[1].addPanel("Dialogue", drawDialoguePanel)
+  rootArea.areas[1].areas[1].addPanel("Monologue", drawMonologuePanel)
 
 proc findFirstLeafArea(area: Area): Area =
   ## Find the first leaf area (one that has panels) in the tree.
@@ -171,8 +171,8 @@ proc findFirstLeafArea(area: Area): Area =
       return leaf
   return nil
 
-proc insertMissingDialoguePanel(area: Area) =
-  if getPanelByName(area, "Dialogue") != nil:
+proc insertMissingMonologuePanel(area: Area) =
+  if getPanelByName(area, "Monologue") != nil:
     return
 
   let scorePanel = getPanelByName(area, "Score")
@@ -182,16 +182,17 @@ proc insertMissingDialoguePanel(area: Area) =
       if panel == scorePanel:
         insertIndex = idx + 1
         break
-    let dialoguePanel = Panel(name: "Dialogue", parentArea: scorePanel.parentArea, draw: drawDialoguePanel)
-    scorePanel.parentArea.panels.insert(dialoguePanel, insertIndex)
-    echo "Added missing panel: Dialogue"
+    scorePanel.parentArea.panels.insert(
+      Panel(name: "Monologue", parentArea: scorePanel.parentArea, draw: drawMonologuePanel),
+      insertIndex
+    )
+    echo "Added missing panel: Monologue"
     return
 
   let fallbackArea = findFirstLeafArea(area)
   if fallbackArea != nil:
-    let dialoguePanel = Panel(name: "Dialogue", parentArea: fallbackArea, draw: drawDialoguePanel)
-    fallbackArea.panels.add(dialoguePanel)
-    echo "Added missing panel: Dialogue"
+    fallbackArea.panels.add(Panel(name: "Monologue", parentArea: fallbackArea, draw: drawMonologuePanel))
+    echo "Added missing panel: Monologue"
 
 proc initPanels() =
   ## Initialize panels, loading layout from config if available.
@@ -215,7 +216,7 @@ proc initPanels() =
       rootArea = defaultArea
 
   if layoutLoaded:
-    insertMissingDialoguePanel(rootArea)
+    insertMissingMonologuePanel(rootArea)
 
 
 proc onFrame() =

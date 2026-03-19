@@ -3,7 +3,7 @@ import
   windy,
   replays, worldmap, common, configs, panels, team,
   panels/objectpanel,
-  panels/dialoguepanel,
+  panels/monologuepanel,
   pipegrid
 
 
@@ -33,7 +33,7 @@ proc onReplayLoaded*() =
   requestPython = false
   agentPaths = initTable[int, seq[PathAction]]()
   agentObjectives = initTable[int, seq[Objective]]()
-  resetDialogueCaches()
+  resetMonologueCaches()
 
   needsInitialFit = true
   replay.discoverTeams()

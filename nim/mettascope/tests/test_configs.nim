@@ -1,16 +1,15 @@
-import ../src/mettascope/configs
+import ../src/mettascope/[common, configs]
 
-echo "Loading config..."
-let config = loadConfig()
+block test_load_config:
+  let config = loadConfig()
+  doAssert config.windowWidth > 0
+  doAssert config.windowHeight > 0
 
-echo ""
-echo "Current config values:"
-echo "  windowWidth: " & $config.windowWidth
-echo "  windowHeight: " & $config.windowHeight
-echo "  panelLayout layout: " & $config.panelLayout.layout
-echo "  panelLayout split: " & $config.panelLayout.split
-echo "  panelLayout areas: " & $config.panelLayout.areas.len
-echo "  panelLayout panelNames: " & $config.panelLayout.panelNames.len
+block test_deserialize_monologue_panel:
+  let referenceArea = Area(panels: @[Panel(name: "Score"), Panel(name: "Monologue")])
+  let config = AreaLayoutConfig(panelNames: @["Monologue", "Score"])
+  let area = deserializeArea(config, referenceArea)
 
-echo ""
-echo "Config system test completed successfully!"
+  doAssert area.panels.len == 2
+  doAssert area.panels[0].name == "Monologue"
+  doAssert area.panels[1].name == "Score"
