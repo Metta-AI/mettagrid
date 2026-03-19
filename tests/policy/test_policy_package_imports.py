@@ -82,11 +82,13 @@ def test_policy_implementations_importable():
     from mettagrid.policy.noop import NoopPolicy  # noqa: PLC0415
     from mettagrid.policy.pufferlib import PufferlibStatefulImpl  # noqa: PLC0415
     from mettagrid.policy.random_agent import RandomMultiAgentPolicy  # noqa: PLC0415
+    from mettagrid.policy.streaming_controller import StreamingControllerPolicy  # noqa: PLC0415
 
     assert RandomMultiAgentPolicy is not None
     assert LSTMPolicy is not None
     assert NoopPolicy is not None
     assert PufferlibStatefulImpl is not None
+    assert StreamingControllerPolicy is not None
 
 
 def test_token_encoder_importable():

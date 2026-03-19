@@ -7,7 +7,7 @@ import typer
 
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.policy.loader import initialize_or_load_policy
-from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
+from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy, PolicyEpisodeContext
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.protobuf.sim.policy_v1 import policy_pb2
 from mettagrid.simulator import Action, AgentObservation, ObservationToken
@@ -92,8 +92,8 @@ def encode_action_id(action: Action, policy_env: PolicyEnvInterface) -> int | No
 
 @dataclass
 class Episode:
-    episode_id: str
     policy: MultiAgentPolicy
+    episode_context: PolicyEpisodeContext
     policy_env: PolicyEnvInterface
     features: dict[int, ObservationFeatureSpec]
     parse_observations: ObservationParser
@@ -119,6 +119,13 @@ class LocalPolicyServer:
         logger.info("Policy spec for policy %s: %s", self._policy_uri, policy_spec)
         policy = initialize_or_load_policy(policy_env, policy_spec, device_override="cpu")
         logger.info("Policy for policy %s: %s", self._policy_uri, policy)
+        episode_context = PolicyEpisodeContext(
+            episode_id=req.episode_id,
+            agent_ids=tuple(req.agent_ids),
+            observations_format=req.observations_format,
+            game_rule_actions=tuple(action.name for action in req.game_rules.actions),
+        )
+        policy.prepare_episode(episode_context)
         features = {
             f.id: ObservationFeatureSpec(id=f.id, name=f.name, normalization=f.normalization)
             for f in req.game_rules.features
@@ -126,8 +133,8 @@ class LocalPolicyServer:
         agent_policies = {agent_id: policy.agent_policy(agent_id) for agent_id in req.agent_ids}
         logger.info("Agent policies for policy %s: %s", self._policy_uri, agent_policies)
         episode = Episode(
-            episode_id=req.episode_id,
             policy=policy,
+            episode_context=episode_context,
             policy_env=policy_env,
             features=features,
             parse_observations=parse_observations,
@@ -135,6 +142,12 @@ class LocalPolicyServer:
         )
         self._episodes[req.episode_id] = episode
         return policy_pb2.PreparePolicyResponse()
+
+    def close_episode(self, episode_id: str) -> None:
+        episode = self._episodes.pop(episode_id, None)
+        if episode is None:
+            return
+        episode.policy.close_episode(episode.episode_context)
 
     def batch_step(self, req: policy_pb2.BatchStepRequest) -> policy_pb2.BatchStepResponse:
         logger.debug("BatchStep: %s", req)

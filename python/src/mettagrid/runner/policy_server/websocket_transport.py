@@ -100,11 +100,13 @@ class WebSocketPolicyServer:
             server.serve_forever()
 
     def _handler(self, ws) -> None:
+        episode_id: str | None = None
         try:
             prepare_json = ws.recv()
             if not isinstance(prepare_json, str):
                 raise PolicyStepError("Expected JSON prepare message")
             req = json_format.Parse(prepare_json, policy_pb2.PreparePolicyRequest())
+            episode_id = req.episode_id
             resp = self._service.prepare_policy(req)
             ws.send(json_format.MessageToJson(resp))
 
@@ -118,6 +120,8 @@ class WebSocketPolicyServer:
                 step_resp = self._service.batch_step(step_req)
                 ws.send(step_resp.SerializeToString())
         finally:
+            if episode_id is not None:
+                self._service.close_episode(episode_id)
             logger.info("Client disconnected, shutting down")
             self._ws_server.shutdown()
 
