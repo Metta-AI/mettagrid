@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Literal, Optional, cast
 
 import gymnasium as gym
+import numpy as np
 from pydantic import BaseModel, Field
 
 from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
@@ -20,12 +21,14 @@ if TYPE_CHECKING:
 
 class PolicyEnvInterface(BaseModel):
     obs_features: list[ObservationFeatureSpec] = Field(
+        default_factory=list,
         description="Feature specs (id, name, normalization) for parsing token-based observations. "
-        "Each token has a feature ID that maps to a spec."
+        "Each token has a feature ID that maps to a spec.",
     )
     tags: list[str] = Field(
+        default_factory=list,
         description="Alphabetically-sorted list of object tags (e.g., 'agent', 'wall', 'chest'). "
-        "Tag IDs in observations are indices into this list."
+        "Tag IDs in observations are indices into this list.",
     )
     action_names: list[str] = Field(
         description="Ordered list of primary action names. "
@@ -35,6 +38,22 @@ class PolicyEnvInterface(BaseModel):
     move_energy_cost: Optional[int] = Field(
         default=None,
         description="Energy cost for a single move action, if configured.",
+    )
+    observation_kind: Literal["tokens", "box"] = Field(
+        default="tokens",
+        description="Whether env_obs contains token observations or raw box observations.",
+    )
+    observation_dtype: str = Field(
+        default=dtype_observations.name,
+        description="NumPy dtype name for the observation tensor.",
+    )
+    observation_low: float | None = Field(
+        default=0.0,
+        description="Scalar lower bound for Box observation spaces when available.",
+    )
+    observation_high: float | None = Field(
+        default=255.0,
+        description="Scalar upper bound for Box observation spaces when available.",
     )
     num_agents: int = Field(description="Number of agents in the environment.")
     observation_shape: tuple[int, ...] = Field(
@@ -58,7 +77,10 @@ class PolicyEnvInterface(BaseModel):
     @property
     def observation_space(self) -> gym.spaces.Box:
         """Observation space derived from observation_shape."""
-        return gym.spaces.Box(0, 255, self.observation_shape, dtype=dtype_observations.type)
+        dtype = np.dtype(self.observation_dtype)
+        low = 0.0 if self.observation_low is None else float(self.observation_low)
+        high = 255.0 if self.observation_high is None else float(self.observation_high)
+        return gym.spaces.Box(low, high, self.observation_shape, dtype=dtype.type)
 
     @property
     def action_space(self) -> gym.spaces.Discrete:
@@ -128,6 +150,66 @@ class PolicyEnvInterface(BaseModel):
             observation_shape=(mg_cfg.game.obs.num_tokens, mg_cfg.game.obs.token_dim),
             egocentric_shape=(mg_cfg.game.obs.height, mg_cfg.game.obs.width),
             move_energy_cost=move_energy_cost,
+            observation_kind="tokens",
+            observation_dtype=dtype_observations.name,
+            observation_low=0.0,
+            observation_high=255.0,
+        )
+
+    @classmethod
+    def from_spaces(
+        cls,
+        *,
+        observation_space: gym.Space[Any],
+        action_space: gym.Space[Any],
+        num_agents: int,
+        action_names: list[str] | None = None,
+        vibe_action_names: list[str] | None = None,
+    ) -> "PolicyEnvInterface":
+        """Create PolicyEnvInterface from generic Gymnasium spaces."""
+        if not isinstance(observation_space, gym.spaces.Box):
+            raise TypeError(
+                "PolicyEnvInterface.from_spaces requires a gymnasium.spaces.Box observation space, "
+                f"got {type(observation_space).__name__}"
+            )
+        if not isinstance(action_space, gym.spaces.Discrete):
+            raise TypeError(
+                "PolicyEnvInterface.from_spaces requires a gymnasium.spaces.Discrete action space, "
+                f"got {type(action_space).__name__}"
+            )
+
+        obs_shape = tuple(int(dim) for dim in observation_space.shape)
+        if not obs_shape:
+            raise ValueError("External observation spaces must have at least one dimension")
+        if len(obs_shape) == 1:
+            egocentric_shape = (1, obs_shape[0])
+        else:
+            egocentric_shape = (obs_shape[-2], obs_shape[-1])
+
+        if action_names is None:
+            action_names = [f"action_{idx}" for idx in range(int(action_space.n))]
+        if len(action_names) != int(action_space.n):
+            raise ValueError(
+                "External action_names length must match the action space size, "
+                f"got len(action_names)={len(action_names)} action_space.n={int(action_space.n)}"
+            )
+        vibe_action_names = list(vibe_action_names or [])
+
+        low = observation_space.low
+        high = observation_space.high
+        scalar_low = float(np.min(low)) if np.isfinite(low).all() else None
+        scalar_high = float(np.max(high)) if np.isfinite(high).all() else None
+
+        return cls(
+            action_names=list(action_names),
+            vibe_action_names=vibe_action_names,
+            num_agents=int(num_agents),
+            observation_shape=obs_shape,
+            egocentric_shape=egocentric_shape,
+            observation_kind="box",
+            observation_dtype=np.dtype(observation_space.dtype).name,
+            observation_low=scalar_low,
+            observation_high=scalar_high,
         )
 
     def to_json(self) -> str:
@@ -139,6 +221,10 @@ class PolicyEnvInterface(BaseModel):
         payload["actions"] = self.all_action_names
         payload["vibe_action_names"] = self.vibe_action_names
         payload["obs_features"] = [feature.model_dump(mode="json") for feature in self.obs_features]
+        payload["observation_kind"] = self.observation_kind
+        payload["observation_dtype"] = self.observation_dtype
+        payload["observation_low"] = self.observation_low
+        payload["observation_high"] = self.observation_high
         return json.dumps(payload)
 
     def to_proto(self) -> "policy_pb2.PolicyEnvInterface":
@@ -184,4 +270,8 @@ class PolicyEnvInterface(BaseModel):
             num_agents=proto_as_any.num_agents,
             observation_shape=tuple(proto_as_any.observation_shape),
             egocentric_shape=(proto_as_any.obs_height, proto_as_any.obs_width),
+            observation_kind="tokens",
+            observation_dtype=dtype_observations.name,
+            observation_low=0.0,
+            observation_high=255.0,
         )
