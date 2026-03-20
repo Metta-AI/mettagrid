@@ -117,6 +117,7 @@ type
     actionId*: seq[int]
     actionParameter*: seq[int]
     actionSuccess*: seq[bool]
+    animationId*: seq[int]  ## Per-step animation index into animationNames.
     currentReward*: seq[float]
     totalReward*: seq[float]
     isFrozen*: seq[bool]
@@ -170,6 +171,7 @@ type
     itemNames*: seq[string]
     groupNames*: seq[string]
     capacityNames*: seq[string]  ## Maps capacity_id to group name (e.g., "cargo", "gear").
+    animationNames*: seq[string]  ## Maps animation index to name (e.g., "none", "bump").
     tags*: Table[string, int]  ## Maps tag name to tag ID.
     typeImages*: Table[string, string]
     actionImages*: seq[string]
@@ -227,6 +229,7 @@ type
     actionId*: int
     actionParameter*: int
     actionSuccess*: bool
+    animationId*: int
     currentReward*: float
     totalReward*: float
     isFrozen*: bool
@@ -842,6 +845,8 @@ proc convertReplayV1ToV2(replayData: JsonNode): JsonNode {.measure.} =
 
       if "action_success" in gridObject:
         obj["action_success"] = gridObject["action_success"]
+      if "animation_id" in gridObject:
+        obj["animation_id"] = gridObject["animation_id"]
       obj["group_id"] = newJInt(getInt(gridObject, "agent:group", 0))
       if "agent:orientation" in gridObject:
         obj["orientation"] = gridObject["agent:orientation"]
@@ -1124,6 +1129,9 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
       replay.drawnAgentActionMask = replay.drawnAgentActionMask or (1'u64 shl idx)
   replay.fileName = getString(jsonObj, "file_name")
 
+  let animationNamesArr = getArray(jsonObj, "animation_names")
+  replay.animationNames = if animationNamesArr != nil: animationNamesArr.to(seq[string]) else: @["none", "bump"]
+
   let mgConfig = getJsonNode(jsonObj, "mg_config")
   if mgConfig != nil:
     replay.mgConfig = mgConfig
@@ -1240,6 +1248,8 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
       entity.actionParameter = expand[int](actionParamField, replay.maxSteps, 0)
       let actionSuccessField = getJsonNode(obj, "action_success", newJBool(false))
       entity.actionSuccess = expand[bool](actionSuccessField, replay.maxSteps, false)
+      let animationField = getJsonNode(obj, "animation_id", newJInt(0))
+      entity.animationId = expand[int](animationField, replay.maxSteps, 0)
       let currentRewardField = getJsonNode(obj, "current_reward", newJFloat(0.0))
       entity.currentReward = expand[float](currentRewardField, replay.maxSteps, 0)
       let totalRewardField = getJsonNode(obj, "total_reward", newJFloat(0.0))
@@ -1398,6 +1408,7 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
     entity.actionId.add(obj.actionId)
     entity.actionParameter.add(obj.actionParameter)
     entity.actionSuccess.add(obj.actionSuccess)
+    entity.animationId.add(obj.animationId)
     entity.currentReward.add(obj.currentReward)
     entity.totalReward.add(obj.totalReward)
     entity.isFrozen.add(obj.isFrozen)

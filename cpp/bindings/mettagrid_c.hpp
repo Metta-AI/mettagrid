@@ -194,6 +194,7 @@ private:
   py::array_t<float> _episode_rewards;
 
   ActionSuccess _action_success;
+  std::vector<ActionType> _last_executed_actions;
 
   std::mt19937 _rng;
   unsigned int _seed;

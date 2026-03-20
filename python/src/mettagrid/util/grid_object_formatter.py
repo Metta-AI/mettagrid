@@ -50,9 +50,12 @@ def format_agent_properties(
         else:
             action_id = flat_index
             action_param = 0
+    if "last_action_id" in grid_object:
+        action_id = int(grid_object["last_action_id"])
     update_object["action_id"] = action_id
     update_object["action_param"] = action_param
     update_object["action_success"] = bool(env_action_success[agent_id])
+    update_object["animation_id"] = grid_object.get("last_animation_id", 0)
     update_object["current_reward"] = rewards[agent_id].item()
     update_object["total_reward"] = total_rewards[agent_id].item()
     update_object["freeze_remaining"] = grid_object.get("freeze_remaining", 0)

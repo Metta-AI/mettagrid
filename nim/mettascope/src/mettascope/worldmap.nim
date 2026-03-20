@@ -17,6 +17,9 @@ const
   FollowMarginMaxWorldTiles = 5.0f # Cap edge margin to 5 world tiles when zoomed out.
   ZoomOutMargin = 1.5f # Panel may show at most this multiple of the map's linear extent when zoomed out.
   SelectionRadiusPixels = 100.0f # Screen-space click radius for selecting nearby objects.
+  BumpDepthTiles = 0.18f # Maximum agent offset during a bump, in tiles.
+  BumpActiveFraction = 0.35f # Fraction of the step used by the bump animation.
+  BumpDisableSpeed = 16.0f # Disable bump animation above this playback speed.
 
 var
   visibilityMapStep*: int = -1
@@ -476,6 +479,87 @@ proc drawAoeMaps*() {.measure.} =
         tint = tint
       )
 
+proc getMoveActionDir(agent: Entity, atStep: int): Option[IVec2] =
+  ## Return the attempted move direction for the given agent step when present.
+  if agent.isNil or not agent.isAgent or replay.isNil:
+    return none(IVec2)
+
+  let actionId = agent.actionId.at(atStep)
+  if actionId == replay.moveNorthActionId:
+    return some(ivec2(0, -1))
+  if actionId == replay.moveSouthActionId:
+    return some(ivec2(0, 1))
+  if actionId == replay.moveWestActionId:
+    return some(ivec2(-1, 0))
+  if actionId == replay.moveEastActionId:
+    return some(ivec2(1, 0))
+  none(IVec2)
+
+proc getBumpDirForAction(agent: Entity, actionStep: int): Option[IVec2] =
+  ## Return the bump direction for a single action step.
+  const AnimationBump = 1
+  if agent.isNil or not agent.isAgent or replay.isNil:
+    return none(IVec2)
+
+  if agent.animationId.len > 0 and agent.animationId.at(actionStep) == AnimationBump:
+    return agent.getMoveActionDir(actionStep)
+
+  none(IVec2)
+
+proc getBumpDir(agent: Entity, atStep: int): Option[IVec2] =
+  ## Return the bump direction for the rendered interval starting at the given step.
+  if agent.isNil or not agent.isAgent or replay.isNil:
+    return none(IVec2)
+  if atStep < 0 or atStep + 1 >= replay.maxSteps:
+    return none(IVec2)
+
+  let
+    startPos = agent.location.at(atStep).xy
+    endPos = agent.location.at(atStep + 1).xy
+  if startPos != endPos:
+    return none(IVec2)
+
+  let startActionBump = agent.getBumpDirForAction(atStep)
+  if startActionBump.isSome:
+    return startActionBump
+
+  agent.getBumpDirForAction(atStep + 1)
+
+proc getActiveBumpDir(agent: Entity): Option[IVec2] =
+  ## Return the current bump direction while the bump animation is active.
+  if agent.isNil or not agent.isAgent or replay.isNil:
+    return none(IVec2)
+  if playSpeed > BumpDisableSpeed:
+    return none(IVec2)
+
+  let
+    baseStep = floor(stepFloat).int
+    stepFrac = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
+  if stepFrac <= 0.0f or stepFrac >= BumpActiveFraction:
+    return none(IVec2)
+
+  agent.getBumpDir(baseStep)
+
+proc bumpOffset(agent: Entity): Vec2 =
+  ## Return the render-time offset for the current bump animation frame.
+  if agent.isNil or not agent.isAgent or replay.isNil:
+    return vec2(0, 0)
+
+  let
+    baseStep = floor(stepFloat).int
+    stepFrac = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
+  if stepFrac <= 0.0f or stepFrac >= BumpActiveFraction:
+    return vec2(0, 0)
+
+  let bumpDir = agent.getActiveBumpDir()
+  if not bumpDir.isSome:
+    return vec2(0, 0)
+
+  let
+    progress = stepFrac / BumpActiveFraction
+    depth = sin(PI.float32 * progress) * BumpDepthTiles
+  bumpDir.get.vec2 * depth
+
 proc smoothPos*(entity: Entity): Vec2 =
   ## Interpolate between floor(stepFloat) and the next step.
   if entity.isNil:
@@ -485,7 +569,9 @@ proc smoothPos*(entity: Entity): Vec2 =
     stepFrac = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
     pos0 = entity.location.at(baseStep).xy.vec2
     pos1 = entity.location.at(baseStep + 1).xy.vec2
-  pos0 + (pos1 - pos0) * stepFrac
+  result = pos0 + (pos1 - pos0) * stepFrac
+  if entity.isAgent:
+    result += bumpOffset(entity)
 
 proc isSelectableCandidate(entity: Entity): bool =
   ## Return true when an entity should participate in click selection.
@@ -623,12 +709,27 @@ proc inferOrientation*(agent: Entity, step: int): Orientation =
         return N
   return S
 
+proc inferOrientationFromDir(dir: IVec2): Orientation =
+  ## Return a cardinal orientation for the given direction vector.
+  if dir.x > 0:
+    return E
+  if dir.x < 0:
+    return W
+  if dir.y > 0:
+    return S
+  N
+
 # stripTeamSuffix, stripTeamPrefix, normalizeTypeName are imported from common
 
 proc smoothOrientation*(agent: Entity): Orientation =
   ## Switch orientation halfway through the interpolated move.
   if agent.isNil:
     return S
+
+  let bumpDir = agent.getActiveBumpDir()
+  if bumpDir.isSome:
+    return inferOrientationFromDir(bumpDir.get)
+
   let
     baseStep = floor(stepFloat).int
     stepFrac = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)

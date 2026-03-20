@@ -68,6 +68,7 @@ include a numeric `type_id`, but new data should rely on the string `type_name` 
   "action_names": ["noop", "move", "rotate", ... ],
   "item_names": ["hearts", "coconuts", ... ],
   "group_names": ["group1", "group2", ... ],
+  "animation_names": ["none", "bump"],
   "collective_names": ["clips", "cogs", ... ],
   "tags": {"type:agent": 0, "type:hub": 1, "type:wall": 2, ... },
   ...
@@ -204,6 +205,7 @@ Agent specific keys:
   `action_parameter == 3`, this means move to the right. The implementation does not need to know this as it can be
   inferred from the rotation and x, y positions.
 - `action_success` - Boolean value that indicates if the action was successful.
+- `animation_id` - Integer index into the `animation_names` array describing the visual animation to play.
 - `total_reward` - The total reward of the agent.
 - `current_reward` - The reward of the agent for the current step.
 - `frozen` - Boolean value that indicates if the agent is frozen.

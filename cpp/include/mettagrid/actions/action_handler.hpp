@@ -93,6 +93,8 @@ public:
   // Returns true if the action was executed, false otherwise. In particular, a result of false should have no impact
   // on the environment, and should imply that the agent effectively took a noop action.
   bool handle_action(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& ctx) {
+    actor.last_animation_id = kNoAnimation;
+
     // Handle frozen status
     if (actor.frozen != 0) {
       actor.stats.incr("status.frozen.ticks");

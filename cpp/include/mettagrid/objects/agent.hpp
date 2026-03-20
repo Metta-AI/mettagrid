@@ -20,6 +20,9 @@
 
 class ObservationEncoder;
 
+constexpr int kNoAnimation = 0;
+constexpr int kBumpAnimation = 1;
+
 class Agent : public GridObject {
 public:
   ObservationType group;
@@ -34,6 +37,7 @@ public:
   GridLocation prev_location;
   GridLocation spawn_location;
   unsigned int steps_without_motion;
+  int last_animation_id = kNoAnimation;
   std::vector<std::shared_ptr<mettagrid::Handler>> _on_tick;
   void set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers);
   void apply_on_tick(mettagrid::HandlerContext& ctx);

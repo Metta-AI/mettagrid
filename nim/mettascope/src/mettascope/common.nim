@@ -235,10 +235,12 @@ proc getObjectById*(objectId: int): Entity =
       return obj
   raise newException(ValueError, "Object with ID " & $objectId & " does not exist")
 
-proc getObjectAtLocation*(pos: IVec2): Entity =
-  ## Get the first object at the given position. Returns nil if no object is there.
+proc getObjectAtLocation*(pos: IVec2, atStep: int = step): Entity =
+  ## Get the first live object at the given position for a specific step. Returns nil if no object is there.
   for obj in replay.objects:
-    if obj.location.at(step).xy == pos:
+    if not obj.alive.at(atStep):
+      continue
+    if obj.location.at(atStep).xy == pos:
       return obj
   return nil
 

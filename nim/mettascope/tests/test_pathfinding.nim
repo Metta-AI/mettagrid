@@ -73,6 +73,7 @@ proc setupTestMap(testMap: TestMap) =
           id: replay.objects.len,
           typeName: "wall",
           location: @[ivec2(x.int32, y.int32)],
+          alive: @[true],
         )
         replay.objects.add(obj)
 

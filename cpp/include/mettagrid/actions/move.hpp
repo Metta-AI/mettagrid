@@ -121,7 +121,11 @@ protected:
     if (target_object) {
       Usable* usable_object = dynamic_cast<Usable*>(target_object);
       if (usable_object) {
-        return usable_object->onUse(actor, arg, ctx);
+        bool used = usable_object->onUse(actor, arg, ctx);
+        if (used) {
+          actor.last_animation_id = kBumpAnimation;
+        }
+        return used;
       }
     }
 

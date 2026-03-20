@@ -137,6 +137,7 @@ class EpisodeReplay:
         self.replay_data = {
             "version": REPLAY_FORMAT_VERSION,
             "action_names": sim.action_names,
+            "animation_names": ["none", "bump"],
             "item_names": sim.resource_names,
             "type_names": sim.object_type_names,
             "capacity_names": self._capacity_names,

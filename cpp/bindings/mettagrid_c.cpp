@@ -137,6 +137,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   _token_encoder = std::make_unique<ObservationTokenEncoder>(_game_config.token_value_base);
 
   _action_success.resize(num_agents);
+  _last_executed_actions.resize(num_agents, ActionType(0));
 
   init_action_handlers();
 
@@ -1013,6 +1014,8 @@ void MettaGrid::_step() {
   for (const auto& handler : _game_on_tick) {
     handler->try_apply(_game_ctx);
   }
+
+  _last_executed_actions = executed_actions;
 
   // Compute observations for next step
   if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();

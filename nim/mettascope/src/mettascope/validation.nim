@@ -15,8 +15,8 @@ const RequiredKeys = ["version", "num_agents", "max_steps", "map_size", "action_
 
 # Optional top-level keys for replay versions 3-4.
 const OptionalKeys = ["file_name", "group_names", "capacity_names",
-  "reward_sharing_matrix", "mg_config", "policy_env_interface", "infos",
-  "tags"]
+  "animation_names", "reward_sharing_matrix", "mg_config",
+  "policy_env_interface", "infos", "tags"]
 
 proc requireFields*(obj: JsonNode, fields: openArray[string], objName: string, issues: var seq[ValidationIssue]) =
   ## Assert that all required fields are present.
@@ -536,6 +536,8 @@ proc validateAgentFields*(obj: JsonNode, objName: string, replayData: JsonNode, 
   # Validate dynamic agent fields (always time series).
   validateTimeSeries(obj, "action_id", objName & ".action_id", "int", issues)
   validateTimeSeries(obj, "action_success", objName & ".action_success", "bool", issues)
+  if "animation_id" in obj:
+    validateTimeSeries(obj, "animation_id", objName & ".animation_id", "int", issues)
   validateTimeSeries(obj, "current_reward", objName & ".current_reward", "float", issues)
   validateTimeSeries(obj, "total_reward", objName & ".total_reward", "float", issues)
   # Validate optional agent fields.
