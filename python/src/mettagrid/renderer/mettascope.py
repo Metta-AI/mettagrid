@@ -10,7 +10,6 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from mettagrid.renderer.renderer import Renderer
-from mettagrid.simulator.policy_debug_projection import strip_dialogue_transcript_tail
 from mettagrid.types import Action
 from mettagrid.util.grid_object_formatter import format_grid_object
 
@@ -99,22 +98,17 @@ class MettascopeRenderer(Renderer):
             ignore_types = ["wall"]
 
         all_policy_infos = self._sim._context.get("policy_infos", {})
-        all_dialogue_updates = self._sim._context.get("dialogue_updates", {})
         tutorial_overlay_phases = _extract_tutorial_overlay_phases(all_policy_infos)
 
         for grid_object in self._sim.grid_objects(ignore_types=ignore_types).values():
             agent_id = grid_object.get("agent_id")
-            policy_infos = strip_dialogue_transcript_tail(all_policy_infos.get(agent_id))
-            dialogue_update = all_dialogue_updates.get(agent_id, {})
             formatted = format_grid_object(
                 grid_object,
                 placeholder_actions,
                 self._sim.action_success,
                 placeholder_rewards,
                 total_rewards,
-                policy_infos=policy_infos,
-                dialogue_append=_dialogue_append(dialogue_update),
-                dialogue_reset=_dialogue_reset(dialogue_update),
+                policy_infos=all_policy_infos.get(agent_id),
             )
 
             # Convert raw per-resource capacities to per-capacity-group format
@@ -211,19 +205,6 @@ def _extract_tutorial_overlay_phases(all_policy_infos: dict[int, dict]) -> list[
         if phases:
             return phases
     return []
-
-
-def _dialogue_append(dialogue_update: object) -> str:
-    if not isinstance(dialogue_update, dict):
-        return ""
-    append = dialogue_update.get("dialogue_append")
-    return append if isinstance(append, str) else ""
-
-
-def _dialogue_reset(dialogue_update: object) -> bool:
-    if not isinstance(dialogue_update, dict):
-        return False
-    return bool(dialogue_update.get("dialogue_reset", False))
 
 
 # Find the Nim bindings. Two possible locations:

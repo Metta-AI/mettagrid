@@ -11,9 +11,6 @@ from mettagrid.envs.stats_tracker import StatsTracker
 from mettagrid.policy.policy import AgentPolicy
 from mettagrid.renderer.renderer import Renderer, RenderMode, create_renderer
 from mettagrid.simulator.interface import SimulatorEventHandler
-from mettagrid.simulator.policy_debug_projection import (
-    compute_dialogue_transcript_update,
-)
 from mettagrid.simulator.simulator import Simulator
 from mettagrid.types import Action
 from mettagrid.util.stats_writer import StatsWriter
@@ -118,12 +115,9 @@ class Rollout:
         )
 
         self._policy_infos: dict[int, dict] = {}
-        self._dialogue_tail_by_agent: dict[int, str] = {}
-        self._dialogue_updates: dict[int, dict[str, Any]] = {}
         self._step_count = 0
         self._skip_wait_on_policy_shutdown = False
         self._sim._context["policy_infos"] = self._policy_infos
-        self._sim._context["dialogue_updates"] = self._dialogue_updates
         if self._renderer is not None and self._render_initial_frame:
             self._renderer.render()
 
@@ -138,7 +132,6 @@ class Rollout:
         """
         if self._step_count % 100 == 0:
             logger.debug(f"Step {self._step_count}")
-        self._dialogue_updates.clear()
 
         try:
             if self._policy_group_keys is None:
@@ -368,10 +361,6 @@ class Rollout:
         return self._config.game.actions.noop.Noop(), True
 
     def _update_policy_infos(self, index: int, infos: dict[str, Any]) -> None:
-        debug_infos = infos.pop("__sidecar_debug__", None)
-        if isinstance(debug_infos, dict):
-            self._update_dialogue_transcript(index, debug_infos)
-
         if index < len(self._policy_names):
             infos.setdefault("policy_name", self._policy_names[index])
 
@@ -380,24 +369,9 @@ class Rollout:
         else:
             self._policy_infos.pop(index, None)
 
-    def _update_dialogue_transcript(self, index: int, debug_infos: dict[str, Any]) -> None:
-        transcript_tail = debug_infos.get("transcript_tail")
-        if not isinstance(transcript_tail, str) or not transcript_tail:
-            return
-
-        previous_tail = self._dialogue_tail_by_agent.get(index, "")
-        dialogue_append, dialogue_reset = compute_dialogue_transcript_update(previous_tail, transcript_tail)
-        self._dialogue_tail_by_agent[index] = transcript_tail
-        if dialogue_append or dialogue_reset:
-            self._dialogue_updates[index] = {
-                "dialogue_append": dialogue_append,
-                "dialogue_reset": dialogue_reset,
-            }
-
     def _render_pending_frame(self) -> None:
         assert self._renderer is not None
         self._sim._context["policy_infos"] = self._policy_infos
-        self._sim._context["dialogue_updates"] = self._dialogue_updates
         self._sim._context["allow_manual_actions"] = False
         try:
             self._renderer.render_pending()

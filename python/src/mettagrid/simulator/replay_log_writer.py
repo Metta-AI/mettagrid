@@ -12,7 +12,6 @@ import numpy as np
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.renderer.common import METTASCOPE_REPLAY_URL_PREFIX
 from mettagrid.simulator.interface import SimulatorEventHandler
-from mettagrid.simulator.policy_debug_projection import strip_dialogue_transcript_tail
 from mettagrid.simulator.simulator import Simulation
 from mettagrid.util.file import http_url, write_data
 from mettagrid.util.grid_object_formatter import format_grid_object
@@ -165,7 +164,6 @@ class EpisodeReplay:
         """Log a single step of the episode."""
         self.total_rewards += rewards
         all_policy_infos = self.sim._context.get("policy_infos", {})
-        all_dialogue_updates = self.sim._context.get("dialogue_updates", {})
 
         # On first step, get ALL objects (including walls) to set up the replay
         # On subsequent steps, use ignore_types to skip static objects at the C++ level
@@ -191,16 +189,13 @@ class EpisodeReplay:
             seen_indices.add(idx)
 
             agent_id = grid_object.get("agent_id")
-            dialogue_update = all_dialogue_updates.get(agent_id, {})
             update_object = format_grid_object(
                 grid_object,
                 actions,
                 self.sim.action_success,
                 rewards,
                 self.total_rewards,
-                policy_infos=strip_dialogue_transcript_tail(all_policy_infos.get(agent_id)),
-                dialogue_append=dialogue_update.get("dialogue_append", ""),
-                dialogue_reset=bool(dialogue_update.get("dialogue_reset", False)),
+                policy_infos=all_policy_infos.get(agent_id),
             )
 
             # Convert raw per-resource capacities to per-capacity-group format

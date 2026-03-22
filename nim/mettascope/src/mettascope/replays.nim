@@ -1315,8 +1315,8 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
 
     # Policy info is sourced from streamed replay steps only.
     entity.policyInfos = @[newJNull()]
-    entity.dialogueAppend = if "dialogue_append" in obj: expand[string](obj["dialogue_append"], replay.maxSteps, "") else: @[""]
-    entity.dialogueReset = if "dialogue_reset" in obj: expand[bool](obj["dialogue_reset"], replay.maxSteps, false) else: @[false]
+    entity.dialogueAppend = @[""]
+    entity.dialogueReset = @[false]
 
     if "protocols" in obj:
       entity.protocols = fromJson($(obj["protocols"]), seq[Protocol])

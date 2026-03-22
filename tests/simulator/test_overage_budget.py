@@ -132,29 +132,14 @@ class ClosingPendingRenderer(Renderer):
         pass
 
 
-class PendingDebugPolicy(AgentPolicy):
+class PendingSlowPolicy(AgentPolicy):
     def __init__(self, sleep_ms: float = 50.0):
         self._sleep_ms = sleep_ms
         self._infos: dict = {}
 
     def step(self, obs: AgentObservation) -> Action:
         _ = obs
-        self._infos = {"directive_role": "miner", "__sidecar_debug__": {}}
         time.sleep(self._sleep_ms / 1000.0)
-        self._infos = {
-            "directive_role": "miner",
-            "__sidecar_debug__": {
-                "last_event_id": 1,
-                "transcript_tail": "## Step 1 Agent 0 llm -> runtime\nsummary: opened with miners.\n",
-                "events": [
-                    {
-                        "event_id": 1,
-                        "kind": "llm_review",
-                        "trigger_name": "initial_generation",
-                    }
-                ],
-            },
-        }
         return Action(name="noop")
 
 
@@ -479,7 +464,7 @@ def test_rollout_uses_pending_render_hook_while_policy_step_is_running(
 
     rollout = Rollout(
         config,
-        [PendingDebugPolicy()],
+        [PendingSlowPolicy()],
         policy_names=["pending_policy"],
         max_action_time_ms=10_000,
         render_mode="gui",
