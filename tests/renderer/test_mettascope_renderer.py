@@ -8,7 +8,10 @@ from typing import Any, cast
 from mettagrid.renderer.mettascope import (
     MettascopeRenderer,
     _extract_tutorial_overlay_phases,
+    _monologue_append,
+    _monologue_reset,
 )
+from mettagrid.simulator.monologue_projection import strip_monologue_transcript_tail
 
 
 def test_extract_tutorial_overlay_phases_prefers_first_non_empty_list() -> None:
@@ -26,6 +29,27 @@ def test_extract_tutorial_overlay_phases_prefers_first_non_empty_list() -> None:
 def test_extract_tutorial_overlay_phases_ignores_non_dict_infos() -> None:
     overlay = _extract_tutorial_overlay_phases({0: "not-a-dict", 1: {"other_key": "value"}})
     assert overlay == []
+
+
+def test_strip_monologue_transcript_tail_keeps_other_policy_infos() -> None:
+    policy_infos = {
+        "__monologue_transcript_tail": "assistant: hello",
+        "policy_name": "debug_policy",
+        "target": [1, 2],
+    }
+
+    assert strip_monologue_transcript_tail(policy_infos) == {
+        "policy_name": "debug_policy",
+        "target": [1, 2],
+    }
+
+
+def test_monologue_update_helpers_ignore_invalid_payloads() -> None:
+    assert _monologue_append({"monologue_append": "assistant: hello"}) == "assistant: hello"
+    assert _monologue_append({"monologue_append": 123}) == ""
+    assert _monologue_reset({"monologue_reset": True}) is True
+    assert _monologue_reset({"monologue_reset": "yes"}) is True
+    assert _monologue_reset(None) is False
 
 
 class _FakeMettascopeModule(ModuleType):

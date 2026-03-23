@@ -11,6 +11,7 @@ from mettagrid.envs.stats_tracker import StatsTracker
 from mettagrid.policy.policy import AgentPolicy
 from mettagrid.renderer.renderer import Renderer, RenderMode, create_renderer
 from mettagrid.simulator.interface import SimulatorEventHandler
+from mettagrid.simulator.monologue_projection import compute_monologue_transcript_update
 from mettagrid.simulator.simulator import Simulator
 from mettagrid.types import Action
 from mettagrid.util.stats_writer import StatsWriter
@@ -115,9 +116,12 @@ class Rollout:
         )
 
         self._policy_infos: dict[int, dict] = {}
+        self._monologue_tail_by_agent: dict[int, str] = {}
+        self._monologue_updates: dict[int, dict[str, Any]] = {}
         self._step_count = 0
         self._skip_wait_on_policy_shutdown = False
         self._sim._context["policy_infos"] = self._policy_infos
+        self._sim._context["monologue_updates"] = self._monologue_updates
         if self._renderer is not None and self._render_initial_frame:
             self._renderer.render()
 
@@ -132,6 +136,7 @@ class Rollout:
         """
         if self._step_count % 100 == 0:
             logger.debug(f"Step {self._step_count}")
+        self._monologue_updates.clear()
 
         try:
             if self._policy_group_keys is None:
@@ -361,6 +366,10 @@ class Rollout:
         return self._config.game.actions.noop.Noop(), True
 
     def _update_policy_infos(self, index: int, infos: dict[str, Any]) -> None:
+        transcript_tail = infos.pop("__monologue_transcript_tail", None)
+        if isinstance(transcript_tail, str) and transcript_tail:
+            self._update_monologue_transcript(index, transcript_tail)
+
         if index < len(self._policy_names):
             infos.setdefault("policy_name", self._policy_names[index])
 
@@ -369,9 +378,20 @@ class Rollout:
         else:
             self._policy_infos.pop(index, None)
 
+    def _update_monologue_transcript(self, index: int, transcript_tail: str) -> None:
+        previous_tail = self._monologue_tail_by_agent.get(index, "")
+        monologue_append, monologue_reset = compute_monologue_transcript_update(previous_tail, transcript_tail)
+        self._monologue_tail_by_agent[index] = transcript_tail
+        if monologue_append or monologue_reset:
+            self._monologue_updates[index] = {
+                "monologue_append": monologue_append,
+                "monologue_reset": monologue_reset,
+            }
+
     def _render_pending_frame(self) -> None:
         assert self._renderer is not None
         self._sim._context["policy_infos"] = self._policy_infos
+        self._sim._context["monologue_updates"] = self._monologue_updates
         self._sim._context["allow_manual_actions"] = False
         try:
             self._renderer.render_pending()

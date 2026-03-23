@@ -29,10 +29,10 @@ proc monologueSignature(transcript: string): Hash =
   hash(transcript)
 
 proc currentMonologueTail(agent: Entity): string =
-  if agent.isNil or agent.dialogueAppend.len == 0:
+  if agent.isNil or agent.monologueAppend.len == 0:
     return ""
 
-  let targetStep = min(step, agent.dialogueAppend.high)
+  let targetStep = min(step, agent.monologueAppend.high)
   if agent.agentId == monologueCachedAgentId and targetStep == monologueCachedStep:
     return monologueCachedTranscript
 
@@ -45,9 +45,9 @@ proc currentMonologueTail(agent: Entity): string =
 
   if startStep <= targetStep:
     for i in startStep .. targetStep:
-      if agent.dialogueReset.at(i):
+      if agent.monologueReset.at(i):
         transcript.setLen(0)
-      let appended = agent.dialogueAppend.at(i)
+      let appended = agent.monologueAppend.at(i)
       if appended.len > 0:
         transcript.add(appended)
 

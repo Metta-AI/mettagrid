@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from mettagrid.renderer.renderer import Renderer
+from mettagrid.simulator.monologue_projection import strip_monologue_transcript_tail
 from mettagrid.types import Action
 from mettagrid.util.grid_object_formatter import format_grid_object
 
@@ -98,17 +99,22 @@ class MettascopeRenderer(Renderer):
             ignore_types = ["wall"]
 
         all_policy_infos = self._sim._context.get("policy_infos", {})
+        all_monologue_updates = self._sim._context.get("monologue_updates", {})
         tutorial_overlay_phases = _extract_tutorial_overlay_phases(all_policy_infos)
 
         for grid_object in self._sim.grid_objects(ignore_types=ignore_types).values():
             agent_id = grid_object.get("agent_id")
+            policy_infos = strip_monologue_transcript_tail(all_policy_infos.get(agent_id))
+            monologue_update = all_monologue_updates.get(agent_id, {})
             formatted = format_grid_object(
                 grid_object,
                 placeholder_actions,
                 self._sim.action_success,
                 placeholder_rewards,
                 total_rewards,
-                policy_infos=all_policy_infos.get(agent_id),
+                policy_infos=policy_infos,
+                monologue_append=_monologue_append(monologue_update),
+                monologue_reset=_monologue_reset(monologue_update),
             )
 
             # Convert raw per-resource capacities to per-capacity-group format
@@ -205,6 +211,19 @@ def _extract_tutorial_overlay_phases(all_policy_infos: dict[int, dict]) -> list[
         if phases:
             return phases
     return []
+
+
+def _monologue_append(monologue_update: object) -> str:
+    if not isinstance(monologue_update, dict):
+        return ""
+    append = monologue_update.get("monologue_append")
+    return append if isinstance(append, str) else ""
+
+
+def _monologue_reset(monologue_update: object) -> bool:
+    if not isinstance(monologue_update, dict):
+        return False
+    return bool(monologue_update.get("monologue_reset", False))
 
 
 # Find the Nim bindings. Two possible locations:
