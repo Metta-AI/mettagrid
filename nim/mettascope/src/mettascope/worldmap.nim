@@ -9,6 +9,9 @@ import
 
 const
   TileSize = 128
+  TurnTransitionHalf = 0.20f        # Diagonal shown for ±20% around step boundary.
+  TurnDisableSpeed = 50.0f          # Skip diagonal/rounding above this playback speed.
+  CornerRoundingTension = 0.5f      # Catmull-Rom tension (0.5 = standard, higher = more curve).
   Ts = 1.0 / TileSize.float32 # Tile scale.
   MiniTileSize = 16
   Mts = 1.0 / MiniTileSize.float32 # Mini tile scale for minimap.
@@ -561,15 +564,33 @@ proc bumpOffset(agent: Entity): Vec2 =
   bumpDir.get.vec2 * depth
 
 proc smoothPos*(entity: Entity): Vec2 =
-  ## Interpolate between floor(stepFloat) and the next step.
+  ## Interpolate position with Catmull-Rom spline for smooth corners.
   if entity.isNil:
     return vec2(0, 0)
   let
     baseStep = floor(stepFloat).int
-    stepFrac = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
-    pos0 = entity.location.at(baseStep).xy.vec2
-    pos1 = entity.location.at(baseStep + 1).xy.vec2
-  result = pos0 + (pos1 - pos0) * stepFrac
+    t = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
+    p1 = entity.location.at(baseStep).xy.vec2
+    p2 = entity.location.at(baseStep + 1).xy.vec2
+  if playSpeed > TurnDisableSpeed or baseStep < 1:
+    result = p1 + (p2 - p1) * t
+  elif p1 == p2:
+    # Fall back to linear when stationary this step.
+    result = p1
+  else:
+    let
+      p0 = entity.location.at(baseStep - 1).xy.vec2
+      p3 = entity.location.at(baseStep + 2).xy.vec2
+      # Zero tangent when the adjacent segment is stationary to prevent overshoot.
+      m0 = if p0 == p1: vec2(0, 0) else: CornerRoundingTension * (p2 - p0)
+      m1 = if p2 == p3: vec2(0, 0) else: CornerRoundingTension * (p3 - p1)
+      t2 = t * t
+      t3 = t2 * t
+    # Cubic Hermite spline.
+    result = (2.0f*t3 - 3.0f*t2 + 1.0f) * p1 +
+      (t3 - 2.0f*t2 + t) * m0 +
+      (-2.0f*t3 + 3.0f*t2) * p2 +
+      (t3 - t2) * m1
   if entity.isAgent:
     result += bumpOffset(entity)
 
@@ -721,24 +742,65 @@ proc inferOrientationFromDir(dir: IVec2): Orientation =
 
 # stripTeamSuffix, stripTeamPrefix, normalizeTypeName are imported from common
 
-proc smoothOrientation*(agent: Entity): Orientation =
-  ## Switch orientation halfway through the interpolated move.
+proc diagonalSuffix(a, b: Orientation): string =
+  ## Return the diagonal sprite suffix for a turn between two cardinals.
+  ## Returns "" for 180-degree turns or same direction.
+  case a
+  of N:
+    case b
+    of E: "ne"
+    of W: "nw"
+    else: ""
+  of S:
+    case b
+    of E: "se"
+    of W: "sw"
+    else: ""
+  of E:
+    case b
+    of N: "ne"
+    of S: "se"
+    else: ""
+  of W:
+    case b
+    of N: "nw"
+    of S: "sw"
+    else: ""
+  of Invalid: ""
+
+proc smoothOrientation*(agent: Entity): string =
+  ## Return sprite direction suffix for the agent's current facing.
+  ## Returns "n","s","e","w" normally, or "ne","nw","se","sw" during turn transitions.
+  ## Diagonal straddles the step boundary: last 20% before + first 20% after a turn.
   if agent.isNil:
-    return S
+    return $S.char
 
   let bumpDir = agent.getActiveBumpDir()
   if bumpDir.isSome:
-    return inferOrientationFromDir(bumpDir.get)
+    return $inferOrientationFromDir(bumpDir.get).char
 
   let
     baseStep = floor(stepFloat).int
     stepFrac = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
-    orientation0 = inferOrientation(agent, baseStep)
-    orientation1 = inferOrientation(agent, baseStep + 1)
+    orientationCurr = inferOrientation(agent, baseStep)
+    orientationNext = inferOrientation(agent, baseStep + 1)
+  if playSpeed <= TurnDisableSpeed and baseStep > 0:
+    # Just turned: first 20% of this step, show diagonal for curr->next boundary.
+    if orientationCurr != orientationNext and stepFrac < TurnTransitionHalf:
+      let diag = diagonalSuffix(orientationCurr, orientationNext)
+      if diag.len > 0:
+        return diag
+    # Approaching turn: last 20% of this step, show diagonal for next boundary.
+    if stepFrac > (1.0f - TurnTransitionHalf):
+      let orientationNextNext = inferOrientation(agent, baseStep + 2)
+      if orientationNext != orientationNextNext:
+        let diag = diagonalSuffix(orientationNext, orientationNextNext)
+        if diag.len > 0:
+          return diag
   if stepFrac >= 0.05f:
-    orientation1
+    $orientationNext.char
   else:
-    orientation0
+    $orientationCurr.char
 
 proc agentRigName(agent: Entity): string =
   ## Get the rig of the agent.
@@ -813,14 +875,14 @@ proc drawObjects*() {.measure.} =
     if thing.typeName == "agent":
       let agent = thing
       let resolvedAsset = replay.resolveRenderAsset(agent, step)
-      let orientation = smoothOrientation(agent)
+      let dirSuffix = smoothOrientation(agent)
       var agentImage =
         if resolvedAsset.len > 0:
-          "agents/" & resolvedAsset & "." & orientation.char
+          "agents/" & resolvedAsset & "." & dirSuffix
         else:
           ""
       if agentImage notin px:
-        agentImage = "agents/" & agentRigName(agent) & "." & orientation.char
+        agentImage = "agents/" & agentRigName(agent) & "." & dirSuffix
 
       # Tint sprite by team color using mask for selective coloring.
       let teamIdx = getEntityTeamIndex(agent)
