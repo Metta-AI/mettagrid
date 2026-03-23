@@ -65,6 +65,10 @@ proc switchGameMode*(newMode: GameMode) =
       window.size.x.int32,
       window.size.y.int32
     ))
+    previousPanelSize = vec2(
+      window.size.x.float32,
+      window.size.y.float32
+    )
     worldMapZoomInfo.hasMouse = true
     applyModeSwitchCenter(worldMapZoomInfo)
   else: # Editor mode
@@ -828,6 +832,17 @@ proc drawGameWorld*() =
   let
     winW = window.size.x.float32
     winH = window.size.y.float32
+    winWi = window.size.x.int32
+    winHi = window.size.y.int32
+
+  if worldMapZoomInfo.rect.x != 0 or
+      worldMapZoomInfo.rect.y != 0 or
+      worldMapZoomInfo.rect.w != winWi or
+      worldMapZoomInfo.rect.h != winHi:
+    worldMapZoomInfo.rect = irect(0, 0, winWi, winHi)
+    worldMapZoomInfo.scrollArea = rect(irect(0, 0, winWi, winHi))
+    updateMinZoom(worldMapZoomInfo)
+    adjustPanelForResize(worldMapZoomInfo)
 
   topLeftPanel()
   topRightPanel(winW)
