@@ -277,6 +277,35 @@ def test_fast_policy_never_disabled():
     assert rollout.timeout_counts[0] == 0
 
 
+def test_policy_minimum_action_timeout_overrides_lower_rollout_timeout():
+    requested_timeout_ms = 10
+    required_timeout_ms = 50
+    config = _make_config(num_agents=1, max_steps=3)
+
+    class _SlowButExpectedPolicy(MultiAgentPolicy):
+        minimum_action_timeout_ms = required_timeout_ms
+
+        def agent_policy(self, agent_id: int) -> AgentPolicy:
+            _ = agent_id
+            return SlowAgentPolicy(sleep_ms=requested_timeout_ms + 20)
+
+    env_interface = PolicyEnvInterface.from_mg_cfg(config)
+    policy = _SlowButExpectedPolicy(env_interface)
+
+    results, _ = single_episode_rollout(
+        [policy],
+        [0],
+        config,
+        seed=42,
+        max_action_time_ms=requested_timeout_ms,
+        render_mode="none",
+        autostart=False,
+        capture_replay=False,
+    )
+
+    assert results.action_timeouts == [0]
+
+
 def test_none_budget_preserves_behavior():
     """With overage_budget_ms=None, timeouts still noop but policy is never disabled."""
     max_action_time_ms = 10

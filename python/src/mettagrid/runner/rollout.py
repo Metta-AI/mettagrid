@@ -27,6 +27,18 @@ def _policy_display_name(policy: MultiAgentPolicy, fallback: str) -> str:
     return fallback
 
 
+def _resolve_action_timeout_ms(max_action_time_ms: int, policies: Sequence[MultiAgentPolicy]) -> int:
+    required_timeout_ms = max(policy.minimum_action_timeout_ms for policy in policies)
+    if required_timeout_ms <= max_action_time_ms:
+        return max_action_time_ms
+    logger.info(
+        "Increasing action timeout from %sms to %sms for policy requirements.",
+        max_action_time_ms,
+        required_timeout_ms,
+    )
+    return required_timeout_ms
+
+
 def resolve_env_for_seed(env: MettaGridConfig, seed: int) -> MettaGridConfig:
     """Tie map generation to rollout seed when the map builder seed is unset.
 
@@ -65,6 +77,9 @@ def single_episode_rollout(
     episode_subprocess (which receives policies over HTTP).
     """
     env_for_rollout = resolve_env_for_seed(env, seed)
+    resolved_action_timeout_ms = _resolve_action_timeout_ms(max_action_time_ms, policies)
+    for policy in policies:
+        policy.configure_action_timeout_ms(resolved_action_timeout_ms)
 
     agent_policies: list[AgentPolicy] = [
         policies[assignment].agent_policy(agent_id) for agent_id, assignment in enumerate(assignments)
@@ -98,7 +113,7 @@ def single_episode_rollout(
         env_for_rollout,
         agent_policies,
         policy_names=agent_policy_names,
-        max_action_time_ms=max_action_time_ms,
+        max_action_time_ms=resolved_action_timeout_ms,
         overage_budget_ms=overage_budget_ms,
         render_mode=render_mode,
         autostart=autostart,

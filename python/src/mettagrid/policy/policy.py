@@ -6,7 +6,7 @@ import ctypes
 import json
 from abc import abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Optional, Sequence, Tuple, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, Sequence, Tuple, TypeVar, cast
 
 import numpy as np
 from pydantic import BaseModel, Field
@@ -97,9 +97,11 @@ class MultiAgentPolicy(metaclass=PolicyRegistryMeta):
     """
 
     short_names: list[str] | None = None
+    minimum_action_timeout_ms: ClassVar[int] = 0
 
     def __init__(self, policy_env_info: PolicyEnvInterface, device: str = "cpu", **kwargs: Any):
         self._policy_env_info = policy_env_info
+        self._action_timeout_ms = self.minimum_action_timeout_ms
 
     @abstractmethod
     def agent_policy(self, agent_id: int) -> AgentPolicy:
@@ -133,6 +135,14 @@ class MultiAgentPolicy(metaclass=PolicyRegistryMeta):
     @property
     def policy_env_info(self) -> PolicyEnvInterface:
         return self._policy_env_info
+
+    @property
+    def action_timeout_ms(self) -> int:
+        return self._action_timeout_ms
+
+    def configure_action_timeout_ms(self, _action_timeout_ms: int) -> None:
+        """Receive the rollout action timeout that will be enforced for this policy."""
+        self._action_timeout_ms = _action_timeout_ms
 
     def reset(self) -> None:
         """Reset any policy state; default no-op."""
