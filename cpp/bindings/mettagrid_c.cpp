@@ -158,6 +158,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
 
   // Initialize base HandlerContext with all system pointers
   _game_ctx = mettagrid::HandlerContext(&_tag_index, _grid.get(), _stats.get(), _query_system.get(), &_rng);
+  _game_ctx.game_config = &_game_config;
 
   // Compute initial query tags
   _query_system->compute_all(_game_ctx);

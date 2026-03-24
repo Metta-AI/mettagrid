@@ -103,7 +103,12 @@ struct RemoveTagsWithPrefixMutationConfig {
 };
 
 struct RelocateMutationConfig {};   // Move actor to target cell
+struct SwapMutationConfig {};       // Swap actor and target positions
 struct UseTargetMutationConfig {};  // Delegate to target's onUse handler
+
+struct SpawnObjectMutationConfig {
+  std::string object_type;  // Object type name to spawn at target_location
+};
 
 // Variant type for all mutation configs
 using MutationConfig = std::variant<ResourceDeltaMutationConfig,
@@ -118,7 +123,9 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     QueryInventoryMutationConfig,
                                     RemoveTagsWithPrefixMutationConfig,
                                     RelocateMutationConfig,
-                                    UseTargetMutationConfig>;
+                                    SwapMutationConfig,
+                                    UseTargetMutationConfig,
+                                    SpawnObjectMutationConfig>;
 
 }  // namespace mettagrid
 

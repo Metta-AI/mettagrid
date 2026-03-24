@@ -38,6 +38,7 @@ from mettagrid.config.mutation.resource_mutation import (
     updateTarget,
     withdraw,
 )
+from mettagrid.config.mutation.spawn_object_mutation import SpawnObjectMutation
 from mettagrid.config.mutation.stats_mutation import (
     StatsEntity,
     StatsMutation,
@@ -47,6 +48,7 @@ from mettagrid.config.mutation.stats_mutation import (
     logStatToGame,
     logTargetAgentStat,
 )
+from mettagrid.config.mutation.swap_mutation import SwapMutation
 from mettagrid.config.mutation.tag_mutation import (
     AddTagMutation,
     RemoveTagMutation,
@@ -73,6 +75,8 @@ AnyMutation = Annotated[
         Annotated[RecomputeMaterializedQueryMutation, Tag("recompute_materialized_query")],
         Annotated[QueryInventoryMutation, Tag("query_inventory")],
         Annotated[RelocateMutation, Tag("relocate")],
+        Annotated[SpawnObjectMutation, Tag("spawn_object")],
+        Annotated[SwapMutation, Tag("swap")],
         Annotated[UseTargetMutation, Tag("use_target")],
     ],
     Discriminator("mutation_type"),
@@ -97,6 +101,8 @@ _mutation_namespace = {
     "RecomputeMaterializedQueryMutation": RecomputeMaterializedQueryMutation,
     "QueryInventoryMutation": QueryInventoryMutation,
     "RelocateMutation": RelocateMutation,
+    "SpawnObjectMutation": SpawnObjectMutation,
+    "SwapMutation": SwapMutation,
     "UseTargetMutation": UseTargetMutation,
 }
 AttackMutation.model_rebuild(_types_namespace=_mutation_namespace)
@@ -122,6 +128,8 @@ __all__ = [
     "RecomputeMaterializedQueryMutation",
     "QueryInventoryMutation",
     "RelocateMutation",
+    "SpawnObjectMutation",
+    "SwapMutation",
     "UseTargetMutation",
     "useTarget",
     "AnyMutation",

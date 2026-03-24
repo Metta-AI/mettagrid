@@ -422,7 +422,12 @@ inline void bind_handler_config(py::module& m) {
 
   // Move-specific mutation configs (no fields, just marker types)
   py::class_<RelocateMutationConfig>(m, "RelocateMutationConfig").def(py::init<>());
+  py::class_<SwapMutationConfig>(m, "SwapMutationConfig").def(py::init<>());
   py::class_<UseTargetMutationConfig>(m, "UseTargetMutationConfig").def(py::init<>());
+
+  py::class_<SpawnObjectMutationConfig>(m, "SpawnObjectMutationConfig")
+      .def(py::init<>())
+      .def_readwrite("object_type", &SpawnObjectMutationConfig::object_type);
 
   // HandlerConfig with methods to add filters and mutations
   py::class_<HandlerConfig, std::shared_ptr<HandlerConfig>>(m, "HandlerConfig")
@@ -528,8 +533,16 @@ inline void bind_handler_config(py::module& m) {
           [](HandlerConfig& self, const RelocateMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))
       .def(
+          "add_swap_mutation",
+          [](HandlerConfig& self, const SwapMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
           "add_use_target_mutation",
           [](HandlerConfig& self, const UseTargetMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_spawn_object_mutation",
+          [](HandlerConfig& self, const SpawnObjectMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"));
 
   // ResourceDelta for presence_deltas

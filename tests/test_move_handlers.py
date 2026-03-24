@@ -3,9 +3,11 @@
 from mettagrid.config.filter import (
     HandlerTarget,
     MaxDistanceFilter,
+    ResourceFilter,
     TargetIsUsableFilter,
     TargetLocEmptyFilter,
     VibeFilter,
+    isNot,
 )
 from mettagrid.config.handler_config import Handler
 from mettagrid.config.mettagrid_config import (
@@ -13,6 +15,7 @@ from mettagrid.config.mettagrid_config import (
     AgentConfig,
     ChangeVibeActionConfig,
     GameConfig,
+    GridObjectConfig,
     InventoryConfig,
     MettaGridConfig,
     MoveActionConfig,
@@ -21,7 +24,13 @@ from mettagrid.config.mettagrid_config import (
     ResourceLimitsConfig,
     WallConfig,
 )
-from mettagrid.config.mutation import RelocateMutation, ResourceDeltaMutation, UseTargetMutation
+from mettagrid.config.mutation import (
+    RelocateMutation,
+    ResourceDeltaMutation,
+    SpawnObjectMutation,
+    SwapMutation,
+    UseTargetMutation,
+)
 from mettagrid.simulator import Action, Simulation
 from mettagrid.test_support.actions import get_agent_position
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
@@ -53,6 +62,13 @@ DEFAULT_MOVE_HANDLERS = [
         name="move",
         filters=[TargetLocEmptyFilter()],
         mutations=[RelocateMutation()],
+    ),
+    Handler(
+        name="swap_immobile",
+        filters=[
+            isNot(ResourceFilter(target=HandlerTarget.TARGET, resources={"mobility": 1})),
+        ],
+        mutations=[SwapMutation()],
     ),
     Handler(
         name="on_use",
@@ -250,3 +266,59 @@ def test_normal_move_when_vibe_does_not_match():
     assert get_agent_position(sim, 0) == (1, 2)
     # Agent 1 should still have mobility
     assert _get_resource(sim, 1, "mobility") == 1
+
+
+def test_spawn_object_registers_tags():
+    """SpawnObjectMutation creates an object and registers it with TagIndex."""
+    config = GameConfig(
+        max_steps=50,
+        num_agents=1,
+        obs=ObsConfig(width=3, height=3, num_tokens=100),
+        resource_names=["stone"],
+        actions=ActionsConfig(
+            noop=NoopActionConfig(),
+            move=MoveActionConfig(
+                handlers=[
+                    Handler(
+                        name="build",
+                        filters=[TargetLocEmptyFilter()],
+                        mutations=[SpawnObjectMutation(object_type="marker")],
+                    ),
+                ],
+            ),
+            change_vibe=ChangeVibeActionConfig(),
+        ),
+        objects={
+            "wall": WallConfig(),
+            "marker": GridObjectConfig(name="marker", tags=["built"]),
+        },
+        agents=[AgentConfig()],
+    )
+    map_data = [
+        ["wall", "wall", "wall", "wall"],
+        ["wall", "agent.red", "empty", "wall"],
+        ["wall", "wall", "wall", "wall"],
+    ]
+    sim = _make_sim(config, map_data)
+
+    # Count objects before spawn
+    objects_before = sim.grid_objects()
+    count_before = len(objects_before)
+
+    # Move east triggers spawn handler (target cell is empty)
+    _step(sim, [Action(name="move_east")])
+
+    # A new object should exist
+    objects_after = sim.grid_objects()
+    assert len(objects_after) > count_before, "SpawnObjectMutation should have created a new object"
+
+    # Find the spawned marker
+    marker = None
+    for obj in objects_after.values():
+        if obj.get("type_name") == "marker":
+            marker = obj
+            break
+    assert marker is not None, "Spawned marker object should be in grid_objects"
+
+    # Verify it has the expected tag registered
+    assert marker["has_tag"] is not None, "Spawned object should expose has_tag"

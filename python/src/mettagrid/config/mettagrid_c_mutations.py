@@ -18,9 +18,11 @@ from mettagrid.config.mutation import (
     ResourceDeltaMutation,
     ResourceTransferMutation,
     SetGameValueMutation,
+    SpawnObjectMutation,
     StatsEntity,
     StatsMutation,
     StatsTarget,
+    SwapMutation,
     UseTargetMutation,
 )
 from mettagrid.mettagrid_c import AddTagMutationConfig as CppAddTagMutationConfig
@@ -36,9 +38,11 @@ from mettagrid.mettagrid_c import RemoveTagMutationConfig as CppRemoveTagMutatio
 from mettagrid.mettagrid_c import RemoveTagsWithPrefixMutationConfig as CppRemoveTagsWithPrefixMutationConfig
 from mettagrid.mettagrid_c import ResourceDeltaMutationConfig as CppResourceDeltaMutationConfig
 from mettagrid.mettagrid_c import ResourceTransferMutationConfig as CppResourceTransferMutationConfig
+from mettagrid.mettagrid_c import SpawnObjectMutationConfig as CppSpawnObjectMutationConfig
 from mettagrid.mettagrid_c import StatsEntity as CppStatsEntity
 from mettagrid.mettagrid_c import StatsMutationConfig as CppStatsMutationConfig
 from mettagrid.mettagrid_c import StatsTarget as CppStatsTarget
+from mettagrid.mettagrid_c import SwapMutationConfig as CppSwapMutationConfig
 from mettagrid.mettagrid_c import UseTargetMutationConfig as CppUseTargetMutationConfig
 
 if TYPE_CHECKING:
@@ -208,8 +212,16 @@ def convert_mutations(
                 ]
             target_obj.add_query_inventory_mutation(cpp_mutation)
 
+        elif isinstance(mutation, SpawnObjectMutation):
+            cpp_mutation = CppSpawnObjectMutationConfig()
+            cpp_mutation.object_type = mutation.object_type
+            target_obj.add_spawn_object_mutation(cpp_mutation)
+
         elif isinstance(mutation, RelocateMutation):
             target_obj.add_relocate_mutation(CppRelocateMutationConfig())
+
+        elif isinstance(mutation, SwapMutation):
+            target_obj.add_swap_mutation(CppSwapMutationConfig())
 
         elif isinstance(mutation, UseTargetMutation):
             target_obj.add_use_target_mutation(CppUseTargetMutationConfig())
