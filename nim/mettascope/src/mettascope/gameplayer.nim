@@ -1,10 +1,10 @@
 import
-  std/[strformat, strutils, tables],
+  std/[strformat, strutils, tables, os],
   opengl,
   bumpy, vmath, windy, silky, silky/atlas, chroma, pixie,
   common, worldmap, panels, configs, team,
   replays, colors, minimap, actions, cognames, timelineslider,
-  custom_hud
+  custom_hud, sound
 
 var
   pendingCenter: Vec2
@@ -183,6 +183,9 @@ proc drawVibeButton(
       sk.drawImage("ui/button_main.hover", pos - vec2(16, 16))
     sk.hover = true
     if window.buttonReleased[MouseLeft]:
+      # TODO: FIX: Temporary. Implement proper architecture for sound.
+      playSound(dataDir / "sounds" / "UIbutton.wav")
+
       worldMapZoomInfo.hasMouse = false
       if selected != nil and selected.isAgent:
         let vibeActionId = replay.actionNames.find("change_vibe_" & vibeName)

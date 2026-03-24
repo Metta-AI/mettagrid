@@ -4,6 +4,7 @@ import
   mettascope/[replays, common, worldmap, panels,
   footer, timeline, minimap, header, replayloader, configs, gameplayer],
   mettascope/panels/[objectpanel, policyinfopanel, envpanel, vibespanel, scorepanel, monologuepanel]
+import slappy except play
 
 when isMainModule:
   let config = loadConfig()
@@ -293,8 +294,13 @@ proc initMettascope*() {.measure.} =
       parseArgs()
     replaySwitch(commandLineReplay)
 
+  slappyInit()
+
 proc tickMettascope*() =
   pollEvents()
+
+proc closeMettascope*() =
+  slappyClose()
 
 proc main() =
   ## Main entry point.
@@ -309,6 +315,8 @@ proc main() =
 
   while not window.closeRequested:
     tickMettascope()
+
+  closeMettascope()
 
 when isMainModule:
   main()
