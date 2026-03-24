@@ -22,7 +22,7 @@ from mettagrid.mapgen.utils.ascii_grid import DEFAULT_CHAR_TO_NAME
 from mettagrid.simulator import Location, Simulation
 from mettagrid.test_support import ObservationHelper
 
-NUM_OBS_TOKENS = 50
+NUM_OBS_TOKENS = 100
 
 
 def xy(x: int, y: int) -> Location:

@@ -224,8 +224,14 @@ private:
     size_t tokens_written = 0;
     size_t tokens_dropped = 0;
     size_t tokens_free_space = 0;
+    bool token_budget_exceeded = false;
+    size_t overflow_agent_idx = 0;
+    size_t overflow_attempted_tokens = 0;
+    size_t overflow_buffer_capacity = 0;
     void reset_stats() {
       tokens_written = tokens_dropped = tokens_free_space = 0;
+      token_budget_exceeded = false;
+      overflow_agent_idx = overflow_attempted_tokens = overflow_buffer_capacity = 0;
     }
   };
   std::vector<ObsComputeBuffers> _obs_thread_buffers;
@@ -255,6 +261,9 @@ private:
                                        size_t& tokens_written,
                                        size_t& attempted_tokens_written,
                                        size_t buffer_capacity);
+  void _throw_observation_token_overflow(size_t agent_idx,
+                                         size_t attempted_tokens_written,
+                                         size_t buffer_capacity) const;
   void add_agent(Agent* agent);
   void _init_grid(const GameConfig& game_config, const py::list& map);
   void _make_buffers(unsigned int num_agents);

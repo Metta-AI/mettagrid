@@ -361,6 +361,19 @@ void MettaGrid::_emit_tile_observability_tokens(size_t agent_idx,
   }
 }
 
+void MettaGrid::_throw_observation_token_overflow(size_t agent_idx,
+                                                  size_t attempted_tokens_written,
+                                                  size_t buffer_capacity) const {
+  const auto& location = _agents[agent_idx]->location;
+  std::string message = "Observation token budget exceeded for agent " + std::to_string(agent_idx) + " at step " +
+                        std::to_string(current_step) + " (location=" + std::to_string(location.r) + "," +
+                        std::to_string(location.c) + ", budget=" + std::to_string(buffer_capacity) +
+                        ", attempted=" + std::to_string(attempted_tokens_written) + ", dropped=" +
+                        std::to_string(attempted_tokens_written - buffer_capacity) + ")";
+  std::cerr << "[MettaGrid] " << message << std::endl;
+  throw std::runtime_error(message);
+}
+
 // Dispatcher: routes to original or optimized based on validation config
 void MettaGrid::_compute_observation(GridCoord observer_row,
                                      GridCoord observer_col,
@@ -507,11 +520,11 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
   size_t tokens_written = 0;
   auto observation_view = _observations.mutable_unchecked<3>();
   auto rewards_view = _rewards.unchecked<1>();
+  size_t buffer_capacity = static_cast<size_t>(observation_view.shape(1));
 
   // Global tokens
   ObservationToken* agent_obs_ptr = reinterpret_cast<ObservationToken*>(observation_view.mutable_data(agent_idx, 0, 0));
-  ObservationTokens agent_obs_tokens(
-      agent_obs_ptr, static_cast<size_t>(observation_view.shape(1)) - static_cast<size_t>(tokens_written));
+  ObservationTokens agent_obs_tokens(agent_obs_ptr, buffer_capacity - static_cast<size_t>(tokens_written));
 
   _obs_thread_buffers[0].global_tokens.clear();
   auto& global_tokens = _obs_thread_buffers[0].global_tokens;
@@ -565,11 +578,11 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
 
   attempted_tokens_written +=
       _obs_encoder->append_tokens_if_room_available(agent_obs_tokens, global_tokens, global_location);
-  tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
+  tokens_written = std::min(attempted_tokens_written, buffer_capacity);
 
   // Emit obs tokens - resolve each GameValueConfig inline
   attempted_tokens_written += _emit_obs_value_tokens(agent_idx, tokens_written, global_location);
-  tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
+  tokens_written = std::min(attempted_tokens_written, buffer_capacity);
 
   // Process locations in increasing manhattan distance order (using pre-computed offsets)
   for (const auto& [r_offset, c_offset] : _observation_offsets) {
@@ -589,8 +602,6 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
     int obs_r = r - static_cast<int>(observer_row) + static_cast<int>(obs_height_radius);
     int obs_c = c - static_cast<int>(observer_col) + static_cast<int>(obs_width_radius);
     uint8_t location = PackedCoordinate::pack(static_cast<uint8_t>(obs_r), static_cast<uint8_t>(obs_c));
-
-    size_t buffer_capacity = static_cast<size_t>(observation_view.shape(1));
 
     // Prepare observation buffer for this location
     ObservationToken* obs_ptr =
@@ -622,9 +633,13 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
     tokens_written = std::min(attempted_tokens_written, buffer_capacity);
   }
 
+  if (attempted_tokens_written > buffer_capacity) {
+    _throw_observation_token_overflow(agent_idx, attempted_tokens_written, buffer_capacity);
+  }
+
   _stats->add("tokens_written", tokens_written);
   _stats->add("tokens_dropped", attempted_tokens_written - tokens_written);
-  _stats->add("tokens_free_space", static_cast<size_t>(observation_view.shape(1)) - tokens_written);
+  _stats->add("tokens_free_space", buffer_capacity - tokens_written);
 }
 
 // Optimized path: thin wrapper using thread-local buffer 0
@@ -638,6 +653,9 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
   buf.reset_stats();
   _compute_observation_optimized(
       observer_row, observer_col, observable_width, observable_height, agent_idx, action, buf);
+  if (buf.token_budget_exceeded) {
+    _throw_observation_token_overflow(buf.overflow_agent_idx, buf.overflow_attempted_tokens, buf.overflow_buffer_capacity);
+  }
   *_stats->get_ptr(_stat_tokens_written) += buf.tokens_written;
   *_stats->get_ptr(_stat_tokens_dropped) += buf.tokens_dropped;
   *_stats->get_ptr(_stat_tokens_free_space) += buf.tokens_free_space;
@@ -669,11 +687,11 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
   size_t tokens_written = 0;
   auto observation_view = _observations.mutable_unchecked<3>();
   auto rewards_view = _rewards.unchecked<1>();
+  size_t buffer_capacity = static_cast<size_t>(observation_view.shape(1));
 
   // Global tokens
   ObservationToken* agent_obs_ptr = reinterpret_cast<ObservationToken*>(observation_view.mutable_data(agent_idx, 0, 0));
-  ObservationTokens agent_obs_tokens(
-      agent_obs_ptr, static_cast<size_t>(observation_view.shape(1)) - static_cast<size_t>(tokens_written));
+  ObservationTokens agent_obs_tokens(agent_obs_ptr, buffer_capacity - static_cast<size_t>(tokens_written));
 
   // Build global tokens based on configuration (reusing pre-allocated buffer)
   buffers.global_tokens.clear();
@@ -728,11 +746,11 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
 
   attempted_tokens_written +=
       _obs_encoder->append_tokens_if_room_available(agent_obs_tokens, global_tokens, global_location);
-  tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
+  tokens_written = std::min(attempted_tokens_written, buffer_capacity);
 
   // Emit obs tokens - resolve each GameValueConfig inline
   attempted_tokens_written += _emit_obs_value_tokens(agent_idx, tokens_written, global_location);
-  tokens_written = std::min(attempted_tokens_written, static_cast<size_t>(observation_view.shape(1)));
+  tokens_written = std::min(attempted_tokens_written, buffer_capacity);
 
   // Process locations in increasing manhattan distance order (using pre-computed offsets)
   for (const auto& [r_offset, c_offset] : _observation_offsets) {
@@ -755,7 +773,6 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
 
     // Once buffer is full, we still compute features to track exact tokens_dropped.
     // Alternative: count objects only (cheaper, but tokens_dropped becomes objects_dropped).
-    size_t buffer_capacity = static_cast<size_t>(observation_view.shape(1));
     ObservationToken* obs_ptr =
         reinterpret_cast<ObservationToken*>(observation_view.mutable_data(agent_idx, tokens_written, 0));
 
@@ -793,9 +810,17 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
     tokens_written = std::min(attempted_tokens_written, buffer_capacity);
   }
 
+  if (attempted_tokens_written > buffer_capacity) {
+    buffers.token_budget_exceeded = true;
+    buffers.overflow_agent_idx = agent_idx;
+    buffers.overflow_attempted_tokens = attempted_tokens_written;
+    buffers.overflow_buffer_capacity = buffer_capacity;
+    return;
+  }
+
   buffers.tokens_written += tokens_written;
   buffers.tokens_dropped += (attempted_tokens_written - tokens_written);
-  buffers.tokens_free_space += (static_cast<size_t>(observation_view.shape(1)) - tokens_written);
+  buffers.tokens_free_space += (buffer_capacity - tokens_written);
 }
 
 void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_actions) {
@@ -839,6 +864,9 @@ void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_ac
                                              idx,
                                              (*_obs_current_actions)[idx],
                                              buf);
+              if (buf.token_budget_exceeded) {
+                break;
+              }
             }
 
             // Signal done by resetting flag to 0
@@ -858,6 +886,12 @@ void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_ac
     for (unsigned int t = 0; t < _obs_thread_count; t++) {
       while (_obs_worker_flags[t]->load(std::memory_order_acquire) != 0) {
         std::this_thread::yield();
+      }
+    }
+
+    for (const auto& buf : _obs_thread_buffers) {
+      if (buf.token_budget_exceeded) {
+        _throw_observation_token_overflow(buf.overflow_agent_idx, buf.overflow_attempted_tokens, buf.overflow_buffer_capacity);
       }
     }
 
@@ -1159,6 +1193,7 @@ void MettaGrid::step() {
 size_t MettaGrid::_emit_obs_value_tokens(size_t agent_idx, size_t tokens_written, ObservationType global_location) {
   auto observation_view = _observations.mutable_unchecked<3>();
   auto* agent = _agents[agent_idx];
+  size_t buffer_capacity = static_cast<size_t>(observation_view.shape(1));
 
   // Build a HandlerContext so we can use resolve_game_value
   mettagrid::HandlerContext ctx = _game_ctx;
@@ -1168,17 +1203,20 @@ size_t MettaGrid::_emit_obs_value_tokens(size_t agent_idx, size_t tokens_written
   size_t total_written = 0;
 
   for (const auto& obs_cfg : _game_config.global_obs.obs) {
-    if (tokens_written + total_written >= static_cast<size_t>(observation_view.shape(1))) {
-      break;
-    }
-
     const auto& gv = obs_cfg.value;
     float raw_value = ctx.resolve_game_value(gv, mettagrid::EntityRef::actor);
+    uint32_t encoded_value = static_cast<uint32_t>(raw_value);
+    size_t write_offset = tokens_written + total_written;
 
-    auto tokens = _token_encoder->encode(obs_cfg.feature_id, static_cast<uint32_t>(raw_value));
-    ObservationToken* ptr = reinterpret_cast<ObservationToken*>(
-        observation_view.mutable_data(agent_idx, tokens_written + total_written, 0));
-    ObservationTokens obs_tokens(ptr, static_cast<size_t>(observation_view.shape(1)) - tokens_written - total_written);
+    if (write_offset >= buffer_capacity) {
+      total_written += ObservationEncoder::compute_num_tokens(encoded_value, _token_encoder->token_value_base());
+      continue;
+    }
+
+    auto tokens = _token_encoder->encode(obs_cfg.feature_id, encoded_value);
+    ObservationToken* ptr =
+        reinterpret_cast<ObservationToken*>(observation_view.mutable_data(agent_idx, write_offset, 0));
+    ObservationTokens obs_tokens(ptr, buffer_capacity - write_offset);
     total_written += _obs_encoder->append_tokens_if_room_available(obs_tokens, tokens, global_location);
   }
 

@@ -99,6 +99,7 @@ def test_pettingzoo_env_reset():
     try:
         # Test reset
         observations, infos = env.reset(seed=42)
+        expected_shape = (cfg.game.obs.num_tokens, cfg.game.obs.token_dim)
 
         # Check that we get observations and infos for all agents (agent IDs are integers)
         assert len(observations) == 3
@@ -108,7 +109,7 @@ def test_pettingzoo_env_reset():
         # Check observation shapes
         for agent_id in env.agents:
             assert agent_id in observations
-            assert observations[agent_id].shape == (200, 3)
+            assert observations[agent_id].shape == expected_shape
             assert agent_id in infos
             assert isinstance(infos[agent_id], dict)
     finally:
@@ -124,6 +125,7 @@ def test_pettingzoo_env_step():
 
     try:
         observations, infos = env.reset(seed=42)
+        expected_shape = (cfg.game.obs.num_tokens, cfg.game.obs.token_dim)
 
         # Test a few steps
         for _ in range(5):
@@ -149,7 +151,7 @@ def test_pettingzoo_env_step():
                 assert agent_id in truncations
                 assert agent_id in infos
 
-                assert observations[agent_id].shape == (200, 3)
+                assert observations[agent_id].shape == expected_shape
                 assert isinstance(rewards[agent_id], (int, float))
                 assert isinstance(terminations[agent_id], bool)
                 assert isinstance(truncations[agent_id], bool)

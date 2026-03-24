@@ -48,6 +48,7 @@ def test_obs_config_default_window_size():
     config = ObsConfig()
     assert config.width == 13
     assert config.height == 13
+    assert config.num_tokens == 300
 
 
 def test_id_map_obs_feature_ids():
