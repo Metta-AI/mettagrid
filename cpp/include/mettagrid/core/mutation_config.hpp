@@ -46,10 +46,6 @@ struct ResourceTransferMutationConfig {
   bool remove_source_when_empty = false;  // Remove source from grid when its inventory is empty
 };
 
-struct FreezeMutationConfig {
-  int duration = 1;  // Ticks to freeze
-};
-
 struct ClearInventoryMutationConfig {
   EntityRef entity = EntityRef::target;
   // List of resource IDs to clear. If empty, clears all resources.
@@ -109,7 +105,6 @@ struct RemoveTagsWithPrefixMutationConfig {
 // Variant type for all mutation configs
 using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     ResourceTransferMutationConfig,
-                                    FreezeMutationConfig,
                                     ClearInventoryMutationConfig,
                                     AttackMutationConfig,
                                     StatsMutationConfig,

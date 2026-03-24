@@ -298,16 +298,6 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("amount", &ResourceTransferMutationConfig::amount)
       .def_readwrite("remove_source_when_empty", &ResourceTransferMutationConfig::remove_source_when_empty);
 
-  py::class_<FreezeMutationConfig>(m, "FreezeMutationConfig")
-      .def(py::init<>())
-      .def(py::init([](int duration) {
-             FreezeMutationConfig cfg;
-             cfg.duration = duration;
-             return cfg;
-           }),
-           py::arg("duration") = 1)
-      .def_readwrite("duration", &FreezeMutationConfig::duration);
-
   py::class_<ClearInventoryMutationConfig>(m, "ClearInventoryMutationConfig")
       .def(py::init<>())
       .def(py::init([](EntityRef entity, std::vector<InventoryItem> resource_ids) {
@@ -476,10 +466,6 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_resource_transfer_mutation",
           [](HandlerConfig& self, const ResourceTransferMutationConfig& cfg) { self.mutations.push_back(cfg); },
-          py::arg("mutation"))
-      .def(
-          "add_freeze_mutation",
-          [](HandlerConfig& self, const FreezeMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))
       .def(
           "add_clear_inventory_mutation",

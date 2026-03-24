@@ -109,7 +109,6 @@ def test_attack_integration(make_sim, complex_game_map):
         "agents": [
             {
                 "team_id": 0,
-                "freeze_duration": 6,
                 "inventory": {
                     "limits": {"laser": {"min": 10, "resources": ["laser"]}},
                     "initial": {"laser": 5},
@@ -117,7 +116,6 @@ def test_attack_integration(make_sim, complex_game_map):
             },
             {
                 "team_id": 1,
-                "freeze_duration": 6,
                 "inventory": {
                     "limits": {"laser": {"min": 10, "resources": ["laser"]}},
                     "initial": {"laser": 5},

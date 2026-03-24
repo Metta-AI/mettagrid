@@ -43,10 +43,10 @@ def test_exception_when_laser_not_in_inventory():
             change_vibe=ChangeVibeActionConfig(enabled=False, vibes=[]),
         ),
         objects={"wall": WallConfig()},
-        agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=5),
+        agent=AgentConfig(inventory=InventoryConfig(default_limit=10)),
         agents=[
-            AgentConfig(team_id=0, inventory=InventoryConfig(default_limit=10), freeze_duration=5),  # red
-            AgentConfig(team_id=1, inventory=InventoryConfig(default_limit=10), freeze_duration=5),  # blue
+            AgentConfig(team_id=0, inventory=InventoryConfig(default_limit=10)),  # red
+            AgentConfig(team_id=1, inventory=InventoryConfig(default_limit=10)),  # blue
         ],
     )
 
@@ -83,10 +83,10 @@ def test_no_exception_when_resources_in_inventory():
             change_vibe=ChangeVibeActionConfig(enabled=False, vibes=[]),
         ),
         objects={"wall": WallConfig()},
-        agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=5),
+        agent=AgentConfig(inventory=InventoryConfig(default_limit=10)),
         agents=[
-            AgentConfig(team_id=0, inventory=InventoryConfig(default_limit=10), freeze_duration=5),  # red
-            AgentConfig(team_id=1, inventory=InventoryConfig(default_limit=10), freeze_duration=5),  # blue
+            AgentConfig(team_id=0, inventory=InventoryConfig(default_limit=10)),  # red
+            AgentConfig(team_id=1, inventory=InventoryConfig(default_limit=10)),  # blue
         ],
     )
 

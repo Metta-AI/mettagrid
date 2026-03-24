@@ -23,13 +23,11 @@ struct AttackOutcome {
   std::unordered_map<InventoryItem, InventoryDelta> actor_inv_delta;   // Inventory changes for attacker
   std::unordered_map<InventoryItem, InventoryDelta> target_inv_delta;  // Inventory changes for target
   std::vector<InventoryItem> loot;                                     // Resources to steal from target
-  int freeze;                                                          // Freeze duration (0 = no freeze)
 
   AttackOutcome(const std::unordered_map<InventoryItem, InventoryDelta>& actor_inv_delta = {},
                 const std::unordered_map<InventoryItem, InventoryDelta>& target_inv_delta = {},
-                const std::vector<InventoryItem>& loot = {},
-                int freeze = 0)
-      : actor_inv_delta(actor_inv_delta), target_inv_delta(target_inv_delta), loot(loot), freeze(freeze) {}
+                const std::vector<InventoryItem>& loot = {})
+      : actor_inv_delta(actor_inv_delta), target_inv_delta(target_inv_delta), loot(loot) {}
 };
 
 // Attack is triggered by moving onto another agent (when vibes match).
@@ -96,9 +94,6 @@ public:
     Agent* target = dynamic_cast<Agent*>(target_object);
     if (!target) return false;  // Can only attack agents
 
-    // Don't attack already frozen agents - let move handler swap instead
-    if (target->frozen > 0) return false;
-
     // Check if actor has required resources for attack
     for (const auto& [item, amount] : _consumed_resources) {
       if (actor.inventory.amount(item) < amount) {
@@ -150,10 +145,6 @@ protected:
     }
 
     // Attack succeeds - apply configured outcome
-    if (_success.freeze > 0) {
-      target.frozen = _success.freeze;
-    }
-
     _apply_outcome(actor, target);
     _log_successful_attack(actor, target);
     return true;
@@ -283,16 +274,13 @@ inline void bind_attack_action_config(py::module& m) {
   py::class_<AttackOutcome, std::shared_ptr<AttackOutcome>>(m, "AttackOutcome")
       .def(py::init<const std::unordered_map<InventoryItem, InventoryDelta>&,
                     const std::unordered_map<InventoryItem, InventoryDelta>&,
-                    const std::vector<InventoryItem>&,
-                    int>(),
+                    const std::vector<InventoryItem>&>(),
            py::arg("actor") = std::unordered_map<InventoryItem, InventoryDelta>(),
            py::arg("target") = std::unordered_map<InventoryItem, InventoryDelta>(),
-           py::arg("loot") = std::vector<InventoryItem>(),
-           py::arg("freeze") = 0)
+           py::arg("loot") = std::vector<InventoryItem>())
       .def_readwrite("actor_inv_delta", &AttackOutcome::actor_inv_delta)
       .def_readwrite("target_inv_delta", &AttackOutcome::target_inv_delta)
-      .def_readwrite("loot", &AttackOutcome::loot)
-      .def_readwrite("freeze", &AttackOutcome::freeze);
+      .def_readwrite("loot", &AttackOutcome::loot);
 
   py::class_<AttackActionConfig, ActionConfig, std::shared_ptr<AttackActionConfig>>(m, "AttackActionConfig")
       .def(py::init<const std::unordered_map<InventoryItem, InventoryQuantity>&,

@@ -10,8 +10,6 @@
 Agent::Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vector<std::string>* resource_names)
     : GridObject(config.inventory_config),
       group(config.group_id),
-      frozen(0),
-      freeze_duration(config.freeze_duration),
       reward_helper(config.reward_config),
       group_name(config.group_name),
       agent_id(0),
@@ -97,15 +95,14 @@ std::vector<PartialObservationToken> Agent::obs_features() const {
 
   // Agent-specific observations
   features.push_back({ObservationFeature::Group, static_cast<ObservationType>(group)});
-  features.push_back({ObservationFeature::Frozen, static_cast<ObservationType>(frozen != 0 ? 1 : 0)});
   features.push_back({ObservationFeature::AgentId, static_cast<ObservationType>(agent_id)});
 
   return features;
 }
 
 size_t Agent::max_obs_features(size_t max_tags, size_t num_resources, size_t tokens_per_item) {
-  // GridObject features + 3 agent-specific (group, frozen, agent_id)
-  return GridObject::max_obs_features(max_tags, num_resources, tokens_per_item) + 3;
+  // GridObject features + 2 agent-specific (group, agent_id)
+  return GridObject::max_obs_features(max_tags, num_resources, tokens_per_item) + 2;
 }
 
 size_t Agent::write_obs_features(PartialObservationToken* out, size_t max_tokens) const {
@@ -114,9 +111,6 @@ size_t Agent::write_obs_features(PartialObservationToken* out, size_t max_tokens
   // Agent-specific observations
   if (written < max_tokens) {
     out[written++] = {ObservationFeature::Group, static_cast<ObservationType>(group)};
-  }
-  if (written < max_tokens) {
-    out[written++] = {ObservationFeature::Frozen, static_cast<ObservationType>(frozen != 0 ? 1 : 0)};
   }
   if (written < max_tokens) {
     out[written++] = {ObservationFeature::AgentId, static_cast<ObservationType>(agent_id)};

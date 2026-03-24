@@ -17,7 +17,6 @@ else:
     AnyFilter = Any
 from mettagrid.config.mutation.attack_mutation import AttackMutation
 from mettagrid.config.mutation.clear_inventory_mutation import ClearInventoryMutation
-from mettagrid.config.mutation.freeze_mutation import FreezeMutation
 from mettagrid.config.mutation.game_value_mutation import SetGameValueMutation
 from mettagrid.config.mutation.mutation import EntityTarget, Mutation
 from mettagrid.config.mutation.query_inventory_mutation import (
@@ -62,7 +61,6 @@ AnyMutation = Annotated[
     Union[
         Annotated[ResourceDeltaMutation, Tag("resource_delta")],
         Annotated[ResourceTransferMutation, Tag("resource_transfer")],
-        Annotated[FreezeMutation, Tag("freeze")],
         Annotated[ClearInventoryMutation, Tag("clear_inventory")],
         Annotated[AttackMutation, Tag("attack")],
         Annotated[StatsMutation, Tag("stats")],
@@ -85,7 +83,6 @@ _mutation_namespace = {
     "ClosureQuery": ClosureQuery,
     "ResourceDeltaMutation": ResourceDeltaMutation,
     "ResourceTransferMutation": ResourceTransferMutation,
-    "FreezeMutation": FreezeMutation,
     "ClearInventoryMutation": ClearInventoryMutation,
     "AttackMutation": AttackMutation,
     "StatsMutation": StatsMutation,
@@ -109,7 +106,6 @@ __all__ = [
     "Mutation",
     "ResourceDeltaMutation",
     "ResourceTransferMutation",
-    "FreezeMutation",
     "ClearInventoryMutation",
     "AttackMutation",
     "StatsMutation",

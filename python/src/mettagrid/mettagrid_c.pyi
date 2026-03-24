@@ -266,13 +266,6 @@ class ResourceTransferMutationConfig:
     amount: int
     remove_source_when_empty: bool
 
-class FreezeMutationConfig:
-    def __init__(
-        self,
-        duration: int = 1,
-    ) -> None: ...
-    duration: int
-
 class ClearInventoryMutationConfig:
     def __init__(
         self,
@@ -375,7 +368,6 @@ class HandlerConfig:
     def add_tag_prefix_filter(self, filter: TagPrefixFilterConfig) -> None: ...
     def add_resource_delta_mutation(self, mutation: ResourceDeltaMutationConfig) -> None: ...
     def add_resource_transfer_mutation(self, mutation: ResourceTransferMutationConfig) -> None: ...
-    def add_freeze_mutation(self, mutation: FreezeMutationConfig) -> None: ...
     def add_clear_inventory_mutation(self, mutation: ClearInventoryMutationConfig) -> None: ...
     def add_attack_mutation(self, mutation: AttackMutationConfig) -> None: ...
     def add_stats_mutation(self, mutation: StatsMutationConfig) -> None: ...
@@ -540,7 +532,6 @@ class AgentConfig(GridObjectConfig):
         type_name: str = "agent",
         group_id: int = ...,
         group_name: str = ...,
-        freeze_duration: int = 0,
         initial_vibe: int = 0,
         inventory_config: InventoryConfig = ...,
         reward_config: RewardConfig = ...,
@@ -553,7 +544,6 @@ class AgentConfig(GridObjectConfig):
     initial_vibe: int
     group_id: int
     group_name: str
-    freeze_duration: int
     inventory_config: InventoryConfig
     reward_config: RewardConfig
     initial_inventory: dict[int, int]
@@ -574,12 +564,10 @@ class AttackOutcome:
         actor_inv_delta: dict[int, int] = {},
         target_inv_delta: dict[int, int] = {},
         loot: list[int] = [],
-        freeze: int = 0,
     ) -> None: ...
     actor_inv_delta: dict[int, int]
     target_inv_delta: dict[int, int]
     loot: list[int]
-    freeze: int
 
 class AttackActionConfig(ActionConfig):
     def __init__(

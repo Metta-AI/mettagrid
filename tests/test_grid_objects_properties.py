@@ -150,12 +150,8 @@ class TestAgentProperties:
         required_properties = [
             "agent_id",
             "agent:group",  # Group ID (prefixed)
-            "agent:frozen",  # Frozen ticks remaining (prefixed)
             "group_id",  # Also available without prefix
             "group_name",
-            "freeze_duration",
-            "freeze_remaining",
-            "is_frozen",  # Boolean version
             "inventory",
             "vibe",
         ]
@@ -166,9 +162,5 @@ class TestAgentProperties:
         # Check types
         assert isinstance(agent["agent_id"], (int, np.integer))
         assert isinstance(agent["agent:group"], (int, np.integer))
-        assert isinstance(agent["agent:frozen"], (int, np.integer))  # frozen is an integer (ticks remaining)
         assert isinstance(agent["group_id"], (int, np.integer))
-        assert isinstance(agent["is_frozen"], bool)
-        assert isinstance(agent["freeze_remaining"], (int, np.integer))
-        assert isinstance(agent["freeze_duration"], (int, np.integer))
         assert isinstance(agent["inventory"], dict)

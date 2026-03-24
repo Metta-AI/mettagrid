@@ -127,7 +127,6 @@ protected:
                        "agent",                         // type_name
                        1,                               // group_id
                        "test_group",                    // group_name
-                       100,                             // freeze_duration
                        0,                               // initial_vibe
                        create_test_inventory_config(),  // inventory_config
                        create_test_reward_config());    // reward_config
@@ -438,7 +437,7 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate_RewardCappingBehavior) {
       make_stat_entry(std::string(TestItemStrings::ARMOR) + ".amount", TestRewards::ARMOR, 10.0f));
   reward_cfg.entries.push_back(make_stat_entry(std::string(TestItemStrings::HEART) + ".amount", TestRewards::HEART));
 
-  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, inventory_config, reward_cfg);
+  AgentConfig agent_cfg(0, "agent", 1, "test_group", 0, inventory_config, reward_cfg);
 
   auto resource_names = create_test_resource_names();
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
@@ -508,7 +507,7 @@ TEST_F(MettaGridCppTest, AgentInventoryUpdate_MultipleItemCaps) {
   reward_cfg.entries.push_back(
       make_stat_entry(std::string(TestItemStrings::HEART) + ".amount", TestRewards::HEART, 30.0f));
 
-  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, inventory_config, reward_cfg);
+  AgentConfig agent_cfg(0, "agent", 1, "test_group", 0, inventory_config, reward_cfg);
 
   auto resource_names = create_test_resource_names();
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));
@@ -566,7 +565,7 @@ TEST_F(MettaGridCppTest, SharedInventoryLimits) {
   };
 
   RewardConfig reward_cfg = create_test_reward_config();
-  AgentConfig agent_cfg(0, "agent", 1, "test_group", 100, 0, inventory_config, reward_cfg);
+  AgentConfig agent_cfg(0, "agent", 1, "test_group", 0, inventory_config, reward_cfg);
 
   auto resource_names = create_test_resource_names();
   std::unique_ptr<Agent> agent(new Agent(0, 0, agent_cfg, &resource_names));

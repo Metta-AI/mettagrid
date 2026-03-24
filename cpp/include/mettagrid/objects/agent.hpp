@@ -26,8 +26,6 @@ constexpr int kBumpAnimation = 1;
 class Agent : public GridObject {
 public:
   ObservationType group;
-  short frozen;
-  short freeze_duration;
   RewardHelper reward_helper;
   std::string group_name;
   // Despite being a GridObjectId, this is different from the `id` property.

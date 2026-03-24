@@ -6,7 +6,6 @@ std::shared_ptr<ObservationFeaturesImpl> _instance;
 
 // Define the extern variables
 ObservationType Group;
-ObservationType Frozen;
 ObservationType EpisodeCompletionPct;
 ObservationType LastAction;
 ObservationType LastReward;
@@ -26,7 +25,6 @@ void Initialize(const std::unordered_map<std::string, ObservationType>& feature_
 
   // Update the global variables with values from the instance
   Group = _instance->Group;
-  Frozen = _instance->Frozen;
   EpisodeCompletionPct = _instance->EpisodeCompletionPct;
   LastAction = _instance->LastAction;
   LastReward = _instance->LastReward;

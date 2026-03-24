@@ -17,7 +17,6 @@ public:
       : _name_to_id(feature_ids) {
     // Cache commonly used feature IDs
     _group = get("agent:group");
-    _frozen = get("agent:frozen");
     _episode_completion_pct = get("episode_completion_pct");
     _last_action = get("last_action");
     _last_reward = get("last_reward");
@@ -34,7 +33,6 @@ public:
 
     // Initialize public members (must be done AFTER private members are set above)
     Group = _group;
-    Frozen = _frozen;
     EpisodeCompletionPct = _episode_completion_pct;
     LastAction = _last_action;
     LastReward = _last_reward;
@@ -66,7 +64,6 @@ public:
 
   // Commonly used feature IDs (cached for performance)
   ObservationType Group;
-  ObservationType Frozen;
   ObservationType EpisodeCompletionPct;
   ObservationType LastAction;
   ObservationType LastReward;
@@ -86,7 +83,6 @@ private:
 
   // Cached feature IDs
   ObservationType _group;
-  ObservationType _frozen;
   ObservationType _episode_completion_pct;
   ObservationType _last_action;
   ObservationType _last_reward;
@@ -113,7 +109,6 @@ void Initialize(const std::unordered_map<std::string, ObservationType>& feature_
 // Access feature IDs with the same syntax as before: ObservationFeature::X
 // These are extern variables defined in observation_features.cpp
 extern ObservationType Group;
-extern ObservationType Frozen;
 extern ObservationType EpisodeCompletionPct;
 extern ObservationType LastAction;
 extern ObservationType LastReward;

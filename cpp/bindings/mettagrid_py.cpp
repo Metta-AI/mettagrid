@@ -107,9 +107,6 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
     if (auto* agent = dynamic_cast<Agent*>(obj)) {
       obj_dict["group_id"] = agent->group;
       obj_dict["group_name"] = agent->group_name;
-      obj_dict["is_frozen"] = !!agent->frozen;
-      obj_dict["freeze_remaining"] = agent->frozen;
-      obj_dict["freeze_duration"] = agent->freeze_duration;
       obj_dict["vibe"] = agent->vibe;
       obj_dict["agent_id"] = agent->agent_id;
       obj_dict["last_action_id"] = _last_executed_actions[agent->agent_id];

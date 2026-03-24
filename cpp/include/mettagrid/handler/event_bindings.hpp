@@ -67,10 +67,6 @@ inline void bind_event_config(py::module& m) {
           [](EventConfig& self, const ResourceTransferMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))
       .def(
-          "add_freeze_mutation",
-          [](EventConfig& self, const FreezeMutationConfig& cfg) { self.mutations.push_back(cfg); },
-          py::arg("mutation"))
-      .def(
           "add_clear_inventory_mutation",
           [](EventConfig& self, const ClearInventoryMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))

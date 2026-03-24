@@ -38,7 +38,6 @@ def create_basic_config() -> GameConfig:
         obs=ObsConfig(width=7, height=7, num_tokens=50),
         max_steps=100,
         agent=AgentConfig(
-            freeze_duration=0,
             inventory=InventoryConfig(
                 limits={
                     "ore": ResourceLimitsConfig(min=10, resources=["ore"]),
@@ -199,7 +198,6 @@ class TestResourceRequirements:
             max_steps=basic_config.max_steps,
             obs=basic_config.obs,
             agent=AgentConfig(
-                freeze_duration=0,
                 inventory=InventoryConfig(
                     limits={
                         "ore": ResourceLimitsConfig(min=10, resources=["ore"]),

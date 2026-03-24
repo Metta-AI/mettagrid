@@ -107,16 +107,6 @@ protected:
       return ctx.grid->move_object(actor, target_location);
     }
 
-    // Swap with frozen agents (must check before usable since Agent is Usable)
-    Agent* target_agent = dynamic_cast<Agent*>(target_object);
-    if (target_agent && target_agent->frozen > 0) {
-      bool swapped = ctx.grid->swap_objects(actor, *target_agent);
-      if (swapped) {
-        actor.stats.incr("actions.swap");
-      }
-      return swapped;
-    }
-
     // Try to use the object at target location
     if (target_object) {
       Usable* usable_object = dynamic_cast<Usable*>(target_object);

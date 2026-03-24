@@ -200,7 +200,6 @@ def attack(env: Simulation, target_arg: int = 0, agent_idx: int = 0) -> dict[str
                     # This agent was just frozen
                     result["target_frozen"] = True
                     result["frozen_agent_id"] = obj_id
-                    result["freeze_duration"] = freeze_after
                     result["target_position"] = (obj_data["r"], obj_data["c"])
 
                     # Check for stolen resources

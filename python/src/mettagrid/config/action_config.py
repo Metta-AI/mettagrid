@@ -104,10 +104,6 @@ class AttackOutcome(Config):
         default_factory=list,
         description="Resources to steal from target.",
     )
-    freeze: int = Field(
-        default=0,
-        description="Freeze duration (0 = no freeze).",
-    )
 
 
 class AttackActionConfig(ActionConfig):
@@ -120,7 +116,7 @@ class AttackActionConfig(ActionConfig):
     - defense_resources: Base resources needed to block an attack
     - armor_resources: Target's resources that reduce incoming damage (weighted)
     - weapon_resources: Attacker's resources that increase damage (weighted)
-    - success: Outcome when attack succeeds (actor/target inventory changes, freeze)
+    - success: Outcome when attack succeeds (actor/target inventory changes)
     - vibe_bonus: Per-vibe armor bonus when vibing a matching resource
 
     Defense calculation:

@@ -180,7 +180,6 @@ class AgentConfig(GridObjectConfig):
     name: str = Field(default="agent")
     team_id: int = Field(default=0, ge=0, description="Team ID for grouping agents")
     rewards: dict[str, AgentReward] = Field(default_factory=dict)
-    freeze_duration: int = Field(default=10, ge=-1)
     on_tick: dict[str, Handler] = Field(
         default_factory=dict,
         description="Handlers run every tick with actor=target=this agent (name -> handler)",

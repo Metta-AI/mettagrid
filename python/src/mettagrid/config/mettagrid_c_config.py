@@ -627,7 +627,6 @@ def convert_to_cpp_game_config(
             type_name=agent_cfg.name,
             group_id=group_id,
             group_name=group_name,
-            freeze_duration=agent_props["freeze_duration"],
             initial_vibe=agent_props["vibe"],
             inventory_config=inventory_config,
             reward_config=reward_config,
@@ -860,7 +859,7 @@ def convert_to_cpp_game_config(
     success_actor = {resource_name_to_id[k]: v for k, v in attack_cfg.success.actor_inv_delta.items()}
     success_target = {resource_name_to_id[k]: v for k, v in attack_cfg.success.target_inv_delta.items()}
     success_loot = [resource_name_to_id[name] for name in attack_cfg.success.loot]
-    action_params["success"] = CppAttackOutcome(success_actor, success_target, success_loot, attack_cfg.success.freeze)
+    action_params["success"] = CppAttackOutcome(success_actor, success_target, success_loot)
     action_params["enabled"] = attack_cfg.enabled
     for vibe in attack_cfg.vibes:
         if vibe not in vibe_name_to_id:

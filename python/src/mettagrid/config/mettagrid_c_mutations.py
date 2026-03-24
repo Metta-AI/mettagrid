@@ -10,7 +10,6 @@ from mettagrid.config.mutation import (
     AddTagMutation,
     ClearInventoryMutation,
     EntityTarget,
-    FreezeMutation,
     QueryInventoryMutation,
     RecomputeMaterializedQueryMutation,
     RemoveTagMutation,
@@ -25,7 +24,6 @@ from mettagrid.config.mutation import (
 from mettagrid.mettagrid_c import AddTagMutationConfig as CppAddTagMutationConfig
 from mettagrid.mettagrid_c import ClearInventoryMutationConfig as CppClearInventoryMutationConfig
 from mettagrid.mettagrid_c import EntityRef as CppEntityRef
-from mettagrid.mettagrid_c import FreezeMutationConfig as CppFreezeMutationConfig
 from mettagrid.mettagrid_c import GameValueMutationConfig as CppGameValueMutationConfig
 from mettagrid.mettagrid_c import QueryInventoryMutationConfig as CppQueryInventoryMutationConfig
 from mettagrid.mettagrid_c import (
@@ -98,10 +96,6 @@ def convert_mutations(
                     remove_source_when_empty=mutation.remove_source_when_empty,
                 )
                 target_obj.add_resource_transfer_mutation(cpp_mutation)
-
-        elif isinstance(mutation, FreezeMutation):
-            cpp_mutation = CppFreezeMutationConfig(duration=mutation.duration)
-            target_obj.add_freeze_mutation(cpp_mutation)
 
         elif isinstance(mutation, ClearInventoryMutation):
             limit_name = mutation.limit_name

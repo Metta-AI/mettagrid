@@ -35,7 +35,7 @@ class TestGlobalObservations:
             obs=ObsConfig(width=7, height=7, num_tokens=100, global_obs=GlobalObsConfig(last_action=True)),
             max_steps=100,
             resource_names=["ore"],
-            agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=0),
+            agent=AgentConfig(inventory=InventoryConfig(default_limit=10)),
             actions=ActionsConfig(
                 noop=NoopActionConfig(enabled=True),
                 move=MoveActionConfig(enabled=True, required_resources={"ore": 1}),
@@ -87,7 +87,7 @@ class TestGlobalObservations:
             obs=ObsConfig(width=7, height=7, num_tokens=100, global_obs=GlobalObsConfig(last_action=True)),
             max_steps=100,
             resource_names=["ore"],
-            agent=AgentConfig(inventory=InventoryConfig(default_limit=10), freeze_duration=0),
+            agent=AgentConfig(inventory=InventoryConfig(default_limit=10)),
             actions=ActionsConfig(
                 noop=NoopActionConfig(enabled=True),
                 move=MoveActionConfig(enabled=True),

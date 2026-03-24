@@ -215,7 +215,6 @@ protected:
                                                  "agent",    // type_name
                                                  0,          // group_id
                                                  "red",      // group_name
-                                                 0,          // freeze_duration
                                                  0,          // initial_vibe
                                                  inv_config  // inventory_config
     );

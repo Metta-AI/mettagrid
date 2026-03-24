@@ -95,16 +95,6 @@ public:
   bool handle_action(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& ctx) {
     actor.last_animation_id = kNoAnimation;
 
-    // Handle frozen status
-    if (actor.frozen != 0) {
-      actor.stats.incr("status.frozen.ticks");
-      actor.stats.incr("status.frozen.ticks." + actor.group_name);
-      if (actor.frozen > 0) {
-        actor.frozen -= 1;
-      }
-      return false;
-    }
-
     bool has_needed_resources = true;
     for (const auto& [item, amount] : _required_resources) {
       if (actor.inventory.amount(item) < amount) {

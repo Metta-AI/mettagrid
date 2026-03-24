@@ -21,7 +21,6 @@ struct AgentConfig : public GridObjectConfig {
               const std::string& type_name,
               unsigned char group_id,
               const std::string& group_name,
-              unsigned char freeze_duration = 0,
               ObservationType initial_vibe = 0,
               const InventoryConfig& inventory_config = InventoryConfig(),
               const RewardConfig& reward_config = RewardConfig(),
@@ -30,7 +29,6 @@ struct AgentConfig : public GridObjectConfig {
       : GridObjectConfig(type_id, type_name, initial_vibe),
         group_id(group_id),
         group_name(group_name),
-        freeze_duration(freeze_duration),
         inventory_config(inventory_config),
         reward_config(reward_config),
         initial_inventory(initial_inventory),
@@ -38,7 +36,6 @@ struct AgentConfig : public GridObjectConfig {
 
   unsigned char group_id;
   std::string group_name;
-  short freeze_duration;
   InventoryConfig inventory_config;
   RewardConfig reward_config;
   std::unordered_map<InventoryItem, InventoryQuantity> initial_inventory;
@@ -53,7 +50,6 @@ inline void bind_agent_config(py::module& m) {
                     const std::string&,
                     unsigned char,
                     const std::string&,
-                    unsigned char,
                     ObservationType,
                     const InventoryConfig&,
                     const RewardConfig&,
@@ -63,7 +59,6 @@ inline void bind_agent_config(py::module& m) {
            py::arg("type_name") = "agent",
            py::arg("group_id"),
            py::arg("group_name"),
-           py::arg("freeze_duration") = 0,
            py::arg("initial_vibe") = 0,
            py::arg("inventory_config") = InventoryConfig(),
            py::arg("reward_config") = RewardConfig(),
@@ -75,7 +70,6 @@ inline void bind_agent_config(py::module& m) {
       .def_readwrite("initial_vibe", &AgentConfig::initial_vibe)
       .def_readwrite("group_name", &AgentConfig::group_name)
       .def_readwrite("group_id", &AgentConfig::group_id)
-      .def_readwrite("freeze_duration", &AgentConfig::freeze_duration)
       .def_readwrite("inventory_config", &AgentConfig::inventory_config)
       .def_readwrite("reward_config", &AgentConfig::reward_config)
       .def_readwrite("initial_inventory", &AgentConfig::initial_inventory)
