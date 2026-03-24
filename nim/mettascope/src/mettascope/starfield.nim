@@ -1,6 +1,6 @@
 import
   std/[os, strutils],
-  opengl, silky, silky/[shaders], shady, vmath, pixie, windy,
+  opengl, silky, silky/drawers/ogl, shady, vmath, pixie, windy,
   common, replays, panels
 
 ## Starfield and cloud background layers.

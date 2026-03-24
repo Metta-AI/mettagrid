@@ -1,6 +1,6 @@
 import
   std/[math, random, os, strutils],
-  opengl, windy, silky/shaders, shady, vmath, chroma,
+  opengl, windy, silky/drawers/ogl, shady, vmath, chroma,
   common, tilemap, pixelator, shaderquad
 
 const

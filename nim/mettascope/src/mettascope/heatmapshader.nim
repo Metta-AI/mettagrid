@@ -1,6 +1,6 @@
 import
   std/[math, strutils],
-  opengl, silky, silky/[shaders], shady, vmath, pixie,
+  opengl, silky, silky/drawers/ogl, shady, vmath, pixie,
   heatmap, common
 
 var

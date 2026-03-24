@@ -1,6 +1,6 @@
 import
   std/strutils,
-  pixie, opengl, silky/shaders, shady, vmath
+  pixie, opengl, silky/drawers/ogl, shady, vmath
 
 type
   TileMap* = ref object

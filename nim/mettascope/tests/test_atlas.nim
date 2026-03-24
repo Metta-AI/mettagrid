@@ -1,18 +1,21 @@
 import
   std/[json, os],
+  silky,
   ../tools/gen_atlas
+
+let testDataDir = currentSourcePath().parentDir() / ".." / "data"
+setDataDir(testDataDir)
 
 block test_silky_atlas:
   echo "Testing silky atlas generation"
   let silkyImagePath = "silky.atlas.png"
-  let silkyJsonPath = "silky.atlas.json"
 
-  buildSilkyAtlas(dataDir / silkyImagePath, dataDir / silkyJsonPath)
+  buildSilkyAtlas(dataDir / silkyImagePath)
 
-  doAssert fileExists(dataDir / silkyJsonPath), "Silky atlas JSON file should be created"
+  doAssert fileExists(dataDir / silkyImagePath), "Silky atlas PNG file should be created"
 
-  let silkyJson = parseJson(readFile(dataDir / silkyJsonPath))
-  doAssert silkyJson.hasKey("entries"), "Silky atlas JSON should have entries"
+  let silkyJson = parseJson(extractAtlasJsonFromPng(readFile(dataDir / silkyImagePath)))
+  doAssert silkyJson.hasKey("entries"), "Silky atlas PNG should have embedded entries"
 
   let silkyEntries = silkyJson["entries"]
   doAssert silkyEntries.hasKey("ui/help"), "Silky atlas should contain ui/help"

@@ -6,8 +6,8 @@ import
 
 export pixelator, common
 
-proc buildSilkyAtlas*(imagePath, jsonPath: string) =
-  ## Build the silky UI atlas.
+proc buildSilkyAtlas*(imagePath: string) =
+  ## Build the silky UI atlas as one PNG with embedded metadata.
   var builder = newAtlasBuilder(2048, 4)
   builder.addDir(dataDir / "theme/", dataDir / "theme/")
   builder.addDir(dataDir / "ui/", dataDir & "/")
@@ -20,7 +20,7 @@ proc buildSilkyAtlas*(imagePath, jsonPath: string) =
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "H1", 32.0)
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "Default", 18.0, subpixelSteps = 10)
   builder.addFont(dataDir / "fonts/pf_tempesta_five_compressed.ttf", "pixelated", 32.0)
-  builder.write(imagePath, jsonPath)
+  builder.write(imagePath)
 
 proc buildPixelAtlas*() =
   ## Build the main pixel atlas.
@@ -53,6 +53,6 @@ proc buildMinimapAtlas*() =
 
 when isMainModule:
   setDataDir("data")
-  buildSilkyAtlas(dataDir / "silky.atlas.png", dataDir / "silky.atlas.json")
+  buildSilkyAtlas(dataDir / "silky.atlas.png")
   buildPixelAtlas()
   buildMinimapAtlas()

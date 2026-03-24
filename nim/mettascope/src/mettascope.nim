@@ -274,7 +274,7 @@ proc initMettascope*() {.measure.} =
 
   initPanels()
 
-  sk = newSilky(dataDir / "silky.atlas.png", dataDir / "silky.atlas.json")
+  sk = newSilky(window, dataDir / "silky.atlas.png")
 
   ## Initialize the world map zoom info.
   worldMapZoomInfo = ZoomInfo()
