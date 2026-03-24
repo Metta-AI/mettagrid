@@ -130,8 +130,7 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
     // self_ref keeps the MettaGrid alive as long as these lambdas exist
     const auto* game_ctx = &_game_ctx;
     obj_dict["has_tag"] = py::cpp_function([obj, self_ref](int tag_id) { return obj->has_tag(tag_id); });
-    obj_dict["add_tag"] =
-        py::cpp_function([obj, game_ctx, self_ref](int tag_id) { obj->add_tag(tag_id, *game_ctx); });
+    obj_dict["add_tag"] = py::cpp_function([obj, game_ctx, self_ref](int tag_id) { obj->add_tag(tag_id, *game_ctx); });
     obj_dict["remove_tag"] =
         py::cpp_function([obj, game_ctx, self_ref](int tag_id) { obj->remove_tag(tag_id, *game_ctx); });
 
@@ -254,13 +253,13 @@ PYBIND11_MODULE(mettagrid_c, m) {
   auto mettagrid_cls =
       py::class_<MettaGrid>(m, "MettaGrid")
           .def("set_buffers",
-               static_cast<void (MettaGrid::*)(
-                   const py::array_t<uint8_t, py::array::c_style>&,
-                   const py::array_t<bool, py::array::c_style>&,
-                   const py::array_t<bool, py::array::c_style>&,
-                   const py::array_t<float, py::array::c_style>&,
-                   const py::array_t<ActionType, py::array::c_style>&,
-                   const py::array_t<ActionType, py::array::c_style>&)>(&MettaGrid::set_buffers),
+               static_cast<void (MettaGrid::*)(const py::array_t<uint8_t, py::array::c_style>&,
+                                               const py::array_t<bool, py::array::c_style>&,
+                                               const py::array_t<bool, py::array::c_style>&,
+                                               const py::array_t<float, py::array::c_style>&,
+                                               const py::array_t<ActionType, py::array::c_style>&,
+                                               const py::array_t<ActionType, py::array::c_style>&)>(
+                   &MettaGrid::set_buffers),
                py::arg("observations").noconvert(),
                py::arg("terminals").noconvert(),
                py::arg("truncations").noconvert(),
@@ -270,12 +269,12 @@ PYBIND11_MODULE(mettagrid_c, m) {
           .def(py::init<const GameConfig&, const py::list&, unsigned int>())
           .def("step", &MettaGrid::step)
           .def("set_buffers",
-               static_cast<void (MettaGrid::*)(
-                   const py::array_t<uint8_t, py::array::c_style>&,
-                   const py::array_t<bool, py::array::c_style>&,
-                   const py::array_t<bool, py::array::c_style>&,
-                   const py::array_t<float, py::array::c_style>&,
-                   const py::array_t<ActionType, py::array::c_style>&)>(&MettaGrid::set_buffers),
+               static_cast<void (MettaGrid::*)(const py::array_t<uint8_t, py::array::c_style>&,
+                                               const py::array_t<bool, py::array::c_style>&,
+                                               const py::array_t<bool, py::array::c_style>&,
+                                               const py::array_t<float, py::array::c_style>&,
+                                               const py::array_t<ActionType, py::array::c_style>&)>(
+                   &MettaGrid::set_buffers),
                py::arg("observations").noconvert(),
                py::arg("terminals").noconvert(),
                py::arg("truncations").noconvert(),

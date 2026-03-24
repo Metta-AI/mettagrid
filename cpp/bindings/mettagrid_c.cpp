@@ -197,8 +197,7 @@ MettaGrid::~MettaGrid() {
   for (auto& w : _obs_workers) w.join();
 }
 
-void MettaGrid::_init_grid(const GameConfig& game_config,
-                           const py::list& map) {
+void MettaGrid::_init_grid(const GameConfig& game_config, const py::list& map) {
   GridCoord height = static_cast<GridCoord>(py::len(map));
   GridCoord width = static_cast<GridCoord>(py::len(map[0]));
 
@@ -237,15 +236,8 @@ void MettaGrid::_init_grid(const GameConfig& game_config,
       const GridObjectConfig* object_cfg = game_config.objects.at(cell).get();
 
       // Create object from config using the factory
-      GridObject* created_object = mettagrid::create_object_from_config(r,
-                                                                        c,
-                                                                        object_cfg,
-                                                                        _stats.get(),
-                                                                        &resource_names,
-                                                                        _grid.get(),
-                                                                        _obs_encoder.get(),
-                                                                        &current_step,
-                                                                        &_tag_index);
+      GridObject* created_object = mettagrid::create_object_from_config(
+          r, c, object_cfg, _stats.get(), &resource_names, _grid.get(), _obs_encoder.get(), &current_step, &_tag_index);
 
       // Add to grid and track stats
       _grid->add_object(created_object);

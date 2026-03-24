@@ -23,15 +23,15 @@
 
 #include "config/mettagrid_config.hpp"
 #include "core/aoe_tracker.hpp"
-#include "core/territory_tracker.hpp"
-#include "handler/handler.hpp"
-#include "handler/handler_context.hpp"
 #include "core/game_value_config.hpp"
 #include "core/grid_object.hpp"
 #include "core/query_system.hpp"
 #include "core/tag_index.hpp"
+#include "core/territory_tracker.hpp"
 #include "core/types.hpp"
 #include "handler/event_scheduler.hpp"
+#include "handler/handler.hpp"
+#include "handler/handler_context.hpp"
 #include "profiling.hpp"
 #include "systems/encoding_utils.hpp"
 #include "systems/packed_coordinate.hpp"
@@ -170,7 +170,7 @@ private:
 
   Actions _actions;
   Actions _vibe_actions;
-  std::vector<Action> _action_handlers;                              // All actions from all handlers
+  std::vector<Action> _action_handlers;  // All actions from all handlers
   std::vector<bool> _action_is_vibe;
   std::vector<std::unique_ptr<ActionHandler>> _action_handler_impl;  // Owns the ActionHandler objects
   unsigned char _max_action_priority;
@@ -224,7 +224,9 @@ private:
     size_t tokens_written = 0;
     size_t tokens_dropped = 0;
     size_t tokens_free_space = 0;
-    void reset_stats() { tokens_written = tokens_dropped = tokens_free_space = 0; }
+    void reset_stats() {
+      tokens_written = tokens_dropped = tokens_free_space = 0;
+    }
   };
   std::vector<ObsComputeBuffers> _obs_thread_buffers;
 
@@ -254,8 +256,7 @@ private:
                                        size_t& attempted_tokens_written,
                                        size_t buffer_capacity);
   void add_agent(Agent* agent);
-  void _init_grid(const GameConfig& game_config,
-                  const py::list& map);
+  void _init_grid(const GameConfig& game_config, const py::list& map);
   void _make_buffers(unsigned int num_agents);
   void _init_buffers(unsigned int num_agents);
   // Dispatcher: routes to original or optimized based on validation config
