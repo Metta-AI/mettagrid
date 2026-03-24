@@ -29,6 +29,7 @@ from mettagrid.config.mutation.recompute_materialized_query_mutation import (
     RecomputeMaterializedQueryMutation,
     recomputeMaterializedQuery,
 )
+from mettagrid.config.mutation.relocate_mutation import RelocateMutation
 from mettagrid.config.mutation.resource_mutation import (
     ResourceDeltaMutation,
     ResourceTransferMutation,
@@ -55,6 +56,7 @@ from mettagrid.config.mutation.tag_mutation import (
     removeTag,
     removeTagPrefix,
 )
+from mettagrid.config.mutation.use_target_mutation import UseTargetMutation, useTarget
 from mettagrid.config.query import AnyQuery, ClosureQuery, MaterializedQuery, Query
 
 AnyMutation = Annotated[
@@ -70,6 +72,8 @@ AnyMutation = Annotated[
         Annotated[SetGameValueMutation, Tag("set_game_value")],
         Annotated[RecomputeMaterializedQueryMutation, Tag("recompute_materialized_query")],
         Annotated[QueryInventoryMutation, Tag("query_inventory")],
+        Annotated[RelocateMutation, Tag("relocate")],
+        Annotated[UseTargetMutation, Tag("use_target")],
     ],
     Discriminator("mutation_type"),
 ]
@@ -92,6 +96,8 @@ _mutation_namespace = {
     "SetGameValueMutation": SetGameValueMutation,
     "RecomputeMaterializedQueryMutation": RecomputeMaterializedQueryMutation,
     "QueryInventoryMutation": QueryInventoryMutation,
+    "RelocateMutation": RelocateMutation,
+    "UseTargetMutation": UseTargetMutation,
 }
 AttackMutation.model_rebuild(_types_namespace=_mutation_namespace)
 SetGameValueMutation.model_rebuild(_types_namespace=_mutation_namespace)
@@ -115,6 +121,9 @@ __all__ = [
     "SetGameValueMutation",
     "RecomputeMaterializedQueryMutation",
     "QueryInventoryMutation",
+    "RelocateMutation",
+    "UseTargetMutation",
+    "useTarget",
     "AnyMutation",
     # Mutation helpers
     "logStat",

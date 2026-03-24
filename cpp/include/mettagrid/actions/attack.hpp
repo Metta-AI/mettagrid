@@ -66,28 +66,21 @@ public:
                   const GameConfig* game_config,
                   const std::string& action_name = "attack")
       : ActionHandler(cfg, action_name),
+        _consumed_resources(cfg.consumed_resources),
         _defense_resources(cfg.defense_resources),
         _armor_resources(cfg.armor_resources),
         _weapon_resources(cfg.weapon_resources),
         _success(cfg.success),
         _game_config(game_config),
         _enabled(cfg.enabled),
-        _vibes(cfg.vibes),
         _vibe_bonus(cfg.vibe_bonus) {
     priority = 1;
   }
 
-  // Get vibes that trigger this action on move
-  const std::vector<ObservationType>& get_vibes() const {
-    return _vibes;
-  }
-
   std::vector<Action> create_actions() override {
-    // Attack only triggers via move, no standalone actions
     return {};
   }
 
-  // Expose to Move class - attack decides if target is valid
   bool try_attack(Agent& actor, GridObject* target_object) {
     if (!target_object) return false;
 
@@ -117,13 +110,13 @@ public:
   }
 
 protected:
+  std::unordered_map<InventoryItem, InventoryQuantity> _consumed_resources;
   std::unordered_map<InventoryItem, InventoryQuantity> _defense_resources;
   std::unordered_map<InventoryItem, InventoryQuantity> _armor_resources;
   std::unordered_map<InventoryItem, InventoryQuantity> _weapon_resources;
   AttackOutcome _success;
   const GameConfig* _game_config;
   bool _enabled;
-  std::vector<ObservationType> _vibes;
   std::unordered_map<ObservationType, int> _vibe_bonus;
 
   bool _handle_action(Agent& /*actor*/, ActionArg /*arg*/, const mettagrid::HandlerContext& /*ctx*/) override {

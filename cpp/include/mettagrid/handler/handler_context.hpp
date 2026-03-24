@@ -12,10 +12,12 @@
 #include "core/grid.hpp"
 #include "core/grid_object.hpp"
 #include "core/tag_index.hpp"
+#include "core/types.hpp"
 #include "handler/handler_config.hpp"
 #include "systems/stats_tracker.hpp"
 
 class Agent;
+struct GameConfig;
 
 namespace mettagrid {
 
@@ -36,13 +38,18 @@ class HandlerContext {
 public:
   GridObject* actor = nullptr;
   GridObject* target = nullptr;
-  GridObject* source = nullptr;        // BFS frontier node in closure query edge filters
-  StatsTracker* game_stats = nullptr;  // Game-level stats tracker (for StatsMutation)
-  TagIndex* tag_index = nullptr;       // Tag index for tag/query lookups
-  Grid* grid = nullptr;                // Grid for removing objects from cells
+  GridObject* source = nullptr;           // BFS frontier node in closure query edge filters
+  unsigned int distance = 0;              // Distance from actor to target (set by move line-scan)
+  GridLocation target_location = {0, 0};  // Target cell location (set by move line-scan)
+  ActionArg move_direction = 0;           // Direction arg from move action (orientation)
+  StatsTracker* game_stats = nullptr;     // Game-level stats tracker (for StatsMutation)
+  TagIndex* tag_index = nullptr;          // Tag index for tag/query lookups
+  Grid* grid = nullptr;                   // Grid for removing objects from cells
   QuerySystem* query_system = nullptr;
+  const GameConfig* game_config = nullptr;  // Game config for object type lookups
   std::mt19937* rng = nullptr;
   bool skip_on_update_trigger = false;
+  bool mutation_failed = false;  // Set by mutations that fail (e.g. onUse returns false)
 
   // Optional accumulator for ResourceDeltaMutation on the target entity.
   std::unordered_map<InventoryItem, InventoryDelta>* deferred_target_resource_deltas = nullptr;

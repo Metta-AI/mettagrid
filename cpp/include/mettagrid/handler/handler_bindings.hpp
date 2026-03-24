@@ -416,6 +416,14 @@ inline void bind_handler_config(py::module& m) {
           [](QueryInventoryMutationConfig& self, const QueryConfigHolder& q) { self.query = q.config; },
           py::arg("query"));
 
+  // Move-specific filter configs (no fields, just marker types)
+  py::class_<TargetLocEmptyFilterConfig>(m, "TargetLocEmptyFilterConfig").def(py::init<>());
+  py::class_<TargetIsUsableFilterConfig>(m, "TargetIsUsableFilterConfig").def(py::init<>());
+
+  // Move-specific mutation configs (no fields, just marker types)
+  py::class_<RelocateMutationConfig>(m, "RelocateMutationConfig").def(py::init<>());
+  py::class_<UseTargetMutationConfig>(m, "UseTargetMutationConfig").def(py::init<>());
+
   // HandlerConfig with methods to add filters and mutations
   py::class_<HandlerConfig, std::shared_ptr<HandlerConfig>>(m, "HandlerConfig")
       .def(py::init<>())
@@ -504,6 +512,24 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_remove_tags_with_prefix_mutation",
           [](HandlerConfig& self, const RemoveTagsWithPrefixMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      // Move-specific filters
+      .def(
+          "add_target_loc_empty_filter",
+          [](HandlerConfig& self, const TargetLocEmptyFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_target_is_usable_filter",
+          [](HandlerConfig& self, const TargetIsUsableFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      // Move-specific mutations
+      .def(
+          "add_relocate_mutation",
+          [](HandlerConfig& self, const RelocateMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_use_target_mutation",
+          [](HandlerConfig& self, const UseTargetMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"));
 
   // ResourceDelta for presence_deltas

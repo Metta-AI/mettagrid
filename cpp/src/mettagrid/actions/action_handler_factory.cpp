@@ -8,6 +8,9 @@
 #include "actions/move_config.hpp"
 #include "actions/noop.hpp"
 #include "config/mettagrid_config.hpp"
+#include "core/filter_config.hpp"
+#include "core/mutation_config.hpp"
+#include "handler/handler_config.hpp"
 
 ActionHandlerResult create_action_handlers(const GameConfig& game_config) {
   ActionHandlerResult result;
@@ -22,17 +25,26 @@ ActionHandlerResult create_action_handlers(const GameConfig& game_config) {
   }
   result.handlers.push_back(std::move(noop));
 
-  // Move
+  // Move — build default handlers if none configured
   auto move_config = std::static_pointer_cast<const MoveActionConfig>(game_config.actions.at("move"));
-  auto move = std::make_unique<Move>(*move_config, &game_config);
-  move->init();
-  if (move->priority > result.max_priority) result.max_priority = move->priority;
-  for (const auto& action : move->actions()) {
-    result.actions.push_back(action);
+
+  MoveActionConfig effective_move_config = *move_config;
+
+  // Always append default handlers as fallback (custom handlers get priority by being first)
+  {
+    mettagrid::HandlerConfig hc("move");
+    hc.filters.push_back(mettagrid::TargetLocEmptyFilterConfig{});
+    hc.mutations.push_back(mettagrid::RelocateMutationConfig{});
+    effective_move_config.handlers.push_back(hc);
   }
-  // Capture the raw pointer to pass to other handlers
-  Move* move_ptr = move.get();
-  result.handlers.push_back(std::move(move));
+  {
+    mettagrid::HandlerConfig hc("use_target");
+    hc.filters.push_back(mettagrid::TargetIsUsableFilterConfig{});
+    hc.mutations.push_back(mettagrid::UseTargetMutationConfig{});
+    effective_move_config.handlers.push_back(hc);
+  }
+
+  auto move = std::make_unique<Move>(effective_move_config, &game_config);
 
   // Attack
   auto attack_config = std::static_pointer_cast<const AttackActionConfig>(game_config.actions.at("attack"));
@@ -43,10 +55,12 @@ ActionHandlerResult create_action_handlers(const GameConfig& game_config) {
     result.actions.push_back(action);
   }
 
-  // Register vibe-triggered action handlers with Move
-  std::unordered_map<std::string, ActionHandler*> handlers;
-  handlers["attack"] = attack.get();
-  move_ptr->set_action_handlers(handlers);
+  move->init();
+  if (move->priority > result.max_priority) result.max_priority = move->priority;
+  for (const auto& action : move->actions()) {
+    result.actions.push_back(action);
+  }
+  result.handlers.push_back(std::move(move));
 
   result.handlers.push_back(std::move(attack));
 

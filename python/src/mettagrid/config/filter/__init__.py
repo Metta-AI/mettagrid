@@ -26,6 +26,8 @@ from mettagrid.config.filter.shared_tag_prefix_filter import (
 )
 from mettagrid.config.filter.tag_filter import TagFilter, actorHasTag, hasTag, isA
 from mettagrid.config.filter.tag_prefix_filter import TagPrefixFilter, actorHasTagPrefix, hasTagPrefix
+from mettagrid.config.filter.target_is_usable_filter import TargetIsUsableFilter
+from mettagrid.config.filter.target_loc_empty_filter import TargetLocEmptyFilter
 from mettagrid.config.filter.vibe_filter import VibeFilter, actorVibe, targetVibe
 from mettagrid.config.game_value import (
     AnyGameValue,
@@ -61,6 +63,8 @@ AnyFilter = Annotated[
         Annotated[GameValueFilter, PydanticTag("game_value")],
         Annotated[NotFilter, PydanticTag("not")],
         Annotated[OrFilter, PydanticTag("or")],
+        Annotated[TargetLocEmptyFilter, PydanticTag("target_loc_empty")],
+        Annotated[TargetIsUsableFilter, PydanticTag("target_is_usable")],
     ],
     Discriminator("filter_type"),
 ]
@@ -108,6 +112,8 @@ __all__ = [
     "SharedTagPrefixFilter",
     "MaxDistanceFilter",
     "GameValueFilter",
+    "TargetLocEmptyFilter",
+    "TargetIsUsableFilter",
     "AnyFilter",
     # Filter helpers
     "isNot",

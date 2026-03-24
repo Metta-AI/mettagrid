@@ -171,6 +171,7 @@ class IdMap:
 
         # Core features (fixed set)
         add_feature("agent:group", 10.0)
+
         # Global observation features (always included for feature_ids, config controls if populated)
         add_feature("episode_completion_pct", 255.0)
         add_feature("last_action", 10.0)

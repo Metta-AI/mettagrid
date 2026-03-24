@@ -12,6 +12,7 @@ from mettagrid.config.mutation import (
     EntityTarget,
     QueryInventoryMutation,
     RecomputeMaterializedQueryMutation,
+    RelocateMutation,
     RemoveTagMutation,
     RemoveTagsWithPrefixMutation,
     ResourceDeltaMutation,
@@ -20,6 +21,7 @@ from mettagrid.config.mutation import (
     StatsEntity,
     StatsMutation,
     StatsTarget,
+    UseTargetMutation,
 )
 from mettagrid.mettagrid_c import AddTagMutationConfig as CppAddTagMutationConfig
 from mettagrid.mettagrid_c import ClearInventoryMutationConfig as CppClearInventoryMutationConfig
@@ -29,6 +31,7 @@ from mettagrid.mettagrid_c import QueryInventoryMutationConfig as CppQueryInvent
 from mettagrid.mettagrid_c import (
     RecomputeMaterializedQueryMutationConfig as CppRecomputeMaterializedQueryMutationConfig,
 )
+from mettagrid.mettagrid_c import RelocateMutationConfig as CppRelocateMutationConfig
 from mettagrid.mettagrid_c import RemoveTagMutationConfig as CppRemoveTagMutationConfig
 from mettagrid.mettagrid_c import RemoveTagsWithPrefixMutationConfig as CppRemoveTagsWithPrefixMutationConfig
 from mettagrid.mettagrid_c import ResourceDeltaMutationConfig as CppResourceDeltaMutationConfig
@@ -36,6 +39,7 @@ from mettagrid.mettagrid_c import ResourceTransferMutationConfig as CppResourceT
 from mettagrid.mettagrid_c import StatsEntity as CppStatsEntity
 from mettagrid.mettagrid_c import StatsMutationConfig as CppStatsMutationConfig
 from mettagrid.mettagrid_c import StatsTarget as CppStatsTarget
+from mettagrid.mettagrid_c import UseTargetMutationConfig as CppUseTargetMutationConfig
 
 if TYPE_CHECKING:
     from mettagrid.config.cpp_id_maps import CppIdMaps
@@ -203,3 +207,9 @@ def convert_mutations(
                     for rname, stat_name in mutation.transfer_stats.items()
                 ]
             target_obj.add_query_inventory_mutation(cpp_mutation)
+
+        elif isinstance(mutation, RelocateMutation):
+            target_obj.add_relocate_mutation(CppRelocateMutationConfig())
+
+        elif isinstance(mutation, UseTargetMutation):
+            target_obj.add_use_target_mutation(CppUseTargetMutationConfig())

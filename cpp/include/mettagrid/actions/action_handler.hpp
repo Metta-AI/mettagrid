@@ -60,25 +60,8 @@ class ActionHandler {
 public:
   unsigned char priority;
 
-  ActionHandler(const ActionConfig& cfg, const std::string& action_name)
-      : priority(0),
-        _action_name(action_name),
-        _required_resources(cfg.required_resources),
-        _consumed_resources(cfg.consumed_resources) {
-    // Check that required_resources has all items from consumed_resources
-    for (const auto& [item, amount] : _consumed_resources) {
-      auto required_it = _required_resources.find(item);
-      if (required_it == _required_resources.end()) {
-        throw std::runtime_error("Consumed resource item " + std::to_string(item) + " not found in required resources");
-      }
-
-      // Validate required >= consumed
-      if (required_it->second < amount) {
-        throw std::runtime_error("Required resources must be >= consumed resources. Item: " + std::to_string(item) +
-                                 " required: " + std::to_string(required_it->second) +
-                                 " < consumed: " + std::to_string(amount));
-      }
-    }
+  ActionHandler(const ActionConfig& cfg, const std::string& action_name) : priority(0), _action_name(action_name) {
+    (void)cfg;
   }
 
   virtual ~ActionHandler() {}
@@ -94,17 +77,7 @@ public:
   // on the environment, and should imply that the agent effectively took a noop action.
   bool handle_action(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& ctx) {
     actor.last_animation_id = kNoAnimation;
-
-    bool has_needed_resources = true;
-    for (const auto& [item, amount] : _required_resources) {
-      if (actor.inventory.amount(item) < amount) {
-        has_needed_resources = false;
-        break;
-      }
-    }
-
-    // Execute the action
-    bool success = has_needed_resources && _handle_action(actor, arg, ctx);
+    bool success = _handle_action(actor, arg, ctx);
 
     // The intention here is to provide a metric that reports when an agent has stayed in one location for a long
     // period, perhaps spinning in circles. We think this could be a good indicator that a policy has collapsed.
@@ -123,15 +96,6 @@ public:
     // Track success/failure
     if (success) {
       actor.stats.incr("action." + _action_name + ".success");
-      for (const auto& [item, amount] : _consumed_resources) {
-        if (amount > 0) {
-          InventoryDelta delta = static_cast<InventoryDelta>(-static_cast<int>(amount));
-          [[maybe_unused]] InventoryDelta actual_delta = actor.inventory.update(item, delta);
-          // We consume resources after the action succeeds, but in the future we might have an action that uses the
-          // resource. This check will catch that.
-          assert(actual_delta == delta);
-        }
-      }
     } else {
       actor.stats.incr("action." + _action_name + ".failed");
       actor.stats.incr("action.failed");
@@ -160,8 +124,6 @@ protected:
   virtual bool _handle_action(Agent& actor, ActionArg arg, const mettagrid::HandlerContext& ctx) = 0;
 
   std::string _action_name;
-  std::unordered_map<InventoryItem, InventoryQuantity> _required_resources;
-  std::unordered_map<InventoryItem, InventoryQuantity> _consumed_resources;
   std::vector<Action> _actions;
 };
 

@@ -102,6 +102,9 @@ struct RemoveTagsWithPrefixMutationConfig {
   std::vector<int> tag_ids;  // All tag IDs sharing the prefix (resolved at config time)
 };
 
+struct RelocateMutationConfig {};   // Move actor to target cell
+struct UseTargetMutationConfig {};  // Delegate to target's onUse handler
+
 // Variant type for all mutation configs
 using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     ResourceTransferMutationConfig,
@@ -113,7 +116,9 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     GameValueMutationConfig,
                                     RecomputeMaterializedQueryMutationConfig,
                                     QueryInventoryMutationConfig,
-                                    RemoveTagsWithPrefixMutationConfig>;
+                                    RemoveTagsWithPrefixMutationConfig,
+                                    RelocateMutationConfig,
+                                    UseTargetMutationConfig>;
 
 }  // namespace mettagrid
 

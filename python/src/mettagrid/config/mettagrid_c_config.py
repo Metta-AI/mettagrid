@@ -47,6 +47,8 @@ from mettagrid.mettagrid_c import (
 )
 from mettagrid.mettagrid_c import TagPrefixFilterConfig as CppTagPrefixFilterConfig
 from mettagrid.mettagrid_c import TagQueryConfig as CppTagQueryConfig
+from mettagrid.mettagrid_c import TargetIsUsableFilterConfig as CppTargetIsUsableFilterConfig
+from mettagrid.mettagrid_c import TargetLocEmptyFilterConfig as CppTargetLocEmptyFilterConfig
 from mettagrid.mettagrid_c import TerritoryConfig as CppTerritoryConfig  # pyright: ignore[reportAttributeAccessIssue]
 from mettagrid.mettagrid_c import (
     TerritoryControlConfig as CppTerritoryControlConfig,  # pyright: ignore[reportAttributeAccessIssue]
@@ -242,6 +244,12 @@ def _convert_one_filter(filter_config, id_maps: CppIdMaps, context: str) -> tupl
             ),
         )
 
+    if ft == "target_loc_empty":
+        return ("target_loc_empty", CppTargetLocEmptyFilterConfig())
+
+    if ft == "target_is_usable":
+        return ("target_is_usable", CppTargetIsUsableFilterConfig())
+
     return None
 
 
@@ -258,6 +266,8 @@ _FILTER_TYPE_TO_METHOD = {
     "game_value": "add_game_value_filter",
     "neg": "add_neg_filter",
     "or": "add_or_filter",
+    "target_loc_empty": "add_target_loc_empty_filter",
+    "target_is_usable": "add_target_is_usable_filter",
 }
 
 
@@ -722,17 +732,21 @@ def convert_to_cpp_game_config(
                 type_id=type_id, type_name=object_config.name, initial_vibe=object_config.vibe
             )
 
-            if object_config.inventory and object_config.inventory.initial:
-                initial_inventory_cpp = {}
-                for resource, amount in object_config.inventory.initial.items():
-                    if resource in resource_name_to_id:
-                        initial_inventory_cpp[resource_name_to_id[resource]] = amount
-                cpp_config.initial_inventory = initial_inventory_cpp
+            if object_config.inventory:
+                if object_config.inventory.initial:
+                    initial_inventory_cpp = {}
+                    for resource, amount in object_config.inventory.initial.items():
+                        if resource in resource_name_to_id:
+                            initial_inventory_cpp[resource_name_to_id[resource]] = amount
+                    cpp_config.initial_inventory = initial_inventory_cpp
 
+                obj_default_limit = object_config.inventory.default_limit
                 limit_defs = []
+                configured_resources: set[str] = set()
                 for resource_limit in object_config.inventory.limits.values():
                     resource_list = resource_limit.resources
                     resource_ids = [resource_name_to_id[name] for name in resource_list if name in resource_name_to_id]
+                    configured_resources.update(resource_list)
                     if resource_ids:
                         modifier_ids = {
                             resource_name_to_id[name]: bonus
@@ -742,9 +756,14 @@ def convert_to_cpp_game_config(
                         limit_defs.append(
                             CppLimitDef(resource_ids, resource_limit.min, resource_limit.max, modifier_ids)
                         )
-                inventory_config = CppInventoryConfig()
-                inventory_config.limit_defs = limit_defs
-                cpp_config.inventory_config = inventory_config
+                # Apply default_limit to resources with initial values but no explicit limit.
+                for resource_name in object_config.inventory.initial:
+                    if resource_name not in configured_resources and resource_name in resource_name_to_id:
+                        limit_defs.append(CppLimitDef([resource_name_to_id[resource_name]], obj_default_limit))
+                if limit_defs:
+                    inventory_config = CppInventoryConfig()
+                    inventory_config.limit_defs = limit_defs
+                    cpp_config.inventory_config = inventory_config
         else:
             raise ValueError(f"Unknown object type: {object_config.name} (key={object_key})")
 
@@ -849,6 +868,11 @@ def convert_to_cpp_game_config(
 
     action_params = process_action_config("move", actions_config.move)
     action_params["allowed_directions"] = actions_config.move.allowed_directions
+    if actions_config.move.handlers:
+        action_params["handlers"] = _convert_handlers(
+            {h.name or f"move_handler_{i}": h for i, h in enumerate(actions_config.move.handlers)},
+            id_maps,
+        )
     actions_cpp_params["move"] = CppMoveActionConfig(**action_params)
 
     action_params = process_action_config("attack", actions_config.attack)

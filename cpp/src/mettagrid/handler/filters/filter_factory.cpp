@@ -10,6 +10,8 @@
 #include "handler/filters/query_resource_filter.hpp"
 #include "handler/filters/resource_filter.hpp"
 #include "handler/filters/shared_tag_filter.hpp"
+#include "handler/filters/target_is_usable_filter.hpp"
+#include "handler/filters/target_loc_empty_filter.hpp"
 #include "handler/filters/vibe_filter.hpp"
 
 namespace mettagrid {
@@ -53,6 +55,10 @@ std::unique_ptr<Filter> create_filter(const FilterConfig& config) {
             }
           }
           return std::make_unique<OrFilter>(std::move(inner_filters));
+        } else if constexpr (std::is_same_v<T, TargetLocEmptyFilterConfig>) {
+          return std::make_unique<TargetLocEmptyFilter>(cfg);
+        } else if constexpr (std::is_same_v<T, TargetIsUsableFilterConfig>) {
+          return std::make_unique<TargetIsUsableFilter>(cfg);
         } else {
           return nullptr;
         }

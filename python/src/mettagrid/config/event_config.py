@@ -101,7 +101,7 @@ class EventConfig(Handler):
         select objects near those matching inner filters.
     """
 
-    name: str = Field(description="Unique name for this event")
+    name: str = Field(default="", description="Unique name for this event")
     target_query: "str | AnyQuery" = Field(
         description="Tag name or query for finding candidate target objects",
     )

@@ -50,6 +50,9 @@ struct GameValueFilterConfig {
   EntityRef entity = EntityRef::target;
 };
 
+struct TargetLocEmptyFilterConfig {};  // Target cell is empty (target == nullptr)
+struct TargetIsUsableFilterConfig {};  // Target implements Usable interface
+
 // Forward declarations for recursive filter configs
 struct NegFilterConfig;
 struct OrFilterConfig;
@@ -65,7 +68,9 @@ using FilterConfig = std::variant<VibeFilterConfig,
                                   NegFilterConfig,
                                   OrFilterConfig,
                                   MaxDistanceFilterConfig,
-                                  QueryResourceFilterConfig>;
+                                  QueryResourceFilterConfig,
+                                  TargetLocEmptyFilterConfig,
+                                  TargetIsUsableFilterConfig>;
 
 // NegFilterConfig: Wraps filter config(s) and negates the ANDed result.
 // Multiple inner filters are ANDed together first, then negated.

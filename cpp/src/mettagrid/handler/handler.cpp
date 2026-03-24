@@ -79,8 +79,13 @@ bool Handler::try_apply(HandlerContext& ctx) {
     return false;
   }
 
+  ctx.mutation_failed = false;
   for (auto& mutation : _mutations) {
     mutation->apply(ctx);
+    if (ctx.mutation_failed) {
+      log_handler_result(_name, ctx, false);
+      return false;
+    }
   }
 
   log_handler_result(_name, ctx, true);

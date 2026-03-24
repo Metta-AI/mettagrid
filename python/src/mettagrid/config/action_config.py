@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from itertools import chain
-from typing import Literal, get_args
+from typing import Any, Literal, get_args
 
 from pydantic import Field
 
@@ -64,10 +64,15 @@ class NoopActionConfig(ActionConfig):
 
 
 class MoveActionConfig(ActionConfig):
-    """Move action configuration."""
+    """Move action configuration.
+
+    When handlers is non-empty, the move handler chain uses these handlers instead
+    of the default (relocate-to-empty, on-use) chain.
+    """
 
     action_handler: str = Field(default="move")
     allowed_directions: list[Direction] = Field(default_factory=lambda: CardinalDirections)
+    handlers: list[Any] = Field(default_factory=list)
 
     def _actions(self) -> list[Action]:
         return [self.Move(direction) for direction in self.allowed_directions]

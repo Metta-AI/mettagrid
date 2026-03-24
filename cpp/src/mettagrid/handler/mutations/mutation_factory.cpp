@@ -6,9 +6,11 @@
 #include "handler/mutations/game_value_mutation.hpp"
 #include "handler/mutations/query_inventory_mutation.hpp"
 #include "handler/mutations/recompute_materialized_query_mutation.hpp"
+#include "handler/mutations/relocate_mutation.hpp"
 #include "handler/mutations/resource_mutation.hpp"
 #include "handler/mutations/stats_mutation.hpp"
 #include "handler/mutations/tag_mutation.hpp"
+#include "handler/mutations/use_target_mutation.hpp"
 
 namespace mettagrid {
 
@@ -38,6 +40,10 @@ std::unique_ptr<Mutation> create_mutation(const MutationConfig& config) {
           return std::make_unique<QueryInventoryMutation>(cfg);
         } else if constexpr (std::is_same_v<T, RemoveTagsWithPrefixMutationConfig>) {
           return std::make_unique<RemoveTagsWithPrefixMutation>(cfg);
+        } else if constexpr (std::is_same_v<T, RelocateMutationConfig>) {
+          return std::make_unique<RelocateMutation>(cfg);
+        } else if constexpr (std::is_same_v<T, UseTargetMutationConfig>) {
+          return std::make_unique<UseTargetMutation>(cfg);
         } else {
           return nullptr;
         }

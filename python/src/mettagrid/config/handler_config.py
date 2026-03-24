@@ -28,6 +28,8 @@ from mettagrid.config.filter import (
     ResourceFilter,
     TagFilter,
     TagPrefixFilter,
+    TargetIsUsableFilter,
+    TargetLocEmptyFilter,
     VibeFilter,
     actorHas,
     actorHasTag,
@@ -49,12 +51,14 @@ from mettagrid.config.mutation import (
     Mutation,
     QueryInventoryMutation,
     RecomputeMaterializedQueryMutation,
+    RelocateMutation,
     RemoveTagMutation,
     RemoveTagsWithPrefixMutation,
     ResourceDeltaMutation,
     ResourceTransferMutation,
     StatsMutation,
     StatsTarget,
+    UseTargetMutation,
     addTag,
     deposit,
     logStat,
@@ -76,13 +80,16 @@ class Handler(Config):
     Used for both handler types:
       - on_use: Triggered when agent uses/activates this object
       - aoe: Triggered per-tick for objects within radius
+      - move: Handlers in the move action handler chain
 
     For on_use handlers, the first handler where all filters pass has its mutations applied.
     For aoe handlers, all handlers where filters pass have their mutations applied.
 
-    The handler name is provided as the dict key when defining handlers on a GridObject.
+    The handler name is provided as the dict key when defining handlers on a GridObject,
+    or via the name field when used in a list (e.g., MoveActionConfig.handlers).
     """
 
+    name: str = Field(default="", description="Handler name (used when defined in a list rather than a dict)")
     filters: Sequence[AnyFilter] = Field(
         default_factory=list,
         description="All filters must pass for handler to trigger",
@@ -146,6 +153,8 @@ __all__ = [
     "TagPrefixFilter",
     "MaxDistanceFilter",
     "NotFilter",
+    "TargetLocEmptyFilter",
+    "TargetIsUsableFilter",
     "AnyFilter",
     # Mutation classes
     "Mutation",
@@ -159,6 +168,8 @@ __all__ = [
     "RemoveTagsWithPrefixMutation",
     "RecomputeMaterializedQueryMutation",
     "QueryInventoryMutation",
+    "RelocateMutation",
+    "UseTargetMutation",
     "AnyMutation",
     # Config classes
     "AOEConfig",
