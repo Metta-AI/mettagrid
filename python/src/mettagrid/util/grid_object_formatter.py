@@ -58,8 +58,6 @@ def format_agent_properties(
     update_object["animation_id"] = grid_object.get("last_animation_id", 0)
     update_object["current_reward"] = rewards[agent_id].item()
     update_object["total_reward"] = total_rewards[agent_id].item()
-    update_object["freeze_remaining"] = grid_object.get("freeze_remaining", 0)
-    update_object["is_frozen"] = grid_object.get("is_frozen", False)
     update_object["group_id"] = grid_object["group_id"]
     update_object["vibe_id"] = grid_object.get("vibe", 0)
     update_object["vibe"] = grid_object.get("vibe", 0)  # Alias for vibe_id

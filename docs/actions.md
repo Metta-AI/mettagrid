@@ -99,8 +99,8 @@ Example action names:
 
 ### Attack Actions
 
-- **Description**: Attack triggers via movement onto another agent (when vibes match), not as a standalone action. On success the attacker can freeze the target, transfer inventory, and loot resources. Targets can defend if they hold sufficient defense resources; weapon and armor inventories modify the defense cost threshold. Per-vibe armor bonuses are supported.
-- **Configuration**: `attack.defense_resources`, `attack.armor_resources`, `attack.weapon_resources`, `attack.success` (freeze duration, inventory deltas, loot), `attack.vibes`, `attack.vibe_bonus`, `attack.enabled`.
+- **Description**: Attack triggers via movement onto another agent (when vibes match), not as a standalone action. On success the attacker can transfer inventory and loot resources. Targets can defend if they hold sufficient defense resources; weapon and armor inventories modify the defense cost threshold. Per-vibe armor bonuses are supported.
+- **Configuration**: `attack.defense_resources`, `attack.armor_resources`, `attack.weapon_resources`, `attack.success` (inventory deltas, loot), `attack.vibes`, `attack.vibe_bonus`, `attack.enabled`.
 
 ## Policy Action Emission
 

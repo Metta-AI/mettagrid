@@ -103,7 +103,7 @@ def make_sim(base_config: GameConfig):
 
 
 def test_attack_integration(make_sim, complex_game_map):
-    """Test attack with a frozen agent."""
+    """Test attack integration."""
     config_overrides = {
         "num_agents": 2,
         "agents": [
@@ -149,8 +149,7 @@ def test_attack_integration(make_sim, complex_game_map):
     # Attack agent 1 (who is directly to the right)
     attack_result = attack(sim, target_arg=0, agent_idx=0)
     if attack_result["success"]:
-        assert "frozen_agent_id" in attack_result, "Should have frozen an agent"
-        print("✅ Successfully attacked and froze agent")
+        print("Successfully attacked agent")
     else:
         print(f"Attack failed: {attack_result.get('error')}")
 

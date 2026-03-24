@@ -83,13 +83,12 @@ protected:
     // Initialize observation features
     std::unordered_map<std::string, ObservationType> feature_ids = {
         {"agent:group", 0},
-        {"agent:frozen", 1},
-        {"episode_completion_pct", 2},
-        {"last_action", 3},
-        {"last_reward", 4},
-        {"goal", 5},
-        {"vibe", 6},
-        {"tag", 7},
+        {"episode_completion_pct", 1},
+        {"last_action", 2},
+        {"last_reward", 3},
+        {"goal", 4},
+        {"vibe", 5},
+        {"tag", 6},
     };
     ObservationFeature::Initialize(feature_ids);
   }

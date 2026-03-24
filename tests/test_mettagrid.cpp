@@ -57,7 +57,6 @@ protected:
     std::unordered_map<std::string, ObservationType> feature_ids = {
         {"type_id", 0},
         {"agent:group", 1},
-        {"agent:frozen", 2},
         {"episode_completion_pct", 7},
         {"last_action", 8},
         {"goal", 9},

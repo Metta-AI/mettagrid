@@ -122,7 +122,7 @@ def attack(env: Simulation, target_arg: int = 0, agent_idx: int = 0) -> dict[str
         agent_idx: Attacking agent index (default 0)
 
     Returns:
-        Dict with success status, attack details, and any frozen/stolen info
+        Dict with success status, attack details, and any stolen info
     """
     result = {
         "success": False,
@@ -130,7 +130,6 @@ def attack(env: Simulation, target_arg: int = 0, agent_idx: int = 0) -> dict[str
         "target_arg": target_arg,
         "agent_idx": agent_idx,
         "attack_position": None,
-        "target_frozen": False,
         "resources_stolen": {},
         "defense_used": False,
     }
@@ -187,34 +186,17 @@ def attack(env: Simulation, target_arg: int = 0, agent_idx: int = 0) -> dict[str
         # Analyze the results
         objects_after = env.grid_objects()
 
-        # Find which agent was affected
+        # Find which agent was affected and check for stolen resources
         for obj_id, obj_data in objects_after.items():
             if obj_data.get("type_name") == "agent":
                 obj_before = objects_before.get(obj_id, {})
+                target_resources_before = obj_before.get("resources", {})
+                target_resources_after = obj_data.get("resources", {})
 
-                # Check if this agent was frozen
-                freeze_after = obj_data.get("freeze_remaining", 0)
-                freeze_before = obj_before.get("freeze_remaining", 0)
-
-                if freeze_after > 0 and freeze_before == 0:
-                    # This agent was just frozen
-                    result["target_frozen"] = True
-                    result["frozen_agent_id"] = obj_id
-                    result["target_position"] = (obj_data["r"], obj_data["c"])
-
-                    # Check for stolen resources
-                    target_resources_before = obj_before.get("resources", {})
-                    target_resources_after = obj_data.get("resources", {})
-
-                    for item, amount_before in target_resources_before.items():
-                        amount_after = target_resources_after.get(item, 0)
-                        if amount_after < amount_before:
-                            result["resources_stolen"][item] = amount_before - amount_after
-
-                elif freeze_after > 0 and freeze_before > 0:
-                    # Attack hit an already frozen target (wasted)
-                    result["wasted_on_frozen"] = True
-                    result["frozen_agent_id"] = obj_id
+                for item, amount_before in target_resources_before.items():
+                    amount_after = target_resources_after.get(item, 0)
+                    if amount_after < amount_before:
+                        result["resources_stolen"][item] = amount_before - amount_after
 
         # Check if attacker gained resources
         for _obj_id, obj_data in objects_after.items():
