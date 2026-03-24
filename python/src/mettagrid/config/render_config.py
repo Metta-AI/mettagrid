@@ -56,11 +56,11 @@ class RenderConfig(Config):
     """
 
     hud1: RenderHudConfig = Field(
-        default_factory=lambda: RenderHudConfig(resource="hp", max=400),
+        default_factory=lambda: RenderHudConfig(resource="hp", max=100),
         description="Primary HUD bar (default behavior)",
     )
     hud2: RenderHudConfig = Field(
-        default_factory=lambda: RenderHudConfig(resource="energy", short_name="E", max=100),
+        default_factory=lambda: RenderHudConfig(resource="energy", short_name="E", max=20),
         description="Secondary HUD bar (default behavior)",
     )
     agent_huds: dict[str, RenderHudConfig] = Field(
