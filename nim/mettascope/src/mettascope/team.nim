@@ -7,14 +7,23 @@ const TeamTag* = "team:"
 
 const TeamColors* = {
   "clips": Red,
-  "cogs": Blue,
+  "cogs": BostonYellow,
   "cogs_green": Green,
   "cogs_blue": Blue,
   "cogs_red": Red,
   "cogs_yellow": Yellow,
 }.toTable
 
-const FallbackColors = [Purple, Orange, Teal, DarkGreen, DarkOrange, DarkPurple, DarkRed, DarkBlue]
+const FallbackColors = [
+  Purple,
+  Orange,
+  Teal,
+  DarkGreen,
+  DarkOrange,
+  DarkPurple,
+  DarkRed,
+  DarkBlue
+]
 
 proc teamColor(name: string, fallbackIndex: int): ColorRGBX =
   ## Look up color for a team name, falling back to a rotating palette.

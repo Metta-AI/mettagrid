@@ -12,6 +12,7 @@ const
   DarkPurple*  = parseHtmlColor("#8e44ad").rgbx ## Wisteria
   Slate*       = parseHtmlColor("#34495e").rgbx ## Wet Asphalt
   MidnightBlue* = parseHtmlColor("#2c3e50").rgbx ## Midnight Blue
+  BostonYellow* = parseHtmlColor("#EFB850").rgbx ## Boston Yellow
   Yellow*      = parseHtmlColor("#f1c40f").rgbx ## Sun Flower
   Orange*      = parseHtmlColor("#f39c12").rgbx ## Orange
   DarkOrange*  = parseHtmlColor("#e67e22").rgbx ## Carrot
