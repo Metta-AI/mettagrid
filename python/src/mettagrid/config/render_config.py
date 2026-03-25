@@ -41,7 +41,7 @@ class RenderAsset(Config):
     """Conditional asset selection rule for MettaScope rendering."""
 
     asset: str = Field(description="Asset base name used by MettaScope")
-    resources: list[str] = Field(default_factory=list, description="Required inventory resources")
+    resources: dict[str, int] = Field(default_factory=dict, description="Required inventory resources with min counts")
     tags: list[str] = Field(default_factory=list, description="Required entity tags")
 
 

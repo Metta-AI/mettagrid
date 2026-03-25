@@ -65,7 +65,7 @@ type
 
   RenderAssetRule* = object
     asset*: string
-    resources*: seq[string]
+    resources*: Table[string, int]
     tags*: seq[string]
 
   RenderConfig* = object
@@ -375,7 +375,15 @@ proc parseRenderAssetRule(node: JsonNode, context: string): RenderAssetRule =
       ValueError,
       "Invalid " & context & ".asset: expected a non-empty string"
     )
-  result.resources = parseStringArray(node, "resources", context)
+  if "resources" in node and not node["resources"].isNil:
+    let resNode = node["resources"]
+    if resNode.kind == JObject:
+      for key, val in resNode:
+        result.resources[key] = val.getInt
+    elif resNode.kind == JArray:
+      # Backwards compat: ["foo"] -> {"foo": 1}
+      for item in resNode:
+        result.resources[item.getStr] = 1
   result.tags = parseStringArray(node, "tags", context)
 
 proc parseRenderAssets(renderNode: JsonNode): Table[string, seq[RenderAssetRule]] =
@@ -415,20 +423,24 @@ proc normalizeRenderTypeName(typeName: string): string =
   if result.endsWith("_station"):
     result = result[0 ..< (result.len - "_station".len)]
 
-proc entityHasResource*(replay: Replay, entity: Entity, resourceName: string, atStep: int): bool =
-  ## Return true if entity has a positive amount of a resource.
+proc entityResourceCount*(replay: Replay, entity: Entity, resourceName: string, atStep: int): int =
+  ## Return the count of a resource on an entity at a given step.
   let resourceId = replay.itemNames.find(resourceName)
   if resourceId < 0:
-    return false
+    return 0
   let inventoryAtStep =
     if entity.inventory.len == 0:
       @[]
     else:
       entity.inventory[atStep.clamp(0, entity.inventory.len - 1)]
   for item in inventoryAtStep:
-    if item.itemId == resourceId and item.count > 0:
-      return true
-  false
+    if item.itemId == resourceId:
+      return item.count
+  0
+
+proc entityHasResource*(replay: Replay, entity: Entity, resourceName: string, atStep: int): bool =
+  ## Return true if entity has a positive amount of a resource.
+  replay.entityResourceCount(entity, resourceName, atStep) > 0
 
 proc entityHasTag*(replay: Replay, entity: Entity, tagName: string, atStep: int): bool =
   ## Return true if entity has the named tag.
@@ -446,8 +458,8 @@ proc matchesRenderAssetRule(
   atStep: int
 ): bool =
   ## Return true if entity satisfies resource/tag requirements.
-  for resourceName in rule.resources:
-    if not replay.entityHasResource(entity, resourceName, atStep):
+  for resourceName, minCount in rule.resources:
+    if replay.entityResourceCount(entity, resourceName, atStep) < minCount:
       return false
   for tagName in rule.tags:
     if not replay.entityHasTag(entity, tagName, atStep):
