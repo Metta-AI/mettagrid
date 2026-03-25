@@ -256,8 +256,8 @@ block action_queue_sync_tests:
     replay.maxSteps = 3
     replay.objects[^1].location.add(ivec2(1, 2))
     processActions()
-    doAssert requestActions.len == 2,
-      "replay-confirmed movement should pop queue entry without sending again"
+    doAssert requestActions.len == 3,
+      "replay-confirmed movement should pop reached waypoint and immediately send next move"
     doAssert agentPaths[agent.agentId][0].kind == Move,
       "after confirmation, queue should advance to the next move"
     doAssert agentPaths[agent.agentId][0].pos == ivec2(1, 3),

@@ -62,6 +62,8 @@ proc isCardinalStep(fromPos, toPos: IVec2): bool =
 
 proc processActions*() =
   ## Process path actions and send actions for the current step while in play mode.
+  ## Uses a while loop per agent so that reached waypoints and stale-path recomputes
+  ## are consumed immediately rather than wasting a tick.
   if not (play or requestPython):
     return
   var agentIds: seq[int] = @[]
@@ -84,63 +86,47 @@ proc processActions*() =
     if not agentHasEnergy(agent):
       continue
 
-    if not agentPaths.hasKey(agentId) or agentPaths[agentId].len == 0:
-      continue
+    # Loop to skip past reached waypoints and stale-path recomputes within a single tick.
+    while agentPaths.hasKey(agentId) and agentPaths[agentId].len > 0:
+      let nextAction = agentPaths[agentId][0]
 
-    let nextAction = agentPaths[agentId][0]
+      case nextAction.kind
+      of Move:
+        # If play position already reached this queued step, pop it and try the next.
+        if currentPos == nextAction.pos:
+          agentPaths[agentId].delete(0)
+          if agentObjectives.hasKey(agentId) and agentObjectives[agentId].len > 0:
+            let objective = agentObjectives[agentId][0]
+            if objective.kind == Move and currentPos == objective.pos:
+              agentObjectives[agentId].delete(0)
+              if objective.repeat:
+                agentObjectives[agentId].add(objective)
+                recomputePath(agentId, currentPos)
+              elif agentObjectives[agentId].len == 0:
+                agentPaths.del(agentId)
+          continue
 
-    case nextAction.kind
-    of Move:
-      # If replay position already reached this queued step, pop it now.
-      if currentPos == nextAction.pos:
+        # Execute movement action.
+        if not isCardinalStep(currentPos, nextAction.pos):
+          echo "Stale/non-cardinal move in queue for agent ", agentId, ": ",
+            currentPos, " -> ", nextAction.pos, ". Recomputing."
+          recomputePath(agentId, currentPos)
+          continue
+        let
+          dx = nextAction.pos.x - currentPos.x
+          dy = nextAction.pos.y - currentPos.y
+        let orientation = getOrientationFromDelta(dx.int, dy.int)
+        sendAction(agentId, getMoveActionName(orientation))
+        break
+      of Bump:
+        # Execute bump action.
+        let targetOrientation = getOrientationFromDelta(nextAction.bumpDir.x.int,
+            nextAction.bumpDir.y.int)
+        sendAction(agentId, getMoveActionName(targetOrientation))
+        # Remove this action from the queue.
         agentPaths[agentId].delete(0)
-        if agentObjectives.hasKey(agentId) and agentObjectives[agentId].len > 0:
-          let objective = agentObjectives[agentId][0]
-          if objective.kind == Move and currentPos == objective.pos:
-            agentObjectives[agentId].delete(0)
-            if objective.repeat:
-              agentObjectives[agentId].add(objective)
-              recomputePath(agentId, currentPos)
-            elif agentObjectives[agentId].len == 0:
-              agentPaths.del(agentId)
-        continue
-
-      # Execute movement action.
-      if not isCardinalStep(currentPos, nextAction.pos):
-        echo "Stale/non-cardinal move in queue for agent ", agentId, ": ",
-          currentPos, " -> ", nextAction.pos, ". Recomputing."
-        recomputePath(agentId, currentPos)
-        continue
-      let
-        dx = nextAction.pos.x - currentPos.x
-        dy = nextAction.pos.y - currentPos.y
-      let orientation = getOrientationFromDelta(dx.int, dy.int)
-      sendAction(agentId, getMoveActionName(orientation))
-    of Bump:
-      # Execute bump action.
-      let targetOrientation = getOrientationFromDelta(nextAction.bumpDir.x.int,
-          nextAction.bumpDir.y.int)
-      sendAction(agentId, getMoveActionName(targetOrientation))
-      # Remove this action from the queue.
-      agentPaths[agentId].delete(0)
-      # Remove the corresponding objective.
-      let objective = agentObjectives[agentId][0]
-      agentObjectives[agentId].delete(0)
-      if objective.repeat:
-        # Re-queue this objective at the end.
-        agentObjectives[agentId].add(objective)
-        recomputePath(agentId, currentPos)
-      elif agentObjectives[agentId].len == 0:
-        # No more objectives, clear the path.
-        agentPaths.del(agentId)
-    of Vibe:
-      # Execute vibe.
-      sendAction(agentId, replay.actionNames[nextAction.vibeActionId])
-      # Remove this action from the queue.
-      agentPaths[agentId].delete(0)
-      # Remove the corresponding objective.
-      let objective = agentObjectives[agentId][0]
-      if objective.kind == Vibe:
+        # Remove the corresponding objective.
+        let objective = agentObjectives[agentId][0]
         agentObjectives[agentId].delete(0)
         if objective.repeat:
           # Re-queue this objective at the end.
@@ -149,6 +135,24 @@ proc processActions*() =
         elif agentObjectives[agentId].len == 0:
           # No more objectives, clear the path.
           agentPaths.del(agentId)
+        break
+      of Vibe:
+        # Execute vibe.
+        sendAction(agentId, replay.actionNames[nextAction.vibeActionId])
+        # Remove this action from the queue.
+        agentPaths[agentId].delete(0)
+        # Remove the corresponding objective.
+        let objective = agentObjectives[agentId][0]
+        if objective.kind == Vibe:
+          agentObjectives[agentId].delete(0)
+          if objective.repeat:
+            # Re-queue this objective at the end.
+            agentObjectives[agentId].add(objective)
+            recomputePath(agentId, currentPos)
+          elif agentObjectives[agentId].len == 0:
+            # No more objectives, clear the path.
+            agentPaths.del(agentId)
+        break
 
 proc agentControls*() =
   ## Manual controls with WASD for selected agent.
