@@ -45,11 +45,11 @@ proc ctrlCHandler() {.noconv.} =
   quit(0)
 
 proc init(dataDir: string, replay: string, autostart: bool = false): RenderResponse =
+  result = RenderResponse(shouldClose: false, actions: @[])
   try:
     echo "Initializing Mettascope..."
     if os.getEnv("METTASCOPE_DISABLE_CTRL_C", "") == "":
       setControlCHook(ctrlCHandler)
-    result = RenderResponse(shouldClose: false, actions: @[])
     playMode = Realtime
     setDataDir(dataDir)
     play = autostart
@@ -75,6 +75,7 @@ proc init(dataDir: string, replay: string, autostart: bool = false): RenderRespo
     return
 
 proc render(currentStep: int, replayStep: string): RenderResponse =
+  result = RenderResponse(shouldClose: false, actions: @[])
   try:
     let hadAgentsBefore = common.replay.agents.len > 0
     common.replay.apply(replayStep)
@@ -109,7 +110,6 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
       needsInitialFit = true
       let config = loadConfig()
       applyUIState(config)
-    result = RenderResponse(shouldClose: false, actions: @[])
     while true:
       if window.closeRequested:
         window.close()
@@ -133,8 +133,8 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
     return
 
 proc renderPending(): RenderResponse =
+  result = RenderResponse(shouldClose: false, actions: @[])
   try:
-    result = RenderResponse(shouldClose: false, actions: @[])
     requestPython = false
     if window.closeRequested:
       window.close()
