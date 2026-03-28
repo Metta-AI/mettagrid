@@ -26,7 +26,7 @@ type
     image: Image
     shader: Shader
     vao: GLuint              ## Vertex array object
-    instanceVbo: GLuint      ## Per-instance buffer: aPos(2 x uint16), aUv(4 x uint16), aTint(4 x uint8), aMaskUv(4 x uint16)
+    instanceVbo: GLuint      ## Per-instance buffer: aPos(2), aUv(4), aTint(2 as 4xU8), aMaskUv(4), aLampUv(4)
     atlasTexture: GLuint     ## GL texture for the atlas image
     instanceData: seq[uint16]
     instanceCount: int
@@ -36,8 +36,10 @@ var
   atlasSize: Uniform[Vec2]
   atlas: Uniform[Sampler2D]
 
-proc pixelatorVert*(vertexPos: UVec2, uv: UVec4, tint: Vec4, maskUv: UVec4,
-                    fragmentUv: var Vec2, vTint: var Vec4, vMaskUv: var Vec2) =
+proc pixelatorVert*(
+  vertexPos: UVec2, uv: UVec4, tint: Vec4, maskUv: UVec4, lampUv: UVec4,
+  fragmentUv: var Vec2, vTint: var Vec4, vMaskUv: var Vec2, vLampUv: var Vec2
+) =
   # Compute the corner of the quad based on the vertex ID.
   # 0:(0,0), 1:(1,0), 2:(0,1), 3:(1,1)
   let corner = ivec2(gl_VertexID mod 2, gl_VertexID div 2)
@@ -60,16 +62,36 @@ proc pixelatorVert*(vertexPos: UVec2, uv: UVec4, tint: Vec4, maskUv: UVec4,
     let msy = float(maskUv.y) + float(corner.y) * float(maskUv.w)
     vMaskUv = vec2(msx, msy) / atlasSize
 
+  # Compute lamp UV. When lampUv.z == 0 (no lamp), output -1.0 sentinel.
+  if float(lampUv.z) < 0.5:
+    vLampUv = vec2(-1.0)
+  else:
+    let lsx = float(lampUv.x) + float(corner.x) * float(lampUv.z)
+    let lsy = float(lampUv.y) + float(corner.y) * float(lampUv.w)
+    vLampUv = vec2(lsx, lsy) / atlasSize
+
   # Tint is auto-normalized from 4 x uint8 by GL.
   vTint = tint
 
-proc pixelatorFrag*(fragmentUv: Vec2, vTint: Vec4, vMaskUv: Vec2, FragColor: var Vec4) =
+proc pixelatorFrag*(
+  fragmentUv: Vec2, vTint: Vec4, vMaskUv: Vec2, vLampUv: Vec2,
+  FragColor: var Vec4
+) =
   # Compute the texture coordinates of the pixel.
   let pixCoord = fragmentUv * atlasSize
   # Compute the AA pixel coordinates.
   let pixAA = floor(pixCoord) + min(fract(pixCoord) / fwidth(pixCoord), 1.0) - 0.5
   let base = texture(atlas, pixAA / atlasSize)
-  if vMaskUv.x < 0.0:
+  if vLampUv.x >= 0.0:
+    # Lamp mode: add light where lamp is bright, keep base alpha.
+    let lampCoord = vLampUv * atlasSize
+    let lampAA = floor(lampCoord) + min(fract(lampCoord) / fwidth(lampCoord), 1.0) - 0.5
+    let lampR = texture(atlas, lampAA / atlasSize).r
+    FragColor = vec4(
+      base.rgb + lampR * vTint.rgb * base.a,
+      base.a
+    )
+  elif vMaskUv.x < 0.0:
     # No mask: apply tint to entire sprite (original behavior).
     FragColor = base * vTint
   else:
@@ -183,8 +205,8 @@ proc newPixelator*(imagePath, jsonPath: string): Pixelator {.measure.} =
   glBindBuffer(GL_ARRAY_BUFFER, result.instanceVbo)
   glBufferData(GL_ARRAY_BUFFER, 0, nil, GL_STREAM_DRAW)  # will resize each frame
 
-  # Interleaved attributes of 24 bytes (12 * uint16).
-  let stride = 12 * sizeof(uint16)
+  # Interleaved attributes of 32 bytes (16 * uint16).
+  let stride = 16 * sizeof(uint16)
   # Location 0: aPos (2 x uint16) at offset 0.
   glEnableVertexAttribArray(0)
   glVertexAttribIPointer(0, 2, GL_UNSIGNED_SHORT, stride.GLsizei, cast[pointer](0))
@@ -201,6 +223,10 @@ proc newPixelator*(imagePath, jsonPath: string): Pixelator {.measure.} =
   glEnableVertexAttribArray(3)
   glVertexAttribIPointer(3, 4, GL_UNSIGNED_SHORT, stride.GLsizei, cast[pointer](8 * sizeof(uint16)))
   glVertexAttribDivisor(3, 1)
+  # Location 4: aLampUv (4 x uint16) at offset 24 bytes.
+  glEnableVertexAttribArray(4)
+  glVertexAttribIPointer(4, 4, GL_UNSIGNED_SHORT, stride.GLsizei, cast[pointer](12 * sizeof(uint16)))
+  glVertexAttribDivisor(4, 1)
 
   # Unbind the buffers.
   glBindBuffer(GL_ARRAY_BUFFER, 0)
@@ -213,10 +239,12 @@ proc drawSprite*(
   name: string,
   x, y: uint16,
   tint: ColorRGBX = WhiteTint,
-  mask: string = ""
+  mask: string = "",
+  lamp: string = ""
 ) =
   ## Draws a sprite at the given position with optional tint color.
   ## When mask is non-empty, tint is applied only where the mask is white.
+  ## When lamp is non-empty, lamp sprite is additively blended with tint.
   if name notin px.atlas.entries:
     echo "[Warning] Sprite not found in atlas: " & name
     return
@@ -242,6 +270,18 @@ proc drawSprite*(
     px.instanceData.add(0'u16)
     px.instanceData.add(0'u16)
     px.instanceData.add(0'u16)
+  # Lamp UV: use lamp entry if provided, otherwise emit zeros (no lamp).
+  if lamp.len > 0 and lamp in px.atlas.entries:
+    let l = px.atlas.entries[lamp]
+    px.instanceData.add(l.x.uint16)
+    px.instanceData.add(l.y.uint16)
+    px.instanceData.add(l.width.uint16)
+    px.instanceData.add(l.height.uint16)
+  else:
+    px.instanceData.add(0'u16)
+    px.instanceData.add(0'u16)
+    px.instanceData.add(0'u16)
+    px.instanceData.add(0'u16)
   inc px.instanceCount
 
 proc drawSprite*(
@@ -249,10 +289,11 @@ proc drawSprite*(
   name: string,
   pos: IVec2,
   tint: ColorRGBX = WhiteTint,
-  mask: string = ""
+  mask: string = "",
+  lamp: string = ""
 ) =
   ## Draws a sprite at the given position with optional tint color.
-  px.drawSprite(name, pos.x.uint16, pos.y.uint16, tint, mask)
+  px.drawSprite(name, pos.x.uint16, pos.y.uint16, tint, mask, lamp)
 
 proc contains*(px: Pixelator, name: string): bool =
   ## Checks if the given sprite is in the atlas.

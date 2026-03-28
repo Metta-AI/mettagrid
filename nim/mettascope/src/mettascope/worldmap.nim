@@ -921,10 +921,20 @@ proc drawObjects*() {.measure.} =
           "objects/" & stripTeamSuffix(thing.typeName)
         else:
           "objects/unknown"
-      px.drawSprite(
-        spriteName,
-        (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
-      )
+      let normalized = normalizeTypeName(thing.typeName)
+      let teamIdx = getEntityTeamIndex(thing)
+      if normalized == "junction" and teamIdx >= 0:
+        px.drawSprite(
+          spriteName,
+          (pos * TileSize.float32 + SpriteOffset.vec2).ivec2,
+          getTeamColor(teamIdx),
+          lamp = "objects/junction.lamp"
+        )
+      else:
+        px.drawSprite(
+          spriteName,
+          (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
+        )
 
 proc drawVisualRanges*(alpha = 0.5) {.measure.} =
   ## Draw the visual ranges of the selected agent.
