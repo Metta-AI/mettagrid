@@ -1,6 +1,7 @@
 from typing import Literal, Sequence
 
 import numpy as np
+from pydantic import Field
 
 from mettagrid.mapgen.scene import Scene, SceneConfig
 
@@ -9,6 +10,46 @@ DEFAULT_EXTRACTORS: tuple[str, str, str, str] = (
     "oxygen_extractor",
     "germanium_extractor",
     "silicon_extractor",
+)
+
+# Adapted from the official Overcooked-AI `cramped_room.layout` floorplan and
+# widened to support Metta's extended station surface.
+# https://raw.githubusercontent.com/HumanCompatibleAI/overcooked_ai/master/src/overcooked_ai_py/data/layouts/cramped_room.layout
+CRAMPED_ROOM_STATION_ANCHORS: tuple[tuple[int, int], ...] = (
+    (3, 3),
+    (5, 3),
+    (11, 5),
+    (7, 3),
+    (9, 3),
+    (11, 3),
+    (9, 7),
+    (11, 7),
+    (7, 7),
+)
+CRAMPED_ROOM_SPAWNS: tuple[tuple[int, int], ...] = (
+    (6, 5),
+    (8, 5),
+    (6, 6),
+    (8, 6),
+)
+
+# Multiplayer service-pass variant used by Overcooked's default kitchen.
+SERVICE_PASS_ROOM_STATION_ANCHORS: tuple[tuple[int, int], ...] = (
+    (3, 2),
+    (8, 2),
+    (12, 10),
+    (5, 5),
+    (10, 5),
+    (13, 2),
+    (8, 10),
+    (15, 8),
+    (1, 4),
+)
+SERVICE_PASS_ROOM_SPAWNS: tuple[tuple[int, int], ...] = (
+    (6, 6),
+    (10, 6),
+    (6, 8),
+    (10, 8),
 )
 
 
@@ -33,11 +74,14 @@ class CompoundConfig(SceneConfig):
     cross_objects: list[str] | None = None
     cross_bundle: Literal["none", "extractors", "custom"] = "none"
     cross_distance: int = 4
-    layout: Literal["default", "tight"] = "default"
+    layout: Literal["default", "tight", "cramped_room", "service_pass_room"] = "default"
     randomize_spawn_positions: bool = False
     # Gear stations: list of station names to place (e.g., ["aligner_station", "scrambler_station"])
     # These are placed in a row below the chest, similar to how the chest is placed
     stations: list[str] = []
+    # Optional explicit station offsets relative to hub center (dx, dy), one per station.
+    # If set, these are used instead of row placement.
+    station_offsets: list[tuple[int, int]] | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class Compound(Scene[CompoundConfig]):
@@ -108,6 +152,10 @@ class Compound(Scene[CompoundConfig]):
 
             if cfg.layout == "tight":
                 self._render_tight_layout(cx, cy)
+            elif cfg.layout == "cramped_room":
+                self._render_cramped_room_layout()
+            elif cfg.layout == "service_pass_room":
+                self._render_service_pass_room_layout()
             else:
                 self._render_default_layout(cx, cy)
         finally:
@@ -123,23 +171,73 @@ class Compound(Scene[CompoundConfig]):
             if 1 <= x < w - 1 and 1 <= y < h - 1 and grid[y, x] == "empty":
                 grid[y, x] = self.config.spawn_symbol
 
-    def _sample_random_spawn_positions(self, count: int) -> list[tuple[int, int]]:
-        """Sample random empty positions within the hub interior for spawn pads."""
+    def _fill_missing_spawn_positions(
+        self,
+        positions: Sequence[tuple[int, int]],
+        desired: int,
+    ) -> list[tuple[int, int]]:
+        if desired <= 0:
+            return []
+
+        seen: set[tuple[int, int]] = set()
+        valid_positions: list[tuple[int, int]] = []
         grid = self.grid
         h, w = self.height, self.width
 
-        # Vectorized: find all empty interior cells (exclude walls on the border)
-        interior = grid[1 : h - 1, 1 : w - 1]
+        for x, y in positions:
+            pos = (x, y)
+            if pos in seen:
+                continue
+            seen.add(pos)
+            if 1 <= x < w - 1 and 1 <= y < h - 1 and grid[y, x] == "empty":
+                valid_positions.append(pos)
+            if len(valid_positions) >= desired:
+                return valid_positions
+
+        for pos in self._sample_random_spawn_positions(desired):
+            if pos in seen:
+                continue
+            x, y = pos
+            if 1 <= x < w - 1 and 1 <= y < h - 1 and grid[y, x] == "empty":
+                valid_positions.append(pos)
+                seen.add(pos)
+            if len(valid_positions) >= desired:
+                break
+
+        return valid_positions
+
+    def _sample_random_spawn_positions(
+        self,
+        count: int,
+        *,
+        min_x: int = 1,
+        min_y: int = 1,
+        max_x: int | None = None,
+        max_y: int | None = None,
+    ) -> list[tuple[int, int]]:
+        """Sample random empty positions within an interior hub region for spawn pads."""
+        grid = self.grid
+        h, w = self.height, self.width
+        min_x = max(1, min_x)
+        min_y = max(1, min_y)
+        resolved_max_x = w - 1 if max_x is None else min(w - 1, max_x)
+        resolved_max_y = h - 1 if max_y is None else min(h - 1, max_y)
+
+        if min_x >= resolved_max_x or min_y >= resolved_max_y:
+            return []
+
+        # Vectorized: find all empty cells inside the requested interior bounds.
+        interior = grid[min_y:resolved_max_y, min_x:resolved_max_x]
         ys, xs = np.where(interior == "empty")
         # Offset back to full grid coordinates
-        xs = xs + 1
-        ys = ys + 1
+        xs = xs + min_x
+        ys = ys + min_y
 
         count = min(count, len(xs))
         indices = self.rng.choice(len(xs), size=count, replace=False)
         return [(int(xs[i]), int(ys[i])) for i in indices]
 
-    def _place_stations(self, cx: int, base_y: int, grid) -> None:
+    def _place_stations(self, cx: int, cy: int, base_y: int, grid) -> None:
         """Place stations in a row centered at cx, starting at base_y.
 
         Stations are placed like chests, in a horizontal row centered around cx.
@@ -150,12 +248,41 @@ class Compound(Scene[CompoundConfig]):
 
         h, w = self.height, self.width
         num_stations = len(stations)
+        station_offsets = self.config.station_offsets
 
-        # Calculate starting x position to center the row
-        # Stations are placed with 2 tiles spacing between them
-        spacing = 2
-        total_width = num_stations + (num_stations - 1) * (spacing - 1) if num_stations > 1 else 1
-        start_x = cx - total_width // 2
+        if station_offsets is not None:
+            if len(station_offsets) != num_stations:
+                raise ValueError(
+                    f"Expected {num_stations} station offsets, got {len(station_offsets)}. "
+                    "Provide one (dx, dy) pair per station."
+                )
+
+            for station_name, (dx, dy) in zip(stations, station_offsets, strict=True):
+                x = cx + int(dx)
+                y = cy + int(dy)
+                if not (1 <= x < w - 1 and 1 <= y < h - 1):
+                    raise ValueError(
+                        f"Cannot place station '{station_name}' at ({x}, {y}): "
+                        f"out of bounds (hub width={w}, hub height={h})."
+                    )
+                if grid[y, x] != "empty":
+                    raise ValueError(
+                        f"Cannot place station '{station_name}' at ({x}, {y}): tile occupied by '{grid[y, x]}'."
+                    )
+                grid[y, x] = station_name
+            return
+
+        # Prefer the default spaced row, but compress to a dense row when the
+        # hub interior is too narrow. This keeps tight layouts viable for
+        # larger station sets without introducing game-specific placement rules.
+        interior_width = max(1, w - 2)
+        if num_stations <= 1:
+            spacing = 1
+        else:
+            max_spacing_that_fits = max(1, (interior_width - 1) // (num_stations - 1))
+            spacing = min(2, max_spacing_that_fits)
+        row_span = 1 + (num_stations - 1) * spacing if num_stations > 1 else 1
+        start_x = cx - row_span // 2
 
         for i, station_name in enumerate(stations):
             x = start_x + i * spacing
@@ -251,7 +378,7 @@ class Compound(Scene[CompoundConfig]):
             grid[cy, cx] = cfg.hub_object
 
             # Place stations in a row below the hub
-            self._place_stations(cx, cy + 4, grid)
+            self._place_stations(cx, cy, cy + 4, grid)
 
         # Spawn pads: ensure at least spawn_count if provided, otherwise place 4
         desired = max(0, int(cfg.spawn_count)) if cfg.spawn_count is not None else 4
@@ -370,6 +497,9 @@ class Compound(Scene[CompoundConfig]):
 
         perimeter_radius = core_radius + 1
         self._build_tight_perimeter(cx, cy, perimeter_radius, gate_half=2)
+        # Keep station row in tight layout as well. We keep it close to the
+        # core so scripted policies can discover stations with local scans.
+        self._place_stations(cx, cy, cy - 2, grid)
 
         # Spawn pads: ensure at least spawn_count if provided, otherwise place 4 near the perimeter
         desired = max(0, int(cfg.spawn_count)) if cfg.spawn_count is not None else 4
@@ -402,11 +532,124 @@ class Compound(Scene[CompoundConfig]):
                         break
                     positions.append((cx + spawn_distance, cy + dy))
 
-            valid_positions = [
-                (sx, sy) for sx, sy in positions[:desired] if 0 <= sx < w and 0 <= sy < h and grid[sy, sx] == "empty"
-            ]
+            valid_positions = self._fill_missing_spawn_positions(positions[:desired], desired)
 
         self._place_spawn_pads(valid_positions)
+
+    def _render_cramped_room_layout(self) -> None:
+        grid = self.grid
+        h, w = self.height, self.width
+        cfg = self.config
+
+        template_w = 17
+        template_h = 13
+        if h < template_h or w < template_w:
+            raise ValueError(f"cramped_room layout requires at least {template_w}x{template_h}, got hub size {w}x{h}")
+
+        if len(cfg.stations) != len(CRAMPED_ROOM_STATION_ANCHORS):
+            raise ValueError(
+                "cramped_room layout expects exactly "
+                f"{len(CRAMPED_ROOM_STATION_ANCHORS)} stations, got {len(cfg.stations)}"
+            )
+
+        # Keep the render gutter on the top/left only so wall sprites have
+        # headroom without leaving extra empty space on the bottom/right.
+        origin_x = max(0, w - template_w)
+        origin_y = max(0, h - template_h)
+        grid[:] = "empty"
+        grid[origin_y, origin_x : origin_x + template_w] = "wall"
+        grid[origin_y + template_h - 1, origin_x : origin_x + template_w] = "wall"
+        grid[origin_y : origin_y + template_h, origin_x] = "wall"
+        grid[origin_y : origin_y + template_h, origin_x + template_w - 1] = "wall"
+        grid[origin_y + 1 : origin_y + template_h - 1, origin_x + 1 : origin_x + template_w - 1] = "empty"
+
+        # Top prep counter run.
+        grid[origin_y + 3, origin_x + 2 : origin_x + 13] = "wall"
+        # Bottom service counter run.
+        grid[origin_y + 7, origin_x + 6 : origin_x + 13] = "wall"
+        # Right-side dish/serve spine.
+        grid[origin_y + 3 : origin_y + 8, origin_x + 12] = "wall"
+        grid[origin_y + 4, origin_x + 11] = "wall"
+        grid[origin_y + 6, origin_x + 11] = "wall"
+
+        for station_name, (anchor_x, anchor_y) in zip(cfg.stations, CRAMPED_ROOM_STATION_ANCHORS, strict=True):
+            grid[origin_y + anchor_y, origin_x + anchor_x] = station_name
+
+        spawn_positions = [(origin_x + x, origin_y + y) for x, y in CRAMPED_ROOM_SPAWNS]
+        desired = max(0, int(cfg.spawn_count)) if cfg.spawn_count is not None else len(spawn_positions)
+        if cfg.randomize_spawn_positions:
+            valid_positions = self._sample_random_spawn_positions(
+                desired,
+                min_x=origin_x + 1,
+                min_y=origin_y + 1,
+                max_x=origin_x + template_w - 1,
+                max_y=origin_y + template_h - 1,
+            )
+        else:
+            valid_positions = self._fill_missing_spawn_positions(spawn_positions, desired)
+
+        self._place_spawn_pads(valid_positions[:desired])
+
+    def _render_service_pass_room_layout(self) -> None:
+        grid = self.grid
+        h, w = self.height, self.width
+        cfg = self.config
+
+        template_w = 17
+        template_h = 13
+        if h < template_h or w < template_w:
+            raise ValueError(
+                f"service_pass_room layout requires at least {template_w}x{template_h}, got hub size {w}x{h}"
+            )
+
+        if len(cfg.stations) != len(SERVICE_PASS_ROOM_STATION_ANCHORS):
+            raise ValueError(
+                "service_pass_room layout expects exactly "
+                f"{len(SERVICE_PASS_ROOM_STATION_ANCHORS)} stations, got {len(cfg.stations)}"
+            )
+
+        # Keep the render gutter on the top/left only so wall sprites have
+        # headroom without leaving extra empty space on the bottom/right.
+        origin_x = max(0, w - template_w)
+        origin_y = max(0, h - template_h)
+        grid[:] = "empty"
+        grid[origin_y, origin_x : origin_x + template_w] = "wall"
+        grid[origin_y + template_h - 1, origin_x : origin_x + template_w] = "wall"
+        grid[origin_y : origin_y + template_h, origin_x] = "wall"
+        grid[origin_y : origin_y + template_h, origin_x + template_w - 1] = "wall"
+        grid[origin_y + 1 : origin_y + template_h - 1, origin_x + 1 : origin_x + template_w - 1] = "empty"
+
+        # Long top prep run with wider spacing between pickup and cook stations.
+        grid[origin_y + 2, origin_x + 2 : origin_x + 14] = "wall"
+        # Far-left order board spine against the wall.
+        grid[origin_y + 3 : origin_y + 8, origin_x + 1] = "wall"
+        # Mid-kitchen prep and cook islands.
+        grid[origin_y + 5, origin_x + 4 : origin_x + 7] = "wall"
+        grid[origin_y + 5, origin_x + 9 : origin_x + 12] = "wall"
+        # Bottom service pass in the middle.
+        grid[origin_y + 10, origin_x + 6 : origin_x + 14] = "wall"
+        # Right-side wash spine with a couple of choke blockers.
+        grid[origin_y + 3 : origin_y + 10, origin_x + 15] = "wall"
+        grid[origin_y + 5, origin_x + 14] = "wall"
+        grid[origin_y + 7, origin_x + 14] = "wall"
+
+        for station_name, (anchor_x, anchor_y) in zip(cfg.stations, SERVICE_PASS_ROOM_STATION_ANCHORS, strict=True):
+            grid[origin_y + anchor_y, origin_x + anchor_x] = station_name
+
+        spawn_positions = [(origin_x + x, origin_y + y) for x, y in SERVICE_PASS_ROOM_SPAWNS]
+        desired = max(0, int(cfg.spawn_count)) if cfg.spawn_count is not None else len(spawn_positions)
+        if cfg.randomize_spawn_positions:
+            valid_positions = self._sample_random_spawn_positions(
+                desired,
+                min_x=origin_x + 1,
+                min_y=origin_y + 1,
+                max_x=origin_x + template_w - 1,
+                max_y=origin_y + template_h - 1,
+            )
+        else:
+            valid_positions = self._fill_missing_spawn_positions(spawn_positions, desired)
+
+        self._place_spawn_pads(valid_positions[:desired])
 
     def _ensure_clearance(self, positions: Sequence[tuple[int, int]]) -> None:
         grid = self.grid
