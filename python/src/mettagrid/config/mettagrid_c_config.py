@@ -807,6 +807,8 @@ def convert_to_cpp_game_config(
         del game_cpp_params["territories"]
     if "render" in game_cpp_params:
         del game_cpp_params["render"]
+    if "talk" in game_cpp_params:
+        del game_cpp_params["talk"]
     if "on_tick" in game_cpp_params:
         del game_cpp_params["on_tick"]
 

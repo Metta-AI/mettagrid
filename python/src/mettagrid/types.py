@@ -14,6 +14,7 @@ class Action:
 
     name: str
     vibe: str | None = None
+    talk: str | None = None
 
 
 # Re-export EpisodeStats from C++ bindings for convenience

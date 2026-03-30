@@ -143,6 +143,16 @@ class PendingSlowPolicy(AgentPolicy):
         return Action(name="noop")
 
 
+class TalkPolicy(AgentPolicy):
+    def __init__(self, text: str):
+        self._text = text
+        self._infos: dict = {}
+
+    def step(self, obs: AgentObservation) -> Action:
+        _ = obs
+        return Action(name="noop", talk=self._text)
+
+
 class NeverCompletingFuture:
     def __init__(self):
         self.cancel_calls = 0
@@ -462,6 +472,23 @@ def test_group_step_does_not_reuse_stale_agent_infos():
 
     assert rollout._policy_infos[0] == {"policy_name": "policy_0"}
     assert rollout._policy_infos[1] == {"policy_name": "policy_1"}
+
+
+def test_rollout_routes_directive_talk_through_set_talk() -> None:
+    config = _make_config(num_agents=2, max_steps=1)
+    config.game.talk.enabled = True
+    config.game.talk.max_length = 140
+    config.game.talk.cooldown_steps = 3
+
+    rollout = Rollout(
+        config,
+        [TalkPolicy("hold west"), FastAgentPolicy()],
+        max_action_time_ms=10_000,
+    )
+    rollout.step()
+
+    assert rollout._sim.talk_states()[0].text == "hold west"
+    assert [talk.text for talk in rollout._sim.agent(0).observation.talk] == ["hold west"]
 
 
 def test_rollout_renders_initial_gui_frame_before_first_policy_step(

@@ -57,10 +57,19 @@ class ObservationToken:
         return loc.col if loc else None
 
 
+@dataclass(frozen=True)
+class VisibleTalk:
+    agent_id: int
+    text: str
+    location: Location
+    remaining_steps: int
+
+
 @dataclass
 class AgentObservation:
     agent_id: int
     tokens: Sequence[ObservationToken]
+    talk: Sequence[VisibleTalk] = ()
 
 
 class SimulatorEventHandler:

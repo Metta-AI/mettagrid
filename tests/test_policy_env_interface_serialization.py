@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 
 from mettagrid.config.mettagrid_config import (
@@ -7,6 +9,7 @@ from mettagrid.config.mettagrid_config import (
     MoveActionConfig,
     NoopActionConfig,
     ObsConfig,
+    TalkConfig,
     WallConfig,
 )
 from mettagrid.map_builder.random_map import RandomMapBuilder
@@ -21,6 +24,7 @@ def test_policy_env_interface_round_trip_serialization():
             max_steps=100,
             resource_names=["ore", "wood"],
             actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
+            talk=TalkConfig(enabled=True, max_length=140, cooldown_steps=50),
             objects={"wall": WallConfig()},
             map_builder=RandomMapBuilder.Config(width=10, height=10, agents=4, seed=42),
         )
@@ -43,6 +47,7 @@ def test_policy_env_interface_round_trip_serialization():
 
     assert restored.action_space.n == original.action_space.n
     assert restored.action_space.start == original.action_space.start
+    assert restored.talk == original.talk
 
     assert len(restored.obs_features) == len(original.obs_features)
     for r, o in zip(restored.obs_features, original.obs_features, strict=True):
@@ -51,3 +56,83 @@ def test_policy_env_interface_round_trip_serialization():
         assert r.normalization == o.normalization
 
     assert restored.action_names == original.action_names
+
+
+def test_policy_env_interface_to_json_includes_talk():
+    config = MettaGridConfig(
+        game=GameConfig(
+            num_agents=4,
+            obs=ObsConfig(width=5, height=5, num_tokens=100),
+            max_steps=100,
+            resource_names=["ore", "wood"],
+            actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
+            talk=TalkConfig(enabled=True, max_length=140, cooldown_steps=50),
+            objects={"wall": WallConfig()},
+            map_builder=RandomMapBuilder.Config(width=10, height=10, agents=4, seed=42),
+        )
+    )
+
+    payload = json.loads(PolicyEnvInterface.from_mg_cfg(config).to_json())
+
+    assert payload["talk"] == {
+        "enabled": True,
+        "max_length": 140,
+        "cooldown_steps": 50,
+    }
+
+
+def test_policy_env_interface_proto_round_trip_preserves_talk():
+    config = MettaGridConfig(
+        game=GameConfig(
+            num_agents=4,
+            obs=ObsConfig(width=5, height=5, num_tokens=100),
+            max_steps=100,
+            resource_names=["ore", "wood"],
+            actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
+            talk=TalkConfig(enabled=True, max_length=140, cooldown_steps=50),
+            objects={"wall": WallConfig()},
+            map_builder=RandomMapBuilder.Config(width=10, height=10, agents=4, seed=42),
+        )
+    )
+
+    original = PolicyEnvInterface.from_mg_cfg(config)
+    restored = PolicyEnvInterface.from_proto(original.to_proto())
+
+    assert restored.talk == original.talk
+
+
+def test_policy_env_interface_to_proto_omits_disabled_talk():
+    config = MettaGridConfig(
+        game=GameConfig(
+            num_agents=4,
+            obs=ObsConfig(width=5, height=5, num_tokens=100),
+            max_steps=100,
+            resource_names=["ore", "wood"],
+            actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
+            objects={"wall": WallConfig()},
+            map_builder=RandomMapBuilder.Config(width=10, height=10, agents=4, seed=42),
+        )
+    )
+
+    proto = PolicyEnvInterface.from_mg_cfg(config).to_proto()
+
+    assert not proto.HasField("talk")
+
+
+def test_policy_env_interface_from_proto_without_talk_disables_talk():
+    config = MettaGridConfig(
+        game=GameConfig(
+            num_agents=4,
+            obs=ObsConfig(width=5, height=5, num_tokens=100),
+            max_steps=100,
+            resource_names=["ore", "wood"],
+            actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
+            objects={"wall": WallConfig()},
+            map_builder=RandomMapBuilder.Config(width=10, height=10, agents=4, seed=42),
+        )
+    )
+
+    proto = PolicyEnvInterface.from_mg_cfg(config).to_proto()
+    restored = PolicyEnvInterface.from_proto(proto)
+
+    assert restored.talk == TalkConfig()

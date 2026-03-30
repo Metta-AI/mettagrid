@@ -16,8 +16,14 @@ from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.map_builder.map_builder import GameMap, HasSeed, MapBuilderConfig
 from mettagrid.mettagrid_c import MettaGrid as MettaGridCpp
 from mettagrid.profiling.stopwatch import Stopwatch, with_instance_timer
-from mettagrid.simulator.interface import AgentObservation, Location, ObservationToken, SimulatorEventHandler
+from mettagrid.simulator.interface import (
+    AgentObservation,
+    Location,
+    ObservationToken,
+    SimulatorEventHandler,
+)
 from mettagrid.simulator.map_cache import SharedMapCache, get_shared_cache
+from mettagrid.simulator.talk import TalkChannel, TalkState
 from mettagrid.types import Action
 
 if TYPE_CHECKING:
@@ -119,6 +125,9 @@ class Simulation:
         self._features: dict[int, ObservationFeatureSpec] = {
             feature.id: feature for feature in self._config.game.id_map().features()
         }
+        self._talk_channel = TalkChannel(self._config.game.talk)
+        self._agent_locations_by_id: dict[int, Location] = {}
+        self._agent_locations_step = -1
 
         self._start_episode()
 
@@ -141,6 +150,9 @@ class Simulation:
         """Start a new episode (internal use only)."""
         self._episode_started = True
         self._context = {}
+        self._talk_channel.reset()
+        self._agent_locations_by_id = {}
+        self._agent_locations_step = -1
 
         for handler in self._event_handlers:
             with self._timer(f"sim.on_episode_start.{handler.__class__.__name__}"):
@@ -155,13 +167,17 @@ class Simulation:
     def step(self) -> None:
         """Execute one timestep of the environment dynamics.
 
-        Actions must be set beforehand using agent(i).set_action() or by setting
-        actions directly via _c_sim.actions()[i] = action_idx.
+        Actions must be set beforehand using agent(i).set_action(), and optional
+        talk can be queued independently with agent(i).set_talk().
+        Low-level callers may also write directly via _c_sim.actions()[i] = action_idx.
         """
         self._timer.stop("sim.thread_idle")
 
         with self._timer("sim.step.c_sim"):
             self.__c_sim.step()
+
+        self._talk_channel.apply_pending(current_step=self.current_step)
+        self._talk_channel.expire(current_step=self.current_step)
 
         for handler in self._event_handlers:
             with self._timer(f"sim.step.{handler.__class__.__name__.lower()}"):
@@ -291,6 +307,38 @@ class Simulation:
             return map_builder.create().build_for_num_agents(self._config.game.num_agents)
         return self._maps_cache.get_or_create(map_builder, self._config.game.num_agents)
 
+    def _agent_locations(self) -> dict[int, Location]:
+        if self._agent_locations_step == self.current_step:
+            return self._agent_locations_by_id
+
+        agent_locations_by_id: dict[int, Location] = {}
+        for grid_object in self.grid_objects(ignore_types=["wall"]).values():
+            agent_id = grid_object.get("agent_id")
+            if agent_id is None:
+                continue
+            location = grid_object["location"]
+            # grid_objects() reports locations as (x, y); normalize to (row, col).
+            agent_locations_by_id[agent_id] = Location(row=int(location[1]), col=int(location[0]))
+
+        self._agent_locations_by_id = agent_locations_by_id
+        self._agent_locations_step = self.current_step
+        return self._agent_locations_by_id
+
+    def _visible_talk(self, observer_agent_id: int):
+        agent_locations = self._agent_locations()
+        obs_height = int(self._c_sim.obs_height)
+        obs_width = int(self._c_sim.obs_width)
+        return self._talk_channel.visible_talk(
+            observer_agent_id,
+            current_step=self.current_step,
+            agent_locations=agent_locations,
+            obs_height=obs_height,
+            obs_width=obs_width,
+        )
+
+    def talk_states(self) -> dict[int, TalkState]:
+        return self._talk_channel.render_states(current_step=self.current_step)
+
     def _seeded_map_builder(self, map_builder: MapBuilderConfig) -> MapBuilderConfig:
         if not isinstance(map_builder, HasSeed):
             return map_builder
@@ -404,6 +452,9 @@ class SimulationAgent:
             inactive_buffer[self._agent_id] = 0
             action_buffer[self._agent_id] = action_idx
 
+    def set_talk(self, text: str) -> None:
+        self._sim._talk_channel.queue(self._agent_id, text, current_step=self._sim.current_step)
+
     @property
     def observation(self) -> AgentObservation:
         tokens = []
@@ -419,7 +470,11 @@ class SimulationAgent:
                     raw_token=o,
                 )
             )
-        return AgentObservation(agent_id=self._agent_id, tokens=tokens)
+        return AgentObservation(
+            agent_id=self._agent_id,
+            tokens=tokens,
+            talk=self._sim._visible_talk(self._agent_id),
+        )
 
     @property
     def step_reward(self) -> float:

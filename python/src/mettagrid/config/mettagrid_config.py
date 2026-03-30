@@ -186,6 +186,12 @@ class AgentConfig(GridObjectConfig):
     )
 
 
+class TalkConfig(Config):
+    enabled: bool = Field(default=False, description="Whether talk mode is enabled for the game.")
+    max_length: int = Field(default=140, ge=1, description="Maximum number of characters allowed in a talk message.")
+    cooldown_steps: int = Field(default=50, ge=0, description="Minimum resend gap in steps. Zero disables cooldown.")
+
+
 # Note: GridObjectConfig is included to allow direct use of the base class for simple objects
 # that only need handlers/aoes without specialized features like protocols or inventory.
 # Discriminated on `pydantic_type`: "wall" → WallConfig, "object" → GridObjectConfig.
@@ -273,6 +279,7 @@ class GameConfig(Config):
     )
 
     reward_estimates: Optional[dict[str, float]] = Field(default=None)
+    talk: TalkConfig = Field(default_factory=TalkConfig, description="Optional talk-mode configuration.")
 
     # Explicit list of tags used in the game. All tag references in filters/mutations
     # must refer to one of these, or obj.tags, or the implicit type:object_type tag.

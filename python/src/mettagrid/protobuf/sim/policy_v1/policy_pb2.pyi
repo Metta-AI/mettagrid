@@ -69,8 +69,16 @@ class GameRules(_message.Message):
     actions: _containers.RepeatedCompositeFieldContainer[GameRules.Action]
     def __init__(self, features: _Optional[_Iterable[_Union[GameRules.Feature, _Mapping]]] = ..., actions: _Optional[_Iterable[_Union[GameRules.Action, _Mapping]]] = ...) -> None: ...
 
+class TalkConfig(_message.Message):
+    __slots__ = ("max_length", "cooldown_steps")
+    MAX_LENGTH_FIELD_NUMBER: _ClassVar[int]
+    COOLDOWN_STEPS_FIELD_NUMBER: _ClassVar[int]
+    max_length: int
+    cooldown_steps: int
+    def __init__(self, max_length: _Optional[int] = ..., cooldown_steps: _Optional[int] = ...) -> None: ...
+
 class PolicyEnvInterface(_message.Message):
-    __slots__ = ("obs_features", "tags", "action_names", "move_energy_cost", "num_agents", "observation_shape", "obs_height", "obs_width")
+    __slots__ = ("obs_features", "tags", "action_names", "move_energy_cost", "num_agents", "observation_shape", "obs_height", "obs_width", "talk")
     OBS_FEATURES_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
     ACTION_NAMES_FIELD_NUMBER: _ClassVar[int]
@@ -79,6 +87,7 @@ class PolicyEnvInterface(_message.Message):
     OBSERVATION_SHAPE_FIELD_NUMBER: _ClassVar[int]
     OBS_HEIGHT_FIELD_NUMBER: _ClassVar[int]
     OBS_WIDTH_FIELD_NUMBER: _ClassVar[int]
+    TALK_FIELD_NUMBER: _ClassVar[int]
     obs_features: _containers.RepeatedCompositeFieldContainer[GameRules.Feature]
     tags: _containers.RepeatedScalarFieldContainer[str]
     action_names: _containers.RepeatedScalarFieldContainer[str]
@@ -87,7 +96,8 @@ class PolicyEnvInterface(_message.Message):
     observation_shape: _containers.RepeatedScalarFieldContainer[int]
     obs_height: int
     obs_width: int
-    def __init__(self, obs_features: _Optional[_Iterable[_Union[GameRules.Feature, _Mapping]]] = ..., tags: _Optional[_Iterable[str]] = ..., action_names: _Optional[_Iterable[str]] = ..., move_energy_cost: _Optional[int] = ..., num_agents: _Optional[int] = ..., observation_shape: _Optional[_Iterable[int]] = ..., obs_height: _Optional[int] = ..., obs_width: _Optional[int] = ...) -> None: ...
+    talk: TalkConfig
+    def __init__(self, obs_features: _Optional[_Iterable[_Union[GameRules.Feature, _Mapping]]] = ..., tags: _Optional[_Iterable[str]] = ..., action_names: _Optional[_Iterable[str]] = ..., move_energy_cost: _Optional[int] = ..., num_agents: _Optional[int] = ..., observation_shape: _Optional[_Iterable[int]] = ..., obs_height: _Optional[int] = ..., obs_width: _Optional[int] = ..., talk: _Optional[_Union[TalkConfig, _Mapping]] = ...) -> None: ...
 
 class PreparePolicyRequest(_message.Message):
     __slots__ = ("episode_id", "game_rules", "agent_ids", "observations_format", "env_interface")

@@ -13,6 +13,14 @@ class Outer(Config):
     name: str = "test"
 
 
+class LegacyGame(Config):
+    max_steps: int = 0
+
+
+class LegacyEnv(Config):
+    game: LegacyGame = LegacyGame()
+
+
 def test_strict_rejects_extra_fields():
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         Inner(x=1, unknown_field=2)
@@ -45,6 +53,15 @@ def test_lenient_json():
     )
     assert result.inner.x == 5
     assert result.name == "ok"
+
+
+def test_lenient_json_ignores_future_nested_talk_config():
+    result = LegacyEnv.model_validate_json(
+        '{"game": {"max_steps": 10, "talk": {"enabled": true, "max_length": 140, "cooldown_steps": 50}}}',
+        context=LENIENT_CONTEXT,
+    )
+    assert result.game.max_steps == 10
+    assert not hasattr(result.game, "talk")
 
 
 def test_strict_allows_valid_fields():

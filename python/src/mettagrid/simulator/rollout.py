@@ -323,7 +323,10 @@ class Rollout:
         merged_infos = dict(infos) if infos else {}
         return action, elapsed_ms, merged_infos, start_ns, duration_ns
 
-    def _measure_single_step_with_pending_render(self, index: int) -> tuple[Action, float, dict[str, Any], int, int]:
+    def _measure_single_step_with_pending_render(
+        self,
+        index: int,
+    ) -> tuple[Action, float, dict[str, Any], int, int]:
         if self._renderer is None or not self._renderer.supports_pending_render():
             return self._measure_single_step(index)
         if self._policy_step_pool is None:
@@ -339,19 +342,37 @@ class Rollout:
                     future.cancel()
                     raise _PendingRenderAborted from err
 
-    def _apply_step_result(self, index: int, action: Action, elapsed_ms: float, infos: dict[str, Any]) -> bool:
+    def _apply_step_result(
+        self,
+        index: int,
+        action: Action,
+        elapsed_ms: float,
+        infos: dict[str, Any],
+    ) -> bool:
         # Centralize the rollout-side effects so single and grouped paths stay aligned.
         action, timed_out = self._apply_timeout_budget(index, action, elapsed_ms)
+        action = self._queue_talk_sidecar(index, action)
         self._agents[index].set_action(action)
         self._update_policy_infos(index, infos)
         return timed_out
+
+    def _queue_talk_sidecar(self, index: int, action: Action) -> Action:
+        if action.talk is None:
+            return action
+        self._agents[index].set_talk(action.talk)
+        return Action(name=action.name, vibe=action.vibe)
 
     def _apply_disabled_action(self, index: int) -> None:
         self._agents[index].set_action(self._config.game.actions.noop.Noop())
         if index < len(self._policy_names):
             self._policy_infos[index] = {"policy_name": self._policy_names[index]}
 
-    def _apply_timeout_budget(self, index: int, action: Action, elapsed_ms: float) -> tuple[Action, bool]:
+    def _apply_timeout_budget(
+        self,
+        index: int,
+        action: Action,
+        elapsed_ms: float,
+    ) -> tuple[Action, bool]:
         overage_ms = max(0.0, elapsed_ms - self._max_action_time_ms)
         if overage_ms <= 0:
             return action, False

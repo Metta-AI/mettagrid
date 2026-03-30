@@ -8,6 +8,7 @@ from mettagrid.simulator.interface import (
     Location,
     ObservationToken,
     SimulatorEventHandler,
+    VisibleTalk,
 )
 from mettagrid.simulator.replay_log_writer import ReplayLogWriter
 from mettagrid.simulator.simulator import (
@@ -25,6 +26,7 @@ __all__ = [
     "Location",
     "ObservationToken",
     "SimulatorEventHandler",
+    "VisibleTalk",
     # From replay_log_writer
     "ReplayLogWriter",
     # From simulator
