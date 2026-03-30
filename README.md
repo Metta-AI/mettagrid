@@ -140,7 +140,7 @@ observation and action interfaces.
 ### Visualization
 
 **Mettascope** is a Nim-based GUI viewer for simulation replay and real-time visualization, built as part of the
-package. **Vibescope** is a vibe picker visualization tool. **Miniscope** provides a terminal-based renderer with
+package. **Miniscope** provides a terminal-based renderer with
 symbol-based map display.
 
 ### Compatibility Testing Demos

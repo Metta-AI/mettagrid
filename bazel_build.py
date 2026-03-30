@@ -30,12 +30,9 @@ from setuptools.dist import Distribution
 PROJECT_ROOT = Path(__file__).resolve().parent
 PYTHON_PACKAGE_DIR = PROJECT_ROOT / "python" / "src" / "mettagrid"
 METTASCOPE_DIR = PROJECT_ROOT / "nim" / "mettascope"
-VIBESCOPE_DIR = PROJECT_ROOT / "nim" / "vibescope"
 METTASCOPE_PACKAGE_DIR = PYTHON_PACKAGE_DIR / "nim" / "mettascope"
-VIBESCOPE_PACKAGE_DIR = PYTHON_PACKAGE_DIR / "nim" / "vibescope"
 NIM_PACKAGES = {
     "mettascope": (METTASCOPE_DIR, METTASCOPE_PACKAGE_DIR),
-    "vibescope": (VIBESCOPE_DIR, VIBESCOPE_PACKAGE_DIR),
 }
 
 

@@ -82,7 +82,7 @@ class Rollout:
         )
         self._overage_exceeded_at: list[int | None] = [None] * len(policies)
         self._renderer: Optional[Renderer] = None
-        self._render_initial_frame = render_mode in {"gui", "vibescope"}
+        self._render_initial_frame = render_mode == "gui"
         self._timeout_counts: list[int] = [0] * len(policies)
         self._tracer: Tracer = tracer or NullTracer()
 
