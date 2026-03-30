@@ -206,27 +206,74 @@ proc newPixelator*(imagePath, jsonPath: string): Pixelator {.measure.} =
   glBufferData(GL_ARRAY_BUFFER, 0, nil, GL_STREAM_DRAW)  # will resize each frame
 
   # Interleaved attributes of 32 bytes (16 * uint16).
-  let stride = 16 * sizeof(uint16)
-  # Location 0: aPos (2 x uint16) at offset 0.
-  glEnableVertexAttribArray(0)
-  glVertexAttribIPointer(0, 2, GL_UNSIGNED_SHORT, stride.GLsizei, cast[pointer](0))
-  glVertexAttribDivisor(0, 1)
-  # Location 1: aUv (4 x uint16) at offset 4 bytes.
-  glEnableVertexAttribArray(1)
-  glVertexAttribIPointer(1, 4, GL_UNSIGNED_SHORT, stride.GLsizei, cast[pointer](2 * sizeof(uint16)))
-  glVertexAttribDivisor(1, 1)
-  # Location 2: aTint (4 x uint8, normalized to 0.0-1.0) at offset 12 bytes.
-  glEnableVertexAttribArray(2)
-  glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride.GLsizei, cast[pointer](6 * sizeof(uint16)))
-  glVertexAttribDivisor(2, 1)
-  # Location 3: aMaskUv (4 x uint16) at offset 16 bytes.
-  glEnableVertexAttribArray(3)
-  glVertexAttribIPointer(3, 4, GL_UNSIGNED_SHORT, stride.GLsizei, cast[pointer](8 * sizeof(uint16)))
-  glVertexAttribDivisor(3, 1)
-  # Location 4: aLampUv (4 x uint16) at offset 24 bytes.
-  glEnableVertexAttribArray(4)
-  glVertexAttribIPointer(4, 4, GL_UNSIGNED_SHORT, stride.GLsizei, cast[pointer](12 * sizeof(uint16)))
-  glVertexAttribDivisor(4, 1)
+  let
+    stride = 16 * sizeof(uint16)
+    vertexPosLoc = glGetAttribLocation(result.shader.programId, "vertexPos")
+    uvLoc = glGetAttribLocation(result.shader.programId, "uv")
+    tintLoc = glGetAttribLocation(result.shader.programId, "tint")
+    maskUvLoc = glGetAttribLocation(result.shader.programId, "maskUv")
+    lampUvLoc = glGetAttribLocation(result.shader.programId, "lampUv")
+  if vertexPosLoc == -1:
+    raise newException(ValueError, "vertexPos attribute not found")
+  if uvLoc == -1:
+    raise newException(ValueError, "uv attribute not found")
+  if tintLoc == -1:
+    raise newException(ValueError, "tint attribute not found")
+  if maskUvLoc == -1:
+    raise newException(ValueError, "maskUv attribute not found")
+  if lampUvLoc == -1:
+    raise newException(ValueError, "lampUv attribute not found")
+
+  glEnableVertexAttribArray(vertexPosLoc.GLuint)
+  glVertexAttribIPointer(
+    vertexPosLoc.GLuint,
+    2,
+    GL_UNSIGNED_SHORT,
+    stride.GLsizei,
+    cast[pointer](0)
+  )
+  glVertexAttribDivisor(vertexPosLoc.GLuint, 1)
+
+  glEnableVertexAttribArray(uvLoc.GLuint)
+  glVertexAttribIPointer(
+    uvLoc.GLuint,
+    4,
+    GL_UNSIGNED_SHORT,
+    stride.GLsizei,
+    cast[pointer](2 * sizeof(uint16))
+  )
+  glVertexAttribDivisor(uvLoc.GLuint, 1)
+
+  glEnableVertexAttribArray(tintLoc.GLuint)
+  glVertexAttribPointer(
+    tintLoc.GLuint,
+    4,
+    GL_UNSIGNED_BYTE,
+    GL_TRUE,
+    stride.GLsizei,
+    cast[pointer](6 * sizeof(uint16))
+  )
+  glVertexAttribDivisor(tintLoc.GLuint, 1)
+
+  glEnableVertexAttribArray(maskUvLoc.GLuint)
+  glVertexAttribIPointer(
+    maskUvLoc.GLuint,
+    4,
+    GL_UNSIGNED_SHORT,
+    stride.GLsizei,
+    cast[pointer](8 * sizeof(uint16))
+  )
+  glVertexAttribDivisor(maskUvLoc.GLuint, 1)
+
+  glEnableVertexAttribArray(lampUvLoc.GLuint)
+  glVertexAttribIPointer(
+    lampUvLoc.GLuint,
+    4,
+    GL_UNSIGNED_SHORT,
+    stride.GLsizei,
+    cast[pointer](12 * sizeof(uint16))
+  )
+  glVertexAttribDivisor(lampUvLoc.GLuint, 1)
 
   # Unbind the buffers.
   glBindBuffer(GL_ARRAY_BUFFER, 0)
