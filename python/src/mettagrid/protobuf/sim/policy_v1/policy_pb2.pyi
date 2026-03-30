@@ -8,7 +8,7 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class AgentObservations(_message.Message):
-    __slots__ = ("agent_id", "observations")
+    __slots__ = ("agent_id", "observations", "visible_talk")
     class Format(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         AGENT_OBSERVATIONS_FORMAT_UNKNOWN: _ClassVar[AgentObservations.Format]
@@ -17,9 +17,11 @@ class AgentObservations(_message.Message):
     TRIPLET_V1: AgentObservations.Format
     AGENT_ID_FIELD_NUMBER: _ClassVar[int]
     OBSERVATIONS_FIELD_NUMBER: _ClassVar[int]
+    VISIBLE_TALK_FIELD_NUMBER: _ClassVar[int]
     agent_id: int
     observations: bytes
-    def __init__(self, agent_id: _Optional[int] = ..., observations: _Optional[bytes] = ...) -> None: ...
+    visible_talk: _containers.RepeatedCompositeFieldContainer[VisibleTalk]
+    def __init__(self, agent_id: _Optional[int] = ..., observations: _Optional[bytes] = ..., visible_talk: _Optional[_Iterable[_Union[VisibleTalk, _Mapping]]] = ...) -> None: ...
 
 class BatchStepRequest(_message.Message):
     __slots__ = ("episode_id", "step_id", "agent_observations")
@@ -32,12 +34,14 @@ class BatchStepRequest(_message.Message):
     def __init__(self, episode_id: _Optional[str] = ..., step_id: _Optional[int] = ..., agent_observations: _Optional[_Iterable[_Union[AgentObservations, _Mapping]]] = ...) -> None: ...
 
 class AgentActions(_message.Message):
-    __slots__ = ("agent_id", "action_id")
+    __slots__ = ("agent_id", "action_id", "talk_text")
     AGENT_ID_FIELD_NUMBER: _ClassVar[int]
     ACTION_ID_FIELD_NUMBER: _ClassVar[int]
+    TALK_TEXT_FIELD_NUMBER: _ClassVar[int]
     agent_id: int
     action_id: _containers.RepeatedScalarFieldContainer[int]
-    def __init__(self, agent_id: _Optional[int] = ..., action_id: _Optional[_Iterable[int]] = ...) -> None: ...
+    talk_text: str
+    def __init__(self, agent_id: _Optional[int] = ..., action_id: _Optional[_Iterable[int]] = ..., talk_text: _Optional[str] = ...) -> None: ...
 
 class BatchStepResponse(_message.Message):
     __slots__ = ("agent_actions",)
@@ -76,6 +80,20 @@ class TalkConfig(_message.Message):
     max_length: int
     cooldown_steps: int
     def __init__(self, max_length: _Optional[int] = ..., cooldown_steps: _Optional[int] = ...) -> None: ...
+
+class VisibleTalk(_message.Message):
+    __slots__ = ("agent_id", "row", "col", "remaining_steps", "text")
+    AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    ROW_FIELD_NUMBER: _ClassVar[int]
+    COL_FIELD_NUMBER: _ClassVar[int]
+    REMAINING_STEPS_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    agent_id: int
+    row: int
+    col: int
+    remaining_steps: int
+    text: str
+    def __init__(self, agent_id: _Optional[int] = ..., row: _Optional[int] = ..., col: _Optional[int] = ..., remaining_steps: _Optional[int] = ..., text: _Optional[str] = ...) -> None: ...
 
 class PolicyEnvInterface(_message.Message):
     __slots__ = ("obs_features", "tags", "action_names", "move_energy_cost", "num_agents", "observation_shape", "obs_height", "obs_width", "talk")

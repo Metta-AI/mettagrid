@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from mettagrid.config.id_map import ObservationFeatureSpec
+from mettagrid.config.mettagrid_config import TalkConfig
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.protobuf.sim.policy_v1 import policy_pb2
@@ -10,9 +11,11 @@ from mettagrid.runner.policy_server.server import (
     AgentNotFoundError,
     EpisodeNotFoundError,
     LocalPolicyServer,
+    UnknownActionError,
     UnsupportedObservationFormatError,
+    encode_action_id,
 )
-from mettagrid.simulator import Action, AgentObservation
+from mettagrid.simulator import Action, AgentObservation, Location, VisibleTalk
 
 
 class ConstantActionAgentPolicy(AgentPolicy):
@@ -35,7 +38,28 @@ class ConstantActionPolicy(MultiAgentPolicy):
         return ConstantActionAgentPolicy(self.policy_env_info, self._action)
 
 
-def _policy_env(with_vibes: bool = False) -> PolicyEnvInterface:
+class EchoTalkAgentPolicy(AgentPolicy):
+    def __init__(self, policy_env_info: PolicyEnvInterface):
+        super().__init__(policy_env_info)
+        self.last_talk: list[VisibleTalk] = []
+
+    def step(self, obs: AgentObservation) -> Action:
+        self.last_talk = list(obs.talk)
+        talk = self.last_talk[0].text if self.last_talk else None
+        return Action(name="move", talk=talk)
+
+
+class EchoTalkPolicy(MultiAgentPolicy):
+    def __init__(self, policy_env_info: PolicyEnvInterface):
+        super().__init__(policy_env_info)
+        self._agent = EchoTalkAgentPolicy(policy_env_info)
+
+    def agent_policy(self, agent_id: int) -> AgentPolicy:
+        _ = agent_id
+        return self._agent
+
+
+def _policy_env(with_vibes: bool = False, *, talk_enabled: bool = False) -> PolicyEnvInterface:
     return PolicyEnvInterface(
         obs_features=[ObservationFeatureSpec(id=1, name="health", normalization=1.0)],
         tags=[],
@@ -44,6 +68,7 @@ def _policy_env(with_vibes: bool = False) -> PolicyEnvInterface:
         num_agents=1,
         observation_shape=(1, 3),
         egocentric_shape=(1, 1),
+        talk=TalkConfig(enabled=talk_enabled, max_length=140, cooldown_steps=50),
     )
 
 
@@ -170,3 +195,62 @@ def test_batch_step_unknown_agent():
     )
     with pytest.raises(AgentNotFoundError):
         service.batch_step(req)
+
+
+def test_batch_step_unknown_action_raises():
+    service = _make_service()
+    env = _policy_env()
+    _prepare(service, ConstantActionPolicy(env, Action(name="unknown_action")), env)
+
+    req = policy_pb2.BatchStepRequest(
+        episode_id="ep-123",
+        step_id=1,
+        agent_observations=[policy_pb2.AgentObservations(agent_id=0, observations=b"")],
+    )
+    with pytest.raises(UnknownActionError):
+        service.batch_step(req)
+
+
+def test_encode_action_id_encodes_plain_action() -> None:
+    env = _policy_env()
+    assert encode_action_id(Action(name="move"), env) == 1
+
+
+def test_batch_step_round_trips_visible_talk_and_talk_text() -> None:
+    service = _make_service()
+    env = _policy_env(talk_enabled=True)
+    policy = EchoTalkPolicy(env)
+    _prepare(service, policy, env)
+
+    req = policy_pb2.BatchStepRequest(
+        episode_id="ep-123",
+        step_id=1,
+        agent_observations=[
+            policy_pb2.AgentObservations(
+                agent_id=0,
+                observations=b"",
+                visible_talk=[
+                    policy_pb2.VisibleTalk(
+                        agent_id=7,
+                        row=2,
+                        col=3,
+                        remaining_steps=11,
+                        text="hold east",
+                    )
+                ],
+            )
+        ],
+    )
+    resp = service.batch_step(req)
+
+    assert policy._agent.last_talk == [
+        VisibleTalk(
+            agent_id=7,
+            text="hold east",
+            location=Location(row=2, col=3),
+            remaining_steps=11,
+        )
+    ]
+    assert len(resp.agent_actions) == 1
+    assert list(resp.agent_actions[0].action_id) == [1]
+    assert resp.agent_actions[0].talk_text == "hold east"

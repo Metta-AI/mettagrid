@@ -2,6 +2,7 @@ import threading
 from unittest.mock import patch
 
 from mettagrid.config.id_map import ObservationFeatureSpec
+from mettagrid.config.mettagrid_config import TalkConfig
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.runner.policy_server.server import LocalPolicyServer
@@ -11,7 +12,7 @@ from mettagrid.runner.policy_server.websocket_transport import (
     WebSocketPolicyServerClient,
     _serialize_triplet_v1,
 )
-from mettagrid.simulator import Action, AgentObservation, ObservationToken
+from mettagrid.simulator import Action, AgentObservation, Location, ObservationToken, VisibleTalk
 
 
 def _env_interface() -> PolicyEnvInterface:
@@ -44,6 +45,17 @@ class _ConstantPolicy(MultiAgentPolicy):
 
     def agent_policy(self, _agent_id: int) -> AgentPolicy:
         return _ConstantAgentPolicy(self._policy_env_info, self._action_name, self._vibe_name)
+
+
+class _EchoVisibleTalkAgentPolicy(AgentPolicy):
+    def step(self, obs: AgentObservation) -> Action:
+        talk_text = obs.talk[0].text if obs.talk else None
+        return Action(name="move", talk=talk_text)
+
+
+class _EchoVisibleTalkPolicy(MultiAgentPolicy):
+    def agent_policy(self, _agent_id: int) -> AgentPolicy:
+        return _EchoVisibleTalkAgentPolicy(self._policy_env_info)
 
 
 def _run_ws_test(policy: MultiAgentPolicy, env: PolicyEnvInterface, test_fn):
@@ -171,6 +183,31 @@ def test_ws_policy_step_returns_vibe_only_action():
         assert action.vibe is None
 
     _run_ws_test(_ConstantPolicy(env, "change_vibe_miner"), env, check)
+
+
+def test_ws_policy_round_trips_visible_talk_and_talk_sidecars():
+    env = _env_interface().model_copy(update={"talk": TalkConfig(enabled=True, max_length=140, cooldown_steps=50)})
+
+    def check(client: WebSocketPolicyServerClient, env: PolicyEnvInterface):
+        agent = client.agent_policy(0)
+        obs = AgentObservation(
+            agent_id=0,
+            tokens=[],
+            talk=[
+                VisibleTalk(
+                    agent_id=1,
+                    text="hold east",
+                    location=Location(row=0, col=0),
+                    remaining_steps=7,
+                )
+            ],
+        )
+        action = agent.step(obs)
+        assert action.name == "move"
+        assert action.vibe is None
+        assert action.talk == "hold east"
+
+    _run_ws_test(_EchoVisibleTalkPolicy(env), env, check)
 
 
 def test_serialize_triplet_v1_empty():

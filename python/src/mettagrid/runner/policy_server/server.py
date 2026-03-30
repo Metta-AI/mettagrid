@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -10,7 +10,7 @@ from mettagrid.policy.loader import initialize_or_load_policy
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.protobuf.sim.policy_v1 import policy_pb2
-from mettagrid.simulator import Action, AgentObservation, ObservationToken
+from mettagrid.simulator import Action, AgentObservation, Location, ObservationToken, VisibleTalk
 from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri
 
 logger = logging.getLogger(__name__)
@@ -28,6 +28,13 @@ class AgentNotFoundError(Exception):
     def __init__(self, agent_id: int):
         self.agent_id = agent_id
         super().__init__(f"unknown agent_id: {agent_id}")
+
+
+class UnknownActionError(Exception):
+    def __init__(self, agent_id: int, action: Action):
+        self.agent_id = agent_id
+        self.action = action
+        super().__init__(f"unknown action for agent {agent_id}: {action!r}")
 
 
 class UnsupportedObservationFormatError(Exception):
@@ -57,6 +64,19 @@ def parse_triplet_v1(data: bytes, features: dict[int, ObservationFeatureSpec]) -
     return tokens
 
 
+def parse_visible_talk(talk_protos: Sequence[policy_pb2.VisibleTalk]) -> list[VisibleTalk]:
+    return [
+        VisibleTalk(
+            agent_id=int(talk.agent_id),
+            text=talk.text,
+            location=Location(row=int(talk.row), col=int(talk.col)),
+            remaining_steps=int(talk.remaining_steps),
+        )
+        for talk in talk_protos
+        if talk.text
+    ]
+
+
 ObservationParser = Callable[[bytes, dict[int, ObservationFeatureSpec]], list[ObservationToken]]
 
 OBSERVATION_PARSERS: dict[int, ObservationParser] = {
@@ -65,29 +85,21 @@ OBSERVATION_PARSERS: dict[int, ObservationParser] = {
 
 
 def encode_action_id(action: Action, policy_env: PolicyEnvInterface) -> int | None:
-    primary_action_names = policy_env.action_names
-    vibe_action_names = policy_env.vibe_action_names
-    num_primary_actions = len(primary_action_names)
-    num_vibe_actions = len(vibe_action_names)
-    primary_name_to_index = {name: index for index, name in enumerate(primary_action_names)}
-    vibe_name_to_index = {name: index for index, name in enumerate(vibe_action_names)}
+    num_primary_actions = len(policy_env.action_names)
+    num_vibe_actions = len(policy_env.vibe_action_names)
+    flat_action_indices = policy_env.action_name_to_flat_index
 
     if action.vibe is not None:
-        primary_index = primary_name_to_index.get(action.name)
-        vibe_index = vibe_name_to_index.get(action.vibe)
-        if primary_index is None or vibe_index is None:
+        primary_index = flat_action_indices.get(action.name)
+        vibe_flat_index = flat_action_indices.get(action.vibe)
+        if primary_index is None or primary_index >= num_primary_actions:
             return None
+        if vibe_flat_index is None or vibe_flat_index < num_primary_actions:
+            return None
+        vibe_index = vibe_flat_index - num_primary_actions
         return num_primary_actions + num_vibe_actions + primary_index * num_vibe_actions + vibe_index
 
-    primary_index = primary_name_to_index.get(action.name)
-    if primary_index is not None:
-        return primary_index
-
-    vibe_index = vibe_name_to_index.get(action.name)
-    if vibe_index is not None:
-        return num_primary_actions + vibe_index
-
-    return None
+    return flat_action_indices.get(action.name)
 
 
 @dataclass
@@ -98,9 +110,6 @@ class Episode:
     features: dict[int, ObservationFeatureSpec]
     parse_observations: ObservationParser
     agent_policies: dict[int, AgentPolicy]
-
-
-EnvInterfaceAdapter = Callable[[policy_pb2.PreparePolicyRequest], PolicyEnvInterface]
 
 
 class LocalPolicyServer:
@@ -149,15 +158,22 @@ class LocalPolicyServer:
             if agent_policy is None:
                 raise AgentNotFoundError(agent_id)
             tokens = episode.parse_observations(agent_obs.observations, episode.features)
-            observation = AgentObservation(agent_id=agent_id, tokens=tokens)
+            observation = AgentObservation(
+                agent_id=agent_id,
+                tokens=tokens,
+                talk=parse_visible_talk(agent_obs.visible_talk),
+            )
             action = agent_policy.step(observation)
             action_id = encode_action_id(action, episode.policy_env)
-            actions: list[int] = []
             if action_id is None:
-                logger.warning("episode %r agent %d returned unknown action %r", req.episode_id, agent_id, action)
-            else:
-                actions.append(action_id)
-            resp.agent_actions.append(policy_pb2.AgentActions(agent_id=agent_id, action_id=actions))
+                raise UnknownActionError(agent_id, action)
+            resp.agent_actions.append(
+                policy_pb2.AgentActions(
+                    agent_id=agent_id,
+                    action_id=[action_id],
+                    talk_text=action.talk or "",
+                )
+            )
         return resp
 
 

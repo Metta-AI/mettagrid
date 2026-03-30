@@ -65,6 +65,15 @@ def _decode_action_id(action_id: int, policy_env_info: PolicyEnvInterface) -> Ac
     return Action(name=primary_action_names[primary_index], vibe=vibe_action_names[vibe_index])
 
 
+def _decode_agent_actions(agent_actions: policy_pb2.AgentActions, policy_env_info: PolicyEnvInterface) -> Action:
+    if len(agent_actions.action_id) != 1:
+        raise PolicyStepError(f"Agent {agent_actions.agent_id} returned {len(agent_actions.action_id)} actions")
+    base_action = _decode_action_id(agent_actions.action_id[0], policy_env_info)
+    if not agent_actions.talk_text:
+        return base_action
+    return Action(name=base_action.name, vibe=base_action.vibe, talk=agent_actions.talk_text)
+
+
 class WebSocketPolicyServer:
     def __init__(
         self,
@@ -155,14 +164,27 @@ class WebSocketPolicyServerClient(MultiAgentPolicy):
         self._ws.recv(timeout=PREPARE_TIMEOUT)
         logger.info("Received prepare policy response from policy server for %s", self._url)
 
-    def step_agents(self, agent_observations: list[tuple[int, bytes]]) -> list[int]:
+    def step_agents(self, agent_observations: list[tuple[int, AgentObservation]]) -> list[Action]:
         with self._ws_lock:
             step_req = policy_pb2.BatchStepRequest(
                 episode_id=self._episode_id,
                 step_id=self._next_step_id,
                 agent_observations=[
-                    policy_pb2.AgentObservations(agent_id=agent_id, observations=obs_bytes)
-                    for agent_id, obs_bytes in agent_observations
+                    policy_pb2.AgentObservations(
+                        agent_id=agent_id,
+                        observations=_serialize_triplet_v1(obs),
+                        visible_talk=[
+                            policy_pb2.VisibleTalk(
+                                agent_id=talk.agent_id,
+                                row=talk.location.row,
+                                col=talk.location.col,
+                                remaining_steps=talk.remaining_steps,
+                                text=talk.text,
+                            )
+                            for talk in obs.talk
+                        ],
+                    )
+                    for agent_id, obs in agent_observations
                 ],
             )
             self._next_step_id += 1
@@ -175,20 +197,18 @@ class WebSocketPolicyServerClient(MultiAgentPolicy):
         step_resp = policy_pb2.BatchStepResponse()
         step_resp.ParseFromString(resp)
 
-        action_ids_by_agent: dict[int, int] = {}
+        actions_by_agent: dict[int, Action] = {}
         for agent_actions in step_resp.agent_actions:
-            if len(agent_actions.action_id) != 1:
-                raise PolicyStepError(f"Agent {agent_actions.agent_id} returned {len(agent_actions.action_id)} actions")
-            action_ids_by_agent[agent_actions.agent_id] = agent_actions.action_id[0]
+            actions_by_agent[agent_actions.agent_id] = _decode_agent_actions(agent_actions, self._policy_env_info)
 
-        missing_agent_ids = [agent_id for agent_id, _ in agent_observations if agent_id not in action_ids_by_agent]
+        missing_agent_ids = [agent_id for agent_id, _ in agent_observations if agent_id not in actions_by_agent]
         if missing_agent_ids:
             raise PolicyStepError(f"Missing actions for agent_ids {missing_agent_ids}")
 
-        return [action_ids_by_agent[agent_id] for agent_id, _ in agent_observations]
+        return [actions_by_agent[agent_id] for agent_id, _ in agent_observations]
 
-    def step_agent(self, agent_id: int, obs_bytes: bytes) -> int:
-        return self.step_agents([(agent_id, obs_bytes)])[0]
+    def step_agent(self, agent_id: int, obs: AgentObservation) -> Action:
+        return self.step_agents([(agent_id, obs)])[0]
 
     def agent_policy(self, agent_id: int) -> AgentPolicy:
         if agent_id not in self._agents:
@@ -215,15 +235,10 @@ class WebSocketPolicyServerAgentClient(AgentPolicy):
         self._agent_id = agent_id
 
     def step(self, obs: AgentObservation) -> Action:
-        obs_bytes = _serialize_triplet_v1(obs)
         try:
-            action_id = self._parent.step_agent(self._agent_id, obs_bytes)
+            return self._parent.step_agent(self._agent_id, obs)
         except (ConnectionClosed, EOFError, OSError) as e:
             raise PolicyStepError(f"WebSocket communication failed for agent {self._agent_id}") from e
-        try:
-            return _decode_action_id(action_id, self._parent.policy_env_info)
-        except PolicyStepError as e:
-            raise PolicyStepError(f"{e} for agent {self._agent_id}") from e
 
     def can_step_group(self, policies: Sequence[AgentPolicy]) -> bool:
         return all(
@@ -232,16 +247,7 @@ class WebSocketPolicyServerAgentClient(AgentPolicy):
         )
 
     def step_group(self, observations: list[tuple[int, AgentObservation]]) -> list[Action]:
-        serialized = [(agent_id, _serialize_triplet_v1(obs)) for agent_id, obs in observations]
         try:
-            action_ids = self._parent.step_agents(serialized)
+            return self._parent.step_agents(observations)
         except (ConnectionClosed, EOFError, OSError) as e:
             raise PolicyStepError("WebSocket communication failed during batched step") from e
-
-        actions: list[Action] = []
-        for (agent_id, _), action_id in zip(observations, action_ids, strict=True):
-            try:
-                actions.append(_decode_action_id(action_id, self._parent.policy_env_info))
-            except PolicyStepError as e:
-                raise PolicyStepError(f"{e} for agent {agent_id}") from e
-        return actions
