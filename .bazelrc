@@ -94,3 +94,12 @@ build:ci --experimental_repository_downloader_retries=5
 build:ci --http_timeout_scaling=2.0
 # Add delays between retries (exponential backoff)
 build:ci --experimental_scale_timeouts=2.0
+
+# Proxy and TLS support for sandboxed/corporate environments.
+# Use the system Java truststore (maintained by ca-certificates-java) so Bazel
+# trusts custom CA certs like TLS-inspecting proxy CAs.
+startup --host_jvm_args=-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts
+# Allow Basic auth for HTTPS CONNECT tunneling (disabled by default since JDK 8u111).
+# Without this, authenticated HTTPS proxies return 407.
+startup --host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes=
+startup --host_jvm_args=-Djdk.http.auth.proxying.disabledSchemes=
