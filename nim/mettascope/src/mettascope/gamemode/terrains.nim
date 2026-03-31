@@ -1,7 +1,8 @@
 import
   std/[math, random, os, strutils],
   opengl, windy, silky/drawers/ogl, shady, vmath, chroma,
-  common, tilemap, pixelator, shaderquad
+  ../common,
+  ./[tilemap, pixelator, shaderquad]
 
 const
   TileSize = 128
@@ -45,15 +46,6 @@ var
   uMapSize: Uniform[Vec2]
   uMaskTexture: Uniform[Sampler2D]
   uSplatTexture: Uniform[Sampler2D]
-
-proc weightedRandomInt(weights: seq[int]): int =
-  var r = rand(sum(weights))
-  var acc = 0
-  for i, w in weights:
-    acc += w
-    if r <= acc:
-      return i
-  doAssert false, "should not happen"
 
 const patternToTile = @[
   18, 17, 4, 4, 12, 22, 4, 4, 30, 13, 41, 41, 30, 13, 41, 41, 19, 23, 5, 5, 37,

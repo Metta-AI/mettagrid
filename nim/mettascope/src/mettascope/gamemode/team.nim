@@ -1,7 +1,7 @@
 import
   std/[algorithm, strutils, tables],
   chroma,
-  replays, colors, common
+  ../[replays, colors, common]
 
 const TeamTag* = "team:"
 

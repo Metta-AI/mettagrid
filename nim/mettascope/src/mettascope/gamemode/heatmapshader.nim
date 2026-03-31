@@ -1,7 +1,8 @@
 import
-  std/[math, strutils],
+  std/math,
   opengl, silky, silky/drawers/ogl, shady, vmath, pixie,
-  heatmap, common
+  ./heatmap,
+  ../common
 
 var
   uMvp: Uniform[Mat4]

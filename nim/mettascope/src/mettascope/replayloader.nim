@@ -1,10 +1,9 @@
 import
   std/[tables, strutils],
   windy,
-  replays, worldmap, common, configs, panels, team,
-  panels/objectpanel,
-  panels/monologuepanel,
-  pipegrid
+  replays, common, configs,
+  gamemode/[team, worldmap, camera, pipegrid],
+  panelmode/[objectpanel, monologuepanel]
 
 
 proc onReplayLoaded*() =

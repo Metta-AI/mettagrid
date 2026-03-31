@@ -1,5 +1,4 @@
 import
-  std/strutils,
   pixie, opengl, silky/drawers/ogl, shady, vmath
 
 type

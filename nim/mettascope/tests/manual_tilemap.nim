@@ -1,7 +1,7 @@
 import
   std/[strformat, random],
   opengl, windy, vmath,
-  ../src/mettascope/[tilemap], perlin
+  ../src/mettascope/gamemode/tilemap, perlin
 
 let window = newWindow("Tilemap", ivec2(1280, 800))
 makeContextCurrent(window)

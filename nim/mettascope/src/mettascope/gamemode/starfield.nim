@@ -1,7 +1,8 @@
 import
-  std/[os, strutils],
+  std/os,
   opengl, silky, silky/drawers/ogl, shady, vmath, pixie, windy,
-  common, replays, panels
+  ../[common, replays],
+  ./camera
 
 ## Starfield and cloud background layers.
 ## The starfield is a static fullscreen image that always fills the viewport

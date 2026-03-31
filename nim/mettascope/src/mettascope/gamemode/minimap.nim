@@ -1,6 +1,7 @@
 import
   chroma, vmath, windy, silky,
-  common, worldmap, panels
+  ../common,
+  ./[worldmap, camera]
 
 var minimapDragging = false
 

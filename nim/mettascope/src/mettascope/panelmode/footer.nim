@@ -1,6 +1,6 @@
 import
   silky, chroma, vmath,
-  ./[common, configs]
+  ../[common, configs]
 
 const
   FooterColor = parseHtmlColor("#273646").rgbx

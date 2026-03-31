@@ -1,7 +1,8 @@
 import
   std/[algorithm, heapqueue, math, tables, sets],
   chroma, vmath, silky,
-  common, replays, team, pixelator, colors
+  ../[common, replays, colors],
+  ./[team, pixelator]
 
 const
   TileSize = 128

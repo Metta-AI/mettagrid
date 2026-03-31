@@ -1,7 +1,7 @@
 import
   std/tables,
   bumpy, vmath, windy, silky,
-  common
+  ../common
 
 type
   TimelineSliderState = ref object

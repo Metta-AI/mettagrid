@@ -2,8 +2,9 @@ import
   os, genny, openGL, jsony, vmath, windy, silky,
   std/[times, math],
   ../src/mettascope,
-  ../src/mettascope/[replays, common, worldmap, timeline, replayloader, heatmap, configs],
-  ../src/mettascope/panels/[envpanel, vibespanel]
+  ../src/mettascope/[replays, common, replayloader, configs],
+  ../src/mettascope/gamemode/[worldmap, heatmap],
+  ../src/mettascope/panelmode/[timeline, envpanel, vibespanel]
 
 type
   ActionRequest* = object

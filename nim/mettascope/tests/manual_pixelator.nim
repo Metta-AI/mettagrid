@@ -1,6 +1,6 @@
 import
   opengl, silky, windy, vmath,
-  ../src/mettascope/[pixelator]
+  ../src/mettascope/gamemode/pixelator
 
 let window = newWindow("Test Pixelator", ivec2(1280, 800))
 makeContextCurrent(window)

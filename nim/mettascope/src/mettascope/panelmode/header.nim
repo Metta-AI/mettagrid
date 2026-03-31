@@ -1,7 +1,7 @@
 import
   std/json,
   silky, chroma, vmath, windy,
-  common
+  ../common
 
 const
   HeaderColor = parseHtmlColor("#273646").rgbx

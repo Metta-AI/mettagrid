@@ -1,5 +1,4 @@
 import
-  std/strutils,
   opengl, silky/drawers/ogl, shady, vmath, pixie
 
 ## Drawer for a single quad covering the map with texture and shader.

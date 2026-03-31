@@ -3,7 +3,7 @@
 import
   std/[tables],
   vmath, silky, silky/atlas, chroma,
-  common, replays, colors
+  ../[common, replays, colors]
 
 proc getInventoryItem(entity: Entity, itemName: string, atStep: int = step): int =
   ## Get the count of a named item in the entity's inventory at a given step.

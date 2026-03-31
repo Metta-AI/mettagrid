@@ -3,22 +3,9 @@
 import
   std/[strutils],
   bumpy, chroma, windy, silky,
-  ./[common, configs]
+  ../[common, configs]
 
 type
-  ZoomInfo* = ref object
-    ## Used to track the zoom state of a world map and others.
-    rect*: IRect
-    pos*: Vec2
-    vel*: Vec2
-    zoom*: float32 = 10
-    zoomVel*: float32
-    minZoom*: float32 = 0.5
-    maxZoom*: float32 = 50
-    scrollArea*: Rect
-    hasMouse*: bool = false
-    dragging*: bool = false
-
   AreaScan* = enum
     Header
     Body
@@ -30,127 +17,6 @@ type
 const
   AreaHeaderHeight = 32.0
   AreaMargin = 6.0
-
-var
-  worldMapZoomInfo*: ZoomInfo
-
-proc clampMapPan*(zoomInfo: ZoomInfo) =
-  ## Clamp pan so the world map remains at least partially visible.
-  if replay.isNil:
-    return
-
-  let zoomScale = zoomInfo.zoom * zoomInfo.zoom
-  if zoomScale <= 0:
-    return
-
-  # Map bounds in world units (tiles), assuming tiles span [i-0.5, i+0.5].
-  let
-    mapMinX = -0.5f
-    mapMinY = -0.5f
-    mapMaxX = replay.mapSize[0].float32 - 0.5f
-    mapMaxY = replay.mapSize[1].float32 - 0.5f
-
-  let
-    mapWidth = mapMaxX - mapMinX
-    mapHeight = mapMaxY - mapMinY
-
-  # View half-size in world units.
-  let
-    rectW = zoomInfo.rect.w.float32
-    rectH = zoomInfo.rect.h.float32
-    viewHalfW = rectW / (2.0f * zoomScale)
-    viewHalfH = rectH / (2.0f * zoomScale)
-
-  # Current view center in world units given screen-space pan.
-  var
-    cx = (rectW / 2.0f - zoomInfo.pos.x) / zoomScale
-    cy = (rectH / 2.0f - zoomInfo.pos.y) / zoomScale
-
-  # Require a minimum number of on-screen pixels of the map to remain visible.
-  # Scale with panel size so small panels are not over-clamped.
-  let minVisiblePixels = min(500.0f, min(rectW, rectH) * 0.5f)
-  let minVisibleWorld = minVisiblePixels / zoomScale
-
-  # Do not require more visibility than half the map size.
-  let
-    maxVisibleUnitsX = min(minVisibleWorld, mapWidth / 2.0f)
-    maxVisibleUnitsY = min(minVisibleWorld, mapHeight / 2.0f)
-
-  # Clamp the center so some of the map stays visible horizontally and vertically.
-  let
-    minCenterX = mapMinX + maxVisibleUnitsX - viewHalfW
-    maxCenterX = mapMaxX - maxVisibleUnitsX + viewHalfW
-    minCenterY = mapMinY + maxVisibleUnitsY - viewHalfH
-    maxCenterY = mapMaxY - maxVisibleUnitsY + viewHalfH
-
-  cx = cx.clamp(minCenterX, maxCenterX)
-  cy = cy.clamp(minCenterY, maxCenterY)
-
-  # Recompute screen-space pan from clamped world-space center.
-  zoomInfo.pos.x = rectW / 2.0f - cx * zoomScale
-  zoomInfo.pos.y = rectH / 2.0f - cy * zoomScale
-
-proc beginPanAndZoom*(zoomInfo: ZoomInfo) =
-  ## Pan and zoom the map.
-
-  saveTransform()
-
-  if zoomInfo.hasMouse:
-    if window.buttonPressed[MouseLeft] or window.buttonPressed[MouseMiddle]:
-      zoomInfo.dragging = true
-    if not window.buttonDown[MouseLeft] and not window.buttonDown[MouseMiddle] and zoomInfo.dragging:
-      zoomInfo.dragging = false
-
-  if zoomInfo.dragging:
-    if window.buttonDown[MouseLeft] or window.buttonDown[MouseMiddle]:
-
-      zoomInfo.vel = window.mouseDelta.vec2
-      settings.lockFocus = false
-    else:
-      zoomInfo.vel *= 0.9
-
-    zoomInfo.pos += zoomInfo.vel
-
-  if zoomInfo.hasMouse:
-    if window.scrollDelta.y != 0:
-      # Apply zoom at focal point (mouse position or agent position if pinned).
-      let localMousePos = window.mousePos.vec2 - zoomInfo.rect.xy.vec2
-      let zoomSensitivity = 0.005
-
-      let oldMat = translate(vec2(zoomInfo.pos.x, zoomInfo.pos.y)) *
-        scale(vec2(zoomInfo.zoom*zoomInfo.zoom, zoomInfo.zoom*zoomInfo.zoom))
-
-      # Use agent position as focal point if lockFocus is enabled and agent is selected
-      let focalPoint = if settings.lockFocus and selected != nil:
-        # Convert agent's world position to screen space
-        let agentWorldPos = vec2(selected.location.at(step).x.float32, selected.location.at(step).y.float32)
-        oldMat * agentWorldPos
-      else:
-        localMousePos
-
-      let oldWorldPoint = oldMat.inverse() * focalPoint
-
-      # Apply zoom with multiplicative scaling.
-      # keeps zoom consistent when zoomed far out or zoomed far in.
-      let zoomFactor = pow(1.0 - zoomSensitivity, window.scrollDelta.y)
-      zoomInfo.zoom *= zoomFactor
-      zoomInfo.zoom = clamp(zoomInfo.zoom, zoomInfo.minZoom, zoomInfo.maxZoom)
-
-      let newMat = translate(vec2(zoomInfo.pos.x, zoomInfo.pos.y)) *
-        scale(vec2(zoomInfo.zoom*zoomInfo.zoom, zoomInfo.zoom*zoomInfo.zoom))
-      let newWorldPoint = newMat.inverse() * focalPoint
-
-      # Adjust pan position to keep the same world point under the focal point.
-      zoomInfo.pos += (newWorldPoint - oldWorldPoint) * (zoomInfo.zoom*zoomInfo.zoom)
-
-  clampMapPan(zoomInfo)
-
-  translateTransform(zoomInfo.pos)
-  let zoomScale = zoomInfo.zoom * zoomInfo.zoom
-  scaleTransform(vec2(zoomScale, zoomScale))
-
-proc endPanAndZoom*(zoomInfo: ZoomInfo) =
-  restoreTransform()
 
 proc snapToPixels(rect: Rect): Rect =
   rect(rect.x.int.float32, rect.y.int.float32, rect.w.int.float32, rect.h.int.float32)

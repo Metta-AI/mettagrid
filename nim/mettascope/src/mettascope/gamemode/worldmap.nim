@@ -1,11 +1,10 @@
 import
   std/[algorithm, math, os, tables, options, sets],
   chroma, vmath, windy, silky,
-  common, actions, replays, team,
-  pathfinding, tilemap, pixelator, shaderquad, terrains, starfield,
-  panels, heatmap, heatmapshader, colors, pipegrid,
-  panels/objectpanel,
-  custom_hud
+  ../[common, actions, replays, colors],
+  ./[team, pathfinding, tilemap, pixelator, shaderquad, terrains,
+    heatmap, heatmapshader, pipegrid, starfield, custom_hud, camera],
+  ../panelmode/objectpanel
 
 const
   TileSize = 128
@@ -41,7 +40,6 @@ var
   # Allocated coverage map for AoE map generation,
   # so that it's not reallocated every time and cause GC pressure.
   reuseableCoverageMap: seq[bool]
-  reuseableOwnershipMap: seq[uint8]
   reuseableFriendlyScoreMap: seq[float32]
   reuseableEnemyScoreMap: seq[float32]
 

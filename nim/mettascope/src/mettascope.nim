@@ -1,10 +1,17 @@
 import
-  std/[strutils, strformat, os, parseopt, times],
-  opengl, windy, bumpy, vmath, silky, webby,
-  mettascope/[replays, common, worldmap, panels,
-  footer, timeline, minimap, header, replayloader, configs, gameplayer],
-  mettascope/panels/[objectpanel, policyinfopanel, envpanel, vibespanel, scorepanel, monologuepanel]
+  std/[strutils, os],
+  opengl, windy, bumpy, vmath, silky,
+  mettascope/[replays, common, replayloader, configs],
+  mettascope/gamemode/[worldmap, minimap, gameplayer, camera],
+  mettascope/panelmode/[panes, footer, timeline, header,
+    objectpanel, policyinfopanel, envpanel, vibespanel, scorepanel,
+    monologuepanel]
 import slappy except play
+
+when defined(emscripten):
+  import webby
+else:
+  import std/parseopt
 
 when isMainModule:
   let config = loadConfig()
@@ -17,33 +24,35 @@ when isMainModule:
   makeContextCurrent(window)
   loadExtensions()
 
-proc parseUrlParams() =
-  ## Parse URL parameters.
-  let url = parseUrl(window.url)
-  commandLineReplay = url.query["replay"]
+when defined(emscripten):
+  proc parseUrlParams() =
+    ## Parse URL parameters.
+    let url = parseUrl(window.url)
+    commandLineReplay = url.query["replay"]
 
-proc parseArgs() =
-  ## Parse command line arguments.
-  var p = initOptParser(commandLineParams())
-  while true:
-    p.next()
-    case p.kind
-    of cmdEnd:
-      break
-    of cmdLongOption, cmdShortOption:
-      case p.key
-      of "replay", "r":
-        commandLineReplay = p.val
-      of "game-mode", "g":
-        forcedGameMode = Game
-      of "editor-mode", "e":
-        forcedGameMode = Editor
-      of "autostart", "a":
-        play = p.val == "true" or p.val == ""
-      else:
+when not defined(emscripten):
+  proc parseArgs() =
+    ## Parse command line arguments.
+    var p = initOptParser(commandLineParams())
+    while true:
+      p.next()
+      case p.kind
+      of cmdEnd:
+        break
+      of cmdLongOption, cmdShortOption:
+        case p.key
+        of "replay", "r":
+          commandLineReplay = p.val
+        of "game-mode", "g":
+          forcedGameMode = Game
+        of "editor-mode", "e":
+          forcedGameMode = Editor
+        of "autostart", "a":
+          play = p.val == "true" or p.val == ""
+        else:
+          quit("Unknown option: " & p.key)
+      of cmdArgument:
         quit("Unknown option: " & p.key)
-    of cmdArgument:
-      quit("Unknown option: " & p.key)
 
 proc replaySwitch(replay: string) =
   ## Load the replay.

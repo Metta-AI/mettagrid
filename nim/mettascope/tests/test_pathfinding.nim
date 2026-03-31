@@ -1,7 +1,9 @@
 import
   std/[strutils, random, tables],
   vmath,
-  ../src/mettascope/[pathfinding, replays, common, actions, timeline]
+  ../src/mettascope/[replays, common, actions],
+  ../src/mettascope/gamemode/pathfinding,
+  ../src/mettascope/panelmode/timeline
 
 type
   TestMap = object

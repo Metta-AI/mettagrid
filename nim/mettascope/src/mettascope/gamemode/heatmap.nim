@@ -1,6 +1,6 @@
 import
   vmath,
-  replays, common
+  ../[replays, common]
 
 proc newHeatmap*(replay: Replay): Heatmap =
   ## Create a new heatmap for the given replay.

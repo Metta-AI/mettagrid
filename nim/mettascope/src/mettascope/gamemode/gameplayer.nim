@@ -2,9 +2,8 @@ import
   std/[strformat, strutils, tables, os],
   opengl,
   bumpy, vmath, windy, silky, silky/atlas, chroma, pixie,
-  common, worldmap, panels, configs, team,
-  replays, colors, minimap, actions, cognames, timelineslider,
-  custom_hud, sound
+  ../[common, configs, replays, colors, actions, cognames],
+  ./[team, sound, worldmap, minimap, custom_hud, camera]
 
 var
   pendingCenter: Vec2
@@ -121,7 +120,6 @@ proc drawIconScaled(
 
 const
   ResourceCellWidth = 120.0f
-  ResourceCellHeight = 48.0f
 
 proc resourceCell(pos: Vec2, icon: string, amount: int) =
   ## Draw one fixed-size resource cell (icon + 3-digit amount).

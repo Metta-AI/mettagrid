@@ -1,7 +1,8 @@
 import
   std/[random],
   benchy, vmath,
-  ../src/mettascope/[pathfinding, replays, common]
+  ../src/mettascope/[replays, common],
+  ../src/mettascope/gamemode/pathfinding
 
 type
   TestMap = object

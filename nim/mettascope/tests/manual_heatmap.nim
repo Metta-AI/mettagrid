@@ -1,7 +1,8 @@
 import
   std/[math],
   boxy, windy, opengl, vmath,
-  mettascope/[heatmap, heatmapshader, replays, utils, common]
+  mettascope/[replays, utils, common],
+  mettascope/gamemode/[heatmap, heatmapshader]
 
 # run from the mettascope directory:
 # nim r tests/manual_heatmap.nim

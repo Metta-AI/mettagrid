@@ -1,7 +1,7 @@
 import
   std/[algorithm, tables, sets, heapqueue],
   vmath,
-  common, replays
+  ../[common, replays]
 
 type
   PathNode* = object

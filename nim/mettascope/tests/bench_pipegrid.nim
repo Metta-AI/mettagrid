@@ -1,7 +1,8 @@
 import
   std/[os, strformat],
   benchy,
-  ../src/mettascope/[pipegrid, replays, common]
+  ../src/mettascope/[replays, common],
+  ../src/mettascope/gamemode/pipegrid
 
 const DefaultReplayPath = currentSourcePath().parentDir.parentDir / "data/replays/default.json.z"
 

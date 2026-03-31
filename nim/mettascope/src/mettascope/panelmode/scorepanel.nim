@@ -1,7 +1,7 @@
 import
   std/[strformat, strutils, tables, algorithm],
   vmath, silky, chroma,
-  ../common, ../replays, ../team,
+  ../common, ../replays, ../gamemode/team,
   widgets
 
 proc drawScorePanel*(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) =

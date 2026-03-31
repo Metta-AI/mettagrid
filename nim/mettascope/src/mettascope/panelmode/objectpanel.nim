@@ -1,7 +1,8 @@
 import
   std/[json, algorithm, tables, sets, strutils, strformat],
   vmath, silky, windy,
-  ../common, ../replays, ../configs, ../cognames, ../colors, ../team,
+  ../common, ../replays, ../configs, ../cognames, ../colors,
+  ../gamemode/team,
   widgets
 
 type
