@@ -25,7 +25,7 @@ proc buildSilkyAtlas*(imagePath: string) =
 proc buildPixelAtlas*() =
   ## Build the main pixel atlas.
   generatePixelAtlas(
-    size = 4096,
+    size = 8192,
     margin = 4,
     dirsToScan = @[
       dataDir / "agents",
