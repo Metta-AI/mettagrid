@@ -28,8 +28,9 @@ EventScheduler::EventScheduler(const std::map<std::string, EventConfig>& event_c
     }
   }
 
-  // Sort schedule by timestep
-  std::sort(_schedule.begin(), _schedule.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+  // Stable sort by timestep — preserves std::map iteration order (alphabetical
+  // by event name) for events that fire at the same timestep.
+  std::stable_sort(_schedule.begin(), _schedule.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
 }
 
 int EventScheduler::process_timestep(int timestep, const HandlerContext& ctx) {
