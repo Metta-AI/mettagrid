@@ -1,6 +1,7 @@
 #include "objects/agent.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 
 #include "config/observation_features.hpp"
 
@@ -23,6 +24,7 @@ Agent::Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vec
 
 void Agent::init(RewardType* reward_ptr) {
   this->reward_helper.init(reward_ptr);
+  reset_coverage_tracking();
 }
 
 void Agent::init_reward(const mettagrid::HandlerContext& game_ctx) {
@@ -30,6 +32,28 @@ void Agent::init_reward(const mettagrid::HandlerContext& game_ctx) {
   reward_ctx.actor = this;
   reward_ctx.target = this;
   this->reward_helper.init_entries(reward_ctx);
+}
+
+uint32_t Agent::pack_location(const GridLocation& location) {
+  return (static_cast<uint32_t>(location.r) << 16) | static_cast<uint32_t>(location.c);
+}
+
+void Agent::reset_coverage_tracking() {
+  unique_cells_visited.clear();
+  max_distance_from_spawn = 0;
+  unique_cells_visited.insert(pack_location(location));
+  stats.set("cell.unique_visited", static_cast<float>(unique_cells_visited.size()));
+  stats.set("cell.max_distance_from_spawn", 0.0f);
+}
+
+void Agent::track_coverage() {
+  unique_cells_visited.insert(pack_location(location));
+  stats.set("cell.unique_visited", static_cast<float>(unique_cells_visited.size()));
+
+  int dc = static_cast<int>(location.c) - static_cast<int>(spawn_location.c);
+  int dr = static_cast<int>(spawn_location.r) - static_cast<int>(location.r);
+  max_distance_from_spawn = std::max(max_distance_from_spawn, static_cast<uint32_t>(std::abs(dr) + std::abs(dc)));
+  stats.set("cell.max_distance_from_spawn", static_cast<float>(max_distance_from_spawn));
 }
 
 void Agent::set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers) {

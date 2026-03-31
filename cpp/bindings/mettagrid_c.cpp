@@ -1042,6 +1042,10 @@ void MettaGrid::_step() {
     handler->try_apply(_game_ctx);
   }
 
+  for (auto* agent : _agents) {
+    agent->track_coverage();
+  }
+
   _last_executed_actions = executed_actions;
 
   // Compute observations for next step

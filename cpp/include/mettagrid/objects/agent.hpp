@@ -36,6 +36,8 @@ public:
   GridLocation spawn_location;
   unsigned int steps_without_motion;
   int last_animation_id = kNoAnimation;
+  std::unordered_set<uint32_t> unique_cells_visited;
+  uint32_t max_distance_from_spawn = 0;
   std::vector<std::shared_ptr<mettagrid::Handler>> _on_tick;
   void set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers);
   void apply_on_tick(mettagrid::HandlerContext& ctx);
@@ -50,6 +52,8 @@ public:
 
   void init(RewardType* reward_ptr);
   void init_reward(const mettagrid::HandlerContext& game_ctx);
+  void reset_coverage_tracking();
+  void track_coverage();
 
   void populate_initial_inventory(const std::unordered_map<InventoryItem, InventoryQuantity>& initial_inventory);
 
@@ -78,6 +82,7 @@ public:
   }
 
 private:
+  static uint32_t pack_location(const GridLocation& location);
   const ObservationEncoder* obs_encoder = nullptr;
 };
 
