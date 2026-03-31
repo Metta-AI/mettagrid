@@ -227,8 +227,8 @@ proc resetTerrainCaches*() =
 proc drawTerrain*(mvp: Mat4, px: var Pixelator, pxMini: var Pixelator) =
   if terrainMap == nil:
     terrainMap = generateTerrainMap(dataDir / "terrain/blob7x8.png")
-    px = newPixelator(dataDir / "atlas.png", dataDir / "atlas.json")
-    pxMini = newPixelator(dataDir / "atlas_mini.png", dataDir / "atlas_mini.json")
+    px = newPixelator(sk)
+    pxMini = newPixelator(sk)
   terrainMap.draw(mvp, 2.0f, 1.5f)
 
 proc drawMask*(mvp: Mat4) =

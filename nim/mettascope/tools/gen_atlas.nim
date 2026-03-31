@@ -1,14 +1,13 @@
 import
   std/os,
   silky,
-  ../src/mettascope/pixelator,
   ../src/mettascope/common
 
-export pixelator, common
+export common
 
 proc buildSilkyAtlas*(imagePath: string) =
   ## Build the silky UI atlas as one PNG with embedded metadata.
-  var builder = newAtlasBuilder(2048, 4)
+  var builder = newAtlasBuilder(8192, 4)
   builder.addDir(dataDir / "theme/", dataDir / "theme/")
   builder.addDir(dataDir / "ui/", dataDir & "/")
   builder.addDir(dataDir / "vibe/", dataDir & "/")
@@ -17,42 +16,16 @@ proc buildSilkyAtlas*(imagePath: string) =
   builder.addDir(dataDir / "profiles/", dataDir & "/")
   builder.addDir(dataDir / "icons/agents/", dataDir & "/")
   builder.addDir(dataDir / "icons/objects/", dataDir & "/")
+  builder.addDir(dataDir / "agents/", dataDir & "/")
+  builder.addDir(dataDir / "objects/", dataDir & "/")
+  builder.addDir(dataDir / "view/", dataDir & "/")
+  builder.addDir(dataDir / "terrain/", dataDir & "/")
+  builder.addDir(dataDir / "minimap/", dataDir & "/")
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "H1", 32.0)
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "Default", 18.0, subpixelSteps = 10)
   builder.addFont(dataDir / "fonts/pf_tempesta_five_compressed.ttf", "pixelated", 32.0)
   builder.write(imagePath)
 
-proc buildPixelAtlas*() =
-  ## Build the main pixel atlas.
-  generatePixelAtlas(
-    size = 8192,
-    margin = 4,
-    dirsToScan = @[
-      dataDir / "agents",
-      dataDir / "objects",
-      dataDir / "view",
-      dataDir / "terrain",
-    ],
-    outputImagePath = dataDir / "atlas.png",
-    outputJsonPath = dataDir / "atlas.json",
-    stripPrefix = dataDir & "/"
-  )
-
-proc buildMinimapAtlas*() =
-  ## Build the minimap pixel atlas.
-  generatePixelAtlas(
-    size = 256,
-    margin = 4,
-    dirsToScan = @[
-      dataDir / "minimap"
-    ],
-    outputImagePath = dataDir / "atlas_mini.png",
-    outputJsonPath = dataDir / "atlas_mini.json",
-    stripPrefix = dataDir & "/"
-  )
-
 when isMainModule:
   setDataDir("data")
   buildSilkyAtlas(dataDir / "silky.atlas.png")
-  buildPixelAtlas()
-  buildMinimapAtlas()

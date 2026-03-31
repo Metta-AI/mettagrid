@@ -1,5 +1,5 @@
 import
-  std/[json, os],
+  std/os,
   silky,
   ../tools/gen_atlas
 
@@ -7,52 +7,22 @@ let testDataDir = currentSourcePath().parentDir() / ".." / "data"
 setDataDir(testDataDir)
 
 block test_silky_atlas:
-  echo "Testing silky atlas generation"
+  echo "Testing shared silky atlas generation"
   let silkyImagePath = "silky.atlas.png"
 
   buildSilkyAtlas(dataDir / silkyImagePath)
 
   doAssert fileExists(dataDir / silkyImagePath), "Silky atlas PNG file should be created"
 
-  let silkyJson = parseJson(extractAtlasJsonFromPng(readFile(dataDir / silkyImagePath)))
-  doAssert silkyJson.hasKey("entries"), "Silky atlas PNG should have embedded entries"
-
-  let silkyEntries = silkyJson["entries"]
-  doAssert silkyEntries.hasKey("ui/help"), "Silky atlas should contain ui/help"
-  doAssert silkyEntries.hasKey("vibe/black-circle"), "Silky atlas should contain vibe/black-circle"
-  doAssert silkyEntries.hasKey("resources/ore_blue"), "Silky atlas should contain resources/ore_blue"
-  echo "Silky atlas test passed"
-
-block test_pixel_atlas:
-  echo "Testing pixel atlas generation"
-
-  buildPixelAtlas()
-
-  let pixelJsonPath = dataDir / "atlas.json"
-  doAssert fileExists(pixelJsonPath), "Pixel atlas JSON file should be created"
-
-  let pixelJson = parseJson(readFile(pixelJsonPath))
-  doAssert pixelJson.hasKey("entries"), "Pixel atlas JSON should have entries"
-
-  let pixelEntries = pixelJson["entries"]
-  doAssert pixelEntries.hasKey("agents/tracks.ss"), "Pixel atlas should contain agents/tracks.ss"
-  doAssert pixelEntries.hasKey("objects/selection"), "Pixel atlas should contain objects/selection"
-  doAssert pixelEntries.hasKey("objects/altar"), "Pixel atlas should contain objects/altar"
-  echo "Pixel atlas test passed"
-
-block test_minimap_atlas:
-  echo "Testing minimap atlas generation"
-
-  buildMinimapAtlas()
-
-  let minimapJsonPath = dataDir / "atlas_mini.json"
-  doAssert fileExists(minimapJsonPath), "Minimap atlas JSON file should be created"
-
-  let minimapJson = parseJson(readFile(minimapJsonPath))
-  doAssert minimapJson.hasKey("entries"), "Minimap atlas JSON should have entries"
-
-  let minimapEntries = minimapJson["entries"]
-  doAssert minimapEntries.hasKey("minimap/agent"), "Minimap atlas should contain minimap/agent"
-  doAssert minimapEntries.hasKey("minimap/hub"), "Minimap atlas should contain minimap/hub"
-  doAssert minimapEntries.hasKey("minimap/unknown"), "Minimap atlas should contain minimap/unknown"
-  echo "Minimap atlas test passed"
+  let atlas = readAtlasFromPng(dataDir / silkyImagePath)
+  doAssert atlas.entries.len > 0, "Silky atlas PNG should have embedded entries"
+  doAssert "ui/help" in atlas.entries, "Silky atlas should contain ui/help"
+  doAssert "vibe/black-circle" in atlas.entries, "Silky atlas should contain vibe/black-circle"
+  doAssert "resources/ore_blue" in atlas.entries, "Silky atlas should contain resources/ore_blue"
+  doAssert "agents/tracks.ss" in atlas.entries, "Silky atlas should contain agents/tracks.ss"
+  doAssert "objects/selection" in atlas.entries, "Silky atlas should contain objects/selection"
+  doAssert "objects/altar" in atlas.entries, "Silky atlas should contain objects/altar"
+  doAssert "minimap/agent" in atlas.entries, "Silky atlas should contain minimap/agent"
+  doAssert "minimap/hub" in atlas.entries, "Silky atlas should contain minimap/hub"
+  doAssert "minimap/unknown" in atlas.entries, "Silky atlas should contain minimap/unknown"
+  echo "Shared silky atlas test passed"

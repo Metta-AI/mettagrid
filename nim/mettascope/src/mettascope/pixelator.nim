@@ -1,33 +1,20 @@
 import
-  std/[algorithm, os, strutils, tables],
-  pixie, opengl, silky, silky/drawers/ogl, jsony, shady, vmath,
-  allocator
+  pixie, opengl, silky, silky/drawers/ogl, shady, vmath
 
 # This file specifically deals with the pixel atlas texture.
 # It supports pixel art style drawing with pixel perfect AA sampling.
 # It is used to draw the objects in the mettascope.
 
 type
-  Entry* = object
-    ## The position and size of a sprite in the atlas.
-    x*: int
-    y*: int
-    width*: int
-    height*: int
-
-  PixelAtlas* = ref object
-    ## The pixel atlas that gets converted to JSON.
-    size*: int
-    entries*: Table[string, Entry]
-
   Pixelator* = ref object
     ## The pixelator that draws the AA pixel art sprites.
-    atlas: PixelAtlas
-    image: Image
+    sk: Silky
     shader: Shader
     vao: GLuint              ## Vertex array object
     instanceVbo: GLuint      ## Per-instance buffer: aPos(2), aUv(4), aTint(2 as 4xU8), aMaskUv(4), aLampUv(4)
-    atlasTexture: GLuint     ## GL texture for the atlas image
+    atlasTexture: GLuint     ## GL texture borrowed from silky
+    atlasWidth: int
+    atlasHeight: int
     instanceData: seq[uint16]
     instanceCount: int
 
@@ -101,68 +88,14 @@ proc pixelatorFrag*(
     let maskR = texture(atlas, maskAA / atlasSize).r
     FragColor = vec4(base.rgb * mix(vec3(1.0), vTint.rgb, maskR), base.a * vTint.a)
 
-proc generatePixelAtlas*(
-  size: int,
-  margin: int,
-  dirsToScan: seq[string],
-  outputImagePath: string,
-  outputJsonPath: string,
-  stripPrefix: string = "data/"
-) {.measure.} =
-  ## Generates a pixel atlas from the given directories.
-  let atlasImage = newImage(size, size)
-  let atlas = PixelAtlas(size: size)
-  let allocator = newSkylineAllocator(size, margin)
-
-  # Collect all PNG files, then sort largest-first for optimal packing.
-  # walkDir order varies across filesystems; sorting ensures deterministic,
-  # efficient allocation regardless of platform.
-  var pngFiles: seq[string]
-  for dir in dirsToScan:
-    for file in walkDir(dir):
-      if file.path.endsWith(".png"):
-        pngFiles.add(file.path)
-
-  # Read images and sort by area descending (best practice for rectangle packing).
-  var images: seq[tuple[path: string, image: Image]]
-  for path in pngFiles:
-    images.add((path: path, image: readImage(path)))
-  images.sort(proc(a, b: tuple[path: string, image: Image]): int =
-    (b.image.width * b.image.height) - (a.image.width * a.image.height))
-
-  for item in images:
-    let allocation = allocator.allocate(item.image.width, item.image.height)
-    if allocation.success:
-      atlasImage.draw(
-        item.image,
-        translate(vec2(allocation.x.float32, allocation.y.float32)),
-        OverwriteBlend
-      )
-    else:
-      raise newException(
-        ValueError,
-        "Failed to allocate space for " & item.path & "\n" &
-        "You need to increase the size of the atlas"
-      )
-    let entry = Entry(
-      x: allocation.x,
-      y: allocation.y,
-      width: item.image.width,
-      height: item.image.height
-    )
-    var key = item.path
-    key.removePrefix(stripPrefix)
-    key.removeSuffix(".png")
-    atlas.entries[key] = entry
-
-  atlasImage.writeFile(outputImagePath)
-  writeFile(outputJsonPath, atlas.toJson())
-
-proc newPixelator*(imagePath, jsonPath: string): Pixelator {.measure.} =
-  ## Creates a new pixelator.
+proc newPixelator*(sk: Silky): Pixelator {.measure.} =
+  ## Creates a new pixelator that borrows the silky atlas.
   result = Pixelator()
-  result.image = readImage(imagePath)
-  result.atlas = readFile(jsonPath).fromJson(PixelAtlas)
+  result.sk = sk
+  result.atlasTexture = sk.atlasTextureId()
+  let atlasSize = sk.atlasImageSize()
+  result.atlasWidth = atlasSize.x.int
+  result.atlasHeight = atlasSize.y.int
   result.instanceData = @[]
   result.instanceCount = 0
 
@@ -176,27 +109,6 @@ proc newPixelator*(imagePath, jsonPath: string): Pixelator {.measure.} =
       ("pixelatorVert", toGLSL(pixelatorVert, glslDesktop)),
       ("pixelatorFrag", toGLSL(pixelatorFrag, glslDesktop))
     )
-
-  # Upload atlas image to GL texture
-  glGenTextures(1, result.atlasTexture.addr)
-  glActiveTexture(GL_TEXTURE0)
-  glBindTexture(GL_TEXTURE_2D, result.atlasTexture)
-  glTexImage2D(
-    GL_TEXTURE_2D,
-    0,
-    GL_RGBA8.GLint,
-    result.image.width.GLint,
-    result.image.height.GLint,
-    0,
-    GL_RGBA,
-    GL_UNSIGNED_BYTE,
-    cast[pointer](result.image.data[0].addr)
-  )
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR.GLint)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR.GLint)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE.GLint)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE.GLint)
-  glGenerateMipmap(GL_TEXTURE_2D)
 
   # Set up VAO and instance buffer.
   glGenVertexArrays(1, result.vao.addr)
@@ -292,10 +204,10 @@ proc drawSprite*(
   ## Draws a sprite at the given position with optional tint color.
   ## When mask is non-empty, tint is applied only where the mask is white.
   ## When lamp is non-empty, lamp sprite is additively blended with tint.
-  if name notin px.atlas.entries:
+  var uv: Entry
+  if not px.sk.getAtlasEntry(name, uv):
     echo "[Warning] Sprite not found in atlas: " & name
     return
-  let uv = px.atlas.entries[name]
   px.instanceData.add(x.uint16)
   px.instanceData.add(y.uint16)
   px.instanceData.add(uv.x.uint16)
@@ -306,8 +218,10 @@ proc drawSprite*(
   px.instanceData.add(uint16(tint.r) or (uint16(tint.g) shl 8))
   px.instanceData.add(uint16(tint.b) or (uint16(tint.a) shl 8))
   # Mask UV: use mask entry if provided, otherwise emit zeros (no mask).
-  if mask.len > 0 and mask in px.atlas.entries:
-    let m = px.atlas.entries[mask]
+  var
+    m: Entry
+    l: Entry
+  if mask.len > 0 and px.sk.getAtlasEntry(mask, m):
     px.instanceData.add(m.x.uint16)
     px.instanceData.add(m.y.uint16)
     px.instanceData.add(m.width.uint16)
@@ -318,8 +232,7 @@ proc drawSprite*(
     px.instanceData.add(0'u16)
     px.instanceData.add(0'u16)
   # Lamp UV: use lamp entry if provided, otherwise emit zeros (no lamp).
-  if lamp.len > 0 and lamp in px.atlas.entries:
-    let l = px.atlas.entries[lamp]
+  if lamp.len > 0 and px.sk.getAtlasEntry(lamp, l):
     px.instanceData.add(l.x.uint16)
     px.instanceData.add(l.y.uint16)
     px.instanceData.add(l.width.uint16)
@@ -344,13 +257,13 @@ proc drawSprite*(
 
 proc contains*(px: Pixelator, name: string): bool =
   ## Checks if the given sprite is in the atlas.
-  name in px.atlas.entries
+  px.sk.contains(name)
 
 proc spriteSize*(px: Pixelator, name: string): IVec2 =
   ## Returns sprite dimensions from the atlas, or (0, 0) if missing.
-  if name notin px.atlas.entries:
+  var uv: Entry
+  if not px.sk.getAtlasEntry(name, uv):
     return ivec2(0, 0)
-  let uv = px.atlas.entries[name]
   ivec2(uv.width.int32, uv.height.int32)
 
 proc clear*(px: Pixelator) =
@@ -374,7 +287,10 @@ proc flush*(
   # Bind the shader and the atlas texture.
   glUseProgram(px.shader.programId)
   px.shader.setUniform("mvp", mvp)
-  px.shader.setUniform("atlasSize", vec2(px.image.width.float32, px.image.height.float32))
+  px.shader.setUniform(
+    "atlasSize",
+    vec2(px.atlasWidth.float32, px.atlasHeight.float32)
+  )
   glActiveTexture(GL_TEXTURE0)
   glBindTexture(GL_TEXTURE_2D, px.atlasTexture)
   px.shader.setUniform("atlas", 0)

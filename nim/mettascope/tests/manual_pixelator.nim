@@ -1,5 +1,5 @@
 import
-  opengl, windy, vmath,
+  opengl, silky, windy, vmath,
   ../src/mettascope/[pixelator]
 
 let window = newWindow("Test Pixelator", ivec2(1280, 800))
@@ -13,7 +13,8 @@ var
   zoomVel: float32
   frame: int
 
-let px = newPixelator("data/atlas.png", "data/atlas.json")
+let sk = newSilky(window, "data/silky.atlas.png")
+let px = newPixelator(sk)
 
 let spriteNames = @[
   "agents/agent.n",
