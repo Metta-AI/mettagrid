@@ -27,7 +27,7 @@ def _base_cfg():
     )
     cfg.game.resource_names = ["energy"]
     cfg.game.agent.inventory.initial = {"energy": 0}
-    cfg.game.agent.inventory.limits = {"energy": ResourceLimitsConfig(min=1000, resources=["energy"])}
+    cfg.game.agent.inventory.limits = {"energy": ResourceLimitsConfig(base=1000, resources=["energy"])}
     cfg.game.actions.noop.enabled = True
     return cfg
 

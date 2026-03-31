@@ -404,7 +404,7 @@ class TestInventoryRegeneration:
         }
         cfg.game.agent.inventory.initial = {"energy": 95}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=100, resources=["energy"]),  # Max 100 energy
+            "energy": ResourceLimitsConfig(base=100, resources=["energy"]),  # Max 100 energy
         }
         cfg.game.actions.noop.enabled = True
 

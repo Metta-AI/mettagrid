@@ -617,7 +617,7 @@ def convert_to_cpp_game_config(
                 for name, bonus in modifiers_dict.items()
                 if name in resource_name_to_id
             }
-            min_val = resource_limit.get("min", resource_limit.get("limit", 0))
+            min_val = resource_limit.get("base", resource_limit.get("limit", 0))
             max_val = resource_limit.get("max", 65535)
             limit_defs.append(CppLimitDef(resource_ids, min_val, max_val, modifier_ids))
             configured_resources.update(resource_limit["resources"])
@@ -754,7 +754,7 @@ def convert_to_cpp_game_config(
                             if name in resource_name_to_id
                         }
                         limit_defs.append(
-                            CppLimitDef(resource_ids, resource_limit.min, resource_limit.max, modifier_ids)
+                            CppLimitDef(resource_ids, resource_limit.base, resource_limit.max, modifier_ids)
                         )
                 # Apply default_limit to resources with initial values but no explicit limit.
                 for resource_name in object_config.inventory.initial:

@@ -110,14 +110,14 @@ def test_attack_integration(make_sim, complex_game_map):
             {
                 "team_id": 0,
                 "inventory": {
-                    "limits": {"laser": {"min": 10, "resources": ["laser"]}},
+                    "limits": {"laser": {"base": 10, "resources": ["laser"]}},
                     "initial": {"laser": 5},
                 },
             },
             {
                 "team_id": 1,
                 "inventory": {
-                    "limits": {"laser": {"min": 10, "resources": ["laser"]}},
+                    "limits": {"laser": {"base": 10, "resources": ["laser"]}},
                     "initial": {"laser": 5},
                 },
             },

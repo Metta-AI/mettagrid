@@ -152,7 +152,7 @@ class TestAddTagMutationEndToEnd:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
@@ -273,7 +273,7 @@ class TestRemoveTagMutationEndToEnd:
         cfg.game.agent.tags = ["vulnerable"]
         cfg.game.agent.inventory.initial = {"hp": 100}
         cfg.game.agent.inventory.limits = {
-            "hp": ResourceLimitsConfig(min=1000, resources=["hp"]),
+            "hp": ResourceLimitsConfig(base=1000, resources=["hp"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True

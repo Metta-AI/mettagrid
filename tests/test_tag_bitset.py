@@ -306,7 +306,7 @@ class TestTagMutationWithFilters:
             },
         )
         cfg.game.agent.inventory.initial = {"gold": 0}
-        cfg.game.agent.inventory.limits = {"gold": ResourceLimitsConfig(min=1000, resources=["gold"])}
+        cfg.game.agent.inventory.limits = {"gold": ResourceLimitsConfig(base=1000, resources=["gold"])}
         sim = Simulation(cfg)
 
         sim.agent(0).set_action("noop")
@@ -342,7 +342,7 @@ class TestTagMutationWithFilters:
             },
         )
         cfg.game.agent.inventory.initial = {"hp": 100}
-        cfg.game.agent.inventory.limits = {"hp": ResourceLimitsConfig(min=1000, resources=["hp"])}
+        cfg.game.agent.inventory.limits = {"hp": ResourceLimitsConfig(base=1000, resources=["hp"])}
         sim = Simulation(cfg)
 
         # Step 1: damager should fire (agent has "vulnerable")

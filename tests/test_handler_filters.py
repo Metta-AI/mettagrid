@@ -51,7 +51,7 @@ class TestVibeFilterOnAOE:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
@@ -109,7 +109,7 @@ class TestVibeFilterOnAOE:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
@@ -152,7 +152,7 @@ class TestVibeFilterOnAOE:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
@@ -210,7 +210,7 @@ class TestNotFilterOnAOE:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -288,9 +288,9 @@ class TestMultiResourceNegatedFilter:
         cfg.game.resource_names = ["gold", "key", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 5, "key": 0, "energy": 0}  # Has gold, lacks key
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "key": ResourceLimitsConfig(min=1000, resources=["key"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "key": ResourceLimitsConfig(base=1000, resources=["key"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -335,9 +335,9 @@ class TestMultiResourceNegatedFilter:
         cfg.game.resource_names = ["gold", "key", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 5, "key": 3, "energy": 0}  # Has both gold and key
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "key": ResourceLimitsConfig(min=1000, resources=["key"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "key": ResourceLimitsConfig(base=1000, resources=["key"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -382,9 +382,9 @@ class TestMultiResourceNegatedFilter:
         cfg.game.resource_names = ["gold", "key", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 0, "key": 0, "energy": 0}  # Has neither gold nor key
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "key": ResourceLimitsConfig(min=1000, resources=["key"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "key": ResourceLimitsConfig(base=1000, resources=["key"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -433,7 +433,7 @@ class TestOrFilter:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -478,7 +478,7 @@ class TestOrFilter:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -523,7 +523,7 @@ class TestOrFilter:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -579,9 +579,9 @@ class TestTargetHasAnyOf:
         cfg.game.resource_names = ["gold", "silver", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 5, "silver": 0, "energy": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -621,9 +621,9 @@ class TestTargetHasAnyOf:
         cfg.game.resource_names = ["gold", "silver", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 0, "silver": 5, "energy": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -663,9 +663,9 @@ class TestTargetHasAnyOf:
         cfg.game.resource_names = ["gold", "silver", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 0, "silver": 0, "energy": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -715,10 +715,10 @@ class TestOrFilterMultiResourceAndSemantics:
         cfg.game.resource_names = ["gold", "silver", "bronze", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 5, "silver": 0, "bronze": 0, "energy": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
-            "bronze": ResourceLimitsConfig(min=1000, resources=["bronze"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
+            "bronze": ResourceLimitsConfig(base=1000, resources=["bronze"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -764,10 +764,10 @@ class TestOrFilterMultiResourceAndSemantics:
         cfg.game.resource_names = ["gold", "silver", "bronze", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 5, "silver": 3, "bronze": 0, "energy": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
-            "bronze": ResourceLimitsConfig(min=1000, resources=["bronze"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
+            "bronze": ResourceLimitsConfig(base=1000, resources=["bronze"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -811,10 +811,10 @@ class TestOrFilterMultiResourceAndSemantics:
         cfg.game.resource_names = ["gold", "silver", "bronze", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 0, "silver": 0, "bronze": 5, "energy": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
-            "bronze": ResourceLimitsConfig(min=1000, resources=["bronze"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
+            "bronze": ResourceLimitsConfig(base=1000, resources=["bronze"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -863,10 +863,10 @@ class TestNestedOrFilter:
         cfg.game.resource_names = ["gold", "silver", "bronze", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 5, "silver": 0, "bronze": 0, "energy": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
-            "bronze": ResourceLimitsConfig(min=1000, resources=["bronze"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
+            "bronze": ResourceLimitsConfig(base=1000, resources=["bronze"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -915,10 +915,10 @@ class TestNestedOrFilter:
         cfg.game.resource_names = ["gold", "silver", "bronze", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 0, "silver": 5, "bronze": 0, "energy": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
-            "bronze": ResourceLimitsConfig(min=1000, resources=["bronze"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
+            "bronze": ResourceLimitsConfig(base=1000, resources=["bronze"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -967,10 +967,10 @@ class TestNestedOrFilter:
         cfg.game.resource_names = ["gold", "silver", "bronze", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 0, "silver": 0, "bronze": 5, "energy": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
-            "bronze": ResourceLimitsConfig(min=1000, resources=["bronze"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
+            "bronze": ResourceLimitsConfig(base=1000, resources=["bronze"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -1019,10 +1019,10 @@ class TestNestedOrFilter:
         cfg.game.resource_names = ["gold", "silver", "bronze", "energy"]
         cfg.game.agent.inventory.initial = {"gold": 0, "silver": 0, "bronze": 0, "energy": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
-            "bronze": ResourceLimitsConfig(min=1000, resources=["bronze"]),
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
+            "bronze": ResourceLimitsConfig(base=1000, resources=["bronze"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 

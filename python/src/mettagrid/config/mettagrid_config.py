@@ -69,19 +69,19 @@ class ResourceLimitsConfig(Config):
     """Resource limits configuration.
 
     Supports dynamic limits via modifiers. The effective limit is:
-    min(max, max(min, sum(modifier_bonus * quantity_held)))
+    min(max, max(base, sum(modifier_bonus * quantity_held)))
 
     Example:
         ResourceLimitsConfig(
             resources=["battery"],
-            min=0,  # base limit is 0
+            base=0,  # base capacity is 0
             max=100,  # cap at 100 even with modifiers
             modifiers={"gear": 10}  # each gear adds +10 battery capacity
         )
     """
 
-    # Require min, since it's easy to forget to set it, and `min` is sort of counterintuitive.
-    min: int = Field(description="Minimum limit (floor for effective limit)")
+    # Require base, since it's easy to forget to set it.
+    base: int = Field(description="Base capacity (floor for effective limit, before modifiers)")
     max: int = Field(default=65535, description="Maximum limit (cap for effective limit)")
     resources: list[str]
     modifiers: dict[str, int] = Field(
@@ -104,7 +104,7 @@ class InventoryConfig(Config):
         """Get the base resource limit for a given resource name (without modifiers)."""
         for limit_config in self.limits.values():
             if resource_name in limit_config.resources:
-                return limit_config.min
+                return limit_config.base
         return self.default_limit
 
 

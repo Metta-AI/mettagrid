@@ -45,8 +45,8 @@ class TestMultiHandlerFirstMatch:
         cfg.game.resource_names = ["gold", "silver"]
         cfg.game.agent.inventory.initial = {"gold": 0, "silver": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
         }
         cfg.game.actions.move.enabled = True
 
@@ -106,9 +106,9 @@ class TestMultiHandlerFirstMatch:
         cfg.game.resource_names = ["gold", "silver", "key"]
         cfg.game.agent.inventory.initial = {"gold": 0, "silver": 0, "key": 0}  # No key!
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
-            "key": ResourceLimitsConfig(min=1000, resources=["key"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
+            "key": ResourceLimitsConfig(base=1000, resources=["key"]),
         }
         cfg.game.actions.move.enabled = True
 
@@ -166,8 +166,8 @@ class TestMultiHandlerAll:
         cfg.game.resource_names = ["gold", "silver"]
         cfg.game.agent.inventory.initial = {"gold": 0, "silver": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -227,9 +227,9 @@ class TestMultiHandlerAll:
         cfg.game.resource_names = ["gold", "silver", "key"]
         cfg.game.agent.inventory.initial = {"gold": 0, "silver": 0, "key": 0}  # No key
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
-            "silver": ResourceLimitsConfig(min=1000, resources=["silver"]),
-            "key": ResourceLimitsConfig(min=1000, resources=["key"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+            "silver": ResourceLimitsConfig(base=1000, resources=["silver"]),
+            "key": ResourceLimitsConfig(base=1000, resources=["key"]),
         }
         cfg.game.actions.noop.enabled = True
 
@@ -282,7 +282,7 @@ class TestMultiHandlerAll:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         cfg.game.actions.noop.enabled = True
 

@@ -178,7 +178,7 @@ class TestStatsMutationEndToEnd:
 
         cfg.game.resource_names = ["gold"]
         cfg.game.agent.inventory.initial = {"gold": 42}
-        cfg.game.agent.inventory.limits = {"resources": ResourceLimitsConfig(min=100, resources=["gold"])}
+        cfg.game.agent.inventory.limits = {"resources": ResourceLimitsConfig(base=100, resources=["gold"])}
         cfg.game.actions.noop.enabled = True
 
         cfg.game.objects["counter"] = GridObjectConfig(

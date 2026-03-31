@@ -22,7 +22,7 @@ class TestGridObjectInventory:
             },
             inventory=InventoryConfig(
                 initial={"gold": 5},
-                limits={"gold": ResourceLimitsConfig(min=100, resources=["gold"])},
+                limits={"gold": ResourceLimitsConfig(base=100, resources=["gold"])},
             ),
         )
 

@@ -36,7 +36,7 @@ class TestTagFilter:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
@@ -82,7 +82,7 @@ class TestTagFilter:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True

@@ -81,7 +81,7 @@ def _make_sim(on_tick: dict, resource_names: list[str], initial: dict[str, int])
     cfg.game.agent.on_tick = on_tick
     cfg.game.agent.inventory.initial = initial
     cfg.game.agent.inventory.limits = {
-        name: ResourceLimitsConfig(min=1000, resources=[name]) for name in resource_names
+        name: ResourceLimitsConfig(base=1000, resources=[name]) for name in resource_names
     }
     cfg.game.actions.noop.enabled = True
     return Simulation(cfg)

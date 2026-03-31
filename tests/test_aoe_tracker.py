@@ -36,7 +36,7 @@ class TestAOEMutations:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
@@ -92,7 +92,7 @@ class TestPresenceDeltas:
         cfg.game.resource_names = ["shield"]
         cfg.game.agent.inventory.initial = {"shield": 0}
         cfg.game.agent.inventory.limits = {
-            "shield": ResourceLimitsConfig(min=1000, resources=["shield"]),
+            "shield": ResourceLimitsConfig(base=1000, resources=["shield"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
@@ -151,7 +151,7 @@ class TestPresenceDeltas:
         cfg.game.resource_names = ["shield"]
         cfg.game.agent.inventory.initial = {"shield": 100}
         cfg.game.agent.inventory.limits = {
-            "shield": ResourceLimitsConfig(min=1000, resources=["shield"]),
+            "shield": ResourceLimitsConfig(base=1000, resources=["shield"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
@@ -207,7 +207,7 @@ class TestAgentAOE:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
@@ -261,7 +261,7 @@ class TestEffectSelf:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
@@ -302,7 +302,7 @@ class TestEffectSelf:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True
@@ -348,7 +348,7 @@ class TestMobileVsStatic:
         cfg.game.resource_names = ["energy"]
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.agent.inventory.limits = {
-            "energy": ResourceLimitsConfig(min=1000, resources=["energy"]),
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
         }
         # No on_tick — no passive regen
         cfg.game.actions.noop.enabled = True

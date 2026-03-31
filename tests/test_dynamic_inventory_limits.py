@@ -23,13 +23,13 @@ def test_resource_limits_config_with_modifiers():
     """Test that ResourceLimitsConfig correctly stores modifiers."""
     config = ResourceLimitsConfig(
         resources=["battery"],
-        min=0,
+        base=0,
         max=100,
         modifiers={"gear": 5, "wrench": 3},
     )
 
     assert config.resources == ["battery"]
-    assert config.min == 0
+    assert config.base == 0
     assert config.max == 100
     assert config.modifiers == {"gear": 5, "wrench": 3}
 
@@ -38,11 +38,11 @@ def test_resource_limits_config_default_modifiers():
     """Test that ResourceLimitsConfig has empty modifiers by default."""
     config = ResourceLimitsConfig(
         resources=["gold"],
-        min=100,
+        base=100,
     )
 
     assert config.resources == ["gold"]
-    assert config.min == 100
+    assert config.base == 100
     assert config.max == 65535  # default
     assert config.modifiers == {}
 
@@ -51,14 +51,14 @@ def test_resource_limits_config_model_dump():
     """Test that modifiers are correctly serialized in model_dump."""
     config = ResourceLimitsConfig(
         resources=["energy"],
-        min=0,
+        base=0,
         max=500,
         modifiers={"battery": 25},
     )
 
     dumped = config.model_dump()
     assert dumped["resources"] == ["energy"]
-    assert dumped["min"] == 0
+    assert dumped["base"] == 0
     assert dumped["max"] == 500
     assert dumped["modifiers"] == {"battery": 25}
 
@@ -67,12 +67,12 @@ def test_resource_limits_config_empty_modifiers_dump():
     """Test that empty modifiers are correctly serialized."""
     config = ResourceLimitsConfig(
         resources=["ore"],
-        min=50,
+        base=50,
     )
 
     dumped = config.model_dump()
     assert dumped["modifiers"] == {}
-    assert dumped["min"] == 50
+    assert dumped["base"] == 50
     assert dumped["max"] == 65535
 
 
@@ -95,9 +95,9 @@ def test_effective_limit_min_floor():
             agent=AgentConfig(
                 inventory=InventoryConfig(
                     limits={
-                        "gear": ResourceLimitsConfig(min=10, resources=["gear"]),
+                        "gear": ResourceLimitsConfig(base=10, resources=["gear"]),
                         "battery": ResourceLimitsConfig(
-                            min=5,
+                            base=5,
                             max=20,
                             resources=["battery"],
                             modifiers={"gear": 10},
@@ -138,7 +138,7 @@ def test_effective_limit_max_cap():
                 inventory=InventoryConfig(
                     limits={
                         "gold": ResourceLimitsConfig(
-                            min=100,
+                            base=100,
                             max=50,
                             resources=["gold"],
                         ),

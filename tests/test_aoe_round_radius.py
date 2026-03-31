@@ -17,7 +17,7 @@ def test_aoe_uses_euclidean_distance() -> None:
         cfg.game.resource_names = ["energy"]
         cfg.game.actions.noop.enabled = True
         cfg.game.agent.inventory.initial = {"energy": 0}
-        cfg.game.agent.inventory.limits = {"energy": ResourceLimitsConfig(min=1000, resources=["energy"])}
+        cfg.game.agent.inventory.limits = {"energy": ResourceLimitsConfig(base=1000, resources=["energy"])}
         cfg.game.objects["aoe_source"] = GridObjectConfig(
             name="aoe_source",
             map_name="aoe_source",

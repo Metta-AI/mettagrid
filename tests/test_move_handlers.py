@@ -82,7 +82,7 @@ def _agent_with_mobility(team_id: int = 0) -> AgentConfig:
     return AgentConfig(
         team_id=team_id,
         inventory=InventoryConfig(
-            limits={"mobility": ResourceLimitsConfig(min=1, max=1, resources=["mobility"])},
+            limits={"mobility": ResourceLimitsConfig(base=1, max=1, resources=["mobility"])},
             initial={"mobility": 1},
         ),
     )

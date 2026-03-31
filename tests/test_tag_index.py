@@ -547,7 +547,7 @@ class TestOnTagRemovedIntegration:
         cfg.game.agent.tags = ["enchanted"]
         cfg.game.agent.inventory.initial = {"gold": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
         }
         # When "enchanted" is removed, agent gains 50 gold
         cfg.game.agent.on_tag_remove = {
@@ -593,7 +593,7 @@ class TestOnTagRemovedIntegration:
         cfg.game.agent.tags = ["enchanted"]
         cfg.game.agent.inventory.initial = {"gold": 0}
         cfg.game.agent.inventory.limits = {
-            "gold": ResourceLimitsConfig(min=1000, resources=["gold"]),
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
         }
         cfg.game.agent.on_tag_remove = {
             "enchanted": Handler(
