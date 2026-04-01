@@ -3,6 +3,7 @@
 
 #include <cassert>
 
+#include "core/aoe_tracker.hpp"
 #include "core/grid.hpp"
 #include "core/grid_object.hpp"
 #include "core/tag_index.hpp"
@@ -83,10 +84,13 @@ public:
       }
     }
 
-    // Remove source from grid and tag index when its inventory is depleted
+    // Remove source from grid, tag index, and AOE tracker when its inventory is depleted
     if (_config.remove_source_when_empty && source->inventory.is_empty()) {
       GridObject* grid_obj = dynamic_cast<GridObject*>(source);
       if (grid_obj != nullptr) {
+        if (ctx.aoe_tracker) {
+          ctx.aoe_tracker->unregister_source(*grid_obj);
+        }
         ctx.grid->remove_from_grid(*grid_obj);
         ctx.tag_index->unregister_object(grid_obj);
       }

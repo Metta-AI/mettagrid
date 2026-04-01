@@ -147,6 +147,17 @@ void AOETracker::register_source(GridObject& source, const AOEConfig& config) {
   }
 }
 
+void AOETracker::deferred_register(GridObject& source, const AOEConfig& config) {
+  _deferred_registrations.emplace_back(&source, config);
+}
+
+void AOETracker::flush_deferred() {
+  for (auto& [source, config] : _deferred_registrations) {
+    register_source(*source, config);
+  }
+  _deferred_registrations.clear();
+}
+
 void AOETracker::unregister_source(GridObject& source) {
   unregister_fixed(source);
   unregister_mobile(source);

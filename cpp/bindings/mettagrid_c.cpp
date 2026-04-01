@@ -159,6 +159,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   // Initialize base HandlerContext with all system pointers
   _game_ctx = mettagrid::HandlerContext(&_tag_index, _grid.get(), _stats.get(), _query_system.get(), &_rng);
   _game_ctx.game_config = &_game_config;
+  _game_ctx.aoe_tracker = _aoe_tracker.get();
 
   // Compute initial query tags
   _query_system->compute_all(_game_ctx);
@@ -1032,6 +1033,11 @@ void MettaGrid::_step() {
 
   // Apply mobile AOE effects (sources checked against all agents)
   _aoe_tracker->apply_mobile(_agents, _game_ctx);
+
+  // Flush any AOE registrations queued by mutations during this tick
+  // (e.g. SpawnObjectMutation creating objects with AOEs).
+  _aoe_tracker->flush_deferred();
+
   if (_profiling_enabled) {
     phase_end = std::chrono::steady_clock::now();
     _step_timing.aoe_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();

@@ -85,6 +85,16 @@ public:
   // Register an AOE source - routes to fixed or mobile based on config.is_static
   void register_source(GridObject& source, const AOEConfig& config);
 
+  // Queue an AOE registration for later. Use this instead of register_source when
+  // called from within a mutation that may execute during an AOE traversal pass
+  // (e.g. SpawnObjectMutation triggered by a handler). Callers must invoke
+  // flush_deferred() after the AOE pass completes.
+  void deferred_register(GridObject& source, const AOEConfig& config);
+
+  // Apply all queued deferred registrations. Called by the game loop after
+  // apply_fixed/apply_mobile complete.
+  void flush_deferred();
+
   // Unregister all AOE configs for a source (both fixed and mobile)
   void unregister_source(GridObject& source);
 
@@ -157,6 +167,10 @@ private:
 
   // Scratch buffer reused across apply_fixed to avoid per-target allocations.
   std::unordered_set<AOESource*> _scratch_current_cell_set;
+
+  // Deferred AOE registrations queued during mutation execution.
+  // Flushed after apply_fixed/apply_mobile complete to avoid iterator invalidation.
+  std::vector<std::pair<GridObject*, AOEConfig>> _deferred_registrations;
 };
 
 }  // namespace mettagrid

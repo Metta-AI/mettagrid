@@ -21,6 +21,7 @@ struct GameConfig;
 
 namespace mettagrid {
 
+class AOETracker;
 class QuerySystem;
 
 /**
@@ -47,6 +48,7 @@ public:
   Grid* grid = nullptr;                   // Grid for removing objects from cells
   QuerySystem* query_system = nullptr;
   const GameConfig* game_config = nullptr;  // Game config for object type lookups
+  AOETracker* aoe_tracker = nullptr;        // AOE tracker for registering/unregistering spawned object AOEs
   std::mt19937* rng = nullptr;
   bool skip_on_update_trigger = false;
   bool mutation_failed = false;  // Set by mutations that fail (e.g. onUse returns false)

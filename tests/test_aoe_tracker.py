@@ -7,13 +7,17 @@ These tests verify that:
 4. Effect_self flag controls whether source is affected by its own AOE
 """
 
-from mettagrid.config.handler_config import AOEConfig
+from mettagrid.config.action_config import ChangeVibeActionConfig
+from mettagrid.config.filter import HandlerTarget, TargetLocEmptyFilter, VibeFilter
+from mettagrid.config.handler_config import AOEConfig, Handler
 from mettagrid.config.mettagrid_config import (
     GridObjectConfig,
+    InventoryConfig,
     MettaGridConfig,
     ResourceLimitsConfig,
 )
-from mettagrid.config.mutation import EntityTarget, ResourceDeltaMutation
+from mettagrid.config.mutation import EntityTarget, ResourceDeltaMutation, ResourceTransferMutation, SpawnObjectMutation
+from mettagrid.config.vibes import Vibe
 from mettagrid.simulator import Simulation
 
 
@@ -376,3 +380,165 @@ class TestMobileVsStatic:
         # Agent should have received energy
         energy = sim.agent(0).inventory.get("energy", 0)
         assert energy == 10, f"Agent in range of static AOE should have 10 energy, got {energy}"
+
+
+class TestSpawnedObjectAOE:
+    """Test that dynamically spawned objects have their AOEs registered."""
+
+    def _spawn_cfg(self):
+        """Config where an agent in 'spawner' vibe spawns a beacon with AOE on move."""
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+            [
+                ["#", "#", "#", "#", "#", "#", "#"],
+                ["#", "@", ".", ".", ".", ".", "#"],
+                ["#", ".", ".", ".", ".", ".", "#"],
+                ["#", ".", ".", ".", ".", ".", "#"],
+                ["#", "#", "#", "#", "#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty"},
+        )
+
+        cfg.game.resource_names = ["energy"]
+        cfg.game.agent.inventory.initial = {"energy": 0}
+        cfg.game.agent.inventory.limits = {
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
+        }
+        cfg.game.actions.noop.enabled = True
+        cfg.game.actions.move.enabled = True
+        cfg.game.actions.change_vibe = ChangeVibeActionConfig(
+            vibes=[Vibe("😐", "default"), Vibe("⭐", "spawner")],
+        )
+
+        # Move handler: spawner vibe places a beacon with AOE
+        cfg.game.actions.move.handlers = [
+            Handler(
+                name="spawn_beacon",
+                filters=[
+                    VibeFilter(target=HandlerTarget.ACTOR, vibe="spawner"),
+                    TargetLocEmptyFilter(),
+                ],
+                mutations=[SpawnObjectMutation(object_type="beacon")],
+            ),
+        ]
+
+        # Beacon: static AOE that gives energy each tick
+        cfg.game.objects["beacon"] = GridObjectConfig(
+            name="beacon",
+            map_name="beacon",
+            inventory=InventoryConfig(
+                limits={"energy": ResourceLimitsConfig(base=100, resources=["energy"])},
+                initial={"energy": 1},
+            ),
+            aoes={
+                "default": AOEConfig(
+                    radius=2,
+                    is_static=True,
+                    filters=[],
+                    mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
+                ),
+            },
+        )
+
+        return cfg
+
+    def test_spawned_object_aoe_affects_agent(self):
+        """Agent spawns a beacon with AOE, then receives energy from it."""
+        cfg = self._spawn_cfg()
+        sim = Simulation(cfg)
+
+        # Switch to spawner vibe
+        sim.agent(0).set_action("change_vibe_spawner")
+        sim.step()
+
+        # Move east to spawn beacon at (1, 2)
+        sim.agent(0).set_action("move_east")
+        sim.step()
+
+        # Agent should be at (1, 1), beacon at (1, 2), within radius 2
+        # Wait one tick for AOE to take effect (deferred registration flushes after AOE pass,
+        # so the spawned beacon's AOE fires starting the NEXT tick)
+        sim.agent(0).set_action("noop")
+        sim.step()
+
+        energy = sim.agent(0).inventory.get("energy", 0)
+        assert energy > 0, f"Spawned beacon AOE should give energy, got {energy}"
+        sim.close()
+
+    def test_removed_object_aoe_stops_affecting_agent(self):
+        """After an object with AOE is removed from the grid, its AOE stops firing."""
+        # Pre-place a beacon with AOE and a way to remove it
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+            [
+                ["#", "#", "#", "#", "#"],
+                ["#", ".", ".", ".", "#"],
+                ["#", ".", "@", ".", "#"],
+                ["#", ".", "S", ".", "#"],
+                ["#", "#", "#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "S": "beacon"},
+        )
+
+        cfg.game.resource_names = ["energy"]
+        cfg.game.agent.inventory.initial = {"energy": 0}
+        cfg.game.agent.inventory.limits = {
+            "energy": ResourceLimitsConfig(base=1000, resources=["energy"]),
+        }
+        cfg.game.actions.noop.enabled = True
+        cfg.game.actions.move.enabled = True
+
+        # Beacon with AOE + hp for removal
+        cfg.game.objects["beacon"] = GridObjectConfig(
+            name="beacon",
+            map_name="beacon",
+            inventory=InventoryConfig(
+                limits={"energy": ResourceLimitsConfig(base=100, resources=["energy"])},
+                initial={"energy": 1},
+            ),
+            aoes={
+                "default": AOEConfig(
+                    radius=2,
+                    is_static=True,
+                    filters=[],
+                    mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
+                ),
+            },
+            on_use_handlers={
+                "drain": Handler(
+                    mutations=[
+                        ResourceTransferMutation(
+                            from_target=EntityTarget.TARGET,
+                            to_target=EntityTarget.ACTOR,
+                            resources={"energy": -1},
+                            remove_source_when_empty=True,
+                        ),
+                    ],
+                ),
+            },
+        )
+
+        sim = Simulation(cfg)
+
+        # Tick 1: AOE fires, agent gets energy
+        sim.agent(0).set_action("noop")
+        sim.step()
+        energy_after_aoe = sim.agent(0).inventory.get("energy", 0)
+        assert energy_after_aoe == 10, f"Expected 10 energy from AOE, got {energy_after_aoe}"
+
+        # Move south onto beacon to trigger on_use (drain + remove)
+        sim.agent(0).set_action("move_south")
+        sim.step()
+
+        # Record energy, then wait and check it doesn't increase
+        energy_after_remove = sim.agent(0).inventory.get("energy", 0)
+
+        sim.agent(0).set_action("noop")
+        sim.step()
+        sim.agent(0).set_action("noop")
+        sim.step()
+
+        energy_final = sim.agent(0).inventory.get("energy", 0)
+        assert energy_final == energy_after_remove, (
+            f"AOE should stop after beacon removal: energy was {energy_after_remove} "
+            f"after removal but grew to {energy_final}"
+        )
+        sim.close()
