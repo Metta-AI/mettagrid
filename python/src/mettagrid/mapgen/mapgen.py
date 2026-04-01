@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
-from pydantic import Field, ValidatorFunctionWrapHandler, field_validator, model_validator
+from pydantic import Field, ValidationInfo, ValidatorFunctionWrapHandler, field_validator, model_validator
 
 from mettagrid.map_builder import GameMap, MapBuilder, MapBuilderConfig, MapGrid
 from mettagrid.map_builder.map_builder import AnyMapBuilderConfig
@@ -42,7 +42,9 @@ class MapGenConfig(MapBuilderConfig["MapGen"]):
 
     @field_validator("instance", mode="wrap")
     @classmethod
-    def _validate_instance(cls, v: Any, handler: ValidatorFunctionWrapHandler) -> SceneConfig | MapBuilderConfig:
+    def _validate_instance(
+        cls, v: Any, handler: ValidatorFunctionWrapHandler, info: ValidationInfo
+    ) -> SceneConfig | MapBuilderConfig:
         if isinstance(v, SceneConfig):
             return v
         elif isinstance(v, MapBuilderConfig):
@@ -55,9 +57,9 @@ class MapGenConfig(MapBuilderConfig["MapGen"]):
                 raise ValueError("'type' is required")
             target = load_symbol(t) if isinstance(t, str) else t
             if isinstance(target, type) and issubclass(target, SceneConfig):
-                return SceneConfig.model_validate(v)
+                return SceneConfig.model_validate(v, context=info.context)
             elif isinstance(target, type) and issubclass(target, MapBuilderConfig):
-                return MapBuilderConfig.model_validate(v)
+                return MapBuilderConfig.model_validate(v, context=info.context)
             else:
                 raise ValueError(f"Invalid instance type: {target!r}")
         else:
