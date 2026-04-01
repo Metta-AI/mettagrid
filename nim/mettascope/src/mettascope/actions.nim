@@ -154,6 +154,25 @@ proc processActions*() =
             agentPaths.del(agentId)
         break
 
+proc queueWasdMove(agent: Entity, direction: IVec2) =
+  ## Queue a single-step WASD move through the pathfinding action queue.
+  ## When play=true, this lets processActions() drain it on the next auto-advance
+  ## step boundary, avoiding race conditions with the smooth transition system.
+  ## When play=false, falls back to direct sendAction() for immediate stepping.
+  let
+    currentPos = agent.location.at(replay.maxSteps - 1).xy
+    targetPos = ivec2(currentPos.x + direction.x, currentPos.y + direction.y)
+  let actionName = getMoveActionName(getOrientationFromDelta(direction.x.int, direction.y.int))
+  agentObjectives.del(agent.agentId)
+  if play:
+    # Always queue for smooth interpolation. Replaces any existing path so the
+    # agent changes direction immediately on the next step boundary.
+    agentPaths[agent.agentId] = @[PathAction(kind: Move, pos: targetPos)]
+  else:
+    # play=false — user controls stepping. Direct send.
+    agentPaths.del(agent.agentId)
+    sendAction(agent.agentId, actionName)
+
 proc agentControls*() =
   ## Manual controls with WASD for selected agent.
   if selected != nil and selected.isAgent:
@@ -161,20 +180,16 @@ proc agentControls*() =
 
     # Move
     if window.buttonPressed[KeyW] or window.buttonPressed[KeyUp]:
-      sendAction(agent.agentId, "move_north")
-      clearPath(agent.agentId)
+      queueWasdMove(agent, ivec2(0, -1))
 
     elif window.buttonPressed[KeyS] or window.buttonPressed[KeyDown]:
-      sendAction(agent.agentId, "move_south")
-      clearPath(agent.agentId)
+      queueWasdMove(agent, ivec2(0, 1))
 
     elif window.buttonPressed[KeyD] or window.buttonPressed[KeyRight]:
-      sendAction(agent.agentId, "move_east")
-      clearPath(agent.agentId)
+      queueWasdMove(agent, ivec2(1, 0))
 
     elif window.buttonPressed[KeyA] or window.buttonPressed[KeyLeft]:
-      sendAction(agent.agentId, "move_west")
-      clearPath(agent.agentId)
+      queueWasdMove(agent, ivec2(-1, 0))
 
     # Noop
     elif window.buttonPressed[KeyX]:

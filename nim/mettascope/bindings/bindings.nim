@@ -16,7 +16,8 @@ type
     actions*: seq[ActionRequest]
 
 const
-  RealtimeSmoothMaxStepDelta = 1.5f
+  RealtimeSmoothMaxStepDeltaPaused = 1.5f
+  RealtimeSmoothMaxStepDeltaPlaying = 2.5f
 
 var
   realtimeTransitionActive = false
@@ -86,8 +87,15 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
       onReplayLoaded()
     let currentStepFloat = currentStep.float32
     if playMode == Realtime:
-      let delta = abs(currentStepFloat - stepFloat)
-      if delta > 0.0f and delta <= RealtimeSmoothMaxStepDelta:
+      let
+        delta = abs(currentStepFloat - stepFloat)
+        threshold = if play: RealtimeSmoothMaxStepDeltaPlaying else: RealtimeSmoothMaxStepDeltaPaused
+      if forceWarp:
+        forceWarp = false
+        realtimeTransitionActive = false
+        stepFloatSmoothing = false
+        stepFloat = currentStepFloat
+      elif delta > 0.0f and delta <= threshold:
         realtimeTransitionStart = stepFloat
         realtimeTransitionTarget = currentStepFloat
         realtimeTransitionStartTime = epochTime()
