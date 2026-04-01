@@ -705,29 +705,6 @@ proc useSelections*(zoomInfo: ZoomInfo) {.measure.} =
         gridPos.y >= 0 and gridPos.y < replay.mapSize[1]:
         issueOrderAt(gridPos, mousePos, effectiveShift, effectiveRepeat)
 
-proc inferOrientation*(agent: Entity, step: int): Orientation =
-  ## Get the orientation of the agent based on position changes.
-  ## Looks backwards from current step to find the last movement.
-  if agent.location.len < 2:
-    return S
-  for i in countdown(step, 1):
-    let
-      loc0 = agent.location.at(i - 1)
-      loc1 = agent.location.at(i)
-      dx = loc1.x - loc0.x
-      dy = loc1.y - loc0.y
-    if dx != 0 or dy != 0:
-      # Found a movement - determine direction
-      if dx > 0:
-        return E
-      elif dx < 0:
-        return W
-      elif dy > 0:
-        return S
-      else:
-        return N
-  return S
-
 proc inferOrientationFromDir(dir: IVec2): Orientation =
   ## Return a cardinal orientation for the given direction vector.
   if dir.x > 0:
@@ -737,6 +714,34 @@ proc inferOrientationFromDir(dir: IVec2): Orientation =
   if dir.y > 0:
     return S
   N
+
+proc inferOrientation*(agent: Entity, step: int): Orientation =
+  ## Get the orientation from movement, else from a successful directional action.
+  if agent.isNil or agent.location.len == 0:
+    return S
+  let lastStep = step.clamp(0, agent.location.len - 1)
+  for i in countdown(lastStep, 0):
+    if i > 0:
+      let
+        loc0 = agent.location.at(i - 1)
+        loc1 = agent.location.at(i)
+        dx = loc1.x - loc0.x
+        dy = loc1.y - loc0.y
+      if dx != 0 or dy != 0:
+        if dx > 0:
+          return E
+        elif dx < 0:
+          return W
+        elif dy > 0:
+          return S
+        else:
+          return N
+
+    if agent.actionSuccess.len > 0 and agent.actionSuccess.at(i):
+      let moveDir = agent.getMoveActionDir(i)
+      if moveDir.isSome:
+        return inferOrientationFromDir(moveDir.get)
+  return S
 
 # stripTeamSuffix, stripTeamPrefix, normalizeTypeName are imported from common
 
