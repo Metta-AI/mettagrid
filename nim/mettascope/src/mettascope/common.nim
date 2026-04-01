@@ -224,6 +224,33 @@ proc xy*(rect: IRect): IVec2 =
 proc wh*(rect: IRect): IVec2 =
   ivec2(rect.w, rect.h)
 
+const IconTooltips* = {
+  "ui/rewindToStart": "Rewind to Start",
+  "ui/stepBack": "Step Back",
+  "ui/play": "Play",
+  "ui/pause": "Pause",
+  "ui/stepForward": "Step Forward",
+  "ui/rewindToEnd": "Rewind to End",
+  "ui/turtle": "Slowest",
+  "ui/rabbit": "Fastest",
+  "ui/speed": "Speed",
+  "ui/tack": "Lock Focus",
+  "ui/heart": "Resources",
+  "ui/grid": "Grid",
+  "ui/eye": "Visual Range",
+  "ui/cloud": "Fog of War",
+  "ui/heatmap": "Heatmap",
+  "ui/move": "Move",
+  "ui/queue": "Queue",
+  "ui/repeat": "Repeat",
+  "ui/help": "Help & Documentation",
+  "ui/share": "Share Replay Link",
+}.toTable
+
+proc iconTooltip*(icon: string): string =
+  ## Look up tooltip text for an icon. Returns empty string if not found.
+  IconTooltips.getOrDefault(icon)
+
 proc getAgentById*(agentId: int): Entity =
   ## Get an agent by ID. Asserts the agent exists.
   for obj in replay.objects:

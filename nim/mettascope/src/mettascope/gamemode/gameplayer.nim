@@ -176,10 +176,10 @@ proc drawVibeButton(
     sk.drawImage("ui/button_main.down", pos - vec2(16, 16))
 
   # Hit test and click handling.
-  if mousePos.overlaps(btnRect):
+  let vibeHover = mousePos.overlaps(btnRect)
+  if vibeHover:
     if not isActive:
       sk.drawImage("ui/button_main.hover", pos - vec2(16, 16))
-    sk.hover = true
     if window.buttonReleased[MouseLeft]:
       # TODO: FIX: Temporary. Implement proper architecture for sound.
       playSound(dataDir / "sounds" / "UIbutton.wav")
@@ -215,6 +215,8 @@ proc drawVibeButton(
           else:
             sendAction(selected.agentId, replay.actionNames[vibeActionId])
 
+  if vibeHover:
+    tooltip(vibeName)
   drawIconScaled(icon, pos, iconSize)
 
 proc drawToggleIconButton(pos: Vec2, icon: string, isActive: bool): bool =
@@ -232,8 +234,9 @@ proc drawToggleIconButton(pos: Vec2, icon: string, isActive: bool): bool =
     sk.drawImage("ui/button_main.hover", pos - vec2(16, 16))
 
   if hover:
-    sk.hover = true
-
+    let tip = iconTooltip(icon)
+    if tip != "":
+      tooltip(tip)
   if pressed:
     worldMapZoomInfo.hasMouse = false
 
@@ -268,6 +271,10 @@ proc drawTransportButton(startPos: Vec2, idx: int, icon: string, isDown: bool): 
     btnPos + vec2((bgSize.x - iconSize.x) / 2, (bgSize.y - iconSize.y) / 2),
     color = color(1, 1, 1, alpha).rgbx
   )
+  if hover:
+    let tip = iconTooltip(icon)
+    if tip != "":
+      tooltip(tip)
   if pressed:
     worldMapZoomInfo.hasMouse = false
   return pressed
@@ -341,13 +348,11 @@ proc bottomLeftPanel(winH: float32) =
     let startPos = vec2(59, winH - 60)
 
     if drawTransportButton(startPos, 0, "ui/rewindToStart", false):
-      echo "rewind to start"
       step = 0
       stepFloat = step.float32
       saveUIState()
 
     if drawTransportButton(startPos, 1, "ui/stepBack", false):
-      echo "step back"
       step -= 1
       step = clamp(step, 0, replay.maxSteps - 1)
       stepFloat = step.float32
@@ -359,12 +364,10 @@ proc bottomLeftPanel(winH: float32) =
       else:
         "ui/play"
     if drawTransportButton(startPos, 2, playIcon, play):
-      echo "play/pause"
       play = not play
       saveUIState()
 
     if drawTransportButton(startPos, 3, "ui/stepForward", false):
-      echo "step forward"
       step += 1
       if step > replay.maxSteps - 1:
         requestPython = true
@@ -373,7 +376,6 @@ proc bottomLeftPanel(winH: float32) =
       saveUIState()
 
     if drawTransportButton(startPos, 4, "ui/rewindToEnd", false):
-      echo "rewind to end"
       step = replay.maxSteps - 1
       stepFloat = step.float32
       saveUIState()
