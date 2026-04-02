@@ -25,6 +25,7 @@ from mettagrid.config.mutation.query_inventory_mutation import (
     queryDeposit,
     queryWithdraw,
 )
+from mettagrid.config.mutation.raycast_spawn_mutation import RaycastSpawnMutation
 from mettagrid.config.mutation.recompute_materialized_query_mutation import (
     RecomputeMaterializedQueryMutation,
     recomputeMaterializedQuery,
@@ -78,6 +79,7 @@ AnyMutation = Annotated[
         Annotated[SpawnObjectMutation, Tag("spawn_object")],
         Annotated[SwapMutation, Tag("swap")],
         Annotated[UseTargetMutation, Tag("use_target")],
+        Annotated[RaycastSpawnMutation, Tag("raycast_spawn")],
     ],
     Discriminator("mutation_type"),
 ]
@@ -102,6 +104,7 @@ _mutation_namespace = {
     "QueryInventoryMutation": QueryInventoryMutation,
     "RelocateMutation": RelocateMutation,
     "SpawnObjectMutation": SpawnObjectMutation,
+    "RaycastSpawnMutation": RaycastSpawnMutation,
     "SwapMutation": SwapMutation,
     "UseTargetMutation": UseTargetMutation,
 }
@@ -109,6 +112,8 @@ AttackMutation.model_rebuild(_types_namespace=_mutation_namespace)
 SetGameValueMutation.model_rebuild(_types_namespace=_mutation_namespace)
 RecomputeMaterializedQueryMutation.model_rebuild(_types_namespace=_mutation_namespace)
 QueryInventoryMutation.model_rebuild(_types_namespace=_mutation_namespace)
+# RaycastSpawnMutation references AnyFilter — rebuild after filter module is loaded.
+# Deferred: the filter __init__.py triggers this rebuild via the mutation namespace.
 
 __all__ = [
     # Enums
@@ -129,6 +134,7 @@ __all__ = [
     "QueryInventoryMutation",
     "RelocateMutation",
     "SpawnObjectMutation",
+    "RaycastSpawnMutation",
     "SwapMutation",
     "UseTargetMutation",
     "useTarget",

@@ -83,7 +83,9 @@ class ClosureQuery(Config):
     order_by: Optional[Literal["random"]] = Field(default=None, description="Order results before applying max_items")
 
 
-AnyQuery = Annotated[Union[Query, MaterializedQuery, ClosureQuery], Discriminator("query_type")]
+from mettagrid.config.raycast_query import RaycastQuery  # noqa: E402
+
+AnyQuery = Annotated[Union[Query, MaterializedQuery, ClosureQuery, RaycastQuery], Discriminator("query_type")]
 
 
 def query(source: "str | AnyQuery", filters: "AnyFilter | list[AnyFilter] | None" = None) -> Query:

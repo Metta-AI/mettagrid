@@ -50,6 +50,7 @@ from mettagrid.config.query import (
     materializedQuery,
     query,
 )
+from mettagrid.config.raycast_query import RaycastQuery, raycastQuery
 from mettagrid.config.tag import typeTag
 
 AnyFilter = Annotated[
@@ -85,6 +86,7 @@ _rebuild_ns = {
     "Query": Query,
     "MaterializedQuery": MaterializedQuery,
     "ClosureQuery": ClosureQuery,
+    "RaycastQuery": RaycastQuery,
 }
 for model in (
     NotFilter,
@@ -93,10 +95,17 @@ for model in (
     MaterializedQuery,
     ClosureQuery,
     MaxDistanceFilter,
+    RaycastQuery,
     QueryInventoryValue,
     QueryCountValue,
 ):
     model.model_rebuild(_types_namespace=_rebuild_ns)
+
+# RaycastSpawnMutation references AnyFilter — rebuild it now that AnyFilter is defined.
+from mettagrid.config.mutation.raycast_spawn_mutation import RaycastSpawnMutation  # noqa: E402
+
+RaycastSpawnMutation.model_rebuild(_types_namespace=_rebuild_ns)
+
 
 __all__ = [
     # Enums
@@ -124,6 +133,7 @@ __all__ = [
     "typeTag",
     "isNear",
     "maxDistance",
+    "raycastQuery",
     "actorHas",
     "targetHas",
     "actorHasAnyOf",

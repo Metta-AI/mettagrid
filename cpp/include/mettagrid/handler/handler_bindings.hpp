@@ -429,6 +429,24 @@ inline void bind_handler_config(py::module& m) {
       .def(py::init<>())
       .def_readwrite("object_type", &SpawnObjectMutationConfig::object_type);
 
+  py::class_<RaycastSpawnMutationConfig>(m, "RaycastSpawnMutationConfig")
+      .def(py::init<>())
+      .def_readwrite("object_type", &RaycastSpawnMutationConfig::object_type)
+      .def_readwrite("max_range", &RaycastSpawnMutationConfig::max_range)
+      .def_readwrite("directions", &RaycastSpawnMutationConfig::directions)
+      .def(
+          "add_blocker_resource_filter",
+          [](RaycastSpawnMutationConfig& self, const ResourceFilterConfig& cfg) { self.blocker.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_blocker_vibe_filter",
+          [](RaycastSpawnMutationConfig& self, const VibeFilterConfig& cfg) { self.blocker.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_blocker_tag_prefix_filter",
+          [](RaycastSpawnMutationConfig& self, const TagPrefixFilterConfig& cfg) { self.blocker.push_back(cfg); },
+          py::arg("filter"));
+
   // HandlerConfig with methods to add filters and mutations
   py::class_<HandlerConfig, std::shared_ptr<HandlerConfig>>(m, "HandlerConfig")
       .def(py::init<>())
@@ -543,6 +561,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_spawn_object_mutation",
           [](HandlerConfig& self, const SpawnObjectMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_raycast_spawn_mutation",
+          [](HandlerConfig& self, const RaycastSpawnMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"));
 
   // ResourceDelta for presence_deltas

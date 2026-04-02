@@ -38,6 +38,7 @@ from mettagrid.mettagrid_c import NegFilterConfig as CppNegFilterConfig
 from mettagrid.mettagrid_c import ObsValueConfig as CppObsValueConfig
 from mettagrid.mettagrid_c import OrFilterConfig as CppOrFilterConfig  # pyright: ignore[reportAttributeAccessIssue]
 from mettagrid.mettagrid_c import QueryOrderBy as CppQueryOrderBy
+from mettagrid.mettagrid_c import RaycastQueryConfig as CppRaycastQueryConfig
 from mettagrid.mettagrid_c import ResourceDelta as CppResourceDelta
 from mettagrid.mettagrid_c import ResourceFilterConfig as CppResourceFilterConfig
 from mettagrid.mettagrid_c import RewardConfig as CppRewardConfig
@@ -82,6 +83,9 @@ def _convert_tag_query(query, id_maps: CppIdMaps, context: str = ""):
 
     if query_type == "closure":
         return _convert_closure_query(query, id_maps, context)
+
+    if query_type == "raycast":
+        return _convert_raycast_query(query, id_maps, context)
 
     source = query.source
     if not isinstance(source, str):
@@ -137,6 +141,28 @@ def _convert_closure_query(query, id_maps: CppIdMaps, context: str = ""):
 
     if query.filters:
         _convert_filters(query.filters, cpp_q, id_maps, context=f"{context} closure.filters", method_prefix="result_")
+
+    return make_query_config(cpp_q)
+
+
+def _convert_raycast_query(query, id_maps: CppIdMaps, context: str = ""):
+    """Convert a RaycastQuery to a C++ RaycastQueryConfig."""
+    dir_map = {"north": (-1, 0), "south": (1, 0), "east": (0, 1), "west": (0, -1)}
+    cpp_q = CppRaycastQueryConfig()
+    cpp_q.max_range = query.max_range
+    cpp_q.include_blocker = query.include_blocker
+    cpp_q.directions = [dir_map[d] for d in query.directions]
+    if query.max_items is not None:
+        cpp_q.max_items = query.max_items
+
+    cpp_source = _convert_tag_query(query.source, id_maps, context=f"{context} raycast.source")
+    cpp_q.set_source(cpp_source)
+
+    for blocker_filter in query.blocker:
+        result = _convert_one_filter(blocker_filter, id_maps, context=f"{context} raycast.blocker")
+        assert result is not None, f"Failed to convert blocker filter: {blocker_filter}"
+        _type_key, cpp_blocker = result
+        _attach(cpp_q, _type_key, cpp_blocker, method_prefix="blocker_")
 
     return make_query_config(cpp_q)
 

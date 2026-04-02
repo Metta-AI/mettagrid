@@ -62,6 +62,19 @@ struct FilteredQueryConfig : public QueryConfig {
   std::vector<GridObject*> evaluate(const HandlerContext& ctx) const override;
 };
 
+// RaycastQueryConfig: Walk rays from source objects, collect objects on unblocked rays.
+// Directions are (dr, dc) pairs; empty defaults to N/S/E/W.
+// Blocker filters identify objects that stop a ray (OR semantics).
+// include_blocker controls whether the first blocker itself is returned.
+struct RaycastQueryConfig : public QueryConfig {
+  std::shared_ptr<QueryConfig> source;          // Query to find ray origin objects
+  unsigned int max_range = 2;                   // Max cells per arm
+  std::vector<std::pair<int, int>> directions;  // (dr, dc) pairs; empty = all 4 cardinals
+  std::vector<FilterConfig> blocker;            // Filters that identify blocking objects
+  bool include_blocker = true;                  // Whether first blocker is included in results
+  std::vector<GridObject*> evaluate(const HandlerContext& ctx) const override;
+};
+
 // ============================================================================
 // Materialized Query Tag - Tags computed by queries
 // ============================================================================

@@ -110,6 +110,15 @@ struct SpawnObjectMutationConfig {
   std::string object_type;  // Object type name to spawn at target_location
 };
 
+// RaycastSpawnMutation: Walk rays from target and spawn objects at empty cells.
+// Stops each ray at the first object matching any blocker filter.
+struct RaycastSpawnMutationConfig {
+  std::string object_type;                      // Object type to spawn
+  std::vector<std::pair<int, int>> directions;  // (dr, dc) pairs for each ray direction
+  unsigned int max_range = 2;                   // Max cells per arm
+  std::vector<FilterConfig> blocker;            // Filters that identify blocking objects
+};
+
 // Variant type for all mutation configs
 using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     ResourceTransferMutationConfig,
@@ -125,7 +134,8 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     RelocateMutationConfig,
                                     SwapMutationConfig,
                                     UseTargetMutationConfig,
-                                    SpawnObjectMutationConfig>;
+                                    SpawnObjectMutationConfig,
+                                    RaycastSpawnMutationConfig>;
 
 }  // namespace mettagrid
 

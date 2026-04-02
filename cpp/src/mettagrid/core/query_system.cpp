@@ -251,4 +251,70 @@ std::vector<GridObject*> FilteredQueryConfig::evaluate(const HandlerContext& ctx
   return QuerySystem::apply_limits(std::move(result), max_items, order_by, ctx);
 }
 
+// RaycastQueryConfig::evaluate - walk rays from source objects, collect hits
+std::vector<GridObject*> RaycastQueryConfig::evaluate(const HandlerContext& ctx) const {
+  assert(source && "RaycastQueryConfig requires a non-null source query");
+  assert(ctx.grid && "RaycastQueryConfig requires grid in HandlerContext");
+
+  auto sources = source->evaluate(ctx);
+
+  // Default to 4 cardinal directions if none specified.
+  static const std::vector<std::pair<int, int>> CARDINALS = {{-1, 0}, {1, 0}, {0, 1}, {0, -1}};
+  const auto& dirs = directions.empty() ? CARDINALS : directions;
+
+  std::vector<GridObject*> result;
+  std::unordered_set<GridObject*> seen;  // deduplicate across multiple sources/arms
+
+  for (auto* src : sources) {
+    for (const auto& dir : dirs) {
+      for (unsigned int dist = 1; dist <= max_range; ++dist) {
+        int64_t r = static_cast<int64_t>(src->location.r) + static_cast<int64_t>(dir.first) * dist;
+        int64_t c = static_cast<int64_t>(src->location.c) + static_cast<int64_t>(dir.second) * dist;
+
+        if (r < 0 || c < 0 || r >= static_cast<int64_t>(ctx.grid->height) ||
+            c >= static_cast<int64_t>(ctx.grid->width)) {
+          break;
+        }
+
+        GridLocation loc(static_cast<GridCoord>(r), static_cast<GridCoord>(c));
+        GridObject* obj = ctx.grid->object_at(loc);
+
+        if (obj == nullptr) {
+          continue;  // empty cell, ray continues
+        }
+
+        // Check if this object blocks the ray (matches ANY blocker filter).
+        // Uses OR semantics: a wall matches isA("wall"), a crate matches
+        // isA("crate"), and either one blocks the ray.
+        bool is_blocker = false;
+        if (!blocker.empty()) {
+          HandlerContext blocker_ctx = ctx;
+          blocker_ctx.target = obj;
+          for (const auto& blocker_cfg : blocker) {
+            auto f = create_filter(blocker_cfg);
+            if (f && f->passes(blocker_ctx)) {
+              is_blocker = true;
+              break;
+            }
+          }
+        }
+
+        if (is_blocker) {
+          if (include_blocker && seen.insert(obj).second) {
+            result.push_back(obj);
+          }
+          break;  // ray stops at blocker
+        }
+
+        // Non-blocking object on the ray — include it
+        if (seen.insert(obj).second) {
+          result.push_back(obj);
+        }
+      }
+    }
+  }
+
+  return QuerySystem::apply_limits(std::move(result), max_items, order_by, ctx);
+}
+
 }  // namespace mettagrid

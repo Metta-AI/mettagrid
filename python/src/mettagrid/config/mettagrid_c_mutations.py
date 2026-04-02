@@ -11,6 +11,7 @@ from mettagrid.config.mutation import (
     ClearInventoryMutation,
     EntityTarget,
     QueryInventoryMutation,
+    RaycastSpawnMutation,
     RecomputeMaterializedQueryMutation,
     RelocateMutation,
     RemoveTagMutation,
@@ -30,6 +31,7 @@ from mettagrid.mettagrid_c import ClearInventoryMutationConfig as CppClearInvent
 from mettagrid.mettagrid_c import EntityRef as CppEntityRef
 from mettagrid.mettagrid_c import GameValueMutationConfig as CppGameValueMutationConfig
 from mettagrid.mettagrid_c import QueryInventoryMutationConfig as CppQueryInventoryMutationConfig
+from mettagrid.mettagrid_c import RaycastSpawnMutationConfig as CppRaycastSpawnMutationConfig
 from mettagrid.mettagrid_c import (
     RecomputeMaterializedQueryMutationConfig as CppRecomputeMaterializedQueryMutationConfig,
 )
@@ -62,6 +64,25 @@ _STATS_ENTITY_TO_CPP: dict[StatsEntity, CppStatsEntity] = {
     StatsEntity.TARGET: CppStatsEntity.target,
     StatsEntity.ACTOR: CppStatsEntity.actor,
 }
+
+
+_DIR_MAP = {"north": (-1, 0), "south": (1, 0), "east": (0, 1), "west": (0, -1)}
+
+
+def _convert_raycast_spawn_mutation(mutation, target_obj, id_maps):
+    """Convert RaycastSpawnMutation — deferred import to avoid circular dependency."""
+    from mettagrid.config.mettagrid_c_config import _attach, _convert_one_filter  # noqa: PLC0415
+
+    cpp_mutation = CppRaycastSpawnMutationConfig()
+    cpp_mutation.object_type = mutation.object_type
+    cpp_mutation.max_range = mutation.max_range
+    cpp_mutation.directions = [_DIR_MAP[d] for d in mutation.directions]
+    for blocker_filter in mutation.blocker:
+        result = _convert_one_filter(blocker_filter, id_maps, context="raycast_spawn blocker")
+        assert result is not None, f"Failed to convert blocker filter: {blocker_filter}"
+        _type_key, cpp_blocker = result
+        _attach(cpp_mutation, _type_key, cpp_blocker, method_prefix="blocker_")
+    target_obj.add_raycast_spawn_mutation(cpp_mutation)
 
 
 def convert_entity_ref(target: EntityTarget) -> CppEntityRef:
@@ -225,3 +246,6 @@ def convert_mutations(
 
         elif isinstance(mutation, UseTargetMutation):
             target_obj.add_use_target_mutation(CppUseTargetMutationConfig())
+
+        elif isinstance(mutation, RaycastSpawnMutation):
+            _convert_raycast_spawn_mutation(mutation, target_obj, id_maps)

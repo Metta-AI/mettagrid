@@ -101,6 +101,10 @@ inline void bind_event_config(py::module& m) {
       .def(
           "add_remove_tags_with_prefix_mutation",
           [](EventConfig& self, const RemoveTagsWithPrefixMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_raycast_spawn_mutation",
+          [](EventConfig& self, const RaycastSpawnMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"));
 }
 

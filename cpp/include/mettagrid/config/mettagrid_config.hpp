@@ -284,6 +284,31 @@ inline void bind_query_config(py::module& m) {
         [](const ClosureQueryConfig& q) { return QueryConfigHolder{std::make_shared<ClosureQueryConfig>(q)}; });
   m.def("make_query_config",
         [](const FilteredQueryConfig& q) { return QueryConfigHolder{std::make_shared<FilteredQueryConfig>(q)}; });
+  m.def("make_query_config",
+        [](const RaycastQueryConfig& q) { return QueryConfigHolder{std::make_shared<RaycastQueryConfig>(q)}; });
+
+  py::class_<RaycastQueryConfig>(m, "RaycastQueryConfig")
+      .def(py::init<>())
+      .def_readwrite("max_range", &RaycastQueryConfig::max_range)
+      .def_readwrite("max_items", &RaycastQueryConfig::max_items)
+      .def_readwrite("directions", &RaycastQueryConfig::directions)
+      .def_readwrite("include_blocker", &RaycastQueryConfig::include_blocker)
+      .def(
+          "set_source",
+          [](RaycastQueryConfig& self, const QueryConfigHolder& src) { self.source = src.config; },
+          py::arg("source"))
+      .def(
+          "add_blocker_resource_filter",
+          [](RaycastQueryConfig& self, const ResourceFilterConfig& cfg) { self.blocker.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_blocker_vibe_filter",
+          [](RaycastQueryConfig& self, const VibeFilterConfig& cfg) { self.blocker.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_blocker_tag_prefix_filter",
+          [](RaycastQueryConfig& self, const TagPrefixFilterConfig& cfg) { self.blocker.push_back(cfg); },
+          py::arg("filter"));
 
   py::class_<MaterializedQueryTag>(m, "MaterializedQueryTag")
       .def(py::init<>())
