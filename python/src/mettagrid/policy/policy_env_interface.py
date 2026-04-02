@@ -39,9 +39,9 @@ class PolicyEnvInterface(BaseModel):
         default=None,
         description="Energy cost for a single move action, if configured.",
     )
-    observation_kind: Literal["tokens", "box"] = Field(
-        default="tokens",
-        description="Whether env_obs contains token observations or raw box observations.",
+    observation_kind: Literal["token", "box", "bitmask"] = Field(
+        default="token",
+        description="Whether env_obs contains token observations, bitmask observations, or raw box observations.",
     )
     observation_dtype: str = Field(
         default=dtype_observations.name,
@@ -155,7 +155,7 @@ class PolicyEnvInterface(BaseModel):
             egocentric_shape=(mg_cfg.game.obs.height, mg_cfg.game.obs.width),
             move_energy_cost=move_energy_cost,
             talk=mg_cfg.game.talk.model_copy(deep=True),
-            observation_kind="tokens",
+            observation_kind="token",
             observation_dtype=dtype_observations.name,
             observation_low=0.0,
             observation_high=255.0,
@@ -291,7 +291,7 @@ class PolicyEnvInterface(BaseModel):
                 if proto_as_any.HasField("talk")
                 else TalkConfig()
             ),
-            observation_kind="tokens",
+            observation_kind="token",
             observation_dtype=dtype_observations.name,
             observation_low=0.0,
             observation_high=255.0,
