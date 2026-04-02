@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, cast
 
 import gymnasium as gym
 import numpy as np
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
 from mettagrid.config.id_map import ObservationFeatureSpec
@@ -67,6 +67,13 @@ class PolicyEnvInterface(BaseModel):
         default_factory=TalkConfig,
         description="Talk sidecar configuration exposed to policies.",
     )
+
+    @field_validator("observation_kind", mode="before")
+    @classmethod
+    def _normalize_observation_kind(cls, value: object) -> object:
+        if value == "tokens":
+            return "token"
+        return value
 
     @property
     def obs_height(self) -> int:

@@ -1,6 +1,7 @@
 import json
 
 import numpy as np
+import pytest
 
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
@@ -56,6 +57,29 @@ def test_policy_env_interface_round_trip_serialization():
         assert r.normalization == o.normalization
 
     assert restored.action_names == original.action_names
+
+
+@pytest.mark.parametrize("observation_kind", ["token", "tokens"])
+def test_policy_env_interface_accepts_legacy_token_observation_kind(observation_kind: str):
+    config = MettaGridConfig(
+        game=GameConfig(
+            num_agents=4,
+            obs=ObsConfig(width=5, height=5, num_tokens=100),
+            max_steps=100,
+            resource_names=["ore", "wood"],
+            actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
+            talk=TalkConfig(enabled=True, max_length=140, cooldown_steps=50),
+            objects={"wall": WallConfig()},
+            map_builder=RandomMapBuilder.Config(width=10, height=10, agents=4, seed=42),
+        )
+    )
+
+    payload = PolicyEnvInterface.from_mg_cfg(config).model_dump(mode="json")
+    payload["observation_kind"] = observation_kind
+
+    restored = PolicyEnvInterface.model_validate_json(json.dumps(payload))
+
+    assert restored.observation_kind == "token"
 
 
 def test_policy_env_interface_to_json_includes_talk():
