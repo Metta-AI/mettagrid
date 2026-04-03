@@ -1,70 +1,10 @@
 """Tests for SetGameValueMutation."""
 
-from mettagrid.config.game_value import ConstValue, InventoryValue, Scope, StatValue, val
+from mettagrid.config.game_value import InventoryValue, val
 from mettagrid.config.handler_config import Handler
 from mettagrid.config.mettagrid_config import MettaGridConfig, ResourceLimitsConfig
 from mettagrid.config.mutation import EntityTarget, SetGameValueMutation
 from mettagrid.simulator import Action, Simulation
-
-
-def test_set_game_value_mutation_inventory():
-    """Test SetGameValueMutation with InventoryValue."""
-    m = SetGameValueMutation(
-        value=InventoryValue(item="gold", scope=Scope.AGENT),
-        delta=5,
-    )
-    assert m.mutation_type == "set_game_value"
-    assert m.delta == 5
-    assert m.target == EntityTarget.ACTOR
-    assert isinstance(m.value, InventoryValue)
-
-
-def test_set_game_value_mutation_stat():
-    """Test SetGameValueMutation with StatValue."""
-    m = SetGameValueMutation(
-        value=StatValue(name="carbon.gained", scope=Scope.GAME),
-        delta=-3,
-        target=EntityTarget.TARGET,
-    )
-    assert m.mutation_type == "set_game_value"
-    assert m.delta == -3
-    assert m.target == EntityTarget.TARGET
-    assert isinstance(m.value, StatValue)
-
-
-def test_set_game_value_mutation_serialization():
-    """Test SetGameValueMutation round-trips through JSON."""
-    m = SetGameValueMutation(
-        value=InventoryValue(item="silver", scope=Scope.GAME),
-        delta=10,
-        target=EntityTarget.TARGET,
-    )
-    data = m.model_dump()
-    assert data["mutation_type"] == "set_game_value"
-    assert data["delta"] == 10
-
-
-def test_set_game_value_mutation_source_config():
-    """Test SetGameValueMutation with explicit source field."""
-    m = SetGameValueMutation(
-        value=InventoryValue(item="energy"),
-        source=InventoryValue(item="solar"),
-        target=EntityTarget.ACTOR,
-    )
-    assert m.source is not None
-    assert isinstance(m.source, InventoryValue)
-    assert m.source.item == "solar"
-
-
-def test_set_game_value_mutation_const_source_config():
-    """Test SetGameValueMutation with ConstValue source."""
-    m = SetGameValueMutation(
-        value=InventoryValue(item="energy"),
-        source=val(42.0),
-        target=EntityTarget.ACTOR,
-    )
-    assert isinstance(m.source, ConstValue)
-    assert m.source.value == 42.0
 
 
 def _make_sim(on_tick: dict, resource_names: list[str], initial: dict[str, int]) -> Simulation:

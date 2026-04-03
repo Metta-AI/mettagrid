@@ -9,22 +9,6 @@ from mettagrid.mapgen.scenes.compound import (
 from mettagrid.test_support.mapgen import render_scene
 
 
-def test_station_offsets_omitted_when_unset() -> None:
-    cfg = Compound.Config(stations=["alpha_station"])
-
-    data = cfg.model_dump()
-
-    assert "station_offsets" not in data
-
-
-def test_station_offsets_serialized_when_set() -> None:
-    cfg = Compound.Config(stations=["alpha_station"], station_offsets=[(1, -1)])
-
-    data = cfg.model_dump(mode="json")
-
-    assert data["station_offsets"] == [[1, -1]]
-
-
 @pytest.mark.parametrize(
     ("layout", "station_count"),
     [

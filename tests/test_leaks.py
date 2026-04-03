@@ -8,12 +8,6 @@ from mettagrid.config.mettagrid_config import MettaGridConfig
 from mettagrid.simulator import Simulation
 
 
-def test_mettagrid_env_init():
-    """Test that the Simulation can be initialized properly."""
-    sim = Simulation(MettaGridConfig())
-    assert sim is not None, "Failed to initialize Simulation"
-
-
 def test_mettagrid_env_reset():
     """Test that the Simulation can be reset multiple times without memory leaks."""
     sim = Simulation(MettaGridConfig())

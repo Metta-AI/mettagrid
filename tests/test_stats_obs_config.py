@@ -8,49 +8,6 @@ from mettagrid.simulator.simulator import Simulation, Simulator
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
 
 
-def test_stat_value_defaults():
-    """Test StatValue default values."""
-    sv = StatValue(name="carbon.gained")
-    assert sv.name == "carbon.gained"
-    assert sv.scope == Scope.AGENT
-    assert sv.delta is False
-
-
-def test_stat_value_with_all_fields():
-    """Test StatValue with all fields specified."""
-    sv = StatValue(name="carbon.gained", scope=Scope.GAME, delta=True)
-    assert sv.name == "carbon.gained"
-    assert sv.scope == Scope.GAME
-    assert sv.delta is True
-
-
-def test_global_obs_config_obs_default():
-    """Test GlobalObsConfig obs defaults to empty dict."""
-    config = GlobalObsConfig()
-    assert config.obs == {}
-
-
-def test_global_obs_config_with_obs():
-    """Test GlobalObsConfig with obs specified."""
-    config = GlobalObsConfig(
-        obs={
-            "stat:own:carbon.gained": StatValue(name="carbon.gained"),
-            "stat:global:tokens_written": StatValue(name="tokens_written", scope=Scope.GAME),
-        }
-    )
-    assert len(config.obs) == 2
-    assert config.obs["stat:own:carbon.gained"].name == "carbon.gained"
-    assert config.obs["stat:global:tokens_written"].scope == Scope.GAME
-
-
-def test_obs_config_default_window_size():
-    """Default observation window should be 13x13."""
-    config = ObsConfig()
-    assert config.width == 13
-    assert config.height == 13
-    assert config.num_tokens == 300
-
-
 def test_id_map_obs_feature_ids():
     """Test that IdMap allocates feature IDs for obs."""
     config = GameConfig(

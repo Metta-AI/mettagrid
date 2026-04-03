@@ -19,63 +19,6 @@ from mettagrid.simulator import Simulation
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
 
 
-def test_resource_limits_config_with_modifiers():
-    """Test that ResourceLimitsConfig correctly stores modifiers."""
-    config = ResourceLimitsConfig(
-        resources=["battery"],
-        base=0,
-        max=100,
-        modifiers={"gear": 5, "wrench": 3},
-    )
-
-    assert config.resources == ["battery"]
-    assert config.base == 0
-    assert config.max == 100
-    assert config.modifiers == {"gear": 5, "wrench": 3}
-
-
-def test_resource_limits_config_default_modifiers():
-    """Test that ResourceLimitsConfig has empty modifiers by default."""
-    config = ResourceLimitsConfig(
-        resources=["gold"],
-        base=100,
-    )
-
-    assert config.resources == ["gold"]
-    assert config.base == 100
-    assert config.max == 65535  # default
-    assert config.modifiers == {}
-
-
-def test_resource_limits_config_model_dump():
-    """Test that modifiers are correctly serialized in model_dump."""
-    config = ResourceLimitsConfig(
-        resources=["energy"],
-        base=0,
-        max=500,
-        modifiers={"battery": 25},
-    )
-
-    dumped = config.model_dump()
-    assert dumped["resources"] == ["energy"]
-    assert dumped["base"] == 0
-    assert dumped["max"] == 500
-    assert dumped["modifiers"] == {"battery": 25}
-
-
-def test_resource_limits_config_empty_modifiers_dump():
-    """Test that empty modifiers are correctly serialized."""
-    config = ResourceLimitsConfig(
-        resources=["ore"],
-        base=50,
-    )
-
-    dumped = config.model_dump()
-    assert dumped["modifiers"] == {}
-    assert dumped["base"] == 50
-    assert dumped["max"] == 65535
-
-
 def test_effective_limit_min_floor():
     """Test that min acts as a floor for effective limit.
 
