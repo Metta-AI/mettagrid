@@ -1,5 +1,5 @@
 import
-  std/[strformat, strutils, tables, os],
+  std/[strformat, tables],
   opengl,
   bumpy, vmath, windy, silky, silky/atlas, chroma, pixie,
   ../[common, configs, replays, colors, actions, cognames],
@@ -74,6 +74,7 @@ proc switchGameMode*(newMode: GameMode) =
     # Panel drawing will update rect/scrollArea, but resets hasMouse.
     worldMapZoomInfo.hasMouse = false
   saveUIState()
+  playSound("UIswitch.wav")
 
 proc computeScore(): float =
   ## Computes the average score for the active team's agents.
@@ -181,8 +182,7 @@ proc drawVibeButton(
     if not isActive:
       sk.drawImage("ui/button_main.hover", pos - vec2(16, 16))
     if window.buttonReleased[MouseLeft]:
-      # TODO: FIX: Temporary. Implement proper architecture for sound.
-      playSound(dataDir / "sounds" / "UIbutton.wav")
+      playSound("UIbutton.wav")
 
       worldMapZoomInfo.hasMouse = false
       if selected != nil and selected.isAgent:
@@ -239,6 +239,7 @@ proc drawToggleIconButton(pos: Vec2, icon: string, isActive: bool): bool =
       tooltip(tip)
   if pressed:
     worldMapZoomInfo.hasMouse = false
+    playSound("UIswitch.wav")
 
   drawIconScaled(icon, pos, iconSize)
   return pressed
@@ -277,6 +278,7 @@ proc drawTransportButton(startPos: Vec2, idx: int, icon: string, isDown: bool): 
       tooltip(tip)
   if pressed:
     worldMapZoomInfo.hasMouse = false
+    playSound("UIswitch.wav")
   return pressed
 
 proc topLeftPanel() =
@@ -764,16 +766,19 @@ proc drawTimelineSlider*(value: var float32, minVal: float32, maxVal: float32, l
 
   if timeLineDragging and (window.buttonReleased[MouseLeft] or not window.buttonDown[MouseLeft]):
     timeLineDragging = false
+    playSound("UIscrub2.wav")
 
   if timeLineDragging:
     let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
     value = minF + t * range
+    playScrubberStepSound(t)
   elif sk.mouseInsideClip(window, handleRect) or sk.mouseInsideClip(window, controlRect):
     if window.buttonPressed[MouseLeft]:
       worldMapZoomInfo.hasMouse = false
       timeLineDragging = true
       let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
       value = minF + t * range
+      playSound("UIscrub3.wav")
 
   let displayValue = clamp(value, minF, maxF)
   let norm2 = if range == 0: 0f else: clamp((displayValue - minF) / range, 0f, 1f)

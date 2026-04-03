@@ -1,6 +1,6 @@
 import
   std/[times, tables, os, pathnorm, strutils, options, sets],
-  bumpy, windy, vmath, silky,
+  bumpy, windy, vmath, silky, slappy,
   replays
 
 var dataDir* = "packages/mettagrid/nim/mettascope/data"
@@ -133,6 +133,11 @@ var
   queueToggleActive* = false
   repeatToggleActive* = false
 
+  # Sound Options
+  soundMuted* = false
+  soundScrubber*: Sound = nil
+  soundScrubberSource*: Source = nil
+  soundScrubberPos* = 0'u32
 
 type
   ActionRequest* = object
@@ -320,11 +325,12 @@ proc normalizeTypeName*(typeName: string): string =
   result = stripTeamPrefix(typeName)
   result = stripTeamSuffix(result)
 
-proc getAgentRigName*(agent: Entity): string =
+proc getAgentRigName*(agent: Entity, replayStep: int= step): string =
   ## Get the rig of the agent by looking at inventory.
+  ## Can override the default/current step by passing a different `replayStep` value.
   if agent.inventory.len == 0:
     return "agent"
-  for item in agent.inventory.at(step):
+  for item in agent.inventory.at(replayStep):
     if item.itemId < 0 or item.itemId >= replay.itemNames.len:
       continue
     let itemName = replay.itemNames[item.itemId]

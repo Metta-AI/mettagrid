@@ -2,7 +2,7 @@ import
   std/[times, math],
   chroma, vmath, windy, silky,
   ../[common, actions, configs],
-  ../gamemode/[gameplayer, timelineslider]
+  ../gamemode/[gameplayer, timelineslider, sound]
 
 const
   ScrubberColor = parseHtmlColor("#1D1D1D").rgbx
@@ -34,20 +34,24 @@ proc playControls*() =
 
   if window.buttonPressed[KeySpace]:
     play = not play
+    playSound("UIswitch.wav")
   if window.buttonPressed[KeyMinus]:
     playSpeed *= 0.5
     playSpeed = clamp(playSpeed, 0.00001, 1000.0)
     play = true
+    playSound("UIbutton.wav")
   if window.buttonPressed[KeyEqual]:
     playSpeed *= 2
     playSpeed = clamp(playSpeed, 0.00001, 1000.0)
     play = true
+    playSound("UIbutton.wav")
   if window.buttonPressed[KeyF10] or window.buttonPressed[KeyG]:
     let newMode = if gameMode == Editor: Game else: Editor
     switchGameMode(newMode)
   if window.buttonPressed[KeyF] and selected != nil:
     settings.lockFocus = true
     saveUIState()
+    playSound("UIswitch.wav")
   if window.buttonPressed[KeyEscape]:
     moveToggleActive = false
     queueToggleActive = false
@@ -78,6 +82,7 @@ proc playControls*() =
     step -= 1
     step = clamp(step, 0, replay.maxSteps - 1)
     stepFloat = step.float32
+    playSound("UIbutton.wav")
   if window.buttonPressed[KeyRightBracket]:
     step += 1
     if playMode == Realtime and step >= replay.maxSteps:
@@ -85,6 +90,7 @@ proc playControls*() =
       step = replay.maxSteps - 1
     step = clamp(step, 0, replay.maxSteps - 1)
     stepFloat = step.float32
+    playSound("UIbutton.wav")
   # Fire onStepChanged once and only once when step changes.
   if step != previousStep:
     previousStep = step

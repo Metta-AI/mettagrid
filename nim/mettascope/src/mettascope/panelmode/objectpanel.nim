@@ -2,7 +2,7 @@ import
   std/[json, algorithm, tables, sets, strutils, strformat],
   vmath, silky, windy,
   ../common, ../replays, ../configs, ../cognames, ../colors,
-  ../gamemode/team,
+  ../gamemode/[team, sound],
   widgets
 
 type
@@ -390,3 +390,4 @@ proc selectObject*(obj: Entity) =
         lastSelectedTeam = teamIdx
   settings.lockFocus = not obj.isNil
   saveUIState()
+  playEntitySound(obj)
