@@ -13,6 +13,7 @@ TODO (tracer work in progress):
 
 import gc
 import json
+import threading
 import time
 from pathlib import Path
 from types import TracebackType
@@ -81,6 +82,7 @@ class Tracer:
     PID_EXECUTOR = 200000
 
     def __init__(self, output_path: Path | str):
+        self._write_lock = threading.RLock()
         self._file: IO[str] = open(output_path, "w")
         self._file.write("[")
         self._first = True
@@ -92,9 +94,14 @@ class Tracer:
 
     def _gc_callback(self, phase: str, info: dict) -> None:
         """Record GC events in the trace."""
-        if phase == "start":
-            self._gc_start_ns = time.time_ns()
-        elif self._gc_start_ns != 0:  # "stop", but only if we saw the start
+        with self._write_lock:
+            if self._flushed:
+                return
+            if phase == "start":
+                self._gc_start_ns = time.time_ns()
+                return
+            if self._gc_start_ns == 0:
+                return
             self._write_span(
                 "gc",
                 self._gc_start_ns,
@@ -117,9 +124,12 @@ class Tracer:
         Must be a single write() call: GC callbacks can re-enter this method
         between any two bytecodes, so multi-call writes get interleaved.
         """
-        prefix = "" if self._first else ","
-        self._first = False
-        self._file.write(prefix + json.dumps(event) + "\n")
+        with self._write_lock:
+            if self._flushed:
+                return
+            prefix = "" if self._first else ","
+            self._first = False
+            self._file.write(prefix + json.dumps(event) + "\n")
 
     def _write_process_name(self, pid: int, name: str, sort_index: int) -> None:
         """Write process name and sort index metadata events."""
@@ -130,39 +140,44 @@ class Tracer:
 
     def _write_span(self, name: str, ts_ns: int, dur_ns: int, metadata: dict, *, pid: int | None = None) -> None:
         """Write a completed span in Chrome Trace Format."""
-        if pid is None:
-            # pid = agent_id for agents, PID_ENV for env_step and gc
-            pid = self.PID_ENV
-            if name == "agent_step":
-                agent_id: int = metadata.get("agent", 0)
-                pid = agent_id
-                if pid not in self._known_pids:
-                    self._known_pids.add(pid)
-                    self._write_process_name(pid, "Agent", sort_index=agent_id)
+        with self._write_lock:
+            if self._flushed:
+                return
+            if pid is None:
+                # pid = agent_id for agents, PID_ENV for env_step and gc
+                pid = self.PID_ENV
+                if name == "agent_step":
+                    agent_id: int = metadata.get("agent", 0)
+                    pid = agent_id
+                    if pid not in self._known_pids:
+                        self._known_pids.add(pid)
+                        self._write_process_name(pid, "Agent", sort_index=agent_id)
 
-        self._write_event(
-            {
-                "name": name,
-                "ph": "X",  # Complete event
-                "ts": ts_ns // 1000,  # Chrome Trace uses microseconds
-                "dur": dur_ns // 1000,
-                "pid": pid,
-                "tid": 0,
-                "args": metadata,
-            }
-        )
+            self._write_event(
+                {
+                    "name": name,
+                    "ph": "X",  # Complete event
+                    "ts": ts_ns // 1000,  # Chrome Trace uses microseconds
+                    "dur": dur_ns // 1000,
+                    "pid": pid,
+                    "tid": 0,
+                    "args": metadata,
+                }
+            )
 
     def flush(self) -> None:
         """Close the JSON array and ensure everything is written to disk.
 
         Safe to call multiple times; only the first call has effect.
         """
-        if self._flushed:
-            return
-        self._flushed = True
-        gc.callbacks.remove(self._gc_callback)
-        self._file.write("]\n")
-        self._file.close()
+        with self._write_lock:
+            if self._flushed:
+                return
+            self._flushed = True
+            if self._gc_callback in gc.callbacks:
+                gc.callbacks.remove(self._gc_callback)
+            self._file.write("]\n")
+            self._file.close()
 
     def __del__(self) -> None:
         """Ensure cleanup if flush() was never called."""
