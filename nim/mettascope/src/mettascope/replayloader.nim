@@ -1,8 +1,8 @@
 import
   std/[tables, strutils],
   windy,
-  replays, common, configs, talk,
-  gamemode/[team, worldmap, camera, pipegrid],
+  replays, common, configs,
+  gamemode/[team, worldmap, camera, pipegrid, talk],
   panelmode/[objectpanel, monologuepanel]
 
 

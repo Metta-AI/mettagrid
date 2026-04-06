@@ -1,8 +1,8 @@
 import
   std/[strutils, os],
   opengl, windy, bumpy, vmath, silky,
-  mettascope/[replays, common, replayloader, configs, talk],
-  mettascope/gamemode/[worldmap, minimap, gameplayer, camera],
+  mettascope/[replays, common, replayloader, configs],
+  mettascope/gamemode/[worldmap, minimap, gameplayer, camera, talk],
   mettascope/panelmode/[panes, footer, timeline, header,
     objectpanel, policyinfopanel, envpanel, vibespanel, scorepanel,
     monologuepanel, talkpanel]

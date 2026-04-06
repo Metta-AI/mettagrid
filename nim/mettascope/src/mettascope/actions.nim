@@ -1,7 +1,7 @@
 import
   std/[tables],
   windy, vmath,
-  common, replays, talk, gamemode/pathfinding
+  common, replays, gamemode/[pathfinding, talk]
 
 type
   Orientation* = enum

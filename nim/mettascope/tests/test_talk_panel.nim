@@ -1,7 +1,7 @@
 import
   vmath,
   mettascope/[common, replays],
-  mettascope/talk,
+  mettascope/gamemode/talk,
   mettascope/panelmode/talkpanel
 
 proc setupTalkReplay(maxSteps: int, agents: seq[Entity]): Replay =

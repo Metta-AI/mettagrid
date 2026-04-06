@@ -1,7 +1,8 @@
 import
   std/[algorithm, strformat],
   silky, windy,
-  ../[common, replays, talk]
+  ../[common, replays],
+  ../gamemode/talk
 
 const
   TalkComposeGap = 28.0'f
@@ -19,11 +20,11 @@ proc collectVisibleTalkEntries*(observer: Entity): seq[TalkEntry] =
 
   let finalStep = max(0, step)
 
+  ## Return true when the observer could see the speaker at one step.
   proc canSee(
     speaker: Entity,
     atStep: int
   ): bool =
-    ## Return true when the observer could see the speaker at one step.
     if observer.visionSize <= 0 or
         not observer.alive.at(atStep) or
         not speaker.alive.at(atStep):
@@ -81,7 +82,12 @@ proc collectVisibleTalkEntries*(observer: Entity): seq[TalkEntry] =
       result = cmp(a.speakerId, b.speakerId)
   )
 
-proc drawTalkPanel*(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) =
+proc drawTalkPanel*(
+  panel: Panel,
+  frameId: string,
+  contentPos: Vec2,
+  contentSize: Vec2
+) =
   ## Draw talk history and composer controls in the panel area.
   frame(frameId, contentPos, contentSize):
     if replay.isNil or not replay.config.game.talk.enabled:

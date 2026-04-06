@@ -2,8 +2,8 @@ import
   std/[strformat, tables],
   opengl,
   bumpy, vmath, windy, silky, silky/atlas, chroma, pixie,
-  ../[common, configs, replays, colors, actions, cognames, talk],
-  ./[team, sound, worldmap, minimap, custom_hud, camera]
+  ../[common, configs, replays, colors, actions, cognames],
+  team, sound, worldmap, minimap, custom_hud, camera, talk
 
 var
   pendingCenter: Vec2

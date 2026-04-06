@@ -3,14 +3,12 @@ import
   chroma, vmath, windy, silky,
   ../[common, actions, replays, colors],
   ./[team, pathfinding, tilemap, pixelator, shaderquad, terrains,
-    heatmap, heatmapshader, pipegrid, starfield, custom_hud, camera],
+    heatmap, heatmapshader, pipegrid, starfield, custom_hud, camera, movement],
   ../panelmode/objectpanel
 
 const
   TileSize = 128
   TurnTransitionHalf = 0.20f        # Diagonal shown for ±20% around step boundary.
-  TurnDisableSpeed = 50.0f          # Skip diagonal/rounding above this playback speed.
-  CornerRoundingTension = 0.5f      # Catmull-Rom tension (0.5 = standard, higher = more curve).
   Ts = 1.0 / TileSize.float32 # Tile scale.
   MiniTileSize = 16
   Mts = 1.0 / MiniTileSize.float32 # Mini tile scale for minimap.
@@ -19,9 +17,6 @@ const
   FollowMarginMaxWorldTiles = 5.0f # Cap edge margin to 5 world tiles when zoomed out.
   ZoomOutMargin = 1.5f # Panel may show at most this multiple of the map's linear extent when zoomed out.
   SelectionRadiusPixels = 100.0f # Screen-space click radius for selecting nearby objects.
-  BumpDepthTiles = 0.18f # Maximum agent offset during a bump, in tiles.
-  BumpActiveFraction = 0.35f # Fraction of the step used by the bump animation.
-  BumpDisableSpeed = 16.0f # Disable bump animation above this playback speed.
 
 var
   visibilityMapStep*: int = -1
@@ -479,118 +474,6 @@ proc drawAoeMaps*() {.measure.} =
         zoomThreshold = 1.5f,
         tint = tint
       )
-
-proc getMoveActionDir(agent: Entity, atStep: int): Option[IVec2] =
-  ## Return the attempted move direction for the given agent step when present.
-  if agent.isNil or not agent.isAgent or replay.isNil:
-    return none(IVec2)
-
-  let actionId = agent.actionId.at(atStep)
-  if actionId == replay.moveNorthActionId:
-    return some(ivec2(0, -1))
-  if actionId == replay.moveSouthActionId:
-    return some(ivec2(0, 1))
-  if actionId == replay.moveWestActionId:
-    return some(ivec2(-1, 0))
-  if actionId == replay.moveEastActionId:
-    return some(ivec2(1, 0))
-  none(IVec2)
-
-proc getBumpDirForAction(agent: Entity, actionStep: int): Option[IVec2] =
-  ## Return the bump direction for a single action step.
-  const AnimationBump = 1
-  if agent.isNil or not agent.isAgent or replay.isNil:
-    return none(IVec2)
-
-  if agent.animationId.len > 0 and agent.animationId.at(actionStep) == AnimationBump:
-    return agent.getMoveActionDir(actionStep)
-
-  none(IVec2)
-
-proc getBumpDir(agent: Entity, atStep: int): Option[IVec2] =
-  ## Return the bump direction for the rendered interval starting at the given step.
-  if agent.isNil or not agent.isAgent or replay.isNil:
-    return none(IVec2)
-  if atStep < 0 or atStep + 1 >= replay.maxSteps:
-    return none(IVec2)
-
-  let
-    startPos = agent.location.at(atStep).xy
-    endPos = agent.location.at(atStep + 1).xy
-  if startPos != endPos:
-    return none(IVec2)
-
-  let startActionBump = agent.getBumpDirForAction(atStep)
-  if startActionBump.isSome:
-    return startActionBump
-
-  agent.getBumpDirForAction(atStep + 1)
-
-proc getActiveBumpDir(agent: Entity): Option[IVec2] =
-  ## Return the current bump direction while the bump animation is active.
-  if agent.isNil or not agent.isAgent or replay.isNil:
-    return none(IVec2)
-  if playSpeed > BumpDisableSpeed:
-    return none(IVec2)
-
-  let
-    baseStep = floor(stepFloat).int
-    stepFrac = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
-  if stepFrac <= 0.0f or stepFrac >= BumpActiveFraction:
-    return none(IVec2)
-
-  agent.getBumpDir(baseStep)
-
-proc bumpOffset(agent: Entity): Vec2 =
-  ## Return the render-time offset for the current bump animation frame.
-  if agent.isNil or not agent.isAgent or replay.isNil:
-    return vec2(0, 0)
-
-  let
-    baseStep = floor(stepFloat).int
-    stepFrac = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
-  if stepFrac <= 0.0f or stepFrac >= BumpActiveFraction:
-    return vec2(0, 0)
-
-  let bumpDir = agent.getActiveBumpDir()
-  if not bumpDir.isSome:
-    return vec2(0, 0)
-
-  let
-    progress = stepFrac / BumpActiveFraction
-    depth = sin(PI.float32 * progress) * BumpDepthTiles
-  bumpDir.get.vec2 * depth
-
-proc smoothPos*(entity: Entity): Vec2 =
-  ## Interpolate position with Catmull-Rom spline for smooth corners.
-  if entity.isNil:
-    return vec2(0, 0)
-  let
-    baseStep = floor(stepFloat).int
-    t = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
-    p1 = entity.location.at(baseStep).xy.vec2
-    p2 = entity.location.at(baseStep + 1).xy.vec2
-  if playSpeed > TurnDisableSpeed or baseStep < 1:
-    result = p1 + (p2 - p1) * t
-  elif p1 == p2:
-    # Fall back to linear when stationary this step.
-    result = p1
-  else:
-    let
-      p0 = entity.location.at(baseStep - 1).xy.vec2
-      p3 = entity.location.at(baseStep + 2).xy.vec2
-      # Zero tangent when the adjacent segment is stationary to prevent overshoot.
-      m0 = if p0 == p1: vec2(0, 0) else: CornerRoundingTension * (p2 - p0)
-      m1 = if p2 == p3: vec2(0, 0) else: CornerRoundingTension * (p3 - p1)
-      t2 = t * t
-      t3 = t2 * t
-    # Cubic Hermite spline.
-    result = (2.0f*t3 - 3.0f*t2 + 1.0f) * p1 +
-      (t3 - 2.0f*t2 + t) * m0 +
-      (-2.0f*t3 + 3.0f*t2) * p2 +
-      (t3 - t2) * m1
-  if entity.isAgent:
-    result += bumpOffset(entity)
 
 proc isSelectableCandidate(entity: Entity): bool =
   ## Return true when an entity should participate in click selection.

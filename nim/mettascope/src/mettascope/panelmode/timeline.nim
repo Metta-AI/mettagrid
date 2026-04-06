@@ -1,8 +1,8 @@
 import
   std/[times, math],
   chroma, vmath, windy, silky,
-  ../[common, actions, configs, talk],
-  ../gamemode/[gameplayer, timelineslider, sound]
+  ../[common, actions, configs],
+  ../gamemode/[gameplayer, timelineslider, sound, talk]
 
 const
   ScrubberColor = parseHtmlColor("#1D1D1D").rgbx

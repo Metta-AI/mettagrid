@@ -1,8 +1,8 @@
 import
-  std/[math, options, strutils, tables],
+  std/[math, strutils, tables],
   bumpy, chroma, vmath, silky,
-  common, replays, colors,
-  gamemode/camera
+  ../[common, replays, colors],
+  ./[camera, movement]
 
 var
   talkComposeActive*: bool
@@ -52,62 +52,6 @@ proc syncTalkComposeInput*(inputId: string, limit: int) =
     inputState.selector = inputState.cursor
     inputState.resetBlink()
     talkComposeNeedsFocus = false
-
-proc smoothTalkBubblePos(agent: Entity): Vec2 =
-  ## Match the world-map smoothing used for agent rendering when anchoring bubbles.
-  const
-    TurnDisableSpeed = 50.0f
-    CornerRoundingTension = 0.5f
-    BumpDepthTiles = 0.18f
-    BumpActiveFraction = 0.35f
-  if agent.isNil:
-    return vec2(0, 0)
-  let
-    baseStep = floor(stepFloat).int
-    t = clamp(stepFloat - baseStep.float32, 0.0f, 1.0f)
-    p1 = agent.location.at(baseStep).xy.vec2
-    p2 = agent.location.at(baseStep + 1).xy.vec2
-  if playSpeed > TurnDisableSpeed or baseStep < 1:
-    result = p1 + (p2 - p1) * t
-  elif p1 == p2:
-    result = p1
-  else:
-    let
-      p0 = agent.location.at(baseStep - 1).xy.vec2
-      p3 = agent.location.at(baseStep + 2).xy.vec2
-      m0 = if p0 == p1: vec2(0, 0) else: CornerRoundingTension * (p2 - p0)
-      m1 = if p2 == p3: vec2(0, 0) else: CornerRoundingTension * (p3 - p1)
-      t2 = t * t
-      t3 = t2 * t
-    result = (2.0f*t3 - 3.0f*t2 + 1.0f) * p1 +
-      (t3 - 2.0f*t2 + t) * m0 +
-      (-2.0f*t3 + 3.0f*t2) * p2 +
-      (t3 - t2) * m1
-
-  if agent.isAgent and playSpeed <= TurnDisableSpeed and
-      t > 0.0f and t < BumpActiveFraction:
-    var bumpDir = none(IVec2)
-    if baseStep >= 0 and baseStep + 1 < replay.maxSteps and
-        agent.location.at(baseStep).xy == agent.location.at(baseStep + 1).xy:
-      for actionStep in [baseStep, baseStep + 1]:
-        if agent.animationId.len == 0 or agent.animationId.at(actionStep) != 1:
-          continue
-        let actionId = agent.actionId.at(actionStep)
-        if actionId == replay.moveNorthActionId:
-          bumpDir = some(ivec2(0, -1))
-        elif actionId == replay.moveSouthActionId:
-          bumpDir = some(ivec2(0, 1))
-        elif actionId == replay.moveWestActionId:
-          bumpDir = some(ivec2(-1, 0))
-        elif actionId == replay.moveEastActionId:
-          bumpDir = some(ivec2(1, 0))
-        if bumpDir.isSome:
-          break
-    if bumpDir.isSome:
-      let
-        progress = t / BumpActiveFraction
-        depth = sin(PI.float32 * progress) * BumpDepthTiles
-      result += bumpDir.get.vec2 * depth
 
 proc beginTalkComposeForSelected*() =
   ## Begin talk composition for the selected agent.
@@ -236,9 +180,6 @@ proc drawTalkBubble(agent: Entity, zoomInfo: ZoomInfo) =
   if remainingSteps <= 0:
     return
 
-  proc textWidth(text: string): float32 =
-    sk.getTextSize("pixelated", text).x
-
   proc wrapTalkBubbleLines(text: string, maxTextWidth: float32): seq[string] =
     ## Wrap the talk text into width-limited lines for the bubble.
     let normalized = strutils.splitWhitespace(text).join(" ")
@@ -249,7 +190,7 @@ proc drawTalkBubble(agent: Entity, zoomInfo: ZoomInfo) =
     for word in normalized.split(' '):
       if word.len == 0:
         continue
-      if textWidth(word) > maxTextWidth:
+      if sk.getTextSize("pixelated", word).x > maxTextWidth:
         if currentLine.len > 0:
           result.add(currentLine)
           currentLine = ""
@@ -257,7 +198,7 @@ proc drawTalkBubble(agent: Entity, zoomInfo: ZoomInfo) =
         for ch in word:
           let candidate = currentSegment & ch
           if currentSegment.len > 0 and
-              textWidth(candidate) > maxTextWidth:
+              sk.getTextSize("pixelated", candidate).x > maxTextWidth:
             result.add(currentSegment)
             currentSegment = $ch
           else:
@@ -271,7 +212,7 @@ proc drawTalkBubble(agent: Entity, zoomInfo: ZoomInfo) =
         else:
           currentLine & " " & word
       if currentLine.len > 0 and
-          textWidth(candidate) > maxTextWidth:
+          sk.getTextSize("pixelated", candidate).x > maxTextWidth:
         result.add(currentLine)
         currentLine = word
       else:
@@ -281,6 +222,7 @@ proc drawTalkBubble(agent: Entity, zoomInfo: ZoomInfo) =
       result.add(currentLine)
     if result.len == 0:
       result.add("")
+    return result
 
   let
     zoomScale = zoomInfo.zoom * zoomInfo.zoom
@@ -327,7 +269,8 @@ proc drawTalkBubble(agent: Entity, zoomInfo: ZoomInfo) =
     let candidateLines = wrapTalkBubbleLines(talkText, wrapWidth)
     var candidateTextWidth = 0.0'f
     for line in candidateLines:
-      candidateTextWidth = max(candidateTextWidth, textWidth(line))
+      candidateTextWidth =
+        max(candidateTextWidth, sk.getTextSize("pixelated", line).x)
 
     let
       candidateBubbleWidth = clamp(
@@ -370,7 +313,7 @@ proc drawTalkBubble(agent: Entity, zoomInfo: ZoomInfo) =
   var bubblePos =
     zoomInfo.rect.xy.vec2 +
     zoomInfo.pos +
-    (smoothTalkBubblePos(agent) + vec2(0, -TalkBubbleLiftTiles)) * zoomScale +
+    (smoothPos(agent) + vec2(0, -TalkBubbleLiftTiles)) * zoomScale +
     TalkBubbleOffset -
     vec2(bubbleWidth * 0.5'f, bubbleHeight)
 
@@ -407,7 +350,7 @@ proc drawTalkBubbles*(zoomInfo: ZoomInfo) {.measure.} =
   ## Draw speech bubbles above agents with active talk.
   if replay.isNil or
       not replay.config.game.talk.enabled or
-      zoomInfo.zoom < 4.25f: # Show mini/pip overlays at a less zoomed-out level.
+      zoomInfo.zoom < 4.25f: # Show at a less zoomed-out level.
     return
 
   for agent in replay.agents:
