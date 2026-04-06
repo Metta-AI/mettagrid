@@ -9,9 +9,13 @@ from mettagrid.types import Action
 class _DummyAgent:
     def __init__(self) -> None:
         self.actions: list[Action] = []
+        self.talk: list[str] = []
 
     def set_action(self, action: Action) -> None:
         self.actions.append(action)
+
+    def set_talk(self, text: str) -> None:
+        self.talk.append(text)
 
 
 class _DummySim:
@@ -35,6 +39,17 @@ def test_apply_deferred_user_actions_applies_and_clears_queue() -> None:
     assert renderer._sim.agent(0).actions == [first_action]
     assert renderer._sim.agent(1).actions == [second_action]
     assert renderer._deferred_user_actions == []
+
+
+def test_apply_deferred_user_actions_routes_directive_talk() -> None:
+    renderer = NoRenderer()
+    renderer._sim = _DummySim()
+
+    renderer.defer_user_action(0, Action(name="move_north", talk="hold east"))
+    renderer.apply_deferred_user_actions()
+
+    assert renderer._sim.agent(0).actions == [Action(name="move_north")]
+    assert renderer._sim.agent(0).talk == ["hold east"]
 
 
 def test_miniscope_renderer_uses_default_terminal_size_when_invalid(monkeypatch) -> None:

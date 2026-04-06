@@ -143,6 +143,7 @@ type
   ActionRequest* = object
     agentId*: int
     actionName*: string
+    talkText*: string
 
   ObjectiveKind* = enum
     Move # Move to a specific position.

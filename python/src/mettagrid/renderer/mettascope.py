@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -100,12 +100,18 @@ class MettascopeRenderer(Renderer):
 
         all_policy_infos = self._sim._context.get("policy_infos", {})
         all_monologue_updates = self._sim._context.get("monologue_updates", {})
+        all_talk_states = self._sim.talk_states()
         tutorial_overlay_phases = _extract_tutorial_overlay_phases(all_policy_infos)
 
         for grid_object in self._sim.grid_objects(ignore_types=ignore_types).values():
             agent_id = grid_object.get("agent_id")
-            policy_infos = strip_monologue_transcript_tail(all_policy_infos.get(agent_id))
-            monologue_update = all_monologue_updates.get(agent_id, {})
+            policy_infos = None
+            monologue_update = {}
+            talk_state = None
+            if agent_id is not None:
+                policy_infos = strip_monologue_transcript_tail(all_policy_infos.get(agent_id))
+                monologue_update = all_monologue_updates.get(agent_id, {})
+                talk_state = all_talk_states.get(agent_id)
             formatted = format_grid_object(
                 grid_object,
                 placeholder_actions,
@@ -115,6 +121,8 @@ class MettascopeRenderer(Renderer):
                 policy_infos=policy_infos,
                 monologue_append=_monologue_append(monologue_update),
                 monologue_reset=_monologue_reset(monologue_update),
+                talk_text=talk_state.text if talk_state is not None else "",
+                talk_remaining_steps=talk_state.remaining_steps if talk_state is not None else 0,
             )
 
             # Convert raw per-resource capacities to per-capacity-group format
@@ -148,33 +156,32 @@ class MettascopeRenderer(Renderer):
             return
         if self.response.actions:
             for action in self.response.actions:
-                # ctypes c_char_p returns bytes, we need to decode immediately
-                # before the memory gets freed
-                action_name_raw = action.action_name
-
-                if isinstance(action_name_raw, bytes):
-                    # Find null terminator and decode only up to there
-                    null_idx = action_name_raw.find(b"\x00")
-                    if null_idx > 0:
-                        action_name = action_name_raw[:null_idx].decode("utf-8", errors="ignore")
-                    else:
-                        action_name = action_name_raw.decode("utf-8", errors="ignore")
-                elif isinstance(action_name_raw, str):
-                    action_name = action_name_raw
-                else:
-                    print(f"WARNING: Unexpected action_name type: {type(action_name_raw)}")
+                raw_action: Any = action
+                action_name = raw_action.action_name
+                if action_name is None:
+                    action_name = ""
+                elif isinstance(action_name, bytes):
+                    action_name = action_name.split(b"\x00", 1)[0].decode("utf-8", errors="ignore")
+                elif not isinstance(action_name, str):
+                    logger.warning("Unexpected action_name type: %s", type(raw_action.action_name))
                     continue
+
+                talk_text = raw_action.talk_text
+                if talk_text is None:
+                    talk_text = ""
+                elif isinstance(talk_text, bytes):
+                    talk_text = talk_text.split(b"\x00", 1)[0].decode("utf-8", errors="ignore")
+                elif not isinstance(talk_text, str):
+                    talk_text = ""
 
                 if not action_name:
-                    continue
+                    if not talk_text:
+                        continue
 
-                try:
-                    self.defer_user_action(action.agent_id, Action(name=action_name))
-                except KeyError as e:
-                    logger.error("Unknown action '%s' - %s", action_name, e)
-                    available_actions = [a for a in self._sim.action_ids if "change_vibe" in a]
-                    logger.error("Available change_vibe actions: %s", available_actions)
-                    continue
+                self.defer_user_action(
+                    action.agent_id,
+                    Action(name=action_name or "noop", talk=talk_text or None),
+                )
 
     def render(self) -> None:
         """Render current state and capture user input."""

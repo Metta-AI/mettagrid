@@ -103,3 +103,39 @@ def test_mettascope_renderer_uses_pending_binding_without_building_replay(monkey
     renderer.render_pending()
 
     assert fake_module.calls == ["render_pending"]
+
+
+def test_mettascope_renderer_uses_noop_for_talk_only_manual_actions() -> None:
+    renderer = MettascopeRenderer.__new__(MettascopeRenderer)
+    renderer._deferred_user_actions = []
+    renderer._sim = SimpleNamespace(_context={}, action_ids={"move": 0, "noop": 1})
+    renderer.response = SimpleNamespace(
+        should_close=False,
+        actions=[SimpleNamespace(agent_id=0, action_name="", talk_text="holding junction")],
+    )
+
+    renderer._apply_render_response()
+
+    assert len(renderer._deferred_user_actions) == 1
+    agent_id, action = renderer._deferred_user_actions[0]
+    assert agent_id == 0
+    assert action.name == "noop"
+    assert action.talk == "holding junction"
+
+
+def test_mettascope_renderer_uses_noop_for_talk_only_manual_actions_even_without_noop_action_id() -> None:
+    renderer = MettascopeRenderer.__new__(MettascopeRenderer)
+    renderer._deferred_user_actions = []
+    renderer._sim = SimpleNamespace(_context={}, action_ids={"move": 0, "move_east": 1})
+    renderer.response = SimpleNamespace(
+        should_close=False,
+        actions=[SimpleNamespace(agent_id=0, action_name="", talk_text="holding junction")],
+    )
+
+    renderer._apply_render_response()
+
+    assert len(renderer._deferred_user_actions) == 1
+    agent_id, action = renderer._deferred_user_actions[0]
+    assert agent_id == 0
+    assert action.name == "noop"
+    assert action.talk == "holding junction"

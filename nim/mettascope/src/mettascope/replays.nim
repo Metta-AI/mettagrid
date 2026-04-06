@@ -68,6 +68,11 @@ type
     resources*: Table[string, int]
     tags*: seq[string]
 
+  TalkConfig* = object
+    enabled*: bool
+    maxLength*: int
+    cooldownSteps*: int
+
   RenderConfig* = object
     hud1*: RenderHudConfig
     hud2*: RenderHudConfig
@@ -82,6 +87,7 @@ type
     obs*: ObsConfig
     actions*: Table[string, ActionConfig]
     objects*: Table[string, ObjectConfig]
+    talk*: TalkConfig
     render*: RenderConfig
 
   Config* = object
@@ -155,6 +161,8 @@ type
     policyInfos*: seq[JsonNode]
     monologueAppend*: seq[string]
     monologueReset*: seq[bool]
+    talkText*: seq[string]
+    talkRemainingSteps*: seq[int]
 
     # Computed fields.
     gainMap*: seq[seq[ItemAmount]]
@@ -264,6 +272,8 @@ type
     policyInfos*: JsonNode
     monologueAppend*: string = ""
     monologueReset*: bool = false
+    talkText*: string = ""
+    talkRemainingSteps*: int = 0
 
   ReplayStep* = ref object
     step*: int
@@ -1329,6 +1339,24 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
     entity.policyInfos = @[newJNull()]
     entity.monologueAppend = @[""]
     entity.monologueReset = @[false]
+    entity.talkText =
+      if "talk_text" in obj:
+        expand[string](
+          obj["talk_text"],
+          replay.maxSteps,
+          ""
+        )
+      else:
+        @[""]
+    entity.talkRemainingSteps =
+      if "talk_remaining_steps" in obj:
+        expand[int](
+          obj["talk_remaining_steps"],
+          replay.maxSteps,
+          0
+        )
+      else:
+        @[0]
 
     if "protocols" in obj:
       entity.protocols = fromJson($(obj["protocols"]), seq[Protocol])
@@ -1452,6 +1480,8 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
         entity.policyInfos.add(newJNull())
     entity.monologueAppend.add(obj.monologueAppend)
     entity.monologueReset.add(obj.monologueReset)
+    entity.talkText.add(obj.talkText)
+    entity.talkRemainingSteps.add(obj.talkRemainingSteps)
 
   # Mark objects as dead if they existed before but weren't in this step.
   if replay.objects.len > 0:

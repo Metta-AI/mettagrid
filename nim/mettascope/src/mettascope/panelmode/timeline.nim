@@ -1,7 +1,7 @@
 import
   std/[times, math],
   chroma, vmath, windy, silky,
-  ../[common, actions, configs],
+  ../[common, actions, configs, talk],
   ../gamemode/[gameplayer, timelineslider, sound]
 
 const
@@ -23,12 +23,14 @@ proc takeRequestActions*(processPython: bool): seq[ActionRequest] =
   requestPython = false
 
 proc playControls*() =
+  handleTalkComposerControls()
+
   let now = epochTime()
   let deltaTime = now - lastFrameTime
 
   let superDown =
     window.buttonDown[KeyLeftSuper] or window.buttonDown[KeyRightSuper]
-  if superDown and window.buttonPressed[KeyQ]:
+  if not talkComposeActive and superDown and window.buttonPressed[KeyQ]:
     when not defined(emscripten):
       window.closeRequested = true
 
@@ -45,10 +47,11 @@ proc playControls*() =
     playSpeed = clamp(playSpeed, 0.00001, 1000.0)
     play = true
     playSound("UIbutton.wav")
-  if window.buttonPressed[KeyF10] or window.buttonPressed[KeyG]:
+  if window.buttonPressed[KeyF10] or
+      (not talkComposeActive and window.buttonPressed[KeyG]):
     let newMode = if gameMode == Editor: Game else: Editor
     switchGameMode(newMode)
-  if window.buttonPressed[KeyF] and selected != nil:
+  if not talkComposeActive and window.buttonPressed[KeyF] and selected != nil:
     settings.lockFocus = true
     saveUIState()
     playSound("UIswitch.wav")

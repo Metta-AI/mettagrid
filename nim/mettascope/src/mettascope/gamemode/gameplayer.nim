@@ -2,7 +2,7 @@ import
   std/[strformat, tables],
   opengl,
   bumpy, vmath, windy, silky, silky/atlas, chroma, pixie,
-  ../[common, configs, replays, colors, actions, cognames],
+  ../[common, configs, replays, colors, actions, cognames, talk],
   ./[team, sound, worldmap, minimap, custom_hud, camera]
 
 var
@@ -455,8 +455,12 @@ proc bottomRightPanel(winW: float32, winH: float32) =
       YStride = 48.0f + 39.0f  # cell height + vertical spacing
       GridXOff = 50.0f   # offset from right edge of window
       GridYOff = 106.0f  # offset from bottom edge of window
+    var availableVibes: seq[tuple[name: string, vibeId: int]]
+    for vibeId, vibeName in replay.config.game.vibeNames:
+      if replay.actionNames.find("change_vibe_" & vibeName) != -1:
+        availableVibes.add((vibeName, vibeId))
+
     let
-      vibes = replay.config.game.vibeNames
       gridW = GridCols.float32 * XStride - 34.0f  # no trailing spacing
       gridH = GridRows.float32 * YStride - 39.0f
       gridOrigin = vec2(
@@ -466,15 +470,21 @@ proc bottomRightPanel(winW: float32, winH: float32) =
     var idx = 0
     for row in 0 ..< GridRows:
       for col in 0 ..< GridCols:
-        if idx >= vibes.len:
+        if idx >= availableVibes.len:
           break
         let cellPos = gridOrigin + vec2(
           col.float32 * XStride,
           row.float32 * YStride
         )
-        drawVibeButton(cellPos, vibes[idx], idx, VibeIconSize)
+        let (vibeName, vibeId) = availableVibes[idx]
+        drawVibeButton(
+          cellPos,
+          vibeName,
+          vibeId,
+          VibeIconSize
+        )
         idx += 1
-      if idx >= vibes.len:
+      if idx >= availableVibes.len:
         break
 
 proc drawStatBar(panelPos: Vec2, label: string, value: int, maxValue: int, divisions: int, delta: int) =
@@ -858,9 +868,11 @@ proc drawGameWorld*() =
   bottomLeftPanel(winH)
   bottomRightPanel(winW, winH)
   centerPanel(winW, winH)
+  centeredTalkComposer(winW, winH)
 
   bottomTimelineSlider(winW, winH)
 
   drawWorldMap(worldMapZoomInfo)
+  drawTalkBubbles(worldMapZoomInfo)
   bottomLeftMinimap(winH)
   worldMapZoomInfo.hasMouse = true

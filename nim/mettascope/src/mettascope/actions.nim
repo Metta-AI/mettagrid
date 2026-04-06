@@ -1,7 +1,7 @@
 import
   std/[tables],
   windy, vmath,
-  common, replays, gamemode/pathfinding
+  common, replays, talk, gamemode/pathfinding
 
 type
   Orientation* = enum
@@ -175,6 +175,9 @@ proc queueWasdMove(agent: Entity, direction: IVec2) =
 
 proc agentControls*() =
   ## Manual controls with WASD for selected agent.
+  ensureTalkComposeSelection()
+  if talkComposeActive:
+    return
   if selected != nil and selected.isAgent:
     let agent = selected
 

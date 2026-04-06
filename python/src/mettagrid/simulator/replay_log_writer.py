@@ -164,6 +164,7 @@ class EpisodeReplay:
         """Log a single step of the episode."""
         self.total_rewards += rewards
         all_policy_infos = self.sim._context.get("policy_infos", {})
+        all_talk_states = self.sim.talk_states()
 
         # On first step, get ALL objects (including walls) to set up the replay
         # On subsequent steps, use ignore_types to skip static objects at the C++ level
@@ -189,13 +190,17 @@ class EpisodeReplay:
             seen_indices.add(idx)
 
             agent_id = grid_object.get("agent_id")
+            policy_infos = all_policy_infos.get(agent_id) if agent_id is not None else None
+            talk_state = all_talk_states.get(agent_id) if agent_id is not None else None
             update_object = format_grid_object(
                 grid_object,
                 actions,
                 self.sim.action_success,
                 rewards,
                 self.total_rewards,
-                policy_infos=all_policy_infos.get(agent_id),
+                policy_infos=policy_infos,
+                talk_text=talk_state.text if talk_state is not None else "",
+                talk_remaining_steps=talk_state.remaining_steps if talk_state is not None else 0,
             )
 
             # Convert raw per-resource capacities to per-capacity-group format

@@ -10,6 +10,7 @@ type
   ActionRequest* = object
     agentId*: int
     actionName*: cstring
+    talkText*: cstring
 
   RenderResponse* = ref object
     shouldClose*: bool
@@ -130,7 +131,8 @@ proc render(currentStep: int, replayStep: string): RenderResponse =
         for action in takeRequestActions(true):
           result.actions.add(ActionRequest(
             agentId: action.agentId,
-            actionName: action.actionName.cstring
+            actionName: action.actionName.cstring,
+            talkText: action.talkText.cstring
           ))
         return
   except Exception:

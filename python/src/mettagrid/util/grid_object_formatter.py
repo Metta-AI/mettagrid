@@ -85,6 +85,8 @@ def format_grid_object(
     policy_infos: Optional[dict] = None,
     monologue_append: str = "",
     monologue_reset: bool = False,
+    talk_text: str = "",
+    talk_remaining_steps: int = 0,
 ) -> dict:
     """Format a grid object with validation for both replay recording and play streaming."""
     # Validate basic object properties
@@ -124,6 +126,11 @@ def format_grid_object(
             update_object["policy_infos"] = policy_infos
         update_object["monologue_append"] = monologue_append
         update_object["monologue_reset"] = monologue_reset
+        if talk_text or talk_remaining_steps or "talk_text" in grid_object or "talk_remaining_steps" in grid_object:
+            talk_text = grid_object.get("talk_text", talk_text)
+            talk_remaining_steps = int(grid_object.get("talk_remaining_steps", talk_remaining_steps))
+            update_object["talk_text"] = talk_text
+            update_object["talk_remaining_steps"] = talk_remaining_steps
 
     elif "input_resources" in grid_object:
         format_converter_properties(grid_object, update_object)

@@ -25,6 +25,9 @@ class Renderer(SimulatorEventHandler):
     def apply_deferred_user_actions(self) -> None:
         """Apply all deferred user actions (overriding policy actions), then clear."""
         for agent_id, action in self._deferred_user_actions:
+            if action.talk is not None:
+                self._sim.agent(agent_id).set_talk(action.talk)
+                action = Action(name=action.name, vibe=action.vibe)
             self._sim.agent(agent_id).set_action(action)
         self._deferred_user_actions.clear()
 

@@ -16,21 +16,20 @@ proc drawVibes*(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Ve
   frame(frameId, contentPos, contentSize):
     let buttonWidth = 32.0f + sk.padding
     let startX = sk.at.x
-    for i, vibe in getVibes():
+    for vibe in getVibes():
+      let
+        vibeName = vibe.split("/")[1]
+        vibeActionId = replay.actionNames.find("change_vibe_" & vibeName)
+      if vibeActionId == -1:
+        continue
+
       # Check if we need to wrap to the next line.
       if sk.at.x + buttonWidth > sk.pos.x + sk.size.x - m:
         sk.at.x = startX
         sk.at.y += 32 + m
 
-      let vibeName = vibe.split("/")[1]
-
       iconButton(vibe):
         if selected == nil or not selected.isAgent:
-          return
-
-        let vibeActionId = replay.actionNames.find("change_vibe_" & vibeName)
-        if vibeActionId == -1:
-          echo "vibe action not found: change_vibe_", vibeName
           return
 
         let shiftDown = window.buttonDown[KeyLeftShift] or window.buttonDown[KeyRightShift]

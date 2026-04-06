@@ -1,11 +1,11 @@
 import
   std/[strutils, os],
   opengl, windy, bumpy, vmath, silky,
-  mettascope/[replays, common, replayloader, configs],
+  mettascope/[replays, common, replayloader, configs, talk],
   mettascope/gamemode/[worldmap, minimap, gameplayer, camera],
   mettascope/panelmode/[panes, footer, timeline, header,
     objectpanel, policyinfopanel, envpanel, vibespanel, scorepanel,
-    monologuepanel]
+    monologuepanel, talkpanel]
 import slappy except play
 
 when defined(emscripten):
@@ -126,6 +126,7 @@ proc drawWorldMap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: 
   translateTransform(contentPos)
   drawWorldMap(worldMapZoomInfo)
   restoreTransform()
+  drawTalkBubbles(worldMapZoomInfo)
 
   glDisable(GL_SCISSOR_TEST)
 
@@ -168,6 +169,7 @@ proc createDefaultPanelLayout() =
   rootArea.areas[0].areas[1].addPanel("Minimap", drawMinimap)
 
   rootArea.areas[1].areas[1].addPanel("Vibes", drawVibes)
+  rootArea.areas[1].areas[1].addPanel("Talk", drawTalkPanel)
   rootArea.areas[1].areas[1].addPanel("Score", drawScorePanel)
   rootArea.areas[1].areas[1].addPanel("Monologue", drawMonologuePanel)
 
@@ -285,6 +287,9 @@ proc initMettascope*() {.measure.} =
   initPanels()
 
   sk = newSilky(window, dataDir / "silky.atlas.png")
+  window.onRune = proc(rune: Rune) =
+    if talkComposeActive and rune.int >= 32 and rune.int <= 126:
+      sk.inputRunes.add(rune)
 
   ## Initialize the world map zoom info.
   worldMapZoomInfo = ZoomInfo()

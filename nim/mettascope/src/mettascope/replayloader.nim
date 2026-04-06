@@ -1,7 +1,7 @@
 import
   std/[tables, strutils],
   windy,
-  replays, common, configs,
+  replays, common, configs, talk,
   gamemode/[team, worldmap, camera, pipegrid],
   panelmode/[objectpanel, monologuepanel]
 
@@ -32,6 +32,7 @@ proc onReplayLoaded*() =
   requestPython = false
   agentPaths = initTable[int, seq[PathAction]]()
   agentObjectives = initTable[int, seq[Objective]]()
+  clearTalkCompose()
   resetMonologueCaches()
 
   needsInitialFit = true
