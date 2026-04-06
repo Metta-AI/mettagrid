@@ -6,7 +6,6 @@ from threading import Lock, Thread
 from typing import Any, Callable
 
 import psutil
-import torch
 from typing_extensions import TypeVar
 
 T = TypeVar("T")
@@ -141,10 +140,16 @@ class SystemMonitor:
         # GPU metrics - check multiple ways for compatibility
         self._has_gpu = False
 
-        # Try PyTorch CUDA
-        if torch.cuda.is_available():
+        # Try PyTorch CUDA (lazy import to avoid hard torch dependency)
+        try:
+            import torch  # noqa: PLC0415
+        except ImportError:
+            torch = None
+
+        if torch is not None and torch.cuda.is_available():
             self._has_gpu = True
             self._gpu_backend = "cuda"
+            self._torch = torch
             gpu_count = torch.cuda.device_count()
 
             # Add aggregate metrics (rename to make it clear they're aggregates)
@@ -160,7 +165,7 @@ class SystemMonitor:
             for i in range(gpu_count):
                 self._metric_collectors.update(
                     {
-                        f"gpu{i}_utilization": lambda idx=i: torch.cuda.utilization(idx),
+                        f"gpu{i}_utilization": lambda idx=i: self._torch.cuda.utilization(idx),
                         f"gpu{i}_memory_percent": lambda idx=i: self._get_single_gpu_memory_percent(idx),
                         f"gpu{i}_memory_used_mb": lambda idx=i: self._get_single_gpu_memory_used_mb(idx),
                     }
@@ -214,11 +219,11 @@ class SystemMonitor:
     def _get_gpu_utilization_cuda(self) -> float | None:
         try:
             utils = []
-            for i in range(torch.cuda.device_count()):
+            for i in range(self._torch.cuda.device_count()):
                 # Handle potential errors for specific GPUs
                 try:
-                    utils.append(torch.cuda.utilization(i))
-                except (RuntimeError, torch.cuda.CudaError) as e:
+                    utils.append(self._torch.cuda.utilization(i))
+                except (RuntimeError, self._torch.cuda.CudaError) as e:
                     # RuntimeError: Common when CUDA is not properly initialized or device is unavailable
                     # CudaError: Specific CUDA-related errors
                     self.logger.debug(f"Failed to get utilization for GPU {i}: {type(e).__name__}: {e}")
@@ -241,9 +246,9 @@ class SystemMonitor:
         """Get average GPU memory usage percent across all CUDA GPUs."""
         try:
             percents = []
-            for i in range(torch.cuda.device_count()):
+            for i in range(self._torch.cuda.device_count()):
                 try:
-                    free, total = torch.cuda.mem_get_info(i)
+                    free, total = self._torch.cuda.mem_get_info(i)
                     if total > 0:  # Defensive check
                         percents.append((total - free) / total * 100)
                 except ZeroDivisionError:
@@ -263,9 +268,9 @@ class SystemMonitor:
         try:
             total_used = 0
             count = 0
-            for i in range(torch.cuda.device_count()):
+            for i in range(self._torch.cuda.device_count()):
                 try:
-                    free, total = torch.cuda.mem_get_info(i)
+                    free, total = self._torch.cuda.mem_get_info(i)
                     total_used += (total - free) / (1024 * 1024)
                     count += 1
                 except Exception as e:
@@ -277,13 +282,13 @@ class SystemMonitor:
             return None
 
     def _get_single_gpu_memory_percent(self, gpu_idx: int) -> float | None:
-        free, total = torch.cuda.mem_get_info(gpu_idx)
+        free, total = self._torch.cuda.mem_get_info(gpu_idx)
         if total > 0:
             return (total - free) / total * 100
         return None
 
     def _get_single_gpu_memory_used_mb(self, gpu_idx: int) -> float | None:
-        free, total = torch.cuda.mem_get_info(gpu_idx)
+        free, total = self._torch.cuda.mem_get_info(gpu_idx)
         return (total - free) / (1024 * 1024)
 
     def _collect_sample(self) -> None:
