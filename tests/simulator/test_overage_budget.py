@@ -81,6 +81,22 @@ class BatchGroupPolicy(AgentPolicy):
         return [Action(name="noop") for _ in observations]
 
 
+class BatchGroupInfoPolicy(BatchGroupPolicy):
+    def __init__(self):
+        super().__init__()
+        self._latest_group_infos: dict[int, dict[str, int | str]] = {}
+
+    def step_group(self, observations: list[tuple[int, AgentObservation]]) -> list[Action]:
+        self.step_group_calls += 1
+        self._latest_group_infos = {
+            agent_id: {"current_task": f"task-{agent_id}", "agent_id": agent_id} for agent_id, _obs in observations
+        }
+        return [Action(name="noop") for _ in observations]
+
+    def group_step_infos(self, agent_ids: list[int]) -> list[dict[str, int | str]]:
+        return [self._latest_group_infos.get(agent_id, {}) for agent_id in agent_ids]
+
+
 class RecordingRenderer(Renderer):
     def __init__(self):
         super().__init__()
@@ -472,6 +488,26 @@ def test_group_step_does_not_reuse_stale_agent_infos():
 
     assert rollout._policy_infos[0] == {"policy_name": "policy_0"}
     assert rollout._policy_infos[1] == {"policy_name": "policy_1"}
+
+
+def test_group_step_uses_fresh_agent_infos_when_policy_provides_them():
+    config = _make_config(num_agents=2, max_steps=1)
+    policy_0 = BatchGroupInfoPolicy()
+    policy_1 = BatchGroupInfoPolicy()
+    policy_0._infos = {"stale": "old"}
+    policy_1._infos = {"stale": "old"}
+
+    rollout = Rollout(
+        config,
+        [policy_0, policy_1],
+        policy_names=["policy_0", "policy_1"],
+        max_action_time_ms=10_000,
+        policy_group_keys=[0, 0],
+    )
+    rollout.step()
+
+    assert rollout._policy_infos[0] == {"current_task": "task-0", "agent_id": 0, "policy_name": "policy_0"}
+    assert rollout._policy_infos[1] == {"current_task": "task-1", "agent_id": 1, "policy_name": "policy_1"}
 
 
 def test_rollout_routes_directive_talk_through_set_talk() -> None:

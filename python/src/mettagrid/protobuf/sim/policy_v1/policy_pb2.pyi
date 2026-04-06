@@ -34,14 +34,16 @@ class BatchStepRequest(_message.Message):
     def __init__(self, episode_id: _Optional[str] = ..., step_id: _Optional[int] = ..., agent_observations: _Optional[_Iterable[_Union[AgentObservations, _Mapping]]] = ...) -> None: ...
 
 class AgentActions(_message.Message):
-    __slots__ = ("agent_id", "action_id", "talk_text")
+    __slots__ = ("agent_id", "action_id", "talk_text", "infos_json")
     AGENT_ID_FIELD_NUMBER: _ClassVar[int]
     ACTION_ID_FIELD_NUMBER: _ClassVar[int]
     TALK_TEXT_FIELD_NUMBER: _ClassVar[int]
+    INFOS_JSON_FIELD_NUMBER: _ClassVar[int]
     agent_id: int
     action_id: _containers.RepeatedScalarFieldContainer[int]
     talk_text: str
-    def __init__(self, agent_id: _Optional[int] = ..., action_id: _Optional[_Iterable[int]] = ..., talk_text: _Optional[str] = ...) -> None: ...
+    infos_json: str
+    def __init__(self, agent_id: _Optional[int] = ..., action_id: _Optional[_Iterable[int]] = ..., talk_text: _Optional[str] = ..., infos_json: _Optional[str] = ...) -> None: ...
 
 class BatchStepResponse(_message.Message):
     __slots__ = ("agent_actions",)

@@ -58,6 +58,21 @@ class _EchoVisibleTalkPolicy(MultiAgentPolicy):
         return _EchoVisibleTalkAgentPolicy(self._policy_env_info)
 
 
+class _InfoAgentPolicy(AgentPolicy):
+    def step(self, obs: AgentObservation) -> Action:
+        self._infos = {"current_task": f"task-{obs.agent_id}", "agent_id": obs.agent_id}
+        return Action(name="move")
+
+
+class _InfoPolicy(MultiAgentPolicy):
+    def __init__(self, policy_env_info: PolicyEnvInterface):
+        super().__init__(policy_env_info)
+        self._agents: dict[int, _InfoAgentPolicy] = {}
+
+    def agent_policy(self, agent_id: int) -> AgentPolicy:
+        return self._agents.setdefault(agent_id, _InfoAgentPolicy(self._policy_env_info))
+
+
 def _run_ws_test(policy: MultiAgentPolicy, env: PolicyEnvInterface, test_fn):
     service = LocalPolicyServer("fake://policy")
 
@@ -208,6 +223,35 @@ def test_ws_policy_round_trips_visible_talk_and_talk_sidecars():
         assert action.talk == "hold east"
 
     _run_ws_test(_EchoVisibleTalkPolicy(env), env, check)
+
+
+def test_ws_policy_step_round_trips_policy_infos():
+    env = _env_interface()
+
+    def check(client: WebSocketPolicyServerClient, env: PolicyEnvInterface):
+        agent = client.agent_policy(0)
+        obs = AgentObservation(agent_id=0, tokens=[])
+        action = agent.step(obs)
+        assert action.name == "move"
+        assert agent.infos == {"current_task": "task-0", "agent_id": 0}
+
+    _run_ws_test(_InfoPolicy(env), env, check)
+
+
+def test_ws_policy_step_group_round_trips_policy_infos_per_agent():
+    env = _env_interface()
+
+    def check(client: WebSocketPolicyServerClient, env: PolicyEnvInterface):
+        agent0 = client.agent_policy(0)
+        agent1 = client.agent_policy(1)
+        obs0 = AgentObservation(agent_id=0, tokens=[])
+        obs1 = AgentObservation(agent_id=1, tokens=[])
+        actions = agent0.step_group([(0, obs0), (1, obs1)])
+        assert [action.name for action in actions] == ["move", "move"]
+        assert agent0.infos == {"current_task": "task-0", "agent_id": 0}
+        assert agent1.infos == {"current_task": "task-1", "agent_id": 1}
+
+    _run_ws_test(_InfoPolicy(env), env, check)
 
 
 def test_serialize_triplet_v1_empty():

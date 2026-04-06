@@ -1,3 +1,4 @@
+import json
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -102,6 +103,13 @@ def encode_action_id(action: Action, policy_env: PolicyEnvInterface) -> int | No
     return flat_action_indices.get(action.name)
 
 
+def _serialize_infos_json(agent_policy: AgentPolicy) -> str:
+    infos = agent_policy.infos
+    if not infos:
+        return ""
+    return json.dumps(infos)
+
+
 @dataclass
 class Episode:
     episode_id: str
@@ -172,6 +180,7 @@ class LocalPolicyServer:
                     agent_id=agent_id,
                     action_id=[action_id],
                     talk_text=action.talk or "",
+                    infos_json=_serialize_infos_json(agent_policy),
                 )
             )
         return resp

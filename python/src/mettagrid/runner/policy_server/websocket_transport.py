@@ -1,3 +1,4 @@
+import json
 import logging
 import threading
 from collections.abc import Sequence
@@ -72,6 +73,17 @@ def _decode_agent_actions(agent_actions: policy_pb2.AgentActions, policy_env_inf
     if not agent_actions.talk_text:
         return base_action
     return Action(name=base_action.name, vibe=base_action.vibe, talk=agent_actions.talk_text)
+
+
+def _decode_infos_json(agent_actions: policy_pb2.AgentActions) -> dict[str, Any]:
+    if not agent_actions.infos_json:
+        return {}
+    infos = json.loads(agent_actions.infos_json)
+    if not isinstance(infos, dict):
+        raise PolicyStepError(f"Policy server returned non-object infos for agent {agent_actions.agent_id}")
+    if not all(isinstance(key, str) for key in infos):
+        raise PolicyStepError(f"Policy server returned non-string info keys for agent {agent_actions.agent_id}")
+    return infos
 
 
 class WebSocketPolicyServer:
@@ -198,12 +210,19 @@ class WebSocketPolicyServerClient(MultiAgentPolicy):
         step_resp.ParseFromString(resp)
 
         actions_by_agent: dict[int, Action] = {}
+        infos_by_agent: dict[int, dict[str, Any]] = {}
         for agent_actions in step_resp.agent_actions:
-            actions_by_agent[agent_actions.agent_id] = _decode_agent_actions(agent_actions, self._policy_env_info)
+            agent_id = agent_actions.agent_id
+            actions_by_agent[agent_id] = _decode_agent_actions(agent_actions, self._policy_env_info)
+            infos_by_agent[agent_id] = _decode_infos_json(agent_actions)
 
         missing_agent_ids = [agent_id for agent_id, _ in agent_observations if agent_id not in actions_by_agent]
         if missing_agent_ids:
             raise PolicyStepError(f"Missing actions for agent_ids {missing_agent_ids}")
+
+        for agent_id, _ in agent_observations:
+            agent_policy = self.agent_policy(agent_id)
+            agent_policy._infos = infos_by_agent.get(agent_id, {})
 
         return [actions_by_agent[agent_id] for agent_id, _ in agent_observations]
 

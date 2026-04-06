@@ -4,7 +4,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError, wait
 from contextlib import contextmanager
-from typing import Any, Iterator, Optional, Sequence
+from typing import Any, Callable, Iterator, Optional, Sequence, cast
 
 from mettagrid.config.mettagrid_config import MettaGridConfig
 from mettagrid.envs.stats_tracker import StatsTracker
@@ -283,6 +283,13 @@ class Rollout:
         group_policies = [self._policies[index] for index in indices]
         first_policy = group_policies[0]
         if first_policy.can_step_group(group_policies):
+            # Clear stale per-agent metadata before the batched call. Policies that
+            # publish fresh infos during step_group can repopulate them; policies
+            # that do not will fall back to policy_name only.
+            for policy in group_policies:
+                if hasattr(policy, "_infos"):
+                    policy._infos = {}
+
             # A batched policy call returns one shared wall-clock duration for
             # every agent in the group.
             batch_observations = [(index, self._agents[index].observation) for index in indices]
@@ -293,12 +300,32 @@ class Rollout:
             if len(actions) != len(indices):
                 raise ValueError(f"step_group returned {len(actions)} actions for {len(indices)} agents")
 
+            group_infos_fn = cast(Callable[[list[int]], Sequence[dict[str, Any]]] | None, None)
+            raw_group_infos_fn = getattr(first_policy, "group_step_infos", None)
+            if callable(raw_group_infos_fn):
+                group_infos_fn = cast(Callable[[list[int]], Sequence[dict[str, Any]]], raw_group_infos_fn)
+
+            if callable(group_infos_fn):
+                group_infos = list(group_infos_fn(indices))
+                if len(group_infos) != len(indices):
+                    raise ValueError(f"group_step_infos returned {len(group_infos)} infos for {len(indices)} agents")
+            else:
+                group_infos = [
+                    dict(self._policies[index].infos) if self._policies[index].infos else {} for index in indices
+                ]
+
             # Charge full wall-clock batch latency to each agent because all agents in
             # the group are blocked on the same remote policy-server round trip.
-            # Note: infos are empty here because step_group is called on the first
-            # policy only and does not update individual policy._infos.
             return [
-                (index, actions[offset], elapsed_ms, {}, start_ns, duration_ns) for offset, index in enumerate(indices)
+                (
+                    index,
+                    actions[offset],
+                    elapsed_ms,
+                    group_infos[offset],
+                    start_ns,
+                    duration_ns,
+                )
+                for offset, index in enumerate(indices)
             ]
 
         # Reuse the single-agent measurement path when a group cannot be batched,

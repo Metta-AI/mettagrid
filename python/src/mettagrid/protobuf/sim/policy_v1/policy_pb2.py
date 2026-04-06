@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n-mettagrid/protobuf/sim/policy_v1/policy.proto\x12 mettagrid.protobuf.sim.policy_v1\"\xe7\x01\n\x11\x41gentObservations\x12\x1a\n\x08\x61gent_id\x18\x01 \x01(\x05R\x08\x61gent_id\x12\"\n\x0cobservations\x18\x02 \x01(\x0cR\x0cobservations\x12Q\n\x0cvisible_talk\x18\x03 \x03(\x0b\x32-.mettagrid.protobuf.sim.policy_v1.VisibleTalkR\x0cvisible_talk\"?\n\x06\x46ormat\x12%\n!AGENT_OBSERVATIONS_FORMAT_UNKNOWN\x10\x00\x12\x0e\n\nTRIPLET_V1\x10\x01\"\xb1\x01\n\x10\x42\x61tchStepRequest\x12\x1e\n\nepisode_id\x18\x01 \x01(\tR\nepisode_id\x12\x18\n\x07step_id\x18\x02 \x01(\x03R\x07step_id\x12\x63\n\x12\x61gent_observations\x18\x03 \x03(\x0b\x32\x33.mettagrid.protobuf.sim.policy_v1.AgentObservationsR\x12\x61gent_observations\"f\n\x0c\x41gentActions\x12\x1a\n\x08\x61gent_id\x18\x01 \x01(\x05R\x08\x61gent_id\x12\x1c\n\taction_id\x18\x02 \x03(\x05R\taction_id\x12\x1c\n\ttalk_text\x18\x03 \x01(\tR\ttalk_text\"i\n\x11\x42\x61tchStepResponse\x12T\n\ragent_actions\x18\x01 \x03(\x0b\x32..mettagrid.protobuf.sim.policy_v1.AgentActionsR\ragent_actions\"\xad\x02\n\tGameRules\x12O\n\x08\x66\x65\x61tures\x18\x01 \x03(\x0b\x32\x33.mettagrid.protobuf.sim.policy_v1.GameRules.FeatureR\x08\x66\x65\x61tures\x12L\n\x07\x61\x63tions\x18\x02 \x03(\x0b\x32\x32.mettagrid.protobuf.sim.policy_v1.GameRules.ActionR\x07\x61\x63tions\x1aS\n\x07\x46\x65\x61ture\x12\x0e\n\x02id\x18\x01 \x01(\x05R\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12$\n\rnormalization\x18\x03 \x01(\x01R\rnormalization\x1a,\n\x06\x41\x63tion\x12\x0e\n\x02id\x18\x01 \x01(\x05R\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\"T\n\nTalkConfig\x12\x1e\n\nmax_length\x18\x01 \x01(\x05R\nmax_length\x12&\n\x0e\x63ooldown_steps\x18\x02 \x01(\x05R\x0e\x63ooldown_steps\"\x8b\x01\n\x0bVisibleTalk\x12\x1a\n\x08\x61gent_id\x18\x01 \x01(\x05R\x08\x61gent_id\x12\x10\n\x03row\x18\x02 \x01(\x05R\x03row\x12\x10\n\x03\x63ol\x18\x03 \x01(\x05R\x03\x63ol\x12(\n\x0fremaining_steps\x18\x04 \x01(\x05R\x0fremaining_steps\x12\x12\n\x04text\x18\x05 \x01(\tR\x04text\"\x9f\x03\n\x12PolicyEnvInterface\x12W\n\x0cobs_features\x18\x01 \x03(\x0b\x32\x33.mettagrid.protobuf.sim.policy_v1.GameRules.FeatureR\x0cobs_features\x12\x12\n\x04tags\x18\x02 \x03(\tR\x04tags\x12\"\n\x0c\x61\x63tion_names\x18\x03 \x03(\tR\x0c\x61\x63tion_names\x12*\n\x10move_energy_cost\x18\x04 \x01(\x05R\x10move_energy_cost\x12\x1e\n\nnum_agents\x18\x05 \x01(\x05R\nnum_agents\x12,\n\x11observation_shape\x18\x06 \x03(\x05R\x11observation_shape\x12\x1e\n\nobs_height\x18\x07 \x01(\x05R\nobs_height\x12\x1c\n\tobs_width\x18\x08 \x01(\x05R\tobs_width\x12@\n\x04talk\x18\t \x01(\x0b\x32,.mettagrid.protobuf.sim.policy_v1.TalkConfigR\x04talk\"\xeb\x02\n\x14PreparePolicyRequest\x12\x1e\n\nepisode_id\x18\x01 \x01(\tR\nepisode_id\x12K\n\ngame_rules\x18\x02 \x01(\x0b\x32+.mettagrid.protobuf.sim.policy_v1.GameRulesR\ngame_rules\x12\x1c\n\tagent_ids\x18\x03 \x03(\x05R\tagent_ids\x12l\n\x13observations_format\x18\x04 \x01(\x0e\x32:.mettagrid.protobuf.sim.policy_v1.AgentObservations.FormatR\x13observations_format\x12Z\n\renv_interface\x18\x05 \x01(\x0b\x32\x34.mettagrid.protobuf.sim.policy_v1.PolicyEnvInterfaceR\renv_interface\"\x17\n\x15PreparePolicyResponse2\x81\x02\n\x06Policy\x12\x80\x01\n\rPreparePolicy\x12\x36.mettagrid.protobuf.sim.policy_v1.PreparePolicyRequest\x1a\x37.mettagrid.protobuf.sim.policy_v1.PreparePolicyResponse\x12t\n\tBatchStep\x12\x32.mettagrid.protobuf.sim.policy_v1.BatchStepRequest\x1a\x33.mettagrid.protobuf.sim.policy_v1.BatchStepResponseb\x08\x65\x64itionsp\xe8\x07')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n-mettagrid/protobuf/sim/policy_v1/policy.proto\x12 mettagrid.protobuf.sim.policy_v1\"\xe7\x01\n\x11\x41gentObservations\x12\x1a\n\x08\x61gent_id\x18\x01 \x01(\x05R\x08\x61gent_id\x12\"\n\x0cobservations\x18\x02 \x01(\x0cR\x0cobservations\x12Q\n\x0cvisible_talk\x18\x03 \x03(\x0b\x32-.mettagrid.protobuf.sim.policy_v1.VisibleTalkR\x0cvisible_talk\"?\n\x06\x46ormat\x12%\n!AGENT_OBSERVATIONS_FORMAT_UNKNOWN\x10\x00\x12\x0e\n\nTRIPLET_V1\x10\x01\"\xb1\x01\n\x10\x42\x61tchStepRequest\x12\x1e\n\nepisode_id\x18\x01 \x01(\tR\nepisode_id\x12\x18\n\x07step_id\x18\x02 \x01(\x03R\x07step_id\x12\x63\n\x12\x61gent_observations\x18\x03 \x03(\x0b\x32\x33.mettagrid.protobuf.sim.policy_v1.AgentObservationsR\x12\x61gent_observations\"\x86\x01\n\x0c\x41gentActions\x12\x1a\n\x08\x61gent_id\x18\x01 \x01(\x05R\x08\x61gent_id\x12\x1c\n\taction_id\x18\x02 \x03(\x05R\taction_id\x12\x1c\n\ttalk_text\x18\x03 \x01(\tR\ttalk_text\x12\x1e\n\ninfos_json\x18\x04 \x01(\tR\ninfos_json\"i\n\x11\x42\x61tchStepResponse\x12T\n\ragent_actions\x18\x01 \x03(\x0b\x32..mettagrid.protobuf.sim.policy_v1.AgentActionsR\ragent_actions\"\xad\x02\n\tGameRules\x12O\n\x08\x66\x65\x61tures\x18\x01 \x03(\x0b\x32\x33.mettagrid.protobuf.sim.policy_v1.GameRules.FeatureR\x08\x66\x65\x61tures\x12L\n\x07\x61\x63tions\x18\x02 \x03(\x0b\x32\x32.mettagrid.protobuf.sim.policy_v1.GameRules.ActionR\x07\x61\x63tions\x1aS\n\x07\x46\x65\x61ture\x12\x0e\n\x02id\x18\x01 \x01(\x05R\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12$\n\rnormalization\x18\x03 \x01(\x01R\rnormalization\x1a,\n\x06\x41\x63tion\x12\x0e\n\x02id\x18\x01 \x01(\x05R\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\"T\n\nTalkConfig\x12\x1e\n\nmax_length\x18\x01 \x01(\x05R\nmax_length\x12&\n\x0e\x63ooldown_steps\x18\x02 \x01(\x05R\x0e\x63ooldown_steps\"\x8b\x01\n\x0bVisibleTalk\x12\x1a\n\x08\x61gent_id\x18\x01 \x01(\x05R\x08\x61gent_id\x12\x10\n\x03row\x18\x02 \x01(\x05R\x03row\x12\x10\n\x03\x63ol\x18\x03 \x01(\x05R\x03\x63ol\x12(\n\x0fremaining_steps\x18\x04 \x01(\x05R\x0fremaining_steps\x12\x12\n\x04text\x18\x05 \x01(\tR\x04text\"\x9f\x03\n\x12PolicyEnvInterface\x12W\n\x0cobs_features\x18\x01 \x03(\x0b\x32\x33.mettagrid.protobuf.sim.policy_v1.GameRules.FeatureR\x0cobs_features\x12\x12\n\x04tags\x18\x02 \x03(\tR\x04tags\x12\"\n\x0c\x61\x63tion_names\x18\x03 \x03(\tR\x0c\x61\x63tion_names\x12*\n\x10move_energy_cost\x18\x04 \x01(\x05R\x10move_energy_cost\x12\x1e\n\nnum_agents\x18\x05 \x01(\x05R\nnum_agents\x12,\n\x11observation_shape\x18\x06 \x03(\x05R\x11observation_shape\x12\x1e\n\nobs_height\x18\x07 \x01(\x05R\nobs_height\x12\x1c\n\tobs_width\x18\x08 \x01(\x05R\tobs_width\x12@\n\x04talk\x18\t \x01(\x0b\x32,.mettagrid.protobuf.sim.policy_v1.TalkConfigR\x04talk\"\xeb\x02\n\x14PreparePolicyRequest\x12\x1e\n\nepisode_id\x18\x01 \x01(\tR\nepisode_id\x12K\n\ngame_rules\x18\x02 \x01(\x0b\x32+.mettagrid.protobuf.sim.policy_v1.GameRulesR\ngame_rules\x12\x1c\n\tagent_ids\x18\x03 \x03(\x05R\tagent_ids\x12l\n\x13observations_format\x18\x04 \x01(\x0e\x32:.mettagrid.protobuf.sim.policy_v1.AgentObservations.FormatR\x13observations_format\x12Z\n\renv_interface\x18\x05 \x01(\x0b\x32\x34.mettagrid.protobuf.sim.policy_v1.PolicyEnvInterfaceR\renv_interface\"\x17\n\x15PreparePolicyResponse2\x81\x02\n\x06Policy\x12\x80\x01\n\rPreparePolicy\x12\x36.mettagrid.protobuf.sim.policy_v1.PreparePolicyRequest\x1a\x37.mettagrid.protobuf.sim.policy_v1.PreparePolicyResponse\x12t\n\tBatchStep\x12\x32.mettagrid.protobuf.sim.policy_v1.BatchStepRequest\x1a\x33.mettagrid.protobuf.sim.policy_v1.BatchStepResponseb\x08\x65\x64itionsp\xe8\x07')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,26 +37,26 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_AGENTOBSERVATIONS_FORMAT']._serialized_end=315
   _globals['_BATCHSTEPREQUEST']._serialized_start=318
   _globals['_BATCHSTEPREQUEST']._serialized_end=495
-  _globals['_AGENTACTIONS']._serialized_start=497
-  _globals['_AGENTACTIONS']._serialized_end=599
-  _globals['_BATCHSTEPRESPONSE']._serialized_start=601
-  _globals['_BATCHSTEPRESPONSE']._serialized_end=706
-  _globals['_GAMERULES']._serialized_start=709
-  _globals['_GAMERULES']._serialized_end=1010
-  _globals['_GAMERULES_FEATURE']._serialized_start=881
-  _globals['_GAMERULES_FEATURE']._serialized_end=964
-  _globals['_GAMERULES_ACTION']._serialized_start=966
-  _globals['_GAMERULES_ACTION']._serialized_end=1010
-  _globals['_TALKCONFIG']._serialized_start=1012
-  _globals['_TALKCONFIG']._serialized_end=1096
-  _globals['_VISIBLETALK']._serialized_start=1099
-  _globals['_VISIBLETALK']._serialized_end=1238
-  _globals['_POLICYENVINTERFACE']._serialized_start=1241
-  _globals['_POLICYENVINTERFACE']._serialized_end=1656
-  _globals['_PREPAREPOLICYREQUEST']._serialized_start=1659
-  _globals['_PREPAREPOLICYREQUEST']._serialized_end=2022
-  _globals['_PREPAREPOLICYRESPONSE']._serialized_start=2024
-  _globals['_PREPAREPOLICYRESPONSE']._serialized_end=2047
-  _globals['_POLICY']._serialized_start=2050
-  _globals['_POLICY']._serialized_end=2307
+  _globals['_AGENTACTIONS']._serialized_start=498
+  _globals['_AGENTACTIONS']._serialized_end=632
+  _globals['_BATCHSTEPRESPONSE']._serialized_start=634
+  _globals['_BATCHSTEPRESPONSE']._serialized_end=739
+  _globals['_GAMERULES']._serialized_start=742
+  _globals['_GAMERULES']._serialized_end=1043
+  _globals['_GAMERULES_FEATURE']._serialized_start=914
+  _globals['_GAMERULES_FEATURE']._serialized_end=997
+  _globals['_GAMERULES_ACTION']._serialized_start=999
+  _globals['_GAMERULES_ACTION']._serialized_end=1043
+  _globals['_TALKCONFIG']._serialized_start=1045
+  _globals['_TALKCONFIG']._serialized_end=1129
+  _globals['_VISIBLETALK']._serialized_start=1132
+  _globals['_VISIBLETALK']._serialized_end=1271
+  _globals['_POLICYENVINTERFACE']._serialized_start=1274
+  _globals['_POLICYENVINTERFACE']._serialized_end=1689
+  _globals['_PREPAREPOLICYREQUEST']._serialized_start=1692
+  _globals['_PREPAREPOLICYREQUEST']._serialized_end=2055
+  _globals['_PREPAREPOLICYRESPONSE']._serialized_start=2057
+  _globals['_PREPAREPOLICYRESPONSE']._serialized_end=2080
+  _globals['_POLICY']._serialized_start=2083
+  _globals['_POLICY']._serialized_end=2340
 # @@protoc_insertion_point(module_scope)

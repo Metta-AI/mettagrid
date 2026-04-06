@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 import pytest
@@ -57,6 +58,24 @@ class EchoTalkPolicy(MultiAgentPolicy):
     def agent_policy(self, agent_id: int) -> AgentPolicy:
         _ = agent_id
         return self._agent
+
+
+class InfoActionAgentPolicy(AgentPolicy):
+    def __init__(self, policy_env_info: PolicyEnvInterface):
+        super().__init__(policy_env_info)
+
+    def step(self, obs: AgentObservation) -> Action:
+        self._infos = {"current_task": f"task-{obs.agent_id}", "agent_id": obs.agent_id}
+        return Action(name="move")
+
+
+class InfoActionPolicy(MultiAgentPolicy):
+    def __init__(self, policy_env_info: PolicyEnvInterface):
+        super().__init__(policy_env_info)
+        self._agents: dict[int, InfoActionAgentPolicy] = {}
+
+    def agent_policy(self, agent_id: int) -> AgentPolicy:
+        return self._agents.setdefault(agent_id, InfoActionAgentPolicy(self.policy_env_info))
 
 
 def _policy_env(with_vibes: bool = False, *, talk_enabled: bool = False) -> PolicyEnvInterface:
@@ -254,3 +273,18 @@ def test_batch_step_round_trips_visible_talk_and_talk_text() -> None:
     assert len(resp.agent_actions) == 1
     assert list(resp.agent_actions[0].action_id) == [1]
     assert resp.agent_actions[0].talk_text == "hold east"
+
+
+def test_batch_step_serializes_policy_infos() -> None:
+    service = _make_service()
+    env = _policy_env()
+    _prepare(service, InfoActionPolicy(env), env)
+
+    req = policy_pb2.BatchStepRequest(
+        episode_id="ep-123",
+        step_id=1,
+        agent_observations=[policy_pb2.AgentObservations(agent_id=0, observations=b"")],
+    )
+    resp = service.batch_step(req)
+
+    assert json.loads(resp.agent_actions[0].infos_json) == {"current_task": "task-0", "agent_id": 0}
