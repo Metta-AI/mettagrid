@@ -23,6 +23,11 @@ proc takeRequestActions*(processPython: bool): seq[ActionRequest] =
   requestPython = false
 
 proc playControls*() =
+  if not talkComposeActive and window.buttonPressed[KeyEscape]:
+    moveToggleActive = false
+    queueToggleActive = false
+    repeatToggleActive = false
+
   handleTalkComposerControls()
 
   let now = epochTime()
@@ -34,15 +39,15 @@ proc playControls*() =
     when not defined(emscripten):
       window.closeRequested = true
 
-  if window.buttonPressed[KeySpace]:
+  if not talkComposeActive and window.buttonPressed[KeySpace]:
     play = not play
     playSound("UIswitch.wav")
-  if window.buttonPressed[KeyMinus]:
+  if not talkComposeActive and window.buttonPressed[KeyMinus]:
     playSpeed *= 0.5
     playSpeed = clamp(playSpeed, 0.00001, 1000.0)
     play = true
     playSound("UIbutton.wav")
-  if window.buttonPressed[KeyEqual]:
+  if not talkComposeActive and window.buttonPressed[KeyEqual]:
     playSpeed *= 2
     playSpeed = clamp(playSpeed, 0.00001, 1000.0)
     play = true
@@ -55,10 +60,6 @@ proc playControls*() =
     settings.lockFocus = true
     saveUIState()
     playSound("UIswitch.wav")
-  if window.buttonPressed[KeyEscape]:
-    moveToggleActive = false
-    queueToggleActive = false
-    repeatToggleActive = false
 
   if play:
     case playMode:
@@ -81,12 +82,12 @@ proc playControls*() =
     step = stepFloat.int
     step = step.clamp(0, replay.maxSteps - 1)
 
-  if window.buttonPressed[KeyLeftBracket]:
+  if not talkComposeActive and window.buttonPressed[KeyLeftBracket]:
     step -= 1
     step = clamp(step, 0, replay.maxSteps - 1)
     stepFloat = step.float32
     playSound("UIbutton.wav")
-  if window.buttonPressed[KeyRightBracket]:
+  if not talkComposeActive and window.buttonPressed[KeyRightBracket]:
     step += 1
     if playMode == Realtime and step >= replay.maxSteps:
       requestPython = true
