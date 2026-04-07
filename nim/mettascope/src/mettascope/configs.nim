@@ -25,6 +25,7 @@ type
   MettascopeConfig* = object
     windowWidth*: int32
     windowHeight*: int32
+    uiScale*: float32
     panelLayout*: AreaLayoutConfig
     playSpeed*: float32
     settings*: SettingsConfig
@@ -34,6 +35,7 @@ type
 const DefaultConfig* = MettascopeConfig(
   windowWidth: 1200,
   windowHeight: 800,
+  uiScale: 1.0,
   playSpeed: 10.0,
   settings: SettingsConfig(
     showFogOfWar: false,
@@ -49,6 +51,13 @@ const DefaultConfig* = MettascopeConfig(
   selectedAgentId: -1,
   gameMode: Game
 )
+
+proc normalizeConfig(config: var MettascopeConfig): bool =
+  ## Normalize config values loaded from disk.
+  result = false
+  if config.uiScale <= 0.0'f:
+    config.uiScale = DefaultConfig.uiScale
+    result = true
 
 proc serializeArea*(area: Area): AreaLayoutConfig =
   ## Convert an Area tree to a serializable config format.
@@ -127,17 +136,21 @@ proc loadConfig*(): MettascopeConfig =
   if jsonStr != "":
     try:
       result = jsonStr.fromJson(MettascopeConfig)
+      if normalizeConfig(result):
+        saveConfig(result)
     except:
       echo "Failed to parse config file, using default config: ", getCurrentExceptionMsg()
       result = DefaultConfig
       saveConfig(result)
   else:
     result = DefaultConfig
+    discard normalizeConfig(result)
     saveConfig(result)
 
 proc applyUIState*(config: MettascopeConfig) =
   ## Apply the loaded UI state from config to global variables.
   playSpeed = config.playSpeed
+  sk.uiScale = clamp(config.uiScale, 0.25'f, 4.0'f)
 
   # Allow the CLI to force a game mode, otherwise use the config's last used mode.
   if forcedGameMode != Auto:
@@ -163,6 +176,7 @@ proc applyUIState*(config: MettascopeConfig) =
 proc saveUIState*() =
   ## Save the current UI state to config.
   var config = loadConfig()
+  config.uiScale = sk.uiScale
   config.playSpeed = playSpeed
   if gameMode == Auto:
     config.gameMode = Game

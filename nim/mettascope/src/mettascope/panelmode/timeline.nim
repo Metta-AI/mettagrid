@@ -32,9 +32,23 @@ proc playControls*() =
 
   let now = epochTime()
   let deltaTime = now - lastFrameTime
+  let
+    superDown =
+      window.buttonDown[KeyLeftSuper] or window.buttonDown[KeyRightSuper]
+    shiftDown =
+      window.buttonDown[KeyLeftShift] or window.buttonDown[KeyRightShift]
 
-  let superDown =
-    window.buttonDown[KeyLeftSuper] or window.buttonDown[KeyRightSuper]
+  if shiftDown and
+      (window.buttonPressed[KeyEqual] or window.buttonPressed[NumpadAdd]):
+    sk.uiScale = min(sk.uiScale + 0.25'f, 4.0'f)
+    saveUIState()
+    playSound("UIbutton.wav")
+  if shiftDown and
+      (window.buttonPressed[KeyMinus] or window.buttonPressed[NumpadSubtract]):
+    sk.uiScale = max(sk.uiScale - 0.25'f, 0.25'f)
+    saveUIState()
+    playSound("UIbutton.wav")
+
   if not talkComposeActive and superDown and window.buttonPressed[KeyQ]:
     when not defined(emscripten):
       window.closeRequested = true
@@ -42,12 +56,12 @@ proc playControls*() =
   if not talkComposeActive and window.buttonPressed[KeySpace]:
     play = not play
     playSound("UIswitch.wav")
-  if not talkComposeActive and window.buttonPressed[KeyMinus]:
+  if not talkComposeActive and not shiftDown and window.buttonPressed[KeyMinus]:
     playSpeed *= 0.5
     playSpeed = clamp(playSpeed, 0.00001, 1000.0)
     play = true
     playSound("UIbutton.wav")
-  if not talkComposeActive and window.buttonPressed[KeyEqual]:
+  if not talkComposeActive and not shiftDown and window.buttonPressed[KeyEqual]:
     playSpeed *= 2
     playSpeed = clamp(playSpeed, 0.00001, 1000.0)
     play = true

@@ -167,7 +167,7 @@ proc drawVibeButton(
     icon = "vibe/" & vibeName
     btnSize = vec2(iconSize, iconSize)
     btnRect = rect(pos, btnSize)
-    mousePos = window.mousePos.vec2
+    mousePos = sk.mousePos
 
   # Check if this vibe is currently active on the selected agent.
   let isActive = selected != nil and selected.isAgent and
@@ -225,7 +225,7 @@ proc drawToggleIconButton(pos: Vec2, icon: string, isActive: bool): bool =
     iconSize = 48.0f
     btnSize = vec2(iconSize, iconSize)
     btnRect = rect(pos, btnSize)
-    hover = window.mousePos.vec2.overlaps(btnRect)
+    hover = sk.mousePos.overlaps(btnRect)
     pressed = hover and window.buttonReleased[MouseLeft]
 
   if isActive:
@@ -251,7 +251,7 @@ proc drawTransportButton(startPos: Vec2, idx: int, icon: string, isDown: bool): 
     btnPos = startPos + vec2(idx.float32 * BtnStride, 0)
     bgSize = sk.getImageSize("ui/transportButton.up")
     btnRect = rect(btnPos, bgSize)
-    hover = window.mousePos.vec2.overlaps(btnRect)
+    hover = sk.mousePos.overlaps(btnRect)
     pressed = hover and window.buttonReleased[MouseLeft]
     bg =
       if isDown or pressed:
@@ -708,15 +708,18 @@ proc bottomLeftMinimap(winH: float32) =
     MinimapSize = 300.0f
     MinimapXOff = 30.0f
     MinimapYOff = 90.0f  # offset from the bottom of the window
-  let minimapPos = vec2(MinimapXOff, winH - MinimapYOff - MinimapSize)
+  let
+    minimapPos = vec2(MinimapXOff, winH - MinimapYOff - MinimapSize)
+    scissorPos = minimapPos * sk.uiScale
+    scissorSize = vec2(MinimapSize, MinimapSize) * sk.uiScale
 
   # TODO: Profile this?
   glEnable(GL_SCISSOR_TEST)
   glScissor(
-    minimapPos.x.GLint,
-    MinimapYOff.GLint,
-    MinimapSize.GLsizei,
-    MinimapSize.GLsizei
+    scissorPos.x.GLint,
+    (MinimapYOff * sk.uiScale).GLint,
+    scissorSize.x.GLsizei,
+    scissorSize.y.GLsizei
   )
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f)
   glClear(GL_COLOR_BUFFER_BIT)
@@ -724,10 +727,10 @@ proc bottomLeftMinimap(winH: float32) =
 
   let mmZoom = ZoomInfo()
   mmZoom.rect = irect(minimapPos.x, minimapPos.y, MinimapSize, MinimapSize)
-  mmZoom.hasMouse = window.mousePos.vec2.overlaps(rect(minimapPos, vec2(MinimapSize, MinimapSize)))
+  mmZoom.hasMouse = window.mousePos.vec2.overlaps(rect(scissorPos, scissorSize))
 
   saveTransform()
-  translateTransform(minimapPos)
+  translateTransform(scissorPos)
   drawMinimap(mmZoom)
   restoreTransform()
 
@@ -779,14 +782,14 @@ proc drawTimelineSlider*(value: var float32, minVal: float32, maxVal: float32, l
     playSound("UIscrub2.wav")
 
   if timeLineDragging:
-    let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
+    let t = clamp((sk.mousePos.x - trackStart) / travelSafe, 0f, 1f)
     value = minF + t * range
     playScrubberStepSound(t)
   elif sk.mouseInsideClip(window, handleRect) or sk.mouseInsideClip(window, controlRect):
     if window.buttonPressed[MouseLeft]:
       worldMapZoomInfo.hasMouse = false
       timeLineDragging = true
-      let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
+      let t = clamp((sk.mousePos.x - trackStart) / travelSafe, 0f, 1f)
       value = minF + t * range
       playSound("UIscrub3.wav")
 
@@ -848,8 +851,8 @@ proc bottomTimelineSlider(winW: float32, winH: float32) =
 proc drawGameWorld*() =
   ## Renders the game world to fill the entire window (no panels).
   let
-    winW = window.size.x.float32
-    winH = window.size.y.float32
+    winW = sk.size.x
+    winH = sk.size.y
     winWi = window.size.x.int32
     winHi = window.size.y.int32
 

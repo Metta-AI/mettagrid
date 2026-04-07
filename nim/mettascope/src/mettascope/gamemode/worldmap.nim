@@ -270,7 +270,14 @@ proc getProjectionView*(): Mat4 {.measure.} =
     0, 0, 0, 1,
     m[2, 0], m[2, 1], m[2, 2], 1
   )
-  let projection = ortho(0.0f, window.size.x.float32, window.size.y.float32, 0.0f, -1.0f, 1.0f)
+  let projection = ortho(
+    0.0f,
+    window.size.x.float32,
+    window.size.y.float32,
+    0.0f,
+    -1.0f,
+    1.0f
+  )
   projection * view
 
 proc withinTerritoryInfluenceRadius(dx: int, dy: int, aoeRange: int): bool =

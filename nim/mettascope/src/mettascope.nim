@@ -284,9 +284,8 @@ proc initMettascope*() {.measure.} =
     else:
       popupWarning = "Unsupported file type.\nOnly .json.z replay files are supported."
 
-  initPanels()
-
   sk = newSilky(window, dataDir / "silky.atlas.png")
+  initPanels()
   window.onRune = proc(rune: Rune) =
     if talkComposeActive and rune.int >= 32 and rune.int <= 126:
       sk.inputRunes.add(rune)

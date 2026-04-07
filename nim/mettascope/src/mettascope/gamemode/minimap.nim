@@ -68,7 +68,7 @@ proc handleMinimapInput(zoomInfo: ZoomInfo, zoomScale, posX, posY: float32) =
     return
 
   let
-    mouseLocal = window.mousePos.vec2 - zoomInfo.rect.xy.vec2
+    mouseLocal = window.mousePos.vec2 - zoomInfo.rect.xy.vec2 * sk.uiScale
     worldX = (mouseLocal.x - posX) / zoomScale
     worldY = (mouseLocal.y - posY) / zoomScale
     mainRectW = worldMapZoomInfo.rect.w.float32
@@ -103,12 +103,16 @@ proc drawMinimap*(zoomInfo: ZoomInfo) =
     mapW = max(0.001f, mapMaxX - mapMinX)
     mapH = max(0.001f, mapMaxY - mapMinY)
 
-  let zoomScale = min(rectW / mapW, rectH / mapH)
+  let
+    uiZoomScale = min(rectW / mapW, rectH / mapH)
+    zoomScale = uiZoomScale * sk.uiScale
   let
     cx = (mapMinX + mapMaxX) / 2.0f
     cy = (mapMinY + mapMaxY) / 2.0f
-    posX = rectW / 2.0f - cx * zoomScale
-    posY = rectH / 2.0f - cy * zoomScale
+    uiPosX = rectW / 2.0f - cx * uiZoomScale
+    uiPosY = rectH / 2.0f - cy * uiZoomScale
+    posX = uiPosX * sk.uiScale
+    posY = uiPosY * sk.uiScale
 
   translateTransform(vec2(posX, posY))
   scaleTransform(vec2(zoomScale, zoomScale))
@@ -116,5 +120,5 @@ proc drawMinimap*(zoomInfo: ZoomInfo) =
   drawWorldMini()
 
   restoreTransform()
-  drawCameraViewportOverlay(zoomInfo, zoomScale, posX, posY)
+  drawCameraViewportOverlay(zoomInfo, uiZoomScale, uiPosX, uiPosY)
   handleMinimapInput(zoomInfo, zoomScale, posX, posY)
