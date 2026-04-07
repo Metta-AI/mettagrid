@@ -9,6 +9,7 @@ class MacroDirective(BaseModel):
     target_region: str | None = None
     resource_bias: str | None = None
     objective: str | None = None
+    talk: str | None = None
     note: str = ""
     metadata: dict[str, str | int | float | bool] = Field(default_factory=dict)
 
@@ -20,6 +21,7 @@ class MacroDirective(BaseModel):
                 self.target_region,
                 self.resource_bias,
                 self.objective,
+                self.talk,
                 self.note,
                 self.metadata,
             )

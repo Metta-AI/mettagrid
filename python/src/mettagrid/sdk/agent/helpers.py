@@ -37,7 +37,11 @@ _DEFAULT_STATE_HELPER_CAPABILITIES: tuple[tuple[str, str], ...] = (
     ("position", "Return the current semantic (x, y) position."),
     ("visible_entity_counts", "Return counts of visible semantic entities by entity_type."),
     ("recent_event_types", "Return recent semantic event types in order of appearance this step window."),
-    ("visible_entities", "Return visible semantic entities filtered by entity_type, label, or max_distance."),
+    (
+        "visible_entities",
+        "Return visible semantic entities filtered by entity_type, label, or max_distance. "
+        "Talking agents carry label='talking' plus talk_text/talk_remaining_steps attributes.",
+    ),
     ("nearest_visible_entity", "Return the nearest visible semantic entity after optional filtering."),
     ("distance_to_entity", "Return Manhattan distance to one visible entity by entity_id, or None if missing."),
     ("visible_entity_ids", "Return entity ids for visible semantic entities after optional filtering."),
@@ -58,7 +62,9 @@ class StateHelperCatalog(HelperCatalog):
         self._state = state
 
     def agent_id(self) -> int:
-        return int(self.self_attribute("agent_id", 0) or 0)
+        agent_id = self.self_attribute("agent_id", 0)
+        assert isinstance(agent_id, (str, int, bool))
+        return int(agent_id)
 
     def shared_inventory(self) -> dict[str, int]:
         return {} if self._state.team_summary is None else dict(self._state.team_summary.shared_inventory)
