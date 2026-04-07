@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import atexit
 import contextlib
+import contextvars
 import fcntl
 import hashlib
+import inspect
 import logging
 import os
 import secrets
@@ -28,6 +30,10 @@ DEFAULT_POLICY_CACHE_DIR = Path("/tmp/mettagrid-policy-cache")
 
 _registered_cleanup_dirs: set[Path] = set()
 _registered_cleanup_files: set[Path] = set()
+_prefer_installed_package_code: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "_prefer_installed_package_code",
+    default=False,
+)
 
 
 @contextlib.contextmanager
@@ -39,6 +45,17 @@ def _exclusive_file_lock(lock_path: Path) -> Iterator[None]:
             yield
         finally:
             fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+
+
+@contextlib.contextmanager
+def prefer_installed_package_code() -> Iterator[None]:
+    """Prefer currently importable package code while loading local audit policies."""
+
+    token = _prefer_installed_package_code.set(True)
+    try:
+        yield
+    finally:
+        _prefer_installed_package_code.reset(token)
 
 
 def _setup_marker_paths(extraction_root: Path, setup_script: str) -> tuple[Path, Path]:
@@ -134,7 +151,7 @@ def _find_package_source_root(extraction_root: Path, class_path: str) -> Path | 
 def _module_matches_package_root(module: object, expected_pkg_dir: Path) -> bool:
     expected_pkg_dir = expected_pkg_dir.resolve()
     module_path = getattr(module, "__path__", None)
-    if module_path:
+    if module_path is not None:
         for entry in module_path:
             try:
                 if Path(entry).resolve() == expected_pkg_dir:
@@ -151,6 +168,27 @@ def _module_matches_package_root(module: object, expected_pkg_dir: Path) -> bool
     return False
 
 
+def _module_lives_under_root(module: object, root: Path) -> bool:
+    resolved_root = root.resolve()
+    module_path = getattr(module, "__path__", None)
+    if module_path is not None:
+        for entry in module_path:
+            try:
+                entry_path = Path(entry).resolve()
+            except OSError:
+                continue
+            if entry_path == resolved_root or resolved_root in entry_path.parents:
+                return True
+    module_file = getattr(module, "__file__", None)
+    if module_file is None:
+        return False
+    try:
+        file_path = Path(module_file).resolve()
+    except OSError:
+        return False
+    return file_path == resolved_root or resolved_root in file_path.parents
+
+
 def _purge_package_modules(top_package: str, expected_pkg_dir: Path | None) -> None:
     """Drop cached modules for a top-level package when switching submission roots."""
     existing = sys.modules.get(top_package)
@@ -163,6 +201,36 @@ def _purge_package_modules(top_package: str, expected_pkg_dir: Path | None) -> N
     for name in list(sys.modules.keys()):
         if name == top_package or name.startswith(f"{top_package}."):
             sys.modules.pop(name, None)
+
+
+def _purge_package_modules_under_root(top_package: str, root: Path) -> None:
+    for name, module in list(sys.modules.items()):
+        if name != top_package and not name.startswith(f"{top_package}."):
+            continue
+        if module is not None and _module_lives_under_root(module, root):
+            sys.modules.pop(name, None)
+
+
+def _symbol_lives_under_root(symbol: object, root: Path) -> bool:
+    module = inspect.getmodule(symbol)
+    if module is None:
+        return False
+    return _module_lives_under_root(module, root)
+
+
+def _should_use_installed_package_code(class_path: str) -> bool:
+    if not _prefer_installed_package_code.get():
+        return False
+
+    top_package = class_path.split(".")[0]
+    _purge_package_modules_under_root(top_package, DEFAULT_POLICY_CACHE_DIR)
+
+    from mettagrid.util.module import load_symbol  # noqa: PLC0415
+
+    symbol = load_symbol(class_path, strict=False)
+    if symbol is None:
+        return False
+    return not _symbol_lives_under_root(symbol, DEFAULT_POLICY_CACHE_DIR)
 
 
 def _run_setup_script(setup_script_path: Path, extraction_root: Path) -> None:
@@ -298,17 +366,19 @@ def load_policy_spec_from_path(
         spec.init_kwargs["device"] = device
 
     module_root = _find_package_source_root(extraction_root, spec.class_path)
-    if module_root:
+    use_installed_package_code = module_root is not None and _should_use_installed_package_code(spec.class_path)
+    if module_root and not use_installed_package_code:
         top_package = spec.class_path.split(".")[0]
         # Guard against stale module state when a different bundle is loaded in the same process.
         _purge_package_modules(top_package, module_root / top_package)
-    if module_root and module_root != extraction_root:
+    if module_root and module_root != extraction_root and not use_installed_package_code:
         sys_path_entry = str(module_root.resolve())
         if sys_path_entry not in sys.path:
             sys.path.insert(0, sys_path_entry)
 
-    sys_path_entry = str(extraction_root.resolve())
-    if sys_path_entry not in sys.path:
-        sys.path.insert(0, sys_path_entry)
+    if not use_installed_package_code:
+        sys_path_entry = str(extraction_root.resolve())
+        if sys_path_entry not in sys.path:
+            sys.path.insert(0, sys_path_entry)
 
     return spec
