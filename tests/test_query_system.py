@@ -271,6 +271,52 @@ class TestAdvancedClosure:
         assert has_tag("r2", 2, 2), "Hub should have 'r2' tag"
         assert has_tag("r2", 2, 4), "Wire at distance 2 should have 'r2' tag (radius=2)"
 
+    def test_closure_query_max_items_uses_deterministic_closure_order(self):
+        """ClosureQuery max_items should preserve deterministic closure discovery order."""
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+            [
+                ["#", "#", "#", "#", "#", "#", "#"],
+                ["#", ".", ".", ".", ".", ".", "#"],
+                ["#", ".", "W", "H", "W", ".", "#"],
+                ["#", ".", ".", "W", ".", ".", "#"],
+                ["#", ".", ".", "@", ".", ".", "#"],
+                ["#", "#", "#", "#", "#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "H": "hub", "W": "wire"},
+        )
+        cfg.game.actions.noop.enabled = True
+
+        cfg.game.objects["hub"] = GridObjectConfig(
+            name="hub",
+            map_name="hub",
+            tags=[typeTag("hub")],
+        )
+        cfg.game.objects["wire"] = GridObjectConfig(
+            name="wire",
+            map_name="wire",
+            tags=[typeTag("wire")],
+        )
+
+        cfg.game.materialize_queries = [
+            MaterializedQuery(
+                tag="connected_one",
+                query=ClosureQuery(
+                    source=typeTag("hub"),
+                    candidates=query(typeTag("wire")),
+                    edge_filters=[maxDistance(1)],
+                    max_items=1,
+                ),
+            ),
+        ]
+
+        sim = Simulation(cfg, seed=42)
+        has_tag = _make_tag_checker(sim, cfg)
+
+        assert has_tag("connected_one", 2, 3), "Closure roots should stay first when max_items truncates results"
+        assert not has_tag("connected_one", 2, 2), "Reachable wires should be dropped once max_items selects the hub"
+        assert not has_tag("connected_one", 2, 4), "Reachable wires should be dropped once max_items selects the hub"
+        assert not has_tag("connected_one", 3, 3), "Reachable wires should be dropped once max_items selects the hub"
+
     def test_adjacent_chain_with_radius_1(self):
         """Adjacent candidates chain indefinitely with maxDistance(1).
 

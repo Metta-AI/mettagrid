@@ -191,6 +191,8 @@ class EpisodeReplay:
 
             agent_id = grid_object.get("agent_id")
             policy_infos = all_policy_infos.get(agent_id) if agent_id is not None else None
+            if policy_infos is not None:
+                policy_infos = self._canonicalize_json_value(policy_infos)
             talk_state = all_talk_states.get(agent_id) if agent_id is not None else None
             update_object = format_grid_object(
                 grid_object,
@@ -353,6 +355,27 @@ class EpisodeReplay:
         replay_bytes = replay_data.encode("utf-8")
         compressed_data = self._compression(replay_bytes)
         write_data(path, compressed_data, content_type=self._content_type)
+
+    @staticmethod
+    def _json_key_sort_key(key: Any) -> str:
+        if isinstance(key, str):
+            return key
+        if key is None or isinstance(key, (bool, int, float)):
+            return json.dumps(key)
+        raise TypeError(f"keys must be str, int, float, bool or None, not {type(key).__name__}")
+
+    @classmethod
+    def _canonicalize_json_value(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            ordered: dict[Any, Any] = {}
+            for key, nested_value in sorted(value.items(), key=lambda item: cls._json_key_sort_key(item[0])):
+                ordered[key] = cls._canonicalize_json_value(nested_value)
+            return ordered
+        if isinstance(value, list):
+            return [cls._canonicalize_json_value(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(cls._canonicalize_json_value(item) for item in value)
+        return value
 
     @staticmethod
     def _validate_non_empty_string_list(values: list[str], field_name: str) -> None:

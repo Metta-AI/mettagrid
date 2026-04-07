@@ -1,3 +1,5 @@
+#include <map>
+
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
@@ -88,19 +90,15 @@ py::dict MettaGrid::grid_objects(py::object self_ref,
     }
 
     if (auto* has_inventory = dynamic_cast<HasInventory*>(obj)) {
-      py::dict inventory_dict;
-      for (const auto& [resource, quantity] : has_inventory->inventory.get()) {
-        inventory_dict[py::int_(resource)] = quantity;
-      }
-      obj_dict["inventory"] = inventory_dict;
+      const auto& inventory_items = has_inventory->inventory.items();
+      obj_dict["inventory"] =
+          py::cast(std::map<InventoryItem, InventoryQuantity>(inventory_items.begin(), inventory_items.end()));
 
       // Export per-resource effective limits (dynamic capacities).
       // Python will group these by capacity ID using the config's limit group definitions.
-      py::dict capacity_dict;
-      for (const auto& [resource, eff_limit] : has_inventory->inventory.get_effective_limits()) {
-        capacity_dict[py::int_(resource)] = eff_limit;
-      }
-      obj_dict["inventory_capacities"] = capacity_dict;
+      const auto effective_limits = has_inventory->inventory.get_effective_limits();
+      obj_dict["inventory_capacities"] =
+          py::cast(std::map<InventoryItem, InventoryQuantity>(effective_limits.begin(), effective_limits.end()));
     }
 
     // Inject agent-specific info

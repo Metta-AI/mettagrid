@@ -119,7 +119,8 @@ void QuerySystem::recompute(int tag_id, const HandlerContext& ctx) {
   tag_ctx.skip_on_update_trigger = true;
 
   std::vector<GridObject*> objects_that_lost_tag;
-  std::unordered_set<GridObject*> objects_that_keep_tag;
+  std::vector<GridObject*> objects_that_keep_tag;
+  std::unordered_set<GridObject*> keep_tag_set;
 
   for (const auto& def : _query_tags) {
     if (def.tag_id == tag_id) {
@@ -136,7 +137,9 @@ void QuerySystem::recompute(int tag_id, const HandlerContext& ctx) {
       if (def.query) {
         auto result = def.query->evaluate(ctx);
         for (auto* obj : result) {
-          objects_that_keep_tag.insert(obj);
+          if (keep_tag_set.insert(obj).second) {
+            objects_that_keep_tag.push_back(obj);
+          }
           tag_ctx.actor = obj;
           tag_ctx.target = obj;
           obj->add_tag(def.tag_id, tag_ctx);
@@ -151,7 +154,7 @@ void QuerySystem::recompute(int tag_id, const HandlerContext& ctx) {
   tag_ctx.skip_on_update_trigger = false;
   std::unordered_set<GridObject*> original_set(objects_that_lost_tag.begin(), objects_that_lost_tag.end());
   for (auto* obj : objects_that_lost_tag) {
-    if (objects_that_keep_tag.count(obj) == 0) {
+    if (keep_tag_set.count(obj) == 0) {
       tag_ctx.actor = obj;
       tag_ctx.target = obj;
       obj->apply_on_tag_remove_handlers(tag_id, tag_ctx);
@@ -194,10 +197,13 @@ std::vector<GridObject*> ClosureQueryConfig::evaluate(const HandlerContext& ctx)
   auto candidate_pool = candidates->evaluate(ctx);
   std::unordered_set<GridObject*> visited;
   std::queue<GridObject*> frontier;
+  std::vector<GridObject*> result;
+  result.reserve(roots.size() + candidate_pool.size());
 
   for (auto* obj : roots) {
     if (visited.insert(obj).second) {
       frontier.push(obj);
+      result.push_back(obj);
     }
   }
 
@@ -212,13 +218,8 @@ std::vector<GridObject*> ClosureQueryConfig::evaluate(const HandlerContext& ctx)
 
       visited.insert(candidate);
       frontier.push(candidate);
+      result.push_back(candidate);
     }
-  }
-
-  std::vector<GridObject*> result;
-  result.reserve(visited.size());
-  for (auto* obj : visited) {
-    result.push_back(obj);
   }
 
   if (!result_filters.empty()) {

@@ -2,6 +2,7 @@
 #define PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_SYSTEMS_STATS_TRACKER_HPP_
 
 #include <algorithm>
+#include <map>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -105,8 +106,8 @@ public:
   }
 
   // Convert to map for Python API
-  std::unordered_map<std::string, float> to_dict() const {
-    std::unordered_map<std::string, float> result;
+  std::map<std::string, float> to_dict() const {
+    std::map<std::string, float> result;
     for (const auto& [name, id] : _name_to_id) {
       result[name] = _values[id];
     }
