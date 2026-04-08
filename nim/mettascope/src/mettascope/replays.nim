@@ -123,6 +123,7 @@ type
     actionId*: seq[int]
     actionParameter*: seq[int]
     actionSuccess*: seq[bool]
+    policyName*: string # Policy name for the agent.
     animationId*: seq[int]  ## Per-step animation index into animationNames.
     currentReward*: seq[float]
     totalReward*: seq[float]
@@ -1091,6 +1092,30 @@ proc convertReplayV3ToV4*(replayData: JsonNode): JsonNode {.measure.} =
 
   return data
 
+const PolicyNameSuffixes = @[
+  "AgentsMultiPolicy",
+  "MultiPolicy",
+  "Policy",
+  "Agent",
+]
+
+proc resolvePolicyName*(entity: Entity) =
+  ## Extract and shorten policy_name from policyInfos into entity.policyName.
+  if entity.policyName.len > 0:
+    return
+  for i in countdown(entity.policyInfos.len - 1, 0):
+    let info = entity.policyInfos[i]
+    if info.isNil or info.kind != JObject:
+      continue
+    if "policy_name" notin info:
+      continue
+    var name = info["policy_name"].getStr
+    for suffix in PolicyNameSuffixes:
+      while name.endsWith(suffix) and name.len > suffix.len:
+        name = name[0 ..< name.len - suffix.len]
+    entity.policyName = name
+    return
+
 proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
   ## Load a replay from a string.
   measurePush("loadReplayString.parseJson")
@@ -1364,6 +1389,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
     if "protocols" in obj:
       entity.protocols = fromJson($(obj["protocols"]), seq[Protocol])
 
+    entity.resolvePolicyName()
     replay.objects.add(entity)
 
     # Populate the agents field for agent entities.
@@ -1481,6 +1507,7 @@ proc apply*(replay: Replay, step: int, objects: seq[ReplayEntity]) {.measure.} =
         entity.policyInfos.add(entity.policyInfos[^1])
       else:
         entity.policyInfos.add(newJNull())
+    entity.resolvePolicyName()
     entity.monologueAppend.add(obj.monologueAppend)
     entity.monologueReset.add(obj.monologueReset)
     entity.talkText.add(obj.talkText)

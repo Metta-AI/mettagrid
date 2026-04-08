@@ -1,4 +1,5 @@
 import
+  std/[math, unicode],
   pixie, opengl, silky, silky/drawers/ogl, shady, vmath
 
 # This file specifically deals with the pixel atlas texture.
@@ -193,6 +194,33 @@ proc newPixelator*(sk: Silky): Pixelator {.measure.} =
 
 const WhiteTint* = rgbx(255, 255, 255, 255)
 
+proc drawQuad*(
+  px: Pixelator,
+  x, y: uint16,
+  uvX, uvY, uvW, uvH: uint16,
+  tint: ColorRGBX = WhiteTint,
+  maskX, maskY, maskW, maskH: uint16 = 0,
+  lampX, lampY, lampW, lampH: uint16 = 0
+) =
+  ## Emits one instanced quad at the given center with atlas UV region.
+  px.instanceData.add(x)
+  px.instanceData.add(y)
+  px.instanceData.add(uvX)
+  px.instanceData.add(uvY)
+  px.instanceData.add(uvW)
+  px.instanceData.add(uvH)
+  px.instanceData.add(uint16(tint.r) or (uint16(tint.g) shl 8))
+  px.instanceData.add(uint16(tint.b) or (uint16(tint.a) shl 8))
+  px.instanceData.add(maskX)
+  px.instanceData.add(maskY)
+  px.instanceData.add(maskW)
+  px.instanceData.add(maskH)
+  px.instanceData.add(lampX)
+  px.instanceData.add(lampY)
+  px.instanceData.add(lampW)
+  px.instanceData.add(lampH)
+  inc px.instanceCount
+
 proc drawSprite*(
   px: Pixelator,
   name: string,
@@ -208,41 +236,22 @@ proc drawSprite*(
   if not px.sk.getAtlasEntry(name, uv):
     echo "[Warning] Sprite not found in atlas: " & name
     return
-  px.instanceData.add(x.uint16)
-  px.instanceData.add(y.uint16)
-  px.instanceData.add(uv.x.uint16)
-  px.instanceData.add(uv.y.uint16)
-  px.instanceData.add(uv.width.uint16)
-  px.instanceData.add(uv.height.uint16)
-  # Pack 4 tint bytes into 2 uint16 slots (read as 4 x GL_UNSIGNED_BYTE on GPU)
-  px.instanceData.add(uint16(tint.r) or (uint16(tint.g) shl 8))
-  px.instanceData.add(uint16(tint.b) or (uint16(tint.a) shl 8))
-  # Mask UV: use mask entry if provided, otherwise emit zeros (no mask).
   var
     m: Entry
     l: Entry
+    mX, mY, mW, mH: uint16
+    lX, lY, lW, lH: uint16
   if mask.len > 0 and px.sk.getAtlasEntry(mask, m):
-    px.instanceData.add(m.x.uint16)
-    px.instanceData.add(m.y.uint16)
-    px.instanceData.add(m.width.uint16)
-    px.instanceData.add(m.height.uint16)
-  else:
-    px.instanceData.add(0'u16)
-    px.instanceData.add(0'u16)
-    px.instanceData.add(0'u16)
-    px.instanceData.add(0'u16)
-  # Lamp UV: use lamp entry if provided, otherwise emit zeros (no lamp).
+    mX = m.x.uint16; mY = m.y.uint16
+    mW = m.width.uint16; mH = m.height.uint16
   if lamp.len > 0 and px.sk.getAtlasEntry(lamp, l):
-    px.instanceData.add(l.x.uint16)
-    px.instanceData.add(l.y.uint16)
-    px.instanceData.add(l.width.uint16)
-    px.instanceData.add(l.height.uint16)
-  else:
-    px.instanceData.add(0'u16)
-    px.instanceData.add(0'u16)
-    px.instanceData.add(0'u16)
-    px.instanceData.add(0'u16)
-  inc px.instanceCount
+    lX = l.x.uint16; lY = l.y.uint16
+    lW = l.width.uint16; lH = l.height.uint16
+  px.drawQuad(
+    x, y,
+    uv.x.uint16, uv.y.uint16, uv.width.uint16, uv.height.uint16,
+    tint, mX, mY, mW, mH, lX, lY, lW, lH
+  )
 
 proc drawSprite*(
   px: Pixelator,
@@ -265,6 +274,52 @@ proc spriteSize*(px: Pixelator, name: string): IVec2 =
   if not px.sk.getAtlasEntry(name, uv):
     return ivec2(0, 0)
   ivec2(uv.width.int32, uv.height.int32)
+
+proc textSize*(px: Pixelator, font: string, text: string): Vec2 =
+  ## Returns the size of single-line text in pixels.
+  px.sk.getTextSize(font, text)
+
+proc drawText*(
+  px: Pixelator,
+  font: string,
+  text: string,
+  pos: IVec2,
+  tint: ColorRGBX
+) =
+  ## Draws single-line text at the given top-left position.
+  if font notin px.sk.atlas.fonts:
+    return
+  let
+    fontData = px.sk.atlas.fonts[font]
+    runedText = text.toRunes
+  var cursorX = pos.x.float32
+  let baselineY = pos.y.float32 + fontData.ascent
+  for i in 0 ..< runedText.len:
+    let glyphStr = $runedText[i]
+    var entry: LetterEntry
+    if glyphStr in fontData.entries:
+      entry = fontData.entries[glyphStr][0]
+    elif "?" in fontData.entries:
+      entry = fontData.entries["?"][0]
+    else:
+      continue
+    if entry.boundsWidth > 0 and entry.boundsHeight > 0:
+      let
+        glyphX = floor(cursorX) + entry.boundsX
+        glyphY = round(baselineY + entry.boundsY)
+        w = round(entry.boundsWidth)
+        h = round(entry.boundsHeight)
+      px.drawQuad(
+        (glyphX + w * 0.5).uint16,
+        (glyphY + h * 0.5).uint16,
+        entry.x.uint16, entry.y.uint16, w.uint16, h.uint16,
+        tint
+      )
+    cursorX += entry.advance
+    if i < runedText.len - 1:
+      let nextGlyphStr = $runedText[i + 1]
+      if nextGlyphStr in entry.kerning:
+        cursorX += entry.kerning[nextGlyphStr]
 
 proc clear*(px: Pixelator) =
   ## Clears the current instance queue.

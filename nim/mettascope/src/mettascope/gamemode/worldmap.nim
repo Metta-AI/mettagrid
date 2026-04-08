@@ -1018,6 +1018,24 @@ proc drawAgentDecorations*() {.measure.} =
       let hud2Prev = getInventoryItem(agent, hud2Cfg.resource, prevStep)
       drawBar(ivec2(pos.x, pos.y - 61), colors.Yellow, NumPips, hud2Cfg.max, hud2, hud2Prev, MediumPip)
 
+proc drawPolicyNames*() {.measure.} =
+  ## Draw policy names above agents when the grid is active.
+  const
+    PolicyNameFont = "pixelated"
+    PolicyNameYOffset = 80'i32
+  for agent in replay.agents:
+    if not agent.alive.at or agent.policyName.len == 0:
+      continue
+    let
+      pos = (agent.smoothPos * TileSize.float32).ivec2
+      textSz = px.textSize(PolicyNameFont, agent.policyName)
+      textX = pos.x - textSz.x.int32 div 2
+      textY = pos.y - PolicyNameYOffset - textSz.y.int32
+    px.drawText(
+      PolicyNameFont, agent.policyName,
+      ivec2(textX, textY), colors.Yellow
+    )
+
 proc drawGrid*() {.measure.} =
   # Draw the grid using a single quad and shader-based lines.
   if sq == nil:
@@ -1450,6 +1468,7 @@ proc drawWorldMain*() {.measure.} =
   drawPolicyTarget()
 
   drawAgentDecorations()
+  drawPolicyNames()
   drawPlannedPath()
   drawMovePreview()
 
