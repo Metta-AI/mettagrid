@@ -1335,8 +1335,11 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
     else:
       entity.alive = @[true]
 
-    # Policy info is sourced from streamed replay steps only.
-    entity.policyInfos = @[newJNull()]
+    entity.policyInfos =
+      if "policy_infos" in obj:
+        expand[JsonNode](obj["policy_infos"], replay.maxSteps, newJNull())
+      else:
+        @[newJNull()]
     entity.monologueAppend = @[""]
     entity.monologueReset = @[false]
     entity.talkText =
