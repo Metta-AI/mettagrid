@@ -1,6 +1,6 @@
 import
-  std/[strutils, os],
-  opengl, windy, bumpy, vmath, silky,
+  std/[strutils, strformat, os],
+  opengl, windy, bumpy, vmath, silky, chroma,
   mettascope/[replays, common, replayloader, configs],
   mettascope/gamemode/[worldmap, minimap, gameplayer, camera, talk],
   mettascope/panelmode/[panes, footer, timeline, header,
@@ -66,7 +66,9 @@ proc replaySwitch(replay: string) =
         req.onError = proc(msg: string) =
           echo "Failed to load replay from URL (network error): ", msg
           popupWarning = "Failed to load replay from URL.\nNetwork error: " & msg
+          replayDownloadActive = false
         req.onResponse = proc(response: HttpResponse) =
+          replayDownloadActive = false
           if response.code != 200:
             echo "Failed to load replay from URL (HTTP ", response.code, "): ", response.body
             case response.code:
@@ -88,6 +90,12 @@ proc replaySwitch(replay: string) =
             echo "Failed to load replay from URL (parse/load error): ", err
             popupWarning = "Failed to load replay from URL.\n" & err
             common.replay = EmptyReplay
+        req.onDownloadProgress = proc(completed, total: int) =
+          replayDownloadActive = true
+          replayDownloadProgress =
+            if total < 1: 0.5
+            else: min(completed / total, 1.0)
+          echo "replay download progress: ", fmt"{replayDownloadProgress * 100:.2f}%"
       else:
         echo "Loading replay from file: ", commandLineReplay
         try:
@@ -108,6 +116,24 @@ proc replaySwitch(replay: string) =
   of Realtime:
     echo "Realtime mode"
     onReplayLoaded()
+
+proc drawReplayDownloadProgress*() =
+  ## Draws a dim overlay with a centered progress bar and download percentage while a replay is loading.
+  if not replayDownloadActive: return
+  let
+    font = "Default"
+    margin = 48.0
+    barW = sk.size.x - margin * 2
+    barH = 12.0
+    barPos = vec2(margin, sk.size.y * 0.5 - barH * 0.5)
+    fillW = barW * replayDownloadProgress
+    labelPos = barPos + vec2(0, -30)
+    progressPos = barPos + vec2(barW * 0.5, -30)
+  sk.drawRect(vec2(0, 0), sk.size, rgbx(0, 0, 0, 140))
+  sk.drawRect(barPos, vec2(barW, barH), rgbx(60, 60, 60, 255))
+  sk.drawRect(barPos, vec2(fillW, barH), rgbx(180, 180, 180, 255))
+  discard sk.drawText(font, "Downloading Replay", labelPos, rgbx(255, 255, 255, 255))
+  discard sk.drawText(font, fmt"{replayDownloadProgress * 100:.2f}%", progressPos, rgbx(255, 255, 255, 255))
 
 proc drawWorldMap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: Vec2) {.measure.} =
   ## Draw the world map.
@@ -257,6 +283,7 @@ proc onFrame() =
 
   drawTutorialOverlay()
   drawWarningPopup()
+  drawReplayDownloadProgress()
   sk.endUi()
   window.swapBuffers()
 

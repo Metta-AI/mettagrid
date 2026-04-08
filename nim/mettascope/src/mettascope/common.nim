@@ -128,6 +128,10 @@ var
   # Popup warning system.
   popupWarning*: string = ""
 
+  # Replay Download
+  replayDownloadActive*: bool = false
+  replayDownloadProgress*: range[0.0 .. 1.0] = 0
+
   # Action mode toggles (left-click friendly move/queue/repeat).
   moveToggleActive* = false
   queueToggleActive* = false
