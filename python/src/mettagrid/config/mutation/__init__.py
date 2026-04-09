@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from mettagrid.config.filter import AnyFilter
 else:
     AnyFilter = Any
+from mettagrid.config.game_value import AnyGameValue
 from mettagrid.config.mutation.attack_mutation import AttackMutation
 from mettagrid.config.mutation.clear_inventory_mutation import ClearInventoryMutation
 from mettagrid.config.mutation.game_value_mutation import SetGameValueMutation
@@ -87,6 +88,7 @@ AnyMutation = Annotated[
 _mutation_namespace = {
     "AnyQuery": AnyQuery,
     "AnyFilter": AnyFilter,
+    "AnyGameValue": AnyGameValue,
     "AnyMutation": AnyMutation,
     "Query": Query,
     "MaterializedQuery": MaterializedQuery,
