@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "core/filter_config.hpp"
+#include "core/game_value_config.hpp"
 
 // Forward declarations for query evaluate()
 class GridObject;
@@ -21,7 +22,7 @@ enum class QueryOrderBy {
 
 // Base class for query configs. Subclasses implement evaluate() to return matching objects.
 struct QueryConfig {
-  int max_items = -1;  // -1 = unlimited
+  GameValueConfig max_items = ConstValueConfig{-1.0f};  // -1 = unlimited, supports runtime GameValue
   QueryOrderBy order_by = QueryOrderBy::none;
   virtual ~QueryConfig() = default;
   virtual std::vector<GridObject*> evaluate(const HandlerContext& ctx) const = 0;

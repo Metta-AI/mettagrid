@@ -18,6 +18,7 @@ from mettagrid.base_config import Config
 
 if TYPE_CHECKING:
     from mettagrid.config.filter.filter import AnyFilter
+    from mettagrid.config.game_value import AnyGameValue
 
 
 class Query(Config):
@@ -29,7 +30,9 @@ class Query(Config):
         default_factory=list,
         description="Filters that matched objects must pass (all must match)",
     )
-    max_items: Optional[int] = Field(default=None, description="Max objects to return (None = unlimited)")
+    max_items: "Optional[int | AnyGameValue]" = Field(
+        default=None, description="Max objects to return (None = unlimited). Accepts int or GameValue."
+    )
     order_by: Optional[Literal["random"]] = Field(default=None, description="Order results before applying max_items")
 
 
@@ -79,7 +82,9 @@ class ClosureQuery(Config):
         default_factory=list,
         description="Unary filters applied to final result set",
     )
-    max_items: Optional[int] = Field(default=None, description="Max objects to return (None = unlimited)")
+    max_items: "Optional[int | AnyGameValue]" = Field(
+        default=None, description="Max objects to return (None = unlimited). Accepts int or GameValue."
+    )
     order_by: Optional[Literal["random"]] = Field(default=None, description="Order results before applying max_items")
 
 

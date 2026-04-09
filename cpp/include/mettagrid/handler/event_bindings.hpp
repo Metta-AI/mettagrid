@@ -57,6 +57,10 @@ inline void bind_event_config(py::module& m) {
           "add_or_filter",
           [](EventConfig& self, const OrFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
+      .def(
+          "add_periodic_filter",
+          [](EventConfig& self, const PeriodicFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
       // Add mutation methods - each type wraps into the variant
       .def(
           "add_resource_delta_mutation",

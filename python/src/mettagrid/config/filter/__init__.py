@@ -13,6 +13,7 @@ from pydantic import Tag as PydanticTag  # noqa: E402
 from mettagrid.config.filter.filter import Filter, HandlerTarget, NotFilter, OrFilter, anyOf, isNot
 from mettagrid.config.filter.game_value_filter import GameValueFilter
 from mettagrid.config.filter.max_distance_filter import MaxDistanceFilter, isNear, maxDistance
+from mettagrid.config.filter.periodic_filter import PeriodicFilter
 from mettagrid.config.filter.resource_filter import (
     ResourceFilter,
     actorHas,
@@ -66,6 +67,7 @@ AnyFilter = Annotated[
         Annotated[OrFilter, PydanticTag("or")],
         Annotated[TargetLocEmptyFilter, PydanticTag("target_loc_empty")],
         Annotated[TargetIsUsableFilter, PydanticTag("target_is_usable")],
+        Annotated[PeriodicFilter, PydanticTag("periodic")],
     ],
     Discriminator("filter_type"),
 ]
@@ -123,6 +125,7 @@ __all__ = [
     "GameValueFilter",
     "TargetLocEmptyFilter",
     "TargetIsUsableFilter",
+    "PeriodicFilter",
     "AnyFilter",
     # Filter helpers
     "isNot",

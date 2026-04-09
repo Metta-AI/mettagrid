@@ -34,9 +34,9 @@ public:
   // Recompute a specific query tag (called by RecomputeMaterializedQueryMutation)
   void recompute(int tag_id, const HandlerContext& ctx);
 
-  // Apply max_items / order_by post-processing
+  // Apply max_items / order_by post-processing (max_items is a GameValueConfig resolved at runtime)
   static std::vector<GridObject*> apply_limits(std::vector<GridObject*> results,
-                                               int max_items,
+                                               const GameValueConfig& max_items,
                                                QueryOrderBy order_by,
                                                const HandlerContext& ctx);
 

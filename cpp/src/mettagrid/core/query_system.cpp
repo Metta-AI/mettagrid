@@ -10,6 +10,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "core/game_value.hpp"
 #include "core/grid.hpp"
 #include "core/grid_object.hpp"
 #include "core/tag_index.hpp"
@@ -71,13 +72,15 @@ bool QuerySystem::matches_edge_filters(GridObject* bfs_source,
 }
 
 std::vector<GridObject*> QuerySystem::apply_limits(std::vector<GridObject*> results,
-                                                   int max_items,
+                                                   const GameValueConfig& max_items_gv,
                                                    QueryOrderBy order_by,
                                                    const HandlerContext& ctx) {
   if (order_by == QueryOrderBy::random) {
     std::shuffle(results.begin(), results.end(), *ctx.rng);
   }
 
+  auto rgv = resolve_game_value(max_items_gv, ctx);
+  int max_items = static_cast<int>(rgv.read());
   if (max_items >= 0 && static_cast<int>(results.size()) > max_items) {
     results.resize(max_items);
   }

@@ -1,6 +1,7 @@
 from typing import Any
 
 from mettagrid.config.cpp_id_maps import CppIdMaps
+from mettagrid.config.game_value import ConstValue, GameValue
 from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_mutations
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mettagrid_config import (
@@ -37,6 +38,7 @@ from mettagrid.mettagrid_c import MultiHandler as CppMultiHandler
 from mettagrid.mettagrid_c import NegFilterConfig as CppNegFilterConfig
 from mettagrid.mettagrid_c import ObsValueConfig as CppObsValueConfig
 from mettagrid.mettagrid_c import OrFilterConfig as CppOrFilterConfig  # pyright: ignore[reportAttributeAccessIssue]
+from mettagrid.mettagrid_c import PeriodicFilterConfig as CppPeriodicFilterConfig
 from mettagrid.mettagrid_c import QueryOrderBy as CppQueryOrderBy
 from mettagrid.mettagrid_c import RaycastQueryConfig as CppRaycastQueryConfig
 from mettagrid.mettagrid_c import ResourceDelta as CppResourceDelta
@@ -57,6 +59,15 @@ from mettagrid.mettagrid_c import (
 from mettagrid.mettagrid_c import VibeFilterConfig as CppVibeFilterConfig
 from mettagrid.mettagrid_c import WallConfig as CppWallConfig
 from mettagrid.mettagrid_c import make_query_config
+
+
+def _convert_max_items(max_items: int | GameValue | None, id_maps: CppIdMaps):
+    """Convert max_items (int, GameValue, or None) to a C++ GameValueConfig."""
+    if max_items is None:
+        return None
+    if isinstance(max_items, int):
+        return resolve_game_value(ConstValue(value=float(max_items)), id_maps)
+    return resolve_game_value(max_items, id_maps)
 
 
 def _resolve_tag_prefix(prefix: str, tag_name_to_id: dict) -> list[int]:
@@ -92,8 +103,9 @@ def _convert_tag_query(query, id_maps: CppIdMaps, context: str = ""):
         inner_cpp = _convert_tag_query(source, id_maps, f"{context} inner")
         cpp_q = CppFilteredQueryConfig()
         cpp_q.set_source(inner_cpp)
-        if query.max_items is not None:
-            cpp_q.max_items = query.max_items
+        cpp_max = _convert_max_items(query.max_items, id_maps)
+        if cpp_max is not None:
+            cpp_q.max_items = cpp_max
         if query.order_by == "random":
             cpp_q.order_by = CppQueryOrderBy.random
         _convert_filters(query.filters, cpp_q, id_maps, context=context)
@@ -107,8 +119,9 @@ def _convert_tag_query(query, id_maps: CppIdMaps, context: str = ""):
 
     tag_query = CppTagQueryConfig()
     tag_query.tag_id = id_maps.tag_name_to_id[query_tag]
-    if query.max_items is not None:
-        tag_query.max_items = query.max_items
+    cpp_max = _convert_max_items(query.max_items, id_maps)
+    if cpp_max is not None:
+        tag_query.max_items = cpp_max
     if query.order_by == "random":
         tag_query.order_by = CppQueryOrderBy.random
 
@@ -125,8 +138,9 @@ def _convert_closure_query(query, id_maps: CppIdMaps, context: str = ""):
     cpp_q = CppClosureQueryConfig()
     cpp_q.set_source(cpp_source)
     cpp_q.set_candidates(cpp_candidates)
-    if query.max_items is not None:
-        cpp_q.max_items = query.max_items
+    cpp_max = _convert_max_items(query.max_items, id_maps)
+    if cpp_max is not None:
+        cpp_q.max_items = cpp_max
     if query.order_by == "random":
         cpp_q.order_by = CppQueryOrderBy.random
 
@@ -152,8 +166,9 @@ def _convert_raycast_query(query, id_maps: CppIdMaps, context: str = ""):
     cpp_q.max_range = query.max_range
     cpp_q.include_blocker = query.include_blocker
     cpp_q.directions = [dir_map[d] for d in query.directions]
-    if query.max_items is not None:
-        cpp_q.max_items = query.max_items
+    cpp_max = _convert_max_items(query.max_items, id_maps)
+    if cpp_max is not None:
+        cpp_q.max_items = cpp_max
 
     cpp_source = _convert_tag_query(query.source, id_maps, context=f"{context} raycast.source")
     cpp_q.set_source(cpp_source)
@@ -276,6 +291,16 @@ def _convert_one_filter(filter_config, id_maps: CppIdMaps, context: str) -> tupl
     if ft == "target_is_usable":
         return ("target_is_usable", CppTargetIsUsableFilterConfig())
 
+    if ft == "periodic":
+        start_on = filter_config.start_on if filter_config.start_on is not None else filter_config.period
+        return (
+            "periodic",
+            CppPeriodicFilterConfig(
+                period=filter_config.period,
+                start_on=start_on,
+            ),
+        )
+
     return None
 
 
@@ -294,6 +319,7 @@ _FILTER_TYPE_TO_METHOD = {
     "or": "add_or_filter",
     "target_loc_empty": "add_target_loc_empty_filter",
     "target_is_usable": "add_target_is_usable_filter",
+    "periodic": "add_periodic_filter",
 }
 
 

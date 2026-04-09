@@ -53,6 +53,11 @@ struct GameValueFilterConfig {
 struct TargetLocEmptyFilterConfig {};  // Target cell is empty (target == nullptr)
 struct TargetIsUsableFilterConfig {};  // Target implements Usable interface
 
+struct PeriodicFilterConfig {
+  unsigned int period = 1;    // Passes every `period` timesteps
+  unsigned int start_on = 0;  // First timestep to pass on
+};
+
 // Forward declarations for recursive filter configs
 struct NegFilterConfig;
 struct OrFilterConfig;
@@ -70,7 +75,8 @@ using FilterConfig = std::variant<VibeFilterConfig,
                                   MaxDistanceFilterConfig,
                                   QueryResourceFilterConfig,
                                   TargetLocEmptyFilterConfig,
-                                  TargetIsUsableFilterConfig>;
+                                  TargetIsUsableFilterConfig,
+                                  PeriodicFilterConfig>;
 
 // NegFilterConfig: Wraps filter config(s) and negates the ANDed result.
 // Multiple inner filters are ANDed together first, then negated.

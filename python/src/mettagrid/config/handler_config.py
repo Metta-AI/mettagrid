@@ -24,6 +24,7 @@ from mettagrid.config.filter import (
     MaterializedQuery,
     MaxDistanceFilter,
     NotFilter,
+    PeriodicFilter,
     Query,
     ResourceFilter,
     TagFilter,
@@ -157,6 +158,7 @@ __all__ = [
     "NotFilter",
     "TargetLocEmptyFilter",
     "TargetIsUsableFilter",
+    "PeriodicFilter",
     "AnyFilter",
     # Mutation classes
     "Mutation",

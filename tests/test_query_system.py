@@ -10,10 +10,15 @@ These tests verify that:
 """
 
 from mettagrid.config.filter import HandlerTarget, TagFilter, maxDistance
+from mettagrid.config.game_value import ConstValue, GameValueRatio, QueryCountValue, val
+from mettagrid.config.handler_config import Handler
 from mettagrid.config.mettagrid_config import (
     GridObjectConfig,
+    InventoryConfig,
     MettaGridConfig,
+    ResourceLimitsConfig,
 )
+from mettagrid.config.mutation.query_inventory_mutation import queryDelta
 from mettagrid.config.query import ClosureQuery, MaterializedQuery, Query, query
 from mettagrid.config.tag import typeTag
 from mettagrid.simulator import Simulation
@@ -562,3 +567,127 @@ class TestNestedQueryConstraints:
 
         tagged_count = sum(1 for r, c in [(2, 2), (2, 4)] if has_tag("chosen", r, c))
         assert tagged_count == 1, f"max_items=1 should tag exactly 1 object, got {tagged_count}"
+
+
+class TestGameValueMaxItems:
+    """Query.max_items accepts GameValue for runtime-computed limits."""
+
+    def _make_chest_grid(self, num_chests: int, max_items_gv):
+        """Create a grid with N chests and an on_tick handler that adds gold using a GameValue max_items query."""
+        rows = [["@"] + ["C"] * num_chests + ["."] * (5 - num_chests)]
+        for _ in range(4):
+            rows.append(["."] * (num_chests + 1 + (5 - num_chests)))
+        width = num_chests + 1 + (5 - num_chests)
+
+        cfg = MettaGridConfig.EmptyRoom(num_agents=1, width=width, height=5, border_width=0).with_ascii_map(
+            rows,
+            char_to_map_name={"@": "agent.agent", ".": "empty", "C": "chest"},
+        )
+        cfg.game.resource_names = ["gold"]
+        cfg.game.agent.inventory.initial = {"gold": 0}
+        cfg.game.agent.inventory.limits = {
+            "gold": ResourceLimitsConfig(base=1000, resources=["gold"]),
+        }
+        cfg.game.objects["chest"] = GridObjectConfig(
+            name="chest",
+            map_name="chest",
+            inventory=InventoryConfig(initial={"gold": 0}, default_limit=1000),
+        )
+        cfg.game.actions.noop.enabled = True
+
+        q = query(typeTag("chest"))
+        q.max_items = max_items_gv
+        q.order_by = "random"
+        cfg.game.on_tick["refill"] = Handler(
+            mutations=[queryDelta(q, {"gold": 100})],
+        )
+        return cfg
+
+    def _chest_golds(self, sim):
+        """Return list of gold amounts for all chests."""
+        gold_idx = sim.resource_names.index("gold")
+        return [
+            obj.get("inventory", {}).get(gold_idx, 0)
+            for obj in sim.grid_objects().values()
+            if obj.get("type_name") == "chest"
+        ]
+
+    def test_const_gamevalue_max_items(self):
+        """ConstValue max_items limits mutation to N objects."""
+        cfg = self._make_chest_grid(num_chests=4, max_items_gv=ConstValue(value=2.0))
+        sim = Simulation(cfg, seed=42)
+
+        sim.agent(0).set_action("noop")
+        sim.step()
+
+        golds = self._chest_golds(sim)
+        assert len(golds) == 4
+        refilled = sum(1 for g in golds if g > 0)
+        assert refilled == 2, f"ConstValue(2) should refill exactly 2 chests, got {refilled}"
+        sim.close()
+
+    def test_query_count_gamevalue_max_items(self):
+        """QueryCountValue max_items = count(all chests) refills all chests."""
+        count_gv = QueryCountValue(query=query(typeTag("chest")))
+        cfg = self._make_chest_grid(num_chests=3, max_items_gv=count_gv)
+        sim = Simulation(cfg, seed=42)
+
+        sim.agent(0).set_action("noop")
+        sim.step()
+
+        golds = self._chest_golds(sim)
+        refilled = sum(1 for g in golds if g > 0)
+        assert refilled == 3, f"QueryCountValue (count=3) should refill all 3 chests, got {refilled}"
+        sim.close()
+
+    def test_ratio_gamevalue_max_items(self):
+        """GameValueRatio(count, 2) refills half the chests."""
+        count_gv = QueryCountValue(query=query(typeTag("chest")))
+        ratio_gv = GameValueRatio(count_gv, val(2))
+        cfg = self._make_chest_grid(num_chests=4, max_items_gv=ratio_gv)
+        sim = Simulation(cfg, seed=42)
+
+        sim.agent(0).set_action("noop")
+        sim.step()
+
+        golds = self._chest_golds(sim)
+        refilled = sum(1 for g in golds if g > 0)
+        assert refilled == 2, f"Ratio(count=4, denom=2) should refill 2 chests, got {refilled}"
+        sim.close()
+
+    def test_ratio_gamevalue_accumulates_over_ticks(self):
+        """Repeated ticks with random selection eventually refill all chests."""
+        count_gv = QueryCountValue(query=query(typeTag("chest")))
+        ratio_gv = GameValueRatio(count_gv, val(4))
+        cfg = self._make_chest_grid(num_chests=4, max_items_gv=ratio_gv)
+        sim = Simulation(cfg, seed=42)
+
+        # 1 out of 4 chests per tick; after enough ticks all should have gold
+        for _ in range(50):
+            sim.agent(0).set_action("noop")
+            sim.step()
+
+        golds = self._chest_golds(sim)
+        refilled = sum(1 for g in golds if g > 0)
+        assert refilled == 4, f"After 50 ticks, all 4 chests should have gold, got {refilled}"
+        sim.close()
+
+    def test_int_max_items_still_works(self):
+        """Plain int max_items continues to work (backwards compat)."""
+        cfg = self._make_chest_grid(num_chests=4, max_items_gv=1)
+        # Override: use plain int instead of GameValue
+        q = query(typeTag("chest"))
+        q.max_items = 1
+        q.order_by = "random"
+        cfg.game.on_tick["refill"] = Handler(
+            mutations=[queryDelta(q, {"gold": 100})],
+        )
+        sim = Simulation(cfg, seed=42)
+
+        sim.agent(0).set_action("noop")
+        sim.step()
+
+        golds = self._chest_golds(sim)
+        refilled = sum(1 for g in golds if g > 0)
+        assert refilled == 1, f"int max_items=1 should refill exactly 1 chest, got {refilled}"
+        sim.close()

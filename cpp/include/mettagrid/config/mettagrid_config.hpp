@@ -145,6 +145,10 @@ inline void bind_query_config(py::module& m) {
       .def(
           "add_shared_tag_prefix_filter",
           [](TagQueryConfig& self, const SharedTagPrefixFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_periodic_filter",
+          [](TagQueryConfig& self, const PeriodicFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"));
 
   py::class_<ClosureQueryConfig>(m, "ClosureQueryConfig")
@@ -192,6 +196,10 @@ inline void bind_query_config(py::module& m) {
           "add_edge_game_value_filter",
           [](ClosureQueryConfig& self, const GameValueFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
           py::arg("filter"))
+      .def(
+          "add_edge_periodic_filter",
+          [](ClosureQueryConfig& self, const PeriodicFilterConfig& cfg) { self.edge_filters.push_back(cfg); },
+          py::arg("filter"))
       // Result filters (unary: applied to final result set)
       .def(
           "add_result_tag_prefix_filter",
@@ -224,6 +232,10 @@ inline void bind_query_config(py::module& m) {
       .def(
           "add_result_max_distance_filter",
           [](ClosureQueryConfig& self, const MaxDistanceFilterConfig& cfg) { self.result_filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_result_periodic_filter",
+          [](ClosureQueryConfig& self, const PeriodicFilterConfig& cfg) { self.result_filters.push_back(cfg); },
           py::arg("filter"));
 
   py::class_<FilteredQueryConfig>(m, "FilteredQueryConfig")
@@ -265,6 +277,10 @@ inline void bind_query_config(py::module& m) {
       .def(
           "add_game_value_filter",
           [](FilteredQueryConfig& self, const GameValueFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_periodic_filter",
+          [](FilteredQueryConfig& self, const PeriodicFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"));
 
   py::class_<MaxDistanceFilterConfig>(m, "MaxDistanceFilterConfig")

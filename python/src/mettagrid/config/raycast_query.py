@@ -16,6 +16,7 @@ from mettagrid.base_config import Config
 
 if TYPE_CHECKING:
     from mettagrid.config.filter import AnyFilter
+    from mettagrid.config.game_value import AnyGameValue
     from mettagrid.config.query import AnyQuery
 
 
@@ -51,7 +52,9 @@ class RaycastQuery(Config):
         default=True,
         description="Whether the first blocker on each ray is included in results",
     )
-    max_items: Optional[int] = Field(default=None, description="Max objects to return (None = unlimited)")
+    max_items: "Optional[int | AnyGameValue]" = Field(
+        default=None, description="Max objects to return (None = unlimited). Accepts int or GameValue."
+    )
     order_by: Optional[Literal["random"]] = Field(default=None, description="Order results before applying max_items")
 
 

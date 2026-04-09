@@ -43,6 +43,7 @@ public:
   unsigned int distance = 0;              // Distance from actor to target (set by move line-scan)
   GridLocation target_location = {0, 0};  // Target cell location (set by move line-scan)
   ActionArg move_direction = 0;           // Direction arg from move action (orientation)
+  unsigned int timestep = 0;              // Current game timestep (for PeriodicFilter)
   StatsTracker* game_stats = nullptr;     // Game-level stats tracker (for StatsMutation)
   TagIndex* tag_index = nullptr;          // Tag index for tag/query lookups
   Grid* grid = nullptr;                   // Grid for removing objects from cells

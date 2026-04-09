@@ -952,6 +952,7 @@ void MettaGrid::_step() {
   // Increment timestep and process events
   if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
   current_step++;
+  _game_ctx.timestep = current_step;
 
   // Process events at current timestep
   if (_event_scheduler) {

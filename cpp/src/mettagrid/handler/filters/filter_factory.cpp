@@ -7,6 +7,7 @@
 #include "handler/filters/max_distance_filter.hpp"
 #include "handler/filters/neg_filter.hpp"
 #include "handler/filters/or_filter.hpp"
+#include "handler/filters/periodic_filter.hpp"
 #include "handler/filters/query_resource_filter.hpp"
 #include "handler/filters/resource_filter.hpp"
 #include "handler/filters/shared_tag_filter.hpp"
@@ -59,6 +60,8 @@ std::unique_ptr<Filter> create_filter(const FilterConfig& config) {
           return std::make_unique<TargetLocEmptyFilter>(cfg);
         } else if constexpr (std::is_same_v<T, TargetIsUsableFilterConfig>) {
           return std::make_unique<TargetIsUsableFilter>(cfg);
+        } else if constexpr (std::is_same_v<T, PeriodicFilterConfig>) {
+          return std::make_unique<PeriodicFilter>(cfg);
         } else {
           return nullptr;
         }

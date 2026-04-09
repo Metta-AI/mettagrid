@@ -175,6 +175,19 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("threshold", &GameValueFilterConfig::threshold)
       .def_readwrite("entity", &GameValueFilterConfig::entity);
 
+  py::class_<PeriodicFilterConfig>(m, "PeriodicFilterConfig")
+      .def(py::init<>())
+      .def(py::init([](unsigned int period, unsigned int start_on) {
+             PeriodicFilterConfig cfg;
+             cfg.period = period;
+             cfg.start_on = start_on;
+             return cfg;
+           }),
+           py::arg("period") = 1,
+           py::arg("start_on") = 0)
+      .def_readwrite("period", &PeriodicFilterConfig::period)
+      .def_readwrite("start_on", &PeriodicFilterConfig::start_on);
+
   py::class_<NegFilterConfig>(m, "NegFilterConfig")
       .def(py::init<>())
       .def_readwrite("inner", &NegFilterConfig::inner)
@@ -213,6 +226,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_query_resource_filter",
           [](NegFilterConfig& self, const QueryResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_periodic_filter",
+          [](NegFilterConfig& self, const PeriodicFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"));
 
   py::class_<OrFilterConfig>(m, "OrFilterConfig")
@@ -253,6 +270,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_query_resource_filter",
           [](OrFilterConfig& self, const QueryResourceFilterConfig& cfg) { self.inner.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_periodic_filter",
+          [](OrFilterConfig& self, const PeriodicFilterConfig& cfg) { self.inner.push_back(cfg); },
           py::arg("filter"));
 
   // Mutation configs
@@ -488,6 +509,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_query_resource_filter",
           [](HandlerConfig& self, const QueryResourceFilterConfig& cfg) { self.filters.push_back(cfg); },
+          py::arg("filter"))
+      .def(
+          "add_periodic_filter",
+          [](HandlerConfig& self, const PeriodicFilterConfig& cfg) { self.filters.push_back(cfg); },
           py::arg("filter"))
       // Add mutation methods - each type wraps into the variant
       .def(
