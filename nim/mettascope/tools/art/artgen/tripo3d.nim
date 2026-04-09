@@ -519,7 +519,11 @@ proc createModel*(
     timeoutMs = timeoutMs
   )
 
-  let modelUrl = chooseModelUrl(conversionTask, preferPbr = pbr)
+  let modelUrl =
+    if pbr and generationTask.output.pbrModel.len > 0:
+      generationTask.output.pbrModel
+    else:
+      chooseModelUrl(conversionTask, preferPbr = pbr)
   result = TripoModelResult(
     uploadToken: imageToken,
     generationTaskId: generationTask.taskId,
