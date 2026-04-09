@@ -552,16 +552,11 @@ class Compound(Scene[CompoundConfig]):
                 f"{len(CRAMPED_ROOM_STATION_ANCHORS)} stations, got {len(cfg.stations)}"
             )
 
-        # Keep the render gutter on the top/left only so wall sprites have
-        # headroom without leaving extra empty space on the bottom/right.
+        # Keep the kitchen border open so the meaningful blockers are the
+        # interior counters, not a perimeter wall frame.
         origin_x = max(0, w - template_w)
         origin_y = max(0, h - template_h)
         grid[:] = "empty"
-        grid[origin_y, origin_x : origin_x + template_w] = "wall"
-        grid[origin_y + template_h - 1, origin_x : origin_x + template_w] = "wall"
-        grid[origin_y : origin_y + template_h, origin_x] = "wall"
-        grid[origin_y : origin_y + template_h, origin_x + template_w - 1] = "wall"
-        grid[origin_y + 1 : origin_y + template_h - 1, origin_x + 1 : origin_x + template_w - 1] = "empty"
 
         # Top prep counter run.
         grid[origin_y + 3, origin_x + 2 : origin_x + 13] = "wall"
@@ -608,16 +603,11 @@ class Compound(Scene[CompoundConfig]):
                 f"{len(SERVICE_PASS_ROOM_STATION_ANCHORS)} stations, got {len(cfg.stations)}"
             )
 
-        # Keep the render gutter on the top/left only so wall sprites have
-        # headroom without leaving extra empty space on the bottom/right.
+        # Keep the kitchen border open so the meaningful blockers are the
+        # interior counters, not a perimeter wall frame.
         origin_x = max(0, w - template_w)
         origin_y = max(0, h - template_h)
         grid[:] = "empty"
-        grid[origin_y, origin_x : origin_x + template_w] = "wall"
-        grid[origin_y + template_h - 1, origin_x : origin_x + template_w] = "wall"
-        grid[origin_y : origin_y + template_h, origin_x] = "wall"
-        grid[origin_y : origin_y + template_h, origin_x + template_w - 1] = "wall"
-        grid[origin_y + 1 : origin_y + template_h - 1, origin_x + 1 : origin_x + template_w - 1] = "empty"
 
         # Long top prep run with wider spacing between pickup and cook stations.
         grid[origin_y + 2, origin_x + 2 : origin_x + 14] = "wall"
