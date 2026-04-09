@@ -126,7 +126,7 @@ proc drawCustomStatusBars*(selected: Entity, bcPos: Vec2): int =
       hud = getInventoryItem(selected, statusCfg.resource)
       prevHud = getInventoryItem(selected, statusCfg.resource, prevStep)
       deltaHud = hud - prevHud
-      yOffset = 84 + i * 34
+      yOffset = 81 + i * 32
     drawCustomStatBar(
       bcPos + vec2(69, yOffset.float32),
       statusCfg.short_name,
@@ -171,6 +171,6 @@ proc collectCustomResources*(
     resources: resources,
     anchor: vec2(
       bcPos.x + 59,
-      bcPos.y + max(112, 88 + statusCount * 34).float32
+      bcPos.y + max(109, 87 + statusCount * 32).float32
     )
   )

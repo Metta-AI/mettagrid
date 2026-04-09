@@ -63,15 +63,22 @@ proc drawPolicyInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
       text("Select an agent")
       return
 
-    let policyInfo = selected.policyInfos.at()
+    let
+      policyInfo = selected.policyInfos.at()
+      policyName = selected.policyName
     if policyInfo.isNil or policyInfo.kind != JObject or policyInfo.len == 0:
       text("No policy info")
       return
+
+    if policyName.len > 0:
+      text(&"Policy: {policyName}")
 
     let agentPos = selected.location.at(step)
 
     for key, value in policyInfo.pairs:
       if key.startsWith("__"):
+        continue
+      if key == "policy_name":
         continue
       if key == "target":
         let relOpt = parseRelativeTarget(value)

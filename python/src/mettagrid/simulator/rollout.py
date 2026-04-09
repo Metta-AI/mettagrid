@@ -115,7 +115,9 @@ class Rollout:
             list(policy_names) if policy_names is not None else [type(policy).__name__ for policy in self._policies]
         )
 
-        self._policy_infos: dict[int, dict] = {}
+        self._policy_infos: dict[int, dict] = {
+            index: {"policy_name": name} for index, name in enumerate(self._policy_names)
+        }
         self._monologue_tail_by_agent: dict[int, str] = {}
         self._monologue_updates: dict[int, dict[str, Any]] = {}
         self._step_count = 0

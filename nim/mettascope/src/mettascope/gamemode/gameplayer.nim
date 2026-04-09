@@ -578,6 +578,7 @@ proc centerPanel(winW: float32, winH: float32) =
     isAgent = selected.isAgent
     profilePos = bcPos + vec2(424, 32)
     teamName = getTeamName(getEntityTeamIndex(selected))
+    policyName = if isAgent: selected.policyName else: ""
 
   var
     displayName = ""
@@ -624,11 +625,24 @@ proc centerPanel(winW: float32, winH: float32) =
 
   # 1) Name
   discard sk.drawText("pixelated", displayName, at, Yellow, clip = false)
+  if isAgent:
+    let policyLabel =
+      if policyName.len > 20:
+        policyName[0 ..< 20]
+      else:
+        policyName
+    discard sk.drawText(
+      "pixelated",
+      policyLabel,
+      at + vec2(0, 32),
+      rgbx(255, 255, 255, 255),
+      clip = false,
+    )
 
   # 2) Agent bars
   var useCustomStatus = replay.hasCustomStatus(selected)
   if useCustomStatus:
-    discard drawCustomStatusBars(selected, bcPos)
+    discard drawCustomStatusBars(selected, bcPos + vec2(0, 32.0f))
   elif isAgent:
     let
       prevStep = max(0, step - 1)
@@ -640,12 +654,12 @@ proc centerPanel(winW: float32, winH: float32) =
       prevHud2 = getInventoryItem(selected, hud2Cfg.resource, prevStep)
       deltaHud1 = hud1 - prevHud1
       deltaHud2 = hud2 - prevHud2
-    drawStatBar(bcPos + vec2(69, 84), hud1Cfg.short_name, hud1, hud1Cfg.max, 10, deltaHud1)
-    drawStatBar(bcPos + vec2(69, 118), hud2Cfg.short_name, hud2, hud2Cfg.max, 20, deltaHud2)
+    drawStatBar(bcPos + vec2(69, 113), hud1Cfg.short_name, hud1, hud1Cfg.max, 10, deltaHud1)
+    drawStatBar(bcPos + vec2(69, 145), hud2Cfg.short_name, hud2, hud2Cfg.max, 20, deltaHud2)
 
   # 3) Object resources (inline, wrapped, no resource_bg) shared for agent/building.
   if useCustomStatus:
-    let cr = collectCustomResources(selected, bcPos)
+    let cr = collectCustomResources(selected, bcPos + vec2(0, 32.0f))
     resourcesToDraw = cr.resources
     at = cr.anchor
   else:
@@ -663,7 +677,10 @@ proc centerPanel(winW: float32, winH: float32) =
     # Use `at` for resource anchor; buildings start higher since they have no bars.
     at = vec2(
       bcPos.x + 59,
-      if isAgent: bcPos.y + 156 else: bcPos.y + 112
+      if isAgent:
+        bcPos.y + 183
+      else:
+        bcPos.y + 112
     )
   const
     ResourceMaxWidth = 300.0f
