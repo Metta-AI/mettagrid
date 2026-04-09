@@ -126,7 +126,7 @@ proc hasGeometry(node: Node): bool =
   ## Returns true when a node tree contains drawable geometry.
   if node == nil:
     return false
-  if node.points.len > 0:
+  if node.mesh != nil and node.mesh.hasGeometry():
     return true
   for child in node.nodes:
     if child.hasGeometry():
