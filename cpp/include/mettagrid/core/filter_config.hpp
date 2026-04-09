@@ -46,7 +46,7 @@ struct TagPrefixFilterConfig {
 
 struct GameValueFilterConfig {
   GameValueConfig value;
-  float threshold = 0.0f;
+  GameValueConfig threshold = ConstValueConfig{0.0f};
   EntityRef entity = EntityRef::target;
 };
 

@@ -276,11 +276,15 @@ def _convert_one_filter(filter_config, id_maps: CppIdMaps, context: str) -> tupl
 
     if ft == "game_value":
         cpp_gv_cfg = resolve_game_value(filter_config.value, id_maps)
+        min_val = filter_config.min
+        if isinstance(min_val, int):
+            min_val = ConstValue(value=float(min_val))
+        cpp_threshold = resolve_game_value(min_val, id_maps)
         return (
             "game_value",
             CppGameValueFilterConfig(
                 value=cpp_gv_cfg,
-                threshold=float(filter_config.min),
+                threshold=cpp_threshold,
                 entity=convert_entity_ref(filter_config.target),
             ),
         )

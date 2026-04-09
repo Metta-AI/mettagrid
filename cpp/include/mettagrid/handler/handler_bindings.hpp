@@ -161,7 +161,7 @@ inline void bind_handler_config(py::module& m) {
 
   py::class_<GameValueFilterConfig>(m, "GameValueFilterConfig")
       .def(py::init<>())
-      .def(py::init([](GameValueConfig value, float threshold, EntityRef entity) {
+      .def(py::init([](GameValueConfig value, GameValueConfig threshold, EntityRef entity) {
              GameValueFilterConfig cfg;
              cfg.value = value;
              cfg.threshold = threshold;
@@ -169,7 +169,7 @@ inline void bind_handler_config(py::module& m) {
              return cfg;
            }),
            py::arg("value") = GameValueConfig{InventoryValueConfig{}},
-           py::arg("threshold") = 0.0f,
+           py::arg("threshold") = GameValueConfig{ConstValueConfig{0.0f}},
            py::arg("entity") = EntityRef::target)
       .def_readwrite("value", &GameValueFilterConfig::value)
       .def_readwrite("threshold", &GameValueFilterConfig::threshold)

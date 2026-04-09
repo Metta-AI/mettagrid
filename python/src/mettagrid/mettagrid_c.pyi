@@ -145,11 +145,11 @@ class GameValueFilterConfig:
     def __init__(
         self,
         value: GameValueConfig = ...,
-        threshold: float = 0.0,
+        threshold: GameValueConfig = ...,
         entity: EntityRef = ...,
     ) -> None: ...
     value: GameValueConfig
-    threshold: float
+    threshold: GameValueConfig
     entity: EntityRef
 
 class QueryConfigHolder:

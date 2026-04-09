@@ -20,7 +20,8 @@ public:
 
   bool passes(const HandlerContext& ctx) const override {
     float value = ctx.resolve_game_value(_config.value, _config.entity);
-    return value >= _config.threshold;
+    float threshold = ctx.resolve_game_value(_config.threshold, _config.entity);
+    return value >= threshold;
   }
 
 private:
