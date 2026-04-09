@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from mettagrid.runner.episode_runner import (
+    _compact_policy_names,
     _download_presigned_policy,
     _is_builtin_or_classpath_metta_policy_uri,
     _is_presigned_url,
@@ -61,6 +62,19 @@ def test_per_agent_policy_mapping_keeps_distinct_duplicate_indices() -> None:
     assert uris == ["file:///same.zip", "file:///same.zip"]
     assert remapped_assignments == [0, 1, 0, 1]
     assert index_remap == {0: 0, 1: 1}
+
+
+def test_compact_policy_names_follows_policy_index_remap() -> None:
+    compact_names = _compact_policy_names(
+        ["alpha:v7", "beta:v3", "gamma:v2"],
+        policy_index_remap={0: 0, 2: 1},
+    )
+
+    assert compact_names == ["alpha:v7", "gamma:v2"]
+
+
+def test_compact_policy_names_returns_none_when_unset() -> None:
+    assert _compact_policy_names(None, policy_index_remap={0: 0}) is None
 
 
 def test_per_agent_policy_mapping_rejects_bad_assignments() -> None:

@@ -177,6 +177,18 @@ def _per_agent_policy_mapping(
     return compact_policy_uris, compact_assignments, policy_index_remap
 
 
+def _compact_policy_names(
+    policy_names: list[str] | None,
+    policy_index_remap: dict[int, int],
+) -> list[str] | None:
+    if policy_names is None:
+        return None
+    return [
+        policy_names[original_index]
+        for original_index, _compact_index in sorted(policy_index_remap.items(), key=lambda item: item[1])
+    ]
+
+
 def _read_subprocess_error(error_file: Path) -> RunnerError | None:
     """Read the error file written by the subprocess, if it exists."""
     if not error_file.exists():
@@ -226,6 +238,7 @@ def run_episode_isolated(
             spec.assignments,
             spec.env.game.num_agents,
         )
+        compact_policy_names = _compact_policy_names(spec.policy_names, policy_index_remap)
 
         # Remap policy_secrets from original indices to compact indices
         compact_secrets: dict[int, dict[str, str]] | None = None
@@ -249,6 +262,7 @@ def run_episode_isolated(
 
         pure_job = PureSingleEpisodeJob(
             policy_uris=http_policy_uris,
+            policy_names=compact_policy_names,
             assignments=per_agent_assignments,
             env=spec.env,
             results_uri=local_results_uri,

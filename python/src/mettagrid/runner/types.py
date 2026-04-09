@@ -18,7 +18,14 @@ class EpisodeJobSummary(BaseModel):
 
     policy_uris: list[str]
     assignments: list[int]
+    policy_names: list[str] | None = None
     episode_tags: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_policy_names(self) -> "EpisodeJobSummary":
+        if self.policy_names is not None and len(self.policy_names) != len(self.policy_uris):
+            raise ValueError("policy_names must have the same length as policy_uris")
+        return self
 
 
 class EpisodeSpec(EpisodeJobSummary):
@@ -30,6 +37,7 @@ class EpisodeSpec(EpisodeJobSummary):
 
 class PureSingleEpisodeJob(BaseModel):
     policy_uris: list[str]
+    policy_names: list[str] | None = None
 
     # It is important that this is explicit, else the results will have to include the choices we made
     # when randomizing
@@ -50,6 +58,9 @@ class PureSingleEpisodeJob(BaseModel):
 
     @model_validator(mode="after")
     def validate_output_uris(self) -> "PureSingleEpisodeJob":
+        if self.policy_names is not None and len(self.policy_names) != len(self.policy_uris):
+            raise ValueError("policy_names must have the same length as policy_uris")
+
         for uri in (self.replay_uri, self.results_uri):
             if uri is None:
                 continue
@@ -101,6 +112,7 @@ class SingleEpisodeJob(EpisodeSpec):
     def episode_spec(self) -> EpisodeSpec:
         return EpisodeSpec(
             policy_uris=self.policy_uris,
+            policy_names=self.policy_names,
             assignments=self.assignments,
             env=self.env,
             seed=self.seed,

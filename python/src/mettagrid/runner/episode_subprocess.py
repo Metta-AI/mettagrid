@@ -74,6 +74,7 @@ def _run(job: PureSingleEpisodeJob) -> None:
             render_mode="none",
             autostart=False,
             capture_replay=job.replay_uri is not None,
+            policy_names=job.policy_names,
             trace_path=trace_path,
         )
     finally:
