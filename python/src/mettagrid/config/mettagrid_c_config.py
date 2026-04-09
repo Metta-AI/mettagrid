@@ -383,7 +383,7 @@ def _convert_event_configs(events: dict, id_maps: CppIdMaps) -> dict:
     for event_name, event in events.items():
         cpp_event = CppEventConfig(event.name)
         cpp_event.timesteps = list(event.timesteps)
-        cpp_event.max_targets = event.max_targets if event.max_targets is not None else 0
+        cpp_event.max_targets = event.max_targets if event.max_targets is not None else -1
         cpp_event.fallback = event.fallback or ""
 
         cpp_event.set_target_query(

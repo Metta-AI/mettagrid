@@ -39,14 +39,14 @@ int Event::execute(const HandlerContext& ctx) {
   std::vector<GridObject*> targets = _target_query->evaluate(ctx);
 
   // If max_targets is limited and we have more candidates than needed, shuffle
-  if (_max_targets > 0 && targets.size() > static_cast<size_t>(_max_targets)) {
+  if (_max_targets >= 0 && targets.size() > static_cast<size_t>(_max_targets)) {
     std::shuffle(targets.begin(), targets.end(), *ctx.rng);
   }
 
   // Apply to targets, respecting max_targets limit
   int targets_applied = 0;
   for (auto* target : targets) {
-    if (_max_targets > 0 && targets_applied >= _max_targets) {
+    if (_max_targets >= 0 && targets_applied >= _max_targets) {
       break;
     }
     if (try_apply(target, ctx)) {

@@ -71,8 +71,8 @@ class TestEventCppConversion:
         cpp_event = cpp_config.events["test_event"]
         assert cpp_event.max_targets == 5, f"max_targets should be 5 in C++ config, got {cpp_event.max_targets}"
 
-    def test_max_targets_none_passed_to_cpp_as_zero(self):
-        """Test that max_targets=None (unlimited) is converted to 0 in C++."""
+    def test_max_targets_none_passed_to_cpp_as_negative_one(self):
+        """Test that max_targets=None (unlimited) is converted to -1 in C++."""
         events = {
             "unlimited_event": EventConfig(
                 name="unlimited_event",
@@ -88,7 +88,7 @@ class TestEventCppConversion:
         cpp_config, _ = convert_to_cpp_game_config(game_config)
 
         cpp_event = cpp_config.events["unlimited_event"]
-        assert cpp_event.max_targets == 0, f"max_targets=None should convert to 0, got {cpp_event.max_targets}"
+        assert cpp_event.max_targets == -1, f"max_targets=None should convert to -1, got {cpp_event.max_targets}"
 
     def test_timesteps_passed_to_cpp(self):
         """Test that timesteps are properly passed to C++."""

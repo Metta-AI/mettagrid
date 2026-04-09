@@ -21,7 +21,7 @@ enum class QueryOrderBy {
 
 // Base class for query configs. Subclasses implement evaluate() to return matching objects.
 struct QueryConfig {
-  int max_items = 0;  // 0 = unlimited
+  int max_items = -1;  // -1 = unlimited
   QueryOrderBy order_by = QueryOrderBy::none;
   virtual ~QueryConfig() = default;
   virtual std::vector<GridObject*> evaluate(const HandlerContext& ctx) const = 0;

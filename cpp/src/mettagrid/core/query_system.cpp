@@ -78,7 +78,7 @@ std::vector<GridObject*> QuerySystem::apply_limits(std::vector<GridObject*> resu
     std::shuffle(results.begin(), results.end(), *ctx.rng);
   }
 
-  if (max_items > 0 && static_cast<int>(results.size()) > max_items) {
+  if (max_items >= 0 && static_cast<int>(results.size()) > max_items) {
     results.resize(max_items);
   }
 
