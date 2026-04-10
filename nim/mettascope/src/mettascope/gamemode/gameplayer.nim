@@ -404,10 +404,21 @@ proc bottomLeftPanel(winH: float32) =
 
 proc bottomRightPanel(winW: float32, winH: float32) =
   ## Draw bottom-right panel and vibe controls.
+  const StopRightEdgeOffset =  8.0f  # The image does not align to the right edge by default.
   let
     brSize = sk.getImageSize("ui/panel_bottomright")
     brPos = vec2(winW - brSize.x, winH - brSize.y)
+    srSize = sk.getImageSize("ui/bar_stopRight")
+    srPos = vec2(winW - srSize.x + StopRightEdgeOffset, winH - srSize.y)
+    slSize = sk.getImageSize("ui/bar_stopLeft")
+    sl1Offset = 300.0f
+    sl1Pos = vec2(winW - sl1Offset - slSize.x, winH - slSize.y)
+    sl2Offset = sl1Offset + slSize.x + 20.0f
+    sl2Pos = vec2(winW - sl2Offset - slSize.x, winH - slSize.y)
   sk.drawImage("ui/panel_bottomright", brPos)
+  sk.drawImage("ui/bar_stopRight", srPos)
+  sk.drawImage("ui/bar_stopLeft", sl1Pos)
+  sk.drawImage("ui/bar_stopLeft", sl2Pos)
 
   # Speed controls rendered in transport-button style.
   block:
@@ -445,6 +456,44 @@ proc bottomRightPanel(winW: float32, winH: float32) =
       if repeatToggleActive:
         queueToggleActive = true
         moveToggleActive = true
+
+  # Mute Button.
+  block:
+    const MuteButtonStride = 48.0f
+    let
+      isDown = soundMuted
+      icon = "ui/soundMute"
+      btnPos = brPos + vec2(168 - MuteButtonStride, 316)
+      bgSize = sk.getImageSize("ui/transportButton.up")
+      btnRect = rect(btnPos, bgSize)
+      hover = sk.mousePos.overlaps(btnRect)
+      pressed = hover and window.buttonReleased[MouseLeft]
+      bg =
+        if isDown or pressed:
+          "ui/transportButton.down"
+        elif hover:
+          "ui/transportButton.hover"
+        else:
+          "ui/transportButton.up"
+      alpha =
+        if isDown or pressed:
+          0.5f
+        else:
+          1f
+    sk.drawImage(bg, btnPos)
+    let iconSize = sk.getImageSize(icon)
+    sk.drawImage(
+      icon,
+      btnPos + vec2((bgSize.x - iconSize.x) / 2, (bgSize.y - iconSize.y) / 2),
+      color = color(1, 1, 1, alpha).rgbx
+    )
+    if hover:
+      tooltip("Mute/Unmute")
+    if pressed:
+      worldMapZoomInfo.hasMouse = false
+      playSound("UIswitch.wav")
+      soundMuted = not soundMuted
+      saveUIState()
 
   if not replay.isNil:
     const
@@ -837,8 +886,9 @@ proc bottomTimelineSlider(winW: float32, winH: float32) =
     return
 
   const
+    MuteButtonInset = 48.0f + 100.0f
     LeftInset = 350.0f
-    RightInset = 380.0f
+    RightInset = 380.0f + MuteButtonInset
     BottomInset = 6.0f
 
   let sliderW = winW - LeftInset - RightInset

@@ -31,6 +31,7 @@ type
     settings*: SettingsConfig
     selectedAgentId*: int
     gameMode*: GameMode
+    soundMuted*: bool
 
 const DefaultConfig* = MettascopeConfig(
   windowWidth: 1200,
@@ -172,6 +173,7 @@ proc applyUIState*(config: MettascopeConfig) =
   settings.showHeatmap = config.settings.showHeatmap
   if replay != nil and config.selectedAgentId >= 0 and config.selectedAgentId < replay.agents.len:
     selected = replay.agents[config.selectedAgentId]
+  soundMuted = config.soundMuted
 
 proc saveUIState*() =
   ## Save the current UI state to config.
@@ -193,6 +195,7 @@ proc saveUIState*() =
   config.settings.showHeatmap = settings.showHeatmap
   if selected != nil and selected.isAgent:
     config.selectedAgentId = selected.agentId
+  config.soundMuted = soundMuted
   saveConfig(config)
 
 proc savePanelLayout*() =

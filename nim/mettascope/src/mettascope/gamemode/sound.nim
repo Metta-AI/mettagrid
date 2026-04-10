@@ -23,6 +23,7 @@ proc playEntitySound*(obj: Entity) =
   playSound(obj.typeName.addFileExt("wav"))
 
 proc playScrubberStepSound*(t :SomeFloat) =
+  if soundMuted: return
   let step = floor(t * replay.maxSteps.float).uint32
   if step == soundScrubberPos: return
   # Make sure only one soundScrubber Sound is ever created, and only one sound is ever playing at once.
