@@ -1,56 +1,111 @@
-# Nim Coding Guidelines
+# A style guide for Nim.
+by treeform
 
-See root `AGENTS.md` and `STYLE_GUIDE.md` for general guidance. This file covers Nim-specific conventions.
+The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** are to be interpreted as RFC requirements for this style.
 
-## Abstractions
+## General Guidelines
 
-Please follow Handmade manifesto ideas of minimal abstraction, simple data structures, and linear straightforward code.
-If function is called only one time, just inline it unless it's deeply nested. Use proper meta programming for the right
-things.
+- **MUST:** Be data-oriented.
+- **MUST:** Be explicit.
+- **MUST:** Be ergonomic at API boundaries.
+- **MUST:** Be pragmatic about safety and performance tradeoffs.
+- **MUST:** Prefer flat data representations (`seq`, arrays, enums, primitive numeric types).
+- **MUST:** Map parsing and coercion failures to library-specific exceptions. (LibraryName + "Error")
+- **MUST:** Raise an exception for operations that can fail (often wrapping `IOError`).
+- **MUST:** Keep internals explicit and low-level.
+- **MUST NOT:** Use `return result` in procedures, that line is implied by the compiler.
 
-- Try simple types.
-- Only when types are not enough, try generics.
-- Only when generics are not enough, try templates.
-- Only when templates are not enough, try macros.
+- **SHOULD:** Implement behavior with free `proc`s over data, not deep type hierarchies.
+- **SHOULD:** Prefer strongly procedural, data-centric flow with few abstraction layers.
+- **SHOULD:** Declare `raises` effects explicitly.
+- **SHOULD:** Use descriptive error messages, not opaque status codes.
+- **SHOULD:** Select behavior via enums and explicit `case` statements.
+- **SHOULD:** Define local `proc` or `template` helpers near use sites for complex algorithms.
+- **SHOULD:** Keep public APIs broad and ergonomic (for example, `Context` canvas-like API).
+- **SHOULD:** Compose wrappers from lower-level primitives rather than introducing hidden state magic.
+- **SHOULD:** Embrace API coercion where useful (converters and union inputs).
+- **SHOULD:** Prefer explicit loops and `case` branches over extra abstraction layers.
+- **SHOULD:** Prefer graceful boundary semantics where safe operations can return neutral values or no-op.
+- **SHOULD:** Generate code as a data-first runtime, not an abstraction-first framework.
+- **SHOULD:** Build systems around an explicit `tick` pipeline with deterministic phase ordering.
+- **SHOULD:** Keep protocol and state logic visible in loops, conditionals, and structs.
+- **SHOULD:** Include fault simulation controls directly in runtime config for testability.
+- **SHOULD:** Preserve one stable public facade while selecting platform-specific implementations at compile time.
+- **SHOULD:** Normalize platform and native event details into shared domain enums and callbacks.
+- **SHOULD:** Keep create and init paths symmetric with destroy and close paths, including callback and resource cleanup.
+- **SHOULD:** Prefer `mummy` for servers, `curly` for http clients, `jsony` for json, `zippy` for gzip, over the standard library.
+- **SHOULD:** Use a `return` statement if function is larger than 3 lines and not rely on implicit returns, if the function is larger than 3 lines.
+
+- **SHOULD NOT:** Use dynamic polymorphism as the default mechanism; prefer enum plus `case` dispatch.
+- **SHOULD NOT:** Use hidden dynamic dispatch for core blend, fill, or render control flow.
+- **SHOULD NOT:** Introduce deep OO architecture.
+- **SHOULD NOT:** Hide control flow behind generic indirection.
+- **SHOULD NOT:** Prioritize abstraction purity over data movement clarity.
+- **SHOULD NOT:** Assume runtime checks remain enabled in release for hot modules.
+- **SHOULD NOT:** Replace explicit protocol handling with opaque serialization layers in core runtime code.
+- **SHOULD NOT:** Rely on unbounded queues or histories in long-running systems.
+- **SHOULD NOT:** Evaluate side-effectful expressions more than once inside macro or template generated accessors.
+
+- **MAY:** Use converters to reduce friction at call sites.
+- **MAY:** Use macros or templates for domain syntax sugar when they preserve explicit data flow and predictable behavior.
+- **MAY:** Use compile-time feature flags to switch backends pragmatically while keeping public behavior stable.
+- **MAY:** Follow this file structure for the project:
+  - `README.md` - Readme.
+  - `LICENSE` - License.
+  - `*.nimble` - Nimble file that has the dependencies and version.
+  - `src/libraryname.nim` - Main file.
+  - `src/libraryname/common.nim` - Common functions and types.
+  - `src/libraryname/*s.nim` - Almost all code should be in this flat directory structure.
+  - `tests/` - Test cases.
+  - `tests/tests.nim` - Main test entry point.
+  - `tests/bench_*.nim` - Benchmark cases.
+  - `tests/manual_*.nim` - Manual tests that are usually GUI based or require user interaction.
+  - `.github/workflows/build.yml` - GitHub workflows for building and testing.
+  - `tools/` - Tools.
+  - `tools/gen_*.nim` - Tools that generate data or atlases.
+  - `docs/` - Documentation, usually just images for the readme.
+  - `examples/` - Examples, usually double up as tests and documentation.
+  - `experiments/` - Experiments, usually standalone files for humans.
 
 ## Anatomy of a Nim file
 
-Here is the anatomy of a Nim file:
+- **SHOULD:** Structure each Nim file in this order: Imports, Constants, Types, Variables, Procedures.
+- **SHOULD NOT:** Use `when isMainModule` except rarely.
+- **MUST NOT:** Use `when isMainModule` for tests.
 
-- Imports
-- Constants
-- Types
-- Variables
-- Procedures
-- when isMainModule (use rarely, never for tests)
 
 ## Imports
 
-Imports should start with std modules then external modules, then local modules. Ideally in 3 lines like this:
-
+- **SHOULD:** Order imports as standard library modules, then external modules, then local modules.
+- **SHOULD:** Keep imports grouped in a compact, readable layout, ideally in three lines as shown:
 ```
 import
   std/[os, random, strutils],
-  fidget2, silky, windy,
+  fidget2, boxy, windy,
   common, internal, models, widgets.
 ```
 
-Use plural for modules unless it's common.nim. If a module deals with Player, use `players.nim`. Always try to use
-single English words for module names. Some modules will have `test_` or `bench_` prefix.
+- **SHOULD:** Use plural module names unless the module is `common.nim`.
+- **SHOULD:** Name domain modules in plural form (for example, use `players.nim` for Player logic).
+- **SHOULD:** Prefer single English words for module names.
+- **MAY:** Use `test_`, `manual_`, `gen_` or `bench_` prefixes for test, manual, generator and benchmark modules.
 
 ## Tests
 
-Don't use unit test framework, use doAssert and echos instead. Testing is hard and they should be as simple, almost
-stupid simple. Use a single tests/tests.nim file for all tests.
+- **SHOULD NOT:** Use a unit test framework by default.
+- **SHOULD:** Use simple `doAssert` and `echo`-based tests.
+- **SHOULD:** Keep tests as simple as possible.
+- **SHOULD:** Start with a single `tests/tests.nim` file.
 
 ```nim
 echo "Testing equality"
 doAssert a == b, "a should be equal to b"
 ```
 
-If it gets too big, split it into multiple files all starting with test\_.
+- **MAY:** Split tests into multiple files when the suite grows, using `test_` prefixes.
 
-After testing, benchmarking is just as important. Also write bench\_\*.nim files for benchmarks using benchy library.
+- **SHOULD:** Treat benchmarking as important as testing.
+- **SHOULD:** Add `bench_*.nim` files using the `benchy` library.
 
 ```nim
 import benchy, std/os, std/random
@@ -63,32 +118,57 @@ timeIt "number counter":
 
 ## Names
 
-Best names are single English words. Only go to two or three words if absolutely necessary. Use common abbreviations
-like HTTP, API, JSON, etc. Use camelCase for variables and functions. Use PascalCase for types, constants, and enums.
-Use plural for arrays and maps and other collections. When iterating and only when using integers prefer to use `i`,
-`j`, `k` etc...
+- **SHOULD:** Prefer single English-word names.
+- **SHOULD:** Use two or three words only when necessary.
+- **MUST:** Use `camelCase` for variables and functions.
+- **MUST:** Use `PascalCase` for types, constants, and enums.
+- **SHOULD:** Use plural names for arrays, maps, and other collections.
+- **SHOULD:** Use `i`, `j`, `k` for integer loop indices when appropriate.
+- **SHOULD NOT:** Prefix enums with polish notation (for example, `nkStatement` -> `StatementNode`).
 
 ## Variables
 
-At the top level prefer to use `const` over `let`. Note: in Nim const use CamelCase with capital first letter. Prefer to
-use `let` over `var` unless you need to mutate the variable. Merge multiple const, let, and var declarations into a
-single block declaration.
+- **MUST:** Use top-level `const` over `let`.
+- **MUST:** Use `PascalCase` for `const` names.
+- **MUST:** Use `let` over `var` unless mutation is required.
+- **MUST:** Merge adjacent `const`, `let`, and `var` declarations into grouped blocks.
+```
+let a = 1
+let b = 2
+let c = 3
+->
+let
+  a = 1
+  b = 2
+  c = 3
+```
 
 ## Readme
 
-Fix spelling and grammar, only! Avoid using emoji in the readme, avoid using fancy quotes, mdash, semicolon, and other
-fancy characters. Write in a simple, clear, and direct way. Bullet lists or table to show features are good.
+- **MUST:** Restrict README edits to spelling and grammar fixes unless explicitly requested otherwise.
+- **SHOULD NOT:** Use emoji in the README.
+- **SHOULD NOT:** Use fancy quotes, mdash, semicolons, or other decorative punctuation.
+- **SHOULD:** Write in a simple, clear, direct style.
+- **MAY:** Use bullet lists or tables to present features clearly.
 
 ## Indentation
 
-Use 2 spaces for indentation. Never use double lines even between types, procs or sections. If breaking a large function
-call break it into a line per argument.
+- **MUST:** Use 2 spaces for indentation.
+- **MUST:** Never use double lines between types, procedures, or sections.
+- **SHOULD NOT:** Go over 80 characters per line.
+- **MAY:** Keep lines under 60 characters except for strings and comments.
+- **MUST:** Break long function calls into one argument per line.
 
-If the line is over 80 characters, One-argument-per-line (also called vertical argument layout) is required.
+```nim
+func(
+  arg1,
+  arg2,
+  arg3
+)
+```
 
-Break up comments if the are over 80 characters.
-
-If body of a if or loop is too large, break it into a line per statement, but then indent the body by 4 spaces.
+- **MUST:** Break long `if` and loop conditions across lines.
+- **MUST:** Indent the corresponding body by 4 spaces in that style.
 
 ```nim
 if condition or
@@ -99,77 +179,66 @@ if condition or
     statement3
 ```
 
-Don't indent the body of a case statement. Prefer to use enums and case statements together.
-
-```nim
-case expression:
-of value1:
-  statement1
-of value2:
-  statement2
-else:
-  statement4
+- **MUST NOT:** Add extra indentation before `case` branches.
+- **SHOULD:** Prefer enums with `case` statements.
+- **SHOULD:** Avoid single line if statements, break them into two lines:
 ```
-
-Avoid inline ifs on one line. Space them out like this:
-
+if condition:
+  do(something(possible() + complex))
+```
+- **SHOULD:** Prefer indented ternary operators.
 ```nim
-var v =
+v =
   if condition:
     value1
   else:
     value2
 ```
+- **MAY:** Avoid ternary operators altogether.
 
 ## Comments
 
-Have all comments be complete sentences. Start with a capital letter and end with a period. Make sure all functions have
-doc comments. Try to only use a single line per doc comment. Never more than 4 lines. Avoid top level section comments,
-especially surround with `=` or `#` characters.
+- **MUST:** Write comments as complete sentences.
+- **MUST:** Start comments with a capital letter and end with a period.
+- **MUST:** Add doc comments for every function.
+- **SHOULD:** Keep doc comments to a single line where possible.
+- **MUST NOT:** Exceed 4 lines for a doc comment.
+- **SHOULD NOT:** Use top-level section comments, especially decorative separators made of `=` or `#`.
+
+## Numbers
+
+- **MUST:** Never use `1.0'f32` or `1.0'f64`, use `1.0'f` and `1.0` instead.
+
+## For loops
+
+- **MUST:** Add a space between the range operator and the range values: `0 ..< 5` or `1 .. 3`.
+- **MAY:** Use `i`, `j`, `k` for integer loop indices when appropriate.
+- **MAY:** Use single letter variables for loop indices when appropriate, like `a` for account, `p` for player, `s` for session, etc...
 
 ## Error Handling
 
-Its best to let the exception propagate to the top level. Don't silence them with `try/except`. Use error codes where
-absolutely necessary. Adding asserts especially at start or end of a procedure is good as they can be compiled out in
-release mode. Many errors are not actually errors and can be passed through. Prefer returning nil, "", 0, false, over
-raising exceptions or error codes.
+- **SHOULD:** Let exceptions propagate to the top level.
+- **SHOULD NOT:** Silence errors with broad `try/except`.
+- **SHOULD NOT:** Use error codes unless absolutely necessary.
+- **SHOULD:** Use asserts at procedure boundaries where invariants matter.
+- **SHOULD:** Prefer simple neutral returns (`nil`, `""`, `0`, `false`) for non-exceptional fallthrough cases.
 
 ## Checking the code
 
-In many projects you can run `nim check` and `nimble test` as you are writing the code to make sure it works. Always do
-this after big changes and before committing.
+- **SHOULD:** Run `nim check` and look at output and only then run `nim r tests/tests.nim` while developing when available.
+- **MUST:** Run checks after major changes and before committing.
 
-## Block formatting
+## Commit messages
 
-Some small or repeating functions its ok to be without a doc comment.
+- **MUST:** Use very short commit messages, usually one line.
+- **SHOULD:** Use 4 to 10 words max. Can use commas to separate the words.
+  - `added a new feature X`
+  - `fix bug with X`
+  - `refactor code around X`
+  - `update documentation for X`
+  - `add test for X`
+  - `improved performance by X`
 
-```nim
-proc toFlatty*(s: var string, x: uint8) = s.addUint8(x)
-proc toFlatty*(s: var string, x: int8) = s.addInt8(x)
-proc toFlatty*(s: var string, x: uint16) = s.addUint16(x)
-proc toFlatty*(s: var string, x: int16) = s.addInt16(x)
-proc toFlatty*(s: var string, x: uint32) = s.addUint32(x)
-proc toFlatty*(s: var string, x: int32) = s.addInt32(x)
-proc toFlatty*(s: var string, x: uint64) = s.addUint64(x)
-proc toFlatty*(s: var string, x: int64) = s.addInt64(x)
-proc toFlatty*(s: var string, x: float32) = s.addFloat32(x)
-proc toFlatty*(s: var string, x: float64) = s.addFloat64(x)
-```
+## When making changes
 
-Some functions that are just use to interface with external libraries its ok to be without a doc comment and be on long
-lines.
-
-```nim
-proc WinHttpReceiveResponse*(hRequest: HINTERNET, lpReserved: LPVOID): BOOL {.dynlib: "winhttp".}
-proc WinHttpQueryHeaders*(hRequest: HINTERNET, dwInfoLevel: DWORD, pwszName: LPCWSTR, lpBuffer: LPVOID, lpdwBufferLength: LPDWORD, lpdwIndex: LPDWORD): BOOL {.dynlib: "winhttp".}
-proc WinHttpReadData*(hFile: HINTERNET, lpBuffer: LPVOID, dwNumberOfBytesToRead: DWORD, lpdwNumberOfBytesRead: LPDWORD): BOOL {.dynlib: "winhttp".}
-```
-
-Its ok to add zero to make blocks line up:
-
-```
-for i in 0 ..< 10:
-  echo data[i * 3 + 0]
-  echo data[i * 3 + 1]
-  echo data[i * 3 + 2]
-```
+When making changes please just run the nim code with `nim r path/to/file.nim` to see if it works. Don't do check or compile, just run it. If there are any compile-time or runtime issues with the code, please fix them and then run it again.
