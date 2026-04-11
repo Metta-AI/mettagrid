@@ -120,11 +120,12 @@ def _resolve_spec_data_path(data_path: Optional[str], extraction_root: Path) -> 
     raise FileNotFoundError(f"Policy data path '{data_path}' not found in submission directory {extraction_root}")
 
 
-def _find_package_source_root(extraction_root: Path, class_path: str) -> Path | None:
-    """Find the source root by locating the top-level package directory.
+def find_package_source_root(extraction_root: Path, class_path: str) -> Path | None:
+    """Find the source root for a bundled policy package, including namespace packages.
 
     Given a class_path like 'mypackage.submodule.MyClass', finds a directory named
-    'mypackage' that contains Python code, and returns its parent (the source root).
+    'mypackage' whose contents make that module importable, and returns its parent
+    (the source root).
 
     Note: This modifies sys.path but does not invalidate sys.modules. If the same
     module was previously imported from a different location (e.g., installed package),
@@ -132,18 +133,26 @@ def _find_package_source_root(extraction_root: Path, class_path: str) -> Path | 
     each task runs in a fresh process, but may cause issues in long-running processes
     that load multiple submissions with the same class_path.
     """
-    top_package = class_path.split(".")[0]
+    module_parts = class_path.rsplit(".", 1)[0].split(".")
+    top_package = module_parts[0]
 
-    # Find any __init__.py inside a directory named after the top package
-    # e.g., for "cogames.policy.module", find "**/cogames/**/__init__.py"
-    for init_file in extraction_root.rglob("__init__.py"):
-        if "__pycache__" in str(init_file):
+    for package_dir in extraction_root.rglob(top_package):
+        if not package_dir.is_dir() or "__pycache__" in package_dir.parts:
             continue
-        # Check if any ancestor directory is named after the top package
-        for parent in init_file.parents:
-            if parent.name == top_package and parent != extraction_root:
-                # Found it - source root is the parent of the package directory
-                return parent.parent
+
+        current = package_dir
+        for part in module_parts[1:]:
+            module_file = current / f"{part}.py"
+            package_path = current / part
+            if module_file.is_file():
+                return package_dir.parent
+            if package_path.is_dir():
+                current = package_path
+                continue
+            break
+        else:
+            if (current / "__init__.py").is_file():
+                return package_dir.parent
 
     return None
 
@@ -365,7 +374,7 @@ def load_policy_spec_from_path(
     if device is not None and "device" in spec.init_kwargs:
         spec.init_kwargs["device"] = device
 
-    module_root = _find_package_source_root(extraction_root, spec.class_path)
+    module_root = find_package_source_root(extraction_root, spec.class_path)
     use_installed_package_code = module_root is not None and _should_use_installed_package_code(spec.class_path)
     if module_root and not use_installed_package_code:
         top_package = spec.class_path.split(".")[0]

@@ -49,3 +49,32 @@ def test_prefer_installed_package_code_uses_current_repo_modules(tmp_path: Path,
     module_file = Path(sys.modules[loaded_symbol.__module__].__file__).resolve()
     assert not module_file.is_relative_to(stale_root)
     assert not module_file.is_relative_to(submission_dir)
+
+
+def test_load_policy_spec_from_path_supports_namespace_packages(tmp_path: Path) -> None:
+    from mettagrid.policy.prepare_policy_spec import load_policy_spec_from_path  # noqa: PLC0415
+    from mettagrid.util.module import load_symbol  # noqa: PLC0415
+
+    submission_dir = tmp_path / "submission"
+    submission_dir.mkdir()
+    class_path = "bundle_namespace_pkg.submodule.namespace_policy.NamespacePolicy"
+    write_submission_policy_spec(
+        submission_dir / "policy_spec.json",
+        SubmissionPolicySpec(class_path=class_path),
+    )
+
+    namespace_pkg = submission_dir / "src" / "bundle_namespace_pkg" / "submodule"
+    namespace_pkg.mkdir(parents=True)
+    (namespace_pkg / "namespace_policy.py").write_text("class NamespacePolicy:\n    pass\n")
+
+    for module_name in list(sys.modules):
+        if module_name == "bundle_namespace_pkg" or module_name.startswith("bundle_namespace_pkg."):
+            sys.modules.pop(module_name, None)
+
+    spec = load_policy_spec_from_path(submission_dir)
+    loaded_symbol = load_symbol(spec.class_path)
+
+    assert spec.class_path == class_path
+    assert loaded_symbol.__module__ == "bundle_namespace_pkg.submodule.namespace_policy"
+    module_file = Path(sys.modules[loaded_symbol.__module__].__file__).resolve()
+    assert module_file.is_relative_to(submission_dir)
