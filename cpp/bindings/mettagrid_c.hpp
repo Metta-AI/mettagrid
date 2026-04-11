@@ -208,8 +208,8 @@ private:
   // Tag index for efficient tag-based object lookup
   mettagrid::TagIndex _tag_index;
 
-  // Game-level on_tick handlers executed every step
-  std::vector<std::shared_ptr<mettagrid::Handler>> _game_on_tick;
+  // Game-level on_tick handler executed every step
+  std::shared_ptr<mettagrid::Handler> _game_on_tick;
 
   // Base HandlerContext with all system pointers — copied and specialized per interaction
   mettagrid::HandlerContext _game_ctx;

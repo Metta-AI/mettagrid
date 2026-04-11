@@ -56,13 +56,13 @@ void Agent::track_coverage() {
   stats.set("cell.max_distance_from_spawn", static_cast<float>(max_distance_from_spawn));
 }
 
-void Agent::set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers) {
-  _on_tick = std::move(handlers);
+void Agent::set_on_tick(std::shared_ptr<mettagrid::Handler> handler) {
+  _on_tick = std::move(handler);
 }
 
 void Agent::apply_on_tick(mettagrid::HandlerContext& ctx) {
-  for (auto& handler : _on_tick) {
-    handler->try_apply(ctx);
+  if (_on_tick) {
+    _on_tick->try_apply(ctx);
   }
 }
 

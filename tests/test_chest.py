@@ -15,11 +15,10 @@ class TestGridObjectInventory:
 
         cfg.game.objects["extractor"] = GridObjectConfig(
             name="extractor",
-            on_use_handlers={
-                "extract": Handler(
-                    mutations=[withdraw({"gold": 5}, remove_when_empty=True)],
-                ),
-            },
+            on_use_handler=Handler(
+                name="extract",
+                mutations=[withdraw({"gold": 5}, remove_when_empty=True)],
+            ),
             inventory=InventoryConfig(
                 initial={"gold": 5},
                 limits={"gold": ResourceLimitsConfig(base=100, resources=["gold"])},

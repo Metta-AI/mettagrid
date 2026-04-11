@@ -95,15 +95,28 @@ proc getObjConfig(cur: Entity): JsonNode =
   return nil
 
 proc drawOnUseHandlers(objConfig: JsonNode) =
-  ## Draw the on_use_handlers section from config, showing what interactions are available.
-  if objConfig.isNil or "on_use_handlers" notin objConfig:
+  ## Draw the on_use_handler section showing available interactions.
+  if objConfig.isNil or "on_use_handler" notin objConfig:
     return
-  let handlers = objConfig["on_use_handlers"]
-  if handlers.kind != JObject or handlers.len == 0:
+  let handler = objConfig["on_use_handler"]
+  if handler.kind != JObject:
+    return
+  var handlers: JsonNode
+  if "handlers" in handler and handler["handlers"].kind == JArray:
+    handlers = handler["handlers"]
+  else:
+    handlers = newJArray()
+    handlers.add(handler)
+  if handlers.len == 0:
     return
 
   text("Interactions")
-  for handlerName, handlerConfig in handlers.pairs:
+  for handlerConfig in handlers:
+    if handlerConfig.kind != JObject:
+      continue
+    let handlerName =
+      if "name" in handlerConfig: handlerConfig["name"].getStr
+      else: ""
     var parts: seq[string] = @[]
 
     # Show filter requirements (resource filters on actor).

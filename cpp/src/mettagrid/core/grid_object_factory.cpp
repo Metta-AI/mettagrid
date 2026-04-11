@@ -44,17 +44,12 @@ static void _set_up_handlers(GridObject* obj, const GridObjectConfig* config, [[
     obj->set_on_tag_remove(std::move(on_tag_remove));
   }
 
-  // on_tick handlers (agent-only)
+  // on_tick handler (agent-only)
   if (const auto* agent_config = dynamic_cast<const AgentConfig*>(config)) {
-    if (!agent_config->on_tick.empty()) {
+    if (agent_config->on_tick) {
       auto* agent = dynamic_cast<Agent*>(obj);
       if (agent) {
-        std::vector<std::shared_ptr<Handler>> on_tick;
-        on_tick.reserve(agent_config->on_tick.size());
-        for (const auto& handler_config : agent_config->on_tick) {
-          on_tick.push_back(std::make_shared<Handler>(handler_config));
-        }
-        agent->set_on_tick(std::move(on_tick));
+        agent->set_on_tick(agent_config->on_tick);
       }
     }
   }

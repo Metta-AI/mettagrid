@@ -12,7 +12,7 @@
 
 #include "core/grid_object.hpp"
 #include "core/types.hpp"
-#include "handler/handler_config.hpp"
+#include "handler/handler.hpp"
 #include "objects/inventory_config.hpp"
 #include "objects/reward_config.hpp"
 
@@ -25,21 +25,21 @@ struct AgentConfig : public GridObjectConfig {
               const InventoryConfig& inventory_config = InventoryConfig(),
               const RewardConfig& reward_config = RewardConfig(),
               const std::unordered_map<InventoryItem, InventoryQuantity>& initial_inventory = {},
-              const std::vector<mettagrid::HandlerConfig>& on_tick = {})
+              std::shared_ptr<mettagrid::Handler> on_tick = nullptr)
       : GridObjectConfig(type_id, type_name, initial_vibe),
         group_id(group_id),
         group_name(group_name),
         inventory_config(inventory_config),
         reward_config(reward_config),
         initial_inventory(initial_inventory),
-        on_tick(on_tick) {}
+        on_tick(std::move(on_tick)) {}
 
   unsigned char group_id;
   std::string group_name;
   InventoryConfig inventory_config;
   RewardConfig reward_config;
   std::unordered_map<InventoryItem, InventoryQuantity> initial_inventory;
-  std::vector<mettagrid::HandlerConfig> on_tick;
+  std::shared_ptr<mettagrid::Handler> on_tick;
 };
 
 namespace py = pybind11;
@@ -54,7 +54,7 @@ inline void bind_agent_config(py::module& m) {
                     const InventoryConfig&,
                     const RewardConfig&,
                     const std::unordered_map<InventoryItem, InventoryQuantity>&,
-                    const std::vector<mettagrid::HandlerConfig>&>(),
+                    std::shared_ptr<mettagrid::Handler>>(),
            py::arg("type_id"),
            py::arg("type_name") = "agent",
            py::arg("group_id"),
@@ -63,7 +63,7 @@ inline void bind_agent_config(py::module& m) {
            py::arg("inventory_config") = InventoryConfig(),
            py::arg("reward_config") = RewardConfig(),
            py::arg("initial_inventory") = std::unordered_map<InventoryItem, InventoryQuantity>(),
-           py::arg("on_tick") = std::vector<mettagrid::HandlerConfig>())
+           py::arg("on_tick") = nullptr)
       .def_readwrite("type_id", &AgentConfig::type_id)
       .def_readwrite("type_name", &AgentConfig::type_name)
       .def_readwrite("tag_ids", &AgentConfig::tag_ids)

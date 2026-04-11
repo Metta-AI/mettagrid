@@ -2,6 +2,7 @@ from typing import Any
 
 from mettagrid.config.cpp_id_maps import CppIdMaps
 from mettagrid.config.game_value import ConstValue, GameValue
+from mettagrid.config.handler_config import AllOf, FirstMatch, Handler
 from mettagrid.config.mettagrid_c_mutations import convert_entity_ref, convert_mutations
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mettagrid_config import (
@@ -387,7 +388,7 @@ def _build_or_filter(filter_config, id_maps: CppIdMaps, context: str) -> CppOrFi
 # ---------------------------------------------------------------------------
 
 
-def _convert_handlers(handlers_dict, id_maps: CppIdMaps):
+def _convert_handlers_dict(handlers_dict, id_maps: CppIdMaps):
     """Convert Python Handler dict to C++ HandlerConfig list."""
     cpp_handlers = []
     for handler_name, handler in handlers_dict.items():
@@ -398,13 +399,27 @@ def _convert_handlers(handlers_dict, id_maps: CppIdMaps):
     return cpp_handlers
 
 
-def _create_on_use_handler(handlers_dict, id_maps: CppIdMaps):
-    """Create a single Handler (or MultiHandler) from Python Handler dict."""
-    if not handlers_dict:
+def _convert_any_handler(handler, id_maps: CppIdMaps):
+    """Convert a Handler, FirstMatch, AllOf, or None to a C++ handler (recursive).
+
+    None is treated as a no-op: returns None at top level, filtered out of children.
+    """
+    if handler is None:
         return None
-    handler_configs = _convert_handlers(handlers_dict, id_maps)
-    handlers = [CppHandler(config) for config in handler_configs]
-    return CppMultiHandler(handlers, CppHandlerMode.FirstMatch)
+    if isinstance(handler, Handler):
+        name = handler.name or ""
+        config = CppHandlerConfig(name)
+        _convert_filters(handler.filters, config, id_maps, context=f"handler '{name}'")
+        convert_mutations(handler.mutations, config, id_maps, context=f"handler '{name}'")
+        return CppHandler(config)
+    elif isinstance(handler, FirstMatch):
+        children = [c for c in (_convert_any_handler(h, id_maps) for h in handler.handlers) if c is not None]
+        return CppMultiHandler(children, CppHandlerMode.FirstMatch) if children else None
+    elif isinstance(handler, AllOf):
+        children = [c for c in (_convert_any_handler(h, id_maps) for h in handler.handlers) if c is not None]
+        return CppMultiHandler(children, CppHandlerMode.All) if children else None
+    else:
+        raise TypeError(f"Expected Handler, FirstMatch, or AllOf, got {type(handler)}")
 
 
 def _convert_event_configs(events: dict, id_maps: CppIdMaps) -> dict:
@@ -717,11 +732,8 @@ def convert_to_cpp_game_config(
                 label="on_tag_remove",
             )
 
-        if agent_cfg.on_tick:
-            cpp_agent_config.on_tick = _convert_handlers(agent_cfg.on_tick, id_maps)
-
-        if agent_cfg.on_use_handlers:
-            cpp_agent_config.on_use_handler = _create_on_use_handler(agent_cfg.on_use_handlers, id_maps)
+        cpp_agent_config.on_tick = _convert_any_handler(agent_cfg.on_tick, id_maps)
+        cpp_agent_config.on_use_handler = _convert_any_handler(agent_cfg.on_use_handler, id_maps)
 
         return cpp_agent_config
 
@@ -826,8 +838,7 @@ def convert_to_cpp_game_config(
         if cpp_config is not None:
             cpp_config.tag_ids = tag_ids
 
-            if object_config.on_use_handlers:
-                cpp_config.on_use_handler = _create_on_use_handler(object_config.on_use_handlers, id_maps)
+            cpp_config.on_use_handler = _convert_any_handler(object_config.on_use_handler, id_maps)
             if object_config.aoes:
                 cpp_config.aoe_configs = _convert_aoe_configs(object_config.aoes, id_maps)
             if object_config.territory_controls:
@@ -927,7 +938,7 @@ def convert_to_cpp_game_config(
     action_params = process_action_config("move", actions_config.move)
     action_params["allowed_directions"] = actions_config.move.allowed_directions
     if actions_config.move.handlers:
-        action_params["handlers"] = _convert_handlers(
+        action_params["handlers"] = _convert_handlers_dict(
             {h.name or f"move_handler_{i}": h for i, h in enumerate(actions_config.move.handlers)},
             id_maps,
         )
@@ -984,9 +995,8 @@ def convert_to_cpp_game_config(
     if materialized_queries_cpp:
         game_cpp_params["materialized_queries"] = materialized_queries_cpp
 
-    # --- Game-level on_tick handlers ---
+    # --- Game-level on_tick handler ---
 
-    if game_config.on_tick:
-        game_cpp_params["on_tick"] = _convert_handlers(game_config.on_tick, id_maps)
+    game_cpp_params["on_tick"] = _convert_any_handler(game_config.on_tick, id_maps)
 
     return CppGameConfig(**game_cpp_params), agent_renames

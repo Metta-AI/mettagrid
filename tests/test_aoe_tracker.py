@@ -502,18 +502,17 @@ class TestSpawnedObjectAOE:
                     mutations=[ResourceDeltaMutation(target=EntityTarget.TARGET, deltas={"energy": 10})],
                 ),
             },
-            on_use_handlers={
-                "drain": Handler(
-                    mutations=[
-                        ResourceTransferMutation(
-                            from_target=EntityTarget.TARGET,
-                            to_target=EntityTarget.ACTOR,
-                            resources={"energy": -1},
-                            remove_source_when_empty=True,
-                        ),
-                    ],
-                ),
-            },
+            on_use_handler=Handler(
+                name="drain",
+                mutations=[
+                    ResourceTransferMutation(
+                        from_target=EntityTarget.TARGET,
+                        to_target=EntityTarget.ACTOR,
+                        resources={"energy": -1},
+                        remove_source_when_empty=True,
+                    ),
+                ],
+            ),
         )
 
         sim = Simulation(cfg)

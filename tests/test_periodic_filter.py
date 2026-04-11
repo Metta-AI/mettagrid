@@ -45,7 +45,8 @@ def _make_sim_with_periodic_on_tick(period: int, start_on: int | None = None) ->
     cfg.game.actions.noop.enabled = True
 
     pf = PeriodicFilter(period=period) if start_on is None else PeriodicFilter(period=period, start_on=start_on)
-    cfg.game.on_tick["refill_chest"] = Handler(
+    cfg.game.on_tick = Handler(
+        name="refill_chest",
         filters=[pf],
         mutations=[queryDelta(query(typeTag("chest")), {"gold": 10})],
     )
@@ -152,7 +153,8 @@ class TestPeriodicFilter:
             inventory=InventoryConfig(initial={"gold": 80}, default_limit=100),
         )
         cfg.game.actions.noop.enabled = True
-        cfg.game.on_tick["refill"] = Handler(
+        cfg.game.on_tick = Handler(
+            name="refill",
             filters=[PeriodicFilter(period=1, start_on=1)],
             mutations=[queryDelta(query(typeTag("chest")), {"gold": 50})],
         )

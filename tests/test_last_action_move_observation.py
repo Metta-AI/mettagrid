@@ -22,9 +22,7 @@ def test_last_action_move_observation_reflects_actual_location_change() -> None:
                 "station": GridObjectConfig(
                     name="station",
                     map_name="station",
-                    on_use_handlers={
-                        "use": Handler(),  # always succeeds, no movement
-                    },
+                    on_use_handler=Handler(name="use"),  # always succeeds, no movement
                 ),
             },
             resource_names=[],

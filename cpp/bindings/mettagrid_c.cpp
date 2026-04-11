@@ -148,10 +148,8 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
     _prev_agent_locations[i] = _agents[i]->location;
   }
 
-  // Create game-level on_tick handlers
-  for (const auto& handler_config : game_config.on_tick) {
-    _game_on_tick.push_back(std::make_shared<mettagrid::Handler>(handler_config));
-  }
+  // Set game-level on_tick handler
+  _game_on_tick = game_config.on_tick;
 
   // Initialize QuerySystem — always created so inline queries in filters/mutations work
   _query_system = std::make_unique<mettagrid::QuerySystem>(game_config.materialized_queries);
@@ -1044,9 +1042,9 @@ void MettaGrid::_step() {
     _step_timing.aoe_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
   }
 
-  // Execute game-level on_tick handlers
-  for (const auto& handler : _game_on_tick) {
-    handler->try_apply(_game_ctx);
+  // Execute game-level on_tick handler
+  if (_game_on_tick) {
+    _game_on_tick->try_apply(_game_ctx);
   }
 
   for (auto* agent : _agents) {

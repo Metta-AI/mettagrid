@@ -598,7 +598,8 @@ class TestGameValueMaxItems:
         q = query(typeTag("chest"))
         q.max_items = max_items_gv
         q.order_by = "random"
-        cfg.game.on_tick["refill"] = Handler(
+        cfg.game.on_tick = Handler(
+            name="refill",
             mutations=[queryDelta(q, {"gold": 100})],
         )
         return cfg
@@ -679,7 +680,8 @@ class TestGameValueMaxItems:
         q = query(typeTag("chest"))
         q.max_items = 1
         q.order_by = "random"
-        cfg.game.on_tick["refill"] = Handler(
+        cfg.game.on_tick = Handler(
+            name="refill",
             mutations=[queryDelta(q, {"gold": 100})],
         )
         sim = Simulation(cfg, seed=42)

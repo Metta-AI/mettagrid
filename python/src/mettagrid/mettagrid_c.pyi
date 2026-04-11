@@ -600,7 +600,7 @@ class AgentConfig(GridObjectConfig):
         inventory_config: InventoryConfig = ...,
         reward_config: RewardConfig = ...,
         initial_inventory: dict[int, int] = {},
-        on_tick: list[HandlerConfig] | None = None,
+        on_tick: Handler | None = None,
     ) -> None: ...
     type_id: int
     type_name: str
@@ -611,7 +611,7 @@ class AgentConfig(GridObjectConfig):
     inventory_config: InventoryConfig
     reward_config: RewardConfig
     initial_inventory: dict[int, int]
-    on_tick: list[HandlerConfig]
+    on_tick: Handler | None
 
 class ActionConfig:
     def __init__(
@@ -715,7 +715,7 @@ class GameConfig:
         protocol_details_obs: bool = True,
         reward_estimates: Optional[dict[str, float]] = None,
         token_value_base: int = 256,
-        on_tick: list[HandlerConfig] | None = None,
+        on_tick: Handler | None = None,
     ) -> None: ...
     num_agents: int
     max_steps: int
@@ -732,7 +732,7 @@ class GameConfig:
     protocol_details_obs: bool
     reward_estimates: Optional[dict[str, float]]
     token_value_base: int
-    on_tick: list[HandlerConfig]
+    on_tick: Handler | None
 
 class TagIndex:
     def __init__(self) -> None: ...

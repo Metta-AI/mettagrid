@@ -1,12 +1,14 @@
 """Tests for MultiHandler dispatch modes.
 
 Tests verify:
-1. FirstMatch mode (on_use_handlers): stops after first handler where all filters pass
-2. All mode (aoes): applies all handlers where filters pass
+1. FirstMatch mode: stops after first handler where all filters pass
+2. AllOf mode: applies all handlers where filters pass
+3. Recursive nesting: FirstMatch/AllOf can contain each other
+4. AOE All mode: applies all handlers where filters pass
 """
 
 from mettagrid.config.filter import actorHas, targetHas
-from mettagrid.config.handler_config import AOEConfig, Handler
+from mettagrid.config.handler_config import AOEConfig, Handler, allOf, firstMatch
 from mettagrid.config.mettagrid_config import (
     GridObjectConfig,
     MettaGridConfig,
@@ -50,21 +52,25 @@ class TestMultiHandlerFirstMatch:
         }
         cfg.game.actions.move.enabled = True
 
-        # Chest with two on_use_handlers - both should pass filters
+        # Chest with two handlers - both should pass filters
         # but only first should apply (FirstMatch mode)
         cfg.game.objects["chest"] = GridObjectConfig(
             name="chest",
             map_name="chest",
-            on_use_handlers={
-                "give_gold": Handler(
-                    filters=[],  # No filters - always passes
-                    mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"gold": 10})],
-                ),
-                "give_silver": Handler(
-                    filters=[],  # No filters - always passes
-                    mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"silver": 5})],
-                ),
-            },
+            on_use_handler=firstMatch(
+                [
+                    Handler(
+                        name="give_gold",
+                        filters=[],  # No filters - always passes
+                        mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"gold": 10})],
+                    ),
+                    Handler(
+                        name="give_silver",
+                        filters=[],  # No filters - always passes
+                        mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"silver": 5})],
+                    ),
+                ]
+            ),
         )
 
         sim = Simulation(cfg)
@@ -117,16 +123,20 @@ class TestMultiHandlerFirstMatch:
         cfg.game.objects["chest"] = GridObjectConfig(
             name="chest",
             map_name="chest",
-            on_use_handlers={
-                "give_gold_with_key": Handler(
-                    filters=[actorHas({"key": 1})],  # Requires key - will fail
-                    mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"gold": 100})],
-                ),
-                "give_silver_free": Handler(
-                    filters=[],  # No filters - always passes
-                    mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"silver": 5})],
-                ),
-            },
+            on_use_handler=firstMatch(
+                [
+                    Handler(
+                        name="give_gold_with_key",
+                        filters=[actorHas({"key": 1})],  # Requires key - will fail
+                        mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"gold": 100})],
+                    ),
+                    Handler(
+                        name="give_silver_free",
+                        filters=[],  # No filters - always passes
+                        mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"silver": 5})],
+                    ),
+                ]
+            ),
         )
 
         sim = Simulation(cfg)
@@ -141,6 +151,140 @@ class TestMultiHandlerFirstMatch:
         # First handler's filter fails (no key), so second handler applies
         assert gold == 0, f"Should NOT get gold (first handler filter failed), got {gold}"
         assert silver == 5, f"Should get silver from second handler, got {silver}"
+
+
+def _chest_room(resources: list[str]):
+    """Create a 5x5 room with agent below a chest."""
+    cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+        [
+            ["#", "#", "#", "#", "#"],
+            ["#", ".", ".", ".", "#"],
+            ["#", ".", "C", ".", "#"],
+            ["#", ".", "@", ".", "#"],
+            ["#", "#", "#", "#", "#"],
+        ],
+        char_to_map_name={"#": "wall", "@": "agent.agent", ".": "empty", "C": "chest"},
+    )
+    cfg.game.resource_names = resources
+    cfg.game.agent.inventory.initial = {r: 0 for r in resources}
+    cfg.game.agent.inventory.limits = {r: ResourceLimitsConfig(base=1000, resources=[r]) for r in resources}
+    cfg.game.actions.move.enabled = True
+    return cfg
+
+
+class TestAllOfOnUse:
+    """Test AllOf mode for on_use_handler — applies all matching handlers."""
+
+    def test_allof_applies_all_matching_handlers(self):
+        """AllOf should apply every handler whose filters pass."""
+        cfg = _chest_room(["gold", "silver"])
+        cfg.game.objects["chest"] = GridObjectConfig(
+            name="chest",
+            map_name="chest",
+            on_use_handler=allOf(
+                [
+                    Handler(
+                        name="give_gold",
+                        filters=[],
+                        mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"gold": 10})],
+                    ),
+                    Handler(
+                        name="give_silver",
+                        filters=[],
+                        mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"silver": 5})],
+                    ),
+                ]
+            ),
+        )
+        sim = Simulation(cfg)
+        sim.agent(0).set_action("move_north")
+        sim.step()
+
+        assert sim.agent(0).inventory.get("gold", 0) == 10
+        assert sim.agent(0).inventory.get("silver", 0) == 5
+
+    def test_allof_skips_handler_with_failing_filter(self):
+        """AllOf should skip handlers whose filters fail, but still apply others."""
+        cfg = _chest_room(["gold", "silver", "key"])
+        cfg.game.objects["chest"] = GridObjectConfig(
+            name="chest",
+            map_name="chest",
+            on_use_handler=allOf(
+                [
+                    Handler(
+                        name="give_gold_with_key",
+                        filters=[actorHas({"key": 1})],
+                        mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"gold": 100})],
+                    ),
+                    Handler(
+                        name="give_silver_free",
+                        filters=[],
+                        mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"silver": 5})],
+                    ),
+                ]
+            ),
+        )
+        sim = Simulation(cfg)
+        sim.agent(0).set_action("move_north")
+        sim.step()
+
+        assert sim.agent(0).inventory.get("gold", 0) == 0, "Gold handler should be skipped (no key)"
+        assert sim.agent(0).inventory.get("silver", 0) == 5, "Silver handler should apply"
+
+
+class TestNestedHandlers:
+    """Test recursive nesting of FirstMatch and AllOf."""
+
+    def test_allof_containing_firstmatch(self):
+        """AllOf containing a FirstMatch should run the FirstMatch as one child."""
+        cfg = _chest_room(["gold", "silver", "bronze"])
+        cfg.game.objects["chest"] = GridObjectConfig(
+            name="chest",
+            map_name="chest",
+            on_use_handler=allOf(
+                [
+                    # This AllOf child always gives bronze
+                    Handler(
+                        name="give_bronze",
+                        filters=[],
+                        mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"bronze": 1})],
+                    ),
+                    # This AllOf child is a FirstMatch: tries gold first, falls back to silver
+                    firstMatch(
+                        [
+                            Handler(
+                                name="give_gold",
+                                filters=[actorHas({"gold": 1})],  # fails — agent has 0 gold
+                                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"gold": 100})],
+                            ),
+                            Handler(
+                                name="give_silver",
+                                filters=[],
+                                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"silver": 7})],
+                            ),
+                        ]
+                    ),
+                ]
+            ),
+        )
+        sim = Simulation(cfg)
+        sim.agent(0).set_action("move_north")
+        sim.step()
+
+        assert sim.agent(0).inventory.get("bronze", 0) == 1, "AllOf child: bronze handler should apply"
+        assert sim.agent(0).inventory.get("gold", 0) == 0, "FirstMatch: gold filter fails"
+        assert sim.agent(0).inventory.get("silver", 0) == 7, "FirstMatch: silver fallback applies"
+
+    def test_firstmatch_list_preserves_handler_names(self):
+        """firstMatch(list) should preserve handler names."""
+        fm = firstMatch(
+            [
+                Handler(name="alpha", mutations=[]),
+                Handler(name="beta", mutations=[]),
+            ]
+        )
+        assert fm.handlers[0].name == "alpha"
+        assert fm.handlers[1].name == "beta"
 
 
 class TestMultiHandlerAll:

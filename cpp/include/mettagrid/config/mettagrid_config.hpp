@@ -14,6 +14,7 @@
 #include "core/game_value_config.hpp"
 #include "core/query_config.hpp"
 #include "core/types.hpp"
+#include "handler/handler.hpp"
 #include "handler/handler_config.hpp"
 #include "handler/territory_config.hpp"
 
@@ -71,8 +72,8 @@ struct GameConfig {
   // Materialized queries - computed tag membership from spatial queries
   std::vector<mettagrid::MaterializedQueryTag> materialized_queries;
 
-  // Game-level on_tick handlers executed every step
-  std::vector<mettagrid::HandlerConfig> on_tick;
+  // Game-level on_tick handler executed every step
+  std::shared_ptr<mettagrid::Handler> on_tick;
 };
 
 namespace py = pybind11;
@@ -370,8 +371,8 @@ inline void bind_game_config(py::module& m) {
                     // Materialized queries
                     const std::vector<mettagrid::MaterializedQueryTag>&,
 
-                    // Game-level on_tick handlers
-                    const std::vector<mettagrid::HandlerConfig>&>(),
+                    // Game-level on_tick handler
+                    std::shared_ptr<mettagrid::Handler>>(),
            py::arg("num_agents"),
            py::arg("max_steps"),
            py::arg("episode_truncates"),
@@ -401,8 +402,8 @@ inline void bind_game_config(py::module& m) {
            // Materialized queries
            py::arg("materialized_queries") = std::vector<mettagrid::MaterializedQueryTag>(),
 
-           // Game-level on_tick handlers
-           py::arg("on_tick") = std::vector<mettagrid::HandlerConfig>())
+           // Game-level on_tick handler
+           py::arg("on_tick") = nullptr)
       .def_readwrite("num_agents", &GameConfig::num_agents)
       .def_readwrite("max_steps", &GameConfig::max_steps)
       .def_readwrite("episode_truncates", &GameConfig::episode_truncates)

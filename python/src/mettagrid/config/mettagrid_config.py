@@ -42,6 +42,7 @@ from mettagrid.config.game_value import (  # noqa: F401 - re-exported
     SumGameValue,
 )
 from mettagrid.config.handler_config import (
+    AnyHandler,
     AOEConfig,
     Handler,
 )
@@ -116,7 +117,7 @@ class GridObjectConfig(Config):
     or observations.
 
     Handlers:
-      - on_use_handlers: Triggered when agent uses/activates this object
+      - on_use_handler: Triggered when agent uses/activates this object
       - aoes: Area of effect configurations for objects that emit effects
     """
 
@@ -144,10 +145,9 @@ class GridObjectConfig(Config):
         description="Handlers triggered when an agent moves onto this object (name -> handler)",
     )
 
-    # Handler types on GridObject (name -> handler)
-    on_use_handlers: dict[str, Handler] = Field(
-        default_factory=dict,
-        description="Handlers triggered when agent uses/activates this object (context: actor=agent, target=this)",
+    on_use_handler: AnyHandler | None = Field(
+        default=None,
+        description="Handler triggered when agent uses/activates this object.",
     )
     on_tag_remove: dict[str, Handler] = Field(
         default_factory=dict,
@@ -180,9 +180,9 @@ class AgentConfig(GridObjectConfig):
     name: str = Field(default="agent")
     team_id: int = Field(default=0, ge=0, description="Team ID for grouping agents")
     rewards: dict[str, AgentReward] = Field(default_factory=dict)
-    on_tick: dict[str, Handler] = Field(
-        default_factory=dict,
-        description="Handlers run every tick with actor=target=this agent (name -> handler)",
+    on_tick: AnyHandler | None = Field(
+        default=None,
+        description="Handler run every tick with actor=target=this agent",
     )
 
 
@@ -293,9 +293,9 @@ class GameConfig(Config):
         description="Queries whose results are materialized as tags, recomputed via RecomputeMaterializedQueryMutation",
     )
 
-    on_tick: dict[str, Handler] = Field(
-        default_factory=dict,
-        description="Handlers run every tick at game level (actor=target=nullptr). Name -> handler.",
+    on_tick: AnyHandler | None = Field(
+        default=None,
+        description="Handler run every tick at game level (actor=target=nullptr).",
     )
 
     @model_validator(mode="after")

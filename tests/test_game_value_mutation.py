@@ -7,7 +7,7 @@ from mettagrid.config.mutation import EntityTarget, SetGameValueMutation
 from mettagrid.simulator import Action, Simulation
 
 
-def _make_sim(on_tick: dict, resource_names: list[str], initial: dict[str, int]) -> Simulation:
+def _make_sim(on_tick, resource_names: list[str], initial: dict[str, int]) -> Simulation:
     """Create a minimal simulation with one agent and on_tick handlers."""
     cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
         [
@@ -30,17 +30,16 @@ def _make_sim(on_tick: dict, resource_names: list[str], initial: dict[str, int])
 def test_const_delta_via_on_tick():
     """Test that SetGameValueMutation with static delta adds to inventory each tick."""
     sim = _make_sim(
-        on_tick={
-            "add_energy": Handler(
-                mutations=[
-                    SetGameValueMutation(
-                        value=InventoryValue(item="energy"),
-                        delta=7,
-                        target=EntityTarget.ACTOR,
-                    )
-                ]
-            ),
-        },
+        on_tick=Handler(
+            name="add_energy",
+            mutations=[
+                SetGameValueMutation(
+                    value=InventoryValue(item="energy"),
+                    delta=7,
+                    target=EntityTarget.ACTOR,
+                )
+            ],
+        ),
         resource_names=["energy"],
         initial={"energy": 10},
     )
@@ -57,17 +56,16 @@ def test_const_delta_via_on_tick():
 def test_inventory_source_via_on_tick():
     """Test that SetGameValueMutation with inventory source uses source value as delta."""
     sim = _make_sim(
-        on_tick={
-            "solar_to_energy": Handler(
-                mutations=[
-                    SetGameValueMutation(
-                        value=InventoryValue(item="energy"),
-                        source=InventoryValue(item="solar"),
-                        target=EntityTarget.ACTOR,
-                    )
-                ]
-            ),
-        },
+        on_tick=Handler(
+            name="solar_to_energy",
+            mutations=[
+                SetGameValueMutation(
+                    value=InventoryValue(item="energy"),
+                    source=InventoryValue(item="solar"),
+                    target=EntityTarget.ACTOR,
+                )
+            ],
+        ),
         resource_names=["energy", "solar"],
         initial={"energy": 10, "solar": 5},
     )
@@ -87,17 +85,16 @@ def test_inventory_source_via_on_tick():
 def test_inventory_source_zero():
     """Test that SetGameValueMutation with zero-valued source adds nothing."""
     sim = _make_sim(
-        on_tick={
-            "solar_to_energy": Handler(
-                mutations=[
-                    SetGameValueMutation(
-                        value=InventoryValue(item="energy"),
-                        source=InventoryValue(item="solar"),
-                        target=EntityTarget.ACTOR,
-                    )
-                ]
-            ),
-        },
+        on_tick=Handler(
+            name="solar_to_energy",
+            mutations=[
+                SetGameValueMutation(
+                    value=InventoryValue(item="energy"),
+                    source=InventoryValue(item="solar"),
+                    target=EntityTarget.ACTOR,
+                )
+            ],
+        ),
         resource_names=["energy", "solar"],
         initial={"energy": 10, "solar": 0},
     )
@@ -111,17 +108,16 @@ def test_inventory_source_zero():
 def test_const_source_via_on_tick():
     """Test that explicit ConstValue source works the same as static delta."""
     sim = _make_sim(
-        on_tick={
-            "add_energy": Handler(
-                mutations=[
-                    SetGameValueMutation(
-                        value=InventoryValue(item="energy"),
-                        source=val(3.0),
-                        target=EntityTarget.ACTOR,
-                    )
-                ]
-            ),
-        },
+        on_tick=Handler(
+            name="add_energy",
+            mutations=[
+                SetGameValueMutation(
+                    value=InventoryValue(item="energy"),
+                    source=val(3.0),
+                    target=EntityTarget.ACTOR,
+                )
+            ],
+        ),
         resource_names=["energy"],
         initial={"energy": 10},
     )

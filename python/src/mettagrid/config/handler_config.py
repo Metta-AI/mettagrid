@@ -11,8 +11,10 @@ Handlers consist of filters (conditions that must be met) and mutations (effects
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Annotated, Any, Literal, Union
 
-from pydantic import Field
+from pydantic import Discriminator, Field
+from pydantic import Tag as PydanticTag
 
 from mettagrid.base_config import Config
 from mettagrid.config.filter import (
@@ -85,9 +87,6 @@ class Handler(Config):
       - aoe: Triggered per-tick for objects within radius
       - move: Handlers in the move action handler chain
 
-    For on_use handlers, the first handler where all filters pass has its mutations applied.
-    For aoe handlers, all handlers where filters pass have their mutations applied.
-
     The handler name is provided as the dict key when defining handlers on a GridObject,
     or via the name field when used in a list (e.g., MoveActionConfig.handlers).
     """
@@ -101,6 +100,75 @@ class Handler(Config):
         default_factory=list,
         description="Mutations applied when handler triggers",
     )
+
+
+class FirstMatch(Config):
+    """Try handlers in order, stop on first success."""
+
+    handler_type: Literal["first_match"] = "first_match"
+    handlers: list[Handler | FirstMatch | AllOf] = Field(default_factory=list)
+
+
+class AllOf(Config):
+    """Apply all handlers where filters pass."""
+
+    handler_type: Literal["all_of"] = "all_of"
+    handlers: list[Handler | FirstMatch | AllOf] = Field(default_factory=list)
+
+
+# Resolve forward references for recursive nesting
+FirstMatch.model_rebuild()
+AllOf.model_rebuild()
+
+
+def _handler_discriminator(v: Any) -> str:
+    if isinstance(v, dict):
+        return v.get("handler_type", "handler")
+    return getattr(v, "handler_type", "handler")
+
+
+AnyHandler = Annotated[
+    Union[
+        Annotated[Handler, PydanticTag("handler")],
+        Annotated[FirstMatch, PydanticTag("first_match")],
+        Annotated[AllOf, PydanticTag("all_of")],
+    ],
+    Discriminator(_handler_discriminator),
+]
+
+
+def firstMatch(handlers: list) -> AnyHandler | None:
+    """Create a FirstMatch composite handler, filtering out None entries and flattening nested FirstMatch."""
+    flat: list[Handler | FirstMatch | AllOf] = []
+    for h in handlers:
+        if h is None:
+            continue
+        if isinstance(h, FirstMatch):
+            flat.extend(h.handlers)
+        else:
+            flat.append(h)
+    if len(flat) == 0:
+        return None
+    if len(flat) == 1:
+        return flat[0]
+    return FirstMatch(handlers=flat)
+
+
+def allOf(handlers: list) -> AnyHandler | None:
+    """Create an AllOf composite handler, filtering out None entries and flattening nested AllOf."""
+    flat: list[Handler | FirstMatch | AllOf] = []
+    for h in handlers:
+        if h is None:
+            continue
+        if isinstance(h, AllOf):
+            flat.extend(h.handlers)
+        else:
+            flat.append(h)
+    if len(flat) == 0:
+        return None
+    if len(flat) == 1:
+        return flat[0]
+    return AllOf(handlers=flat)
 
 
 class AOEConfig(Handler):
@@ -179,7 +247,13 @@ __all__ = [
     "AnyMutation",
     # Config classes
     "AOEConfig",
+    "AllOf",
+    "AnyHandler",
+    "FirstMatch",
     "Handler",
+    # Composite handler helpers
+    "allOf",
+    "firstMatch",
     # Query
     "Query",
     "MaterializedQuery",

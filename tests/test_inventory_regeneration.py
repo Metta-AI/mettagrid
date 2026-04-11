@@ -1,6 +1,6 @@
 from mettagrid.config.filter.filter import HandlerTarget
 from mettagrid.config.filter.vibe_filter import VibeFilter
-from mettagrid.config.handler_config import Handler
+from mettagrid.config.handler_config import Handler, allOf
 from mettagrid.config.mettagrid_config import MettaGridConfig, ResourceLimitsConfig
 from mettagrid.config.mutation.mutation import EntityTarget
 from mettagrid.config.mutation.resource_mutation import ResourceDeltaMutation
@@ -23,16 +23,20 @@ class TestVibeDependentRegeneration:
 
         cfg.game.resource_names = ["energy"]
         # Different regen rates for different vibes
-        cfg.game.agent.on_tick = {
-            "regen_default": Handler(
-                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="default")],
-                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 2})],
-            ),
-            "regen_junction": Handler(
-                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="junction")],
-                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 10})],
-            ),
-        }
+        cfg.game.agent.on_tick = allOf(
+            [
+                Handler(
+                    name="regen_default",
+                    filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="default")],
+                    mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 2})],
+                ),
+                Handler(
+                    name="regen_junction",
+                    filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="junction")],
+                    mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 10})],
+                ),
+            ]
+        )
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.actions.noop.enabled = True
         cfg.game.actions.change_vibe.enabled = True
@@ -81,11 +85,10 @@ class TestVibeDependentRegeneration:
 
         cfg.game.resource_names = ["energy"]
         # No VibeFilter means it runs for ALL vibes
-        cfg.game.agent.on_tick = {
-            "regen": Handler(
-                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 5})],
-            ),
-        }
+        cfg.game.agent.on_tick = Handler(
+            name="regen",
+            mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 5})],
+        )
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.actions.noop.enabled = True
         cfg.game.actions.change_vibe.enabled = True
@@ -126,12 +129,11 @@ class TestVibeDependentRegeneration:
 
         cfg.game.resource_names = ["energy"]
         # Only configure junction vibe - no handler for default
-        cfg.game.agent.on_tick = {
-            "regen_junction": Handler(
-                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="junction")],
-                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 10})],
-            ),
-        }
+        cfg.game.agent.on_tick = Handler(
+            name="regen_junction",
+            filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="junction")],
+            mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 10})],
+        )
         cfg.game.agent.inventory.initial = {"energy": 0}
         cfg.game.actions.noop.enabled = True
         cfg.game.actions.change_vibe.enabled = True
@@ -175,11 +177,10 @@ class TestNegativeRegeneration:
         )
 
         cfg.game.resource_names = ["energy"]
-        cfg.game.agent.on_tick = {
-            "decay": Handler(
-                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": -3})],
-            ),
-        }
+        cfg.game.agent.on_tick = Handler(
+            name="decay",
+            mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": -3})],
+        )
         cfg.game.agent.inventory.initial = {"energy": 20}
         cfg.game.actions.noop.enabled = True
 
@@ -218,11 +219,10 @@ class TestNegativeRegeneration:
         )
 
         cfg.game.resource_names = ["energy"]
-        cfg.game.agent.on_tick = {
-            "decay": Handler(
-                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": -10})],
-            ),
-        }
+        cfg.game.agent.on_tick = Handler(
+            name="decay",
+            mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": -10})],
+        )
         cfg.game.agent.inventory.initial = {"energy": 5}
         cfg.game.actions.noop.enabled = True
 
@@ -254,16 +254,20 @@ class TestNegativeRegeneration:
         )
 
         cfg.game.resource_names = ["energy"]
-        cfg.game.agent.on_tick = {
-            "decay_default": Handler(
-                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="default")],
-                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": -2})],
-            ),
-            "regen_junction": Handler(
-                filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="junction")],
-                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 5})],
-            ),
-        }
+        cfg.game.agent.on_tick = allOf(
+            [
+                Handler(
+                    name="decay_default",
+                    filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="default")],
+                    mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": -2})],
+                ),
+                Handler(
+                    name="regen_junction",
+                    filters=[VibeFilter(target=HandlerTarget.ACTOR, vibe="junction")],
+                    mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 5})],
+                ),
+            ]
+        )
         cfg.game.agent.inventory.initial = {"energy": 20}
         cfg.game.actions.noop.enabled = True
         cfg.game.actions.change_vibe.enabled = True
@@ -309,11 +313,10 @@ class TestInventoryRegeneration:
 
         # Add energy to resources and configure regeneration
         cfg.game.resource_names = ["energy", "heart", "battery_blue"]
-        cfg.game.agent.on_tick = {
-            "regen": Handler(
-                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 5})],
-            ),
-        }
+        cfg.game.agent.on_tick = Handler(
+            name="regen",
+            mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 5})],
+        )
         cfg.game.agent.inventory.initial = {"energy": 10}  # Start with 10 energy
         cfg.game.actions.noop.enabled = True
 
@@ -397,11 +400,10 @@ class TestInventoryRegeneration:
         )
 
         cfg.game.resource_names = ["energy"]
-        cfg.game.agent.on_tick = {
-            "regen": Handler(
-                mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 10})],
-            ),
-        }
+        cfg.game.agent.on_tick = Handler(
+            name="regen",
+            mutations=[ResourceDeltaMutation(target=EntityTarget.ACTOR, deltas={"energy": 10})],
+        )
         cfg.game.agent.inventory.initial = {"energy": 95}
         cfg.game.agent.inventory.limits = {
             "energy": ResourceLimitsConfig(base=100, resources=["energy"]),  # Max 100 energy

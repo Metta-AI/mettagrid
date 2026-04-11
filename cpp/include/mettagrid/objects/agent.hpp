@@ -38,8 +38,8 @@ public:
   int last_animation_id = kNoAnimation;
   std::unordered_set<uint32_t> unique_cells_visited;
   uint32_t max_distance_from_spawn = 0;
-  std::vector<std::shared_ptr<mettagrid::Handler>> _on_tick;
-  void set_on_tick(std::vector<std::shared_ptr<mettagrid::Handler>> handlers);
+  std::shared_ptr<mettagrid::Handler> _on_tick;
+  void set_on_tick(std::shared_ptr<mettagrid::Handler> handler);
   void apply_on_tick(mettagrid::HandlerContext& ctx);
 
   // Vibe prediction: track when vibe was last set
