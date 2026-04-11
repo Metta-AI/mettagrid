@@ -139,12 +139,9 @@ proc stampForTypeName(typeName: string): tuple[sprite: string, offset: IVec2] =
     (sprite: "terrain/stamp.junction", offset: ivec2(0, 0))
   of "hub":
     (sprite: "terrain/stamp.hub", offset: ivec2(0, 0))
-  of "wall", "agent", "aligner", "scrambler", "miner", "scout":
-    (sprite: "", offset: ivec2(0, 0))
   of "ship":
     (sprite: "objects/ship.shadow", offset: ivec2(148, 148))
   else:
-    echo "Missing splat stamp mapping for ", normalized
     (sprite: "", offset: ivec2(0, 0))
 
 proc rebuildSplats*() =

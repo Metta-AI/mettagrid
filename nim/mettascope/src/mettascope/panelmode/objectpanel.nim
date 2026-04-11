@@ -303,13 +303,7 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
           if groupItems.len > 0:
             for itemAmount in groupItems:
               let itemName = getItemName(itemAmount)
-              let iconPath =
-                if group.name == "gear":
-                  "icons/agents/" & itemName
-                elif group.name in ["heart", "energy", "cargo"]:
-                  "resources/" & itemName
-                else:
-                  "icons/" & itemName
+              let iconPath = "resources/" & itemName
               smallIconLabel(iconPath, &"{itemName}: {itemAmount.count}")
           else:
             let emptySize = sk.drawText(sk.textStyle, "    empty", sk.at, Gray)
@@ -326,7 +320,7 @@ proc drawObjectInfo*(panel: Panel, frameId: string, contentPos: Vec2, contentSiz
           text("  Other:")
           for itemAmount in ungroupedItems:
             let itemName = getItemName(itemAmount)
-            smallIconLabel("icons/" & itemName, &"{itemName}: {itemAmount.count}")
+            smallIconLabel("resources/" & itemName, &"{itemName}: {itemAmount.count}")
       else:
         for itemAmount in currentInventory:
           let itemName = getItemName(itemAmount)
