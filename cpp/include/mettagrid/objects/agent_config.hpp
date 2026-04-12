@@ -40,6 +40,7 @@ struct AgentConfig : public GridObjectConfig {
   RewardConfig reward_config;
   std::unordered_map<InventoryItem, InventoryQuantity> initial_inventory;
   std::shared_ptr<mettagrid::Handler> on_tick;
+  std::shared_ptr<mettagrid::Handler> on_after_use_handler;
 };
 
 namespace py = pybind11;
@@ -73,7 +74,8 @@ inline void bind_agent_config(py::module& m) {
       .def_readwrite("inventory_config", &AgentConfig::inventory_config)
       .def_readwrite("reward_config", &AgentConfig::reward_config)
       .def_readwrite("initial_inventory", &AgentConfig::initial_inventory)
-      .def_readwrite("on_tick", &AgentConfig::on_tick);
+      .def_readwrite("on_tick", &AgentConfig::on_tick)
+      .def_readwrite("on_after_use_handler", &AgentConfig::on_after_use_handler);
 }
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_OBJECTS_AGENT_CONFIG_HPP_

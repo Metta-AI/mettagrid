@@ -66,6 +66,16 @@ void Agent::apply_on_tick(mettagrid::HandlerContext& ctx) {
   }
 }
 
+void Agent::set_on_after_use(std::shared_ptr<mettagrid::Handler> handler) {
+  _on_after_use = std::move(handler);
+}
+
+void Agent::apply_on_after_use(mettagrid::HandlerContext& ctx) {
+  if (_on_after_use) {
+    _on_after_use->try_apply(ctx);
+  }
+}
+
 void Agent::populate_initial_inventory(const std::unordered_map<InventoryItem, InventoryQuantity>& initial_inventory) {
   for (const auto& [item, amount] : initial_inventory) {
     this->inventory.update(item, amount, /*ignore_limits=*/true, /*notify=*/false);

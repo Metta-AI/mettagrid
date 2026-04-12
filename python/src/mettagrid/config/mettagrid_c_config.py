@@ -735,6 +735,8 @@ def convert_to_cpp_game_config(
         cpp_agent_config.on_tick = _convert_any_handler(agent_cfg.on_tick, id_maps)
         cpp_agent_config.on_use_handler = _convert_any_handler(agent_cfg.on_use_handler, id_maps)
 
+        cpp_agent_config.on_after_use_handler = _convert_any_handler(agent_cfg.on_after_use_handler, id_maps)
+
         return cpp_agent_config
 
     agent_renames: dict[str, list[str]] = {}

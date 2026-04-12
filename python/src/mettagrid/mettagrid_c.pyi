@@ -385,6 +385,11 @@ class RemoveTagMutationConfig:
     entity: EntityRef
     tag_id: int
 
+class ChangeVibeMutationConfig:
+    entity: EntityRef
+    vibe_id: int
+    def __init__(self, entity: EntityRef = ..., vibe_id: int = 0) -> None: ...
+
 class RemoveTagsWithPrefixMutationConfig:
     def __init__(
         self,
@@ -432,6 +437,7 @@ class HandlerConfig:
     def add_game_value_mutation(self, mutation: GameValueMutationConfig) -> None: ...
     def add_recompute_materialized_query_mutation(self, mutation: RecomputeMaterializedQueryMutationConfig) -> None: ...
     def add_query_inventory_mutation(self, mutation: QueryInventoryMutationConfig) -> None: ...
+    def add_change_vibe_mutation(self, mutation: ChangeVibeMutationConfig) -> None: ...
     def add_remove_tags_with_prefix_mutation(self, mutation: RemoveTagsWithPrefixMutationConfig) -> None: ...
     def add_relocate_mutation(self, mutation: RelocateMutationConfig) -> None: ...
     def add_swap_mutation(self, mutation: SwapMutationConfig) -> None: ...
@@ -612,6 +618,7 @@ class AgentConfig(GridObjectConfig):
     reward_config: RewardConfig
     initial_inventory: dict[int, int]
     on_tick: Handler | None
+    on_after_use_handler: Handler | None
 
 class ActionConfig:
     def __init__(

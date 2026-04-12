@@ -184,6 +184,10 @@ class AgentConfig(GridObjectConfig):
         default=None,
         description="Handler run every tick with actor=target=this agent",
     )
+    on_after_use_handler: AnyHandler | None = Field(
+        default=None,
+        description="Handler fired after agent successfully uses a target (actor=agent, target=object).",
+    )
 
 
 class TalkConfig(Config):

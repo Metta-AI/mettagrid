@@ -8,6 +8,7 @@ from mettagrid.config.game_value import val
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mutation import (
     AddTagMutation,
+    ChangeVibeMutation,
     ClearInventoryMutation,
     EntityTarget,
     QueryInventoryMutation,
@@ -27,6 +28,7 @@ from mettagrid.config.mutation import (
     UseTargetMutation,
 )
 from mettagrid.mettagrid_c import AddTagMutationConfig as CppAddTagMutationConfig
+from mettagrid.mettagrid_c import ChangeVibeMutationConfig as CppChangeVibeMutationConfig
 from mettagrid.mettagrid_c import ClearInventoryMutationConfig as CppClearInventoryMutationConfig
 from mettagrid.mettagrid_c import EntityRef as CppEntityRef
 from mettagrid.mettagrid_c import GameValueMutationConfig as CppGameValueMutationConfig
@@ -159,6 +161,14 @@ def convert_mutations(
                 tag_id=id_maps.tag_name_to_id[mutation.tag],
             )
             target_obj.add_add_tag_mutation(cpp_mutation)
+
+        elif isinstance(mutation, ChangeVibeMutation):
+            vibe_id = id_maps.vibe_name_to_id.get(mutation.vibe_name, 0)
+            cpp_mutation = CppChangeVibeMutationConfig(
+                entity=convert_entity_ref(mutation.target),
+                vibe_id=vibe_id,
+            )
+            target_obj.add_change_vibe_mutation(cpp_mutation)
 
         elif isinstance(mutation, RemoveTagMutation):
             assert mutation.tag in id_maps.tag_name_to_id, (

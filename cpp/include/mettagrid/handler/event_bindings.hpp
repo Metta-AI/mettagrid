@@ -103,6 +103,10 @@ inline void bind_event_config(py::module& m) {
           [](EventConfig& self, const QueryInventoryMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))
       .def(
+          "add_change_vibe_mutation",
+          [](EventConfig& self, const ChangeVibeMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
           "add_remove_tags_with_prefix_mutation",
           [](EventConfig& self, const RemoveTagsWithPrefixMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))

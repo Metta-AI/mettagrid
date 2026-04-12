@@ -42,6 +42,10 @@ public:
   void set_on_tick(std::shared_ptr<mettagrid::Handler> handler);
   void apply_on_tick(mettagrid::HandlerContext& ctx);
 
+  std::shared_ptr<mettagrid::Handler> _on_after_use;
+  void set_on_after_use(std::shared_ptr<mettagrid::Handler> handler);
+  void apply_on_after_use(mettagrid::HandlerContext& ctx);
+
   // Vibe prediction: track when vibe was last set
   unsigned int vibe_set_step = 0;
 

@@ -17,6 +17,7 @@ else:
     AnyFilter = Any
 from mettagrid.config.game_value import AnyGameValue
 from mettagrid.config.mutation.attack_mutation import AttackMutation
+from mettagrid.config.mutation.change_vibe_mutation import ChangeVibeMutation, changeTargetVibe
 from mettagrid.config.mutation.clear_inventory_mutation import ClearInventoryMutation
 from mettagrid.config.mutation.game_value_mutation import SetGameValueMutation
 from mettagrid.config.mutation.mutation import EntityTarget, Mutation
@@ -80,6 +81,7 @@ AnyMutation = Annotated[
         Annotated[SpawnObjectMutation, Tag("spawn_object")],
         Annotated[SwapMutation, Tag("swap")],
         Annotated[UseTargetMutation, Tag("use_target")],
+        Annotated[ChangeVibeMutation, Tag("change_vibe")],
         Annotated[RaycastSpawnMutation, Tag("raycast_spawn")],
     ],
     Discriminator("mutation_type"),
@@ -106,6 +108,7 @@ _mutation_namespace = {
     "QueryInventoryMutation": QueryInventoryMutation,
     "RelocateMutation": RelocateMutation,
     "SpawnObjectMutation": SpawnObjectMutation,
+    "ChangeVibeMutation": ChangeVibeMutation,
     "RaycastSpawnMutation": RaycastSpawnMutation,
     "SwapMutation": SwapMutation,
     "UseTargetMutation": UseTargetMutation,
@@ -127,6 +130,7 @@ __all__ = [
     "ResourceTransferMutation",
     "ClearInventoryMutation",
     "AttackMutation",
+    "ChangeVibeMutation",
     "StatsMutation",
     "AddTagMutation",
     "RemoveTagMutation",
@@ -159,4 +163,5 @@ __all__ = [
     "queryWithdraw",
     "queryDelta",
     "recomputeMaterializedQuery",
+    "changeTargetVibe",
 ]

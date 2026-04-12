@@ -397,6 +397,18 @@ inline void bind_handler_config(py::module& m) {
       .def_readwrite("entity", &RemoveTagMutationConfig::entity)
       .def_readwrite("tag_id", &RemoveTagMutationConfig::tag_id);
 
+  py::class_<ChangeVibeMutationConfig>(m, "ChangeVibeMutationConfig")
+      .def(py::init([](EntityRef entity, ObservationType vibe_id) {
+             ChangeVibeMutationConfig cfg;
+             cfg.entity = entity;
+             cfg.vibe_id = vibe_id;
+             return cfg;
+           }),
+           py::arg("entity") = EntityRef::target,
+           py::arg("vibe_id") = 0)
+      .def_readwrite("entity", &ChangeVibeMutationConfig::entity)
+      .def_readwrite("vibe_id", &ChangeVibeMutationConfig::vibe_id);
+
   py::class_<RemoveTagsWithPrefixMutationConfig>(m, "RemoveTagsWithPrefixMutationConfig")
       .def(py::init<>())
       .def(py::init([](EntityRef entity, std::vector<int> tag_ids) {
@@ -556,6 +568,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_query_inventory_mutation",
           [](HandlerConfig& self, const QueryInventoryMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_change_vibe_mutation",
+          [](HandlerConfig& self, const ChangeVibeMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))
       .def(
           "add_remove_tags_with_prefix_mutation",

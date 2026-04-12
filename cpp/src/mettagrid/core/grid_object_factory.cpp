@@ -44,12 +44,15 @@ static void _set_up_handlers(GridObject* obj, const GridObjectConfig* config, [[
     obj->set_on_tag_remove(std::move(on_tag_remove));
   }
 
-  // on_tick handler (agent-only)
+  // on_tick and on_after_use handlers (agent-only)
   if (const auto* agent_config = dynamic_cast<const AgentConfig*>(config)) {
-    if (agent_config->on_tick) {
-      auto* agent = dynamic_cast<Agent*>(obj);
-      if (agent) {
+    auto* agent = dynamic_cast<Agent*>(obj);
+    if (agent) {
+      if (agent_config->on_tick) {
         agent->set_on_tick(agent_config->on_tick);
+      }
+      if (agent_config->on_after_use_handler) {
+        agent->set_on_after_use(agent_config->on_after_use_handler);
       }
     }
   }

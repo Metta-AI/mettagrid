@@ -25,6 +25,7 @@ public:
       ctx.mutation_failed = true;
       return;
     }
+    actor->apply_on_after_use(ctx);
     actor->last_animation_id = kBumpAnimation;
   }
 };

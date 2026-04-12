@@ -76,6 +76,11 @@ struct RemoveTagMutationConfig {
   int tag_id = -1;
 };
 
+struct ChangeVibeMutationConfig {
+  EntityRef entity = EntityRef::target;
+  ObservationType vibe_id = 0;
+};
+
 struct GameValueMutationConfig {
   GameValueConfig value;
   EntityRef target = EntityRef::target;
@@ -135,7 +140,8 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     SwapMutationConfig,
                                     UseTargetMutationConfig,
                                     SpawnObjectMutationConfig,
-                                    RaycastSpawnMutationConfig>;
+                                    RaycastSpawnMutationConfig,
+                                    ChangeVibeMutationConfig>;
 
 }  // namespace mettagrid
 
