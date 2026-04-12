@@ -947,19 +947,11 @@ void MettaGrid::_step() {
     _step_timing.reset_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
   }
 
-  // Increment timestep and process events
-  if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
+  // Increment timestep
   current_step++;
   _game_ctx.timestep = current_step;
 
-  // Process events at current timestep
-  if (_event_scheduler) {
-    _event_scheduler->process_timestep(current_step, _game_ctx);
-  }
-  if (_profiling_enabled) {
-    phase_end = std::chrono::steady_clock::now();
-    _step_timing.events_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
-  }
+  // --- Agent actions (enacted immediately after policy decision) ---
 
   // Create and shuffle agent indices for randomized action order
   if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
@@ -1008,6 +1000,18 @@ void MettaGrid::_step() {
   if (_profiling_enabled) {
     phase_end = std::chrono::steady_clock::now();
     _step_timing.actions_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
+  }
+
+  // --- World update (events, on_tick, AOE, game on_tick) ---
+
+  // Process events at current timestep
+  if (_profiling_enabled) phase_start = std::chrono::steady_clock::now();
+  if (_event_scheduler) {
+    _event_scheduler->process_timestep(current_step, _game_ctx);
+  }
+  if (_profiling_enabled) {
+    phase_end = std::chrono::steady_clock::now();
+    _step_timing.events_ns = std::chrono::duration<double, std::nano>(phase_end - phase_start).count();
   }
 
   // Apply per-agent on_tick handlers
