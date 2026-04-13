@@ -14,22 +14,32 @@ RenderMode = Literal["gui", "unicode", "log", "none"]
 class Renderer(SimulatorEventHandler):
     """Abstract base class for game renderers."""
 
+    _BLOCK_POLICY_TICKS = 20
+
     def __init__(self):
         super().__init__()
-        self._deferred_user_actions: list[tuple[int, Action]] = []
+        self._pending_user_actions: dict[int, tuple[Action, int]] = {}
 
     def defer_user_action(self, agent_id: int, action: Action) -> None:
-        """Store a user action to be applied after the next policy step."""
-        self._deferred_user_actions.append((agent_id, action))
+        """Queue a user action to be applied after the next policy step."""
+        self._pending_user_actions[agent_id] = (action, self._BLOCK_POLICY_TICKS)
 
     def apply_deferred_user_actions(self) -> None:
-        """Apply all deferred user actions (overriding policy actions), then clear."""
-        for agent_id, action in self._deferred_user_actions:
-            if action.talk is not None:
-                self._sim.agent(agent_id).set_talk(action.talk)
-                action = Action(name=action.name, vibe=action.vibe)
-            self._sim.agent(agent_id).set_action(action)
-        self._deferred_user_actions.clear()
+        """Apply user actions (overriding policy), then noop for remaining ticks."""
+        for agent_id in list(self._pending_user_actions):
+            action, remaining = self._pending_user_actions[agent_id]
+            if remaining == self._BLOCK_POLICY_TICKS:
+                if action.talk is not None:
+                    self._sim.agent(agent_id).set_talk(action.talk)
+                    action = Action(name=action.name, vibe=action.vibe)
+                self._sim.agent(agent_id).set_action(action)
+            else:
+                self._sim.agent(agent_id).set_action(Action(name="noop"))
+            remaining -= 1
+            if remaining <= 0:
+                del self._pending_user_actions[agent_id]
+            else:
+                self._pending_user_actions[agent_id] = (action, remaining)
 
     @override
     def on_episode_start(self) -> None:

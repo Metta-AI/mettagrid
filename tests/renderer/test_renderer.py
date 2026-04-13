@@ -26,19 +26,27 @@ class _DummySim:
         return self._agents[agent_id]
 
 
-def test_apply_deferred_user_actions_applies_and_clears_queue() -> None:
+def test_defer_user_action_applies_after_policy_step() -> None:
     renderer = NoRenderer()
     renderer._sim = _DummySim()
-    first_action = Action(name="move_north")
-    second_action = Action(name="noop")
+    action = Action(name="move_north")
 
-    renderer.defer_user_action(0, first_action)
-    renderer.defer_user_action(1, second_action)
+    # defer_user_action queues the action (not applied yet)
+    renderer.defer_user_action(0, action)
+    assert renderer._sim.agent(0).actions == []
+    assert 0 in renderer._pending_user_actions
+
+    # apply_deferred_user_actions applies the action (overriding policy)
     renderer.apply_deferred_user_actions()
+    assert renderer._sim.agent(0).actions == [action]
 
-    assert renderer._sim.agent(0).actions == [first_action]
-    assert renderer._sim.agent(1).actions == [second_action]
-    assert renderer._deferred_user_actions == []
+    # Subsequent calls send noops until block expires
+    renderer.apply_deferred_user_actions()
+    assert renderer._sim.agent(0).actions[-1] == Action(name="noop")
+
+    for _ in range(renderer._BLOCK_POLICY_TICKS - 2):
+        renderer.apply_deferred_user_actions()
+    assert 0 not in renderer._pending_user_actions
 
 
 def test_apply_deferred_user_actions_routes_directive_talk() -> None:
