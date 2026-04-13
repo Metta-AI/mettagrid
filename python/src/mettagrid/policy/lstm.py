@@ -1,5 +1,10 @@
+# ruff: noqa: E402
 import logging
 from typing import Optional, Union
+
+from mettagrid.optional_deps import require_train
+
+require_train("mettagrid.policy.lstm")
 
 import numpy as np
 import torch

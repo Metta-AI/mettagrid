@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 """PufferLib 4.0-style default architecture for CoGames training.
 
 This mirrors the shape/activation/init choices in PufferLib's CoGames torch policy:
@@ -8,6 +9,10 @@ This mirrors the shape/activation/init choices in PufferLib's CoGames torch poli
 """
 
 from __future__ import annotations
+
+from mettagrid.optional_deps import require_train
+
+require_train("mettagrid.policy.puffer_default")
 
 from types import SimpleNamespace
 from typing import Any

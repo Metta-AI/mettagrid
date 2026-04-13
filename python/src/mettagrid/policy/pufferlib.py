@@ -1,6 +1,11 @@
+# ruff: noqa: E402
 """Helpers for integrating PufferLib-trained policies with MettaGrid."""
 
 from __future__ import annotations
+
+from mettagrid.optional_deps import require_train
+
+require_train("mettagrid.policy.pufferlib")
 
 import torch
 

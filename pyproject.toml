@@ -26,7 +26,6 @@ dependencies = [
   "gymnasium>=1.1.1",
   "importnb>=2023.11.1",
   "pettingzoo>=1.25",
-  "pufferlib-core>=3.0.21",
   "pydantic>=2.12.2",
   "protobuf>=6.31.1",
   "pyyaml>=6.0.2",
@@ -36,6 +35,9 @@ dependencies = [
   "httpx>=0.28.0",
   "websockets>=13.0",
 ]
+
+[project.optional-dependencies]
+train = ["pufferlib-core>=3.0.21"]
 
 [dependency-groups]
 testing = [

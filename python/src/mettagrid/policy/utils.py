@@ -1,9 +1,14 @@
+# ruff: noqa: E402
 """Policy helper utilities, including LSTM state adapters."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Union
+
+from mettagrid.optional_deps import require_train
+
+require_train("mettagrid.policy.utils")
 
 import torch
 

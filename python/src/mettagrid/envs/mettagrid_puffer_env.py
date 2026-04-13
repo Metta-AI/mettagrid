@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 """
 MettaGridPufferEnv - PufferLib integration for MettaGrid.
 
@@ -25,6 +26,10 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict, Optional, Sequence, Tuple
+
+from mettagrid.optional_deps import require_train
+
+require_train("mettagrid.envs.mettagrid_puffer_env")
 
 import numpy as np
 from gymnasium.spaces import Box, Discrete

@@ -1,4 +1,9 @@
+# ruff: noqa: E402
 import logging
+
+from mettagrid.optional_deps import require_train
+
+require_train("mettagrid.policy.stateless")
 
 import numpy as np
 import torch

@@ -1,5 +1,10 @@
+# ruff: noqa: E402
 import logging
 from typing import Dict, Optional, Tuple
+
+from mettagrid.optional_deps import require_train
+
+require_train("mettagrid.policy.token_encoder")
 
 import torch
 import torch.nn as nn
