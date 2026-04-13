@@ -21,7 +21,12 @@ from pathlib import Path
 from typing import Optional
 
 from mettagrid.policy.policy import PolicySpec
-from mettagrid.policy.submission import POLICY_SPEC_FILENAME, SubmissionPolicySpec
+from mettagrid.policy.submission import (
+    POLICY_MANIFEST_FILENAME,
+    POLICY_SPEC_FILENAME,
+    SubmissionPolicySpec,
+    load_policy_manifest,
+)
 from mettagrid.util.file import read as s3_read
 
 logger = logging.getLogger(__name__)
@@ -356,10 +361,15 @@ def load_policy_spec_from_path(
                     atexit.register(_cleanup_cache_dir, extraction_root)
 
     policy_spec_path = extraction_root / POLICY_SPEC_FILENAME
-    if not policy_spec_path.exists():
-        raise FileNotFoundError(f"{POLICY_SPEC_FILENAME} not found in extracted submission: {extraction_root}")
-
-    submission_spec = SubmissionPolicySpec.model_validate_json(policy_spec_path.read_text())
+    manifest_path = extraction_root / POLICY_MANIFEST_FILENAME
+    if policy_spec_path.exists():
+        submission_spec = SubmissionPolicySpec.model_validate_json(policy_spec_path.read_text())
+    elif manifest_path.exists():
+        submission_spec = load_policy_manifest(manifest_path)
+    else:
+        raise FileNotFoundError(
+            f"Neither {POLICY_SPEC_FILENAME} nor {POLICY_MANIFEST_FILENAME} found in: {extraction_root}"
+        )
 
     if submission_spec.setup_script and extraction_root not in _executed_setup_scripts:
         _ensure_setup_script_ran(submission_spec.setup_script, extraction_root)
