@@ -410,15 +410,16 @@ proc bottomRightPanel(winW: float32, winH: float32) =
     brPos = vec2(winW - brSize.x, winH - brSize.y)
     srSize = sk.getImageSize("ui/bar_stopRight")
     srPos = vec2(winW - srSize.x + StopRightEdgeOffset, winH - srSize.y)
+    spSize = sk.getImageSize("ui/bar_spacer")
+    spOffset = 315.0f
+    spPos = vec2(winW - spOffset - spSize.x, winH - spSize.y)
     slSize = sk.getImageSize("ui/bar_stopLeft")
-    sl1Offset = 300.0f
-    sl1Pos = vec2(winW - sl1Offset - slSize.x, winH - slSize.y)
-    sl2Offset = sl1Offset + slSize.x + 20.0f
-    sl2Pos = vec2(winW - sl2Offset - slSize.x, winH - slSize.y)
+    slOffset = spOffset + slSize.x - 25.0f
+    slPos = vec2(winW - slOffset - slSize.x, winH - slSize.y)
   sk.drawImage("ui/panel_bottomright", brPos)
   sk.drawImage("ui/bar_stopRight", srPos)
-  sk.drawImage("ui/bar_stopLeft", sl1Pos)
-  sk.drawImage("ui/bar_stopLeft", sl2Pos)
+  sk.drawImage("ui/bar_spacer", spPos)
+  sk.drawImage("ui/bar_stopLeft", slPos)
 
   # Speed controls rendered in transport-button style.
   block:
@@ -463,7 +464,7 @@ proc bottomRightPanel(winW: float32, winH: float32) =
     let
       isDown = soundMuted
       icon = "ui/soundMute"
-      btnPos = brPos + vec2(168 - MuteButtonStride, 316)
+      btnPos = brPos + vec2(200 - MuteButtonStride, 316)
       bgSize = sk.getImageSize("ui/transportButton.up")
       btnRect = rect(btnPos, bgSize)
       hover = sk.mousePos.overlaps(btnRect)
@@ -886,8 +887,8 @@ proc bottomTimelineSlider(winW: float32, winH: float32) =
     return
 
   const
-    MuteButtonInset = 48.0f + 100.0f
-    LeftInset = 350.0f
+    MuteButtonInset = 48.0f + 70.0f
+    LeftInset = 355.0f
     RightInset = 380.0f + MuteButtonInset
     BottomInset = 6.0f
 

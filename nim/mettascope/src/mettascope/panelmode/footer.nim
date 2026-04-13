@@ -81,6 +81,9 @@ proc drawFooter*(pos, size: Vec2) =
 
     sk.at = pos + vec2(size.x - 240, 16)
     group(vec2(0, 0), LeftToRight):
+      clickableIcon("ui/soundMute", not soundMuted):
+        soundMuted = not soundMuted
+        saveUIState()
       clickableIcon("ui/tack", settings.lockFocus):
         settings.lockFocus = not settings.lockFocus
         saveUIState()
