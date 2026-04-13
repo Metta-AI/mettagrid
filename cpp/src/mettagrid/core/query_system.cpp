@@ -270,8 +270,16 @@ std::vector<GridObject*> RaycastQueryConfig::evaluate(const HandlerContext& ctx)
   std::unordered_set<GridObject*> seen;  // deduplicate across multiple sources/arms
 
   for (auto* src : sources) {
+    // Resolve max_range per source so InventoryValue reads from the correct object.
+    HandlerContext src_ctx = ctx;
+    src_ctx.actor = src;
+    src_ctx.target = src;
+    auto max_range_gv = resolve_game_value(max_range, src_ctx);
+    int resolved_max_range = static_cast<int>(max_range_gv.read());
+    if (resolved_max_range <= 0) continue;
+
     for (const auto& dir : dirs) {
-      for (unsigned int dist = 1; dist <= max_range; ++dist) {
+      for (int dist = 1; dist <= resolved_max_range; ++dist) {
         int64_t r = static_cast<int64_t>(src->location.r) + static_cast<int64_t>(dir.first) * dist;
         int64_t c = static_cast<int64_t>(src->location.c) + static_cast<int64_t>(dir.second) * dist;
 

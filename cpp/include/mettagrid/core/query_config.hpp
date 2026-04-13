@@ -68,11 +68,11 @@ struct FilteredQueryConfig : public QueryConfig {
 // Blocker filters identify objects that stop a ray (OR semantics).
 // include_blocker controls whether the first blocker itself is returned.
 struct RaycastQueryConfig : public QueryConfig {
-  std::shared_ptr<QueryConfig> source;          // Query to find ray origin objects
-  unsigned int max_range = 2;                   // Max cells per arm
-  std::vector<std::pair<int, int>> directions;  // (dr, dc) pairs; empty = all 4 cardinals
-  std::vector<FilterConfig> blocker;            // Filters that identify blocking objects
-  bool include_blocker = true;                  // Whether first blocker is included in results
+  std::shared_ptr<QueryConfig> source;                 // Query to find ray origin objects
+  GameValueConfig max_range = ConstValueConfig{2.0f};  // Max cells per arm, supports runtime GameValue
+  std::vector<std::pair<int, int>> directions;         // (dr, dc) pairs; empty = all 4 cardinals
+  std::vector<FilterConfig> blocker;                   // Filters that identify blocking objects
+  bool include_blocker = true;                         // Whether first blocker is included in results
   std::vector<GridObject*> evaluate(const HandlerContext& ctx) const override;
 };
 

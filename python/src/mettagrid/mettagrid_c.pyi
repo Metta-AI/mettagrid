@@ -178,7 +178,7 @@ class MaxDistanceFilterConfig:
 
 class RaycastQueryConfig:
     def __init__(self) -> None: ...
-    max_range: int
+    max_range: Any  # GameValueConfig variant
     max_items: Any  # GameValueConfig variant
     directions: list[tuple[int, int]]
     include_blocker: bool
@@ -316,7 +316,7 @@ class SpawnObjectMutationConfig:
 class RaycastSpawnMutationConfig:
     def __init__(self) -> None: ...
     object_type: str
-    max_range: int
+    max_range: Any  # GameValueConfig variant
     directions: list[tuple[int, int]]
     def add_blocker_resource_filter(self, filter: ResourceFilterConfig) -> None: ...
     def add_blocker_vibe_filter(self, filter: VibeFilterConfig) -> None: ...

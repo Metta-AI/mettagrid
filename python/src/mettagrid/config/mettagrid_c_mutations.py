@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from mettagrid.config.game_value import val
+from mettagrid.config.game_value import ConstValue, val
 from mettagrid.config.mettagrid_c_value_config import resolve_game_value
 from mettagrid.config.mutation import (
     AddTagMutation,
@@ -77,7 +77,10 @@ def _convert_raycast_spawn_mutation(mutation, target_obj, id_maps):
 
     cpp_mutation = CppRaycastSpawnMutationConfig()
     cpp_mutation.object_type = mutation.object_type
-    cpp_mutation.max_range = mutation.max_range
+    if isinstance(mutation.max_range, int):
+        cpp_mutation.max_range = resolve_game_value(ConstValue(value=float(mutation.max_range)), id_maps)
+    else:
+        cpp_mutation.max_range = resolve_game_value(mutation.max_range, id_maps)
     cpp_mutation.directions = [_DIR_MAP[d] for d in mutation.directions]
     for blocker_filter in mutation.blocker:
         result = _convert_one_filter(blocker_filter, id_maps, context="raycast_spawn blocker")

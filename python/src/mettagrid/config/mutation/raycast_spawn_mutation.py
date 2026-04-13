@@ -11,6 +11,7 @@ from mettagrid.base_config import Config
 
 if TYPE_CHECKING:
     from mettagrid.config.filter import AnyFilter
+    from mettagrid.config.game_value import AnyGameValue
 
 
 class RaycastSpawnMutation(Config):
@@ -35,7 +36,9 @@ class RaycastSpawnMutation(Config):
         default_factory=lambda: ["north", "south", "east", "west"],
         description="Cardinal directions to walk",
     )
-    max_range: int = Field(default=2, ge=1, description="Maximum cells along each ray")
+    max_range: "int | AnyGameValue" = Field(
+        default=2, description="Maximum cells along each ray. Accepts int or GameValue."
+    )
     blocker: Sequence["AnyFilter"] = Field(
         default_factory=list,
         description="Filters identifying objects that stop the ray",

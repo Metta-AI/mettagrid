@@ -39,7 +39,9 @@ class RaycastQuery(Config):
 
     query_type: Literal["raycast"] = "raycast"
     source: "str | AnyQuery" = Field(description="Query to find ray origin objects")
-    max_range: int = Field(default=2, ge=1, description="Maximum cells along each ray")
+    max_range: "int | AnyGameValue" = Field(
+        default=2, description="Maximum cells along each ray. Accepts int or GameValue."
+    )
     directions: list[str] = Field(
         default_factory=lambda: ["north", "south", "east", "west"],
         description="Ray directions (default: 4 cardinal)",
@@ -60,7 +62,7 @@ class RaycastQuery(Config):
 
 def raycastQuery(
     source: "str | AnyQuery",
-    max_range: int = 2,
+    max_range: "int | AnyGameValue" = 2,
     directions: list[str] | None = None,
     blocker: "Sequence[AnyFilter] | None" = None,
     include_blocker: bool = True,

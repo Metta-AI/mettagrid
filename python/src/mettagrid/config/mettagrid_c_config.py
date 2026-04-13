@@ -164,7 +164,10 @@ def _convert_raycast_query(query, id_maps: CppIdMaps, context: str = ""):
     """Convert a RaycastQuery to a C++ RaycastQueryConfig."""
     dir_map = {"north": (-1, 0), "south": (1, 0), "east": (0, 1), "west": (0, -1)}
     cpp_q = CppRaycastQueryConfig()
-    cpp_q.max_range = query.max_range
+    if isinstance(query.max_range, int):
+        cpp_q.max_range = resolve_game_value(ConstValue(value=float(query.max_range)), id_maps)
+    else:
+        cpp_q.max_range = resolve_game_value(query.max_range, id_maps)
     cpp_q.include_blocker = query.include_blocker
     cpp_q.directions = [dir_map[d] for d in query.directions]
     cpp_max = _convert_max_items(query.max_items, id_maps)

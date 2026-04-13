@@ -2,6 +2,7 @@
 
 #include "config/mettagrid_config.hpp"
 #include "core/aoe_tracker.hpp"
+#include "core/game_value.hpp"
 #include "core/grid.hpp"
 #include "core/grid_object.hpp"
 #include "core/grid_object_factory.hpp"
@@ -25,8 +26,16 @@ void RaycastSpawnMutation::apply(HandlerContext& ctx) {
 
   const GridLocation& origin = ctx.target->location;
 
+  // Resolve max_range from target context (rays originate from ctx.target,
+  // so InventoryValue should read from the target's inventory, not the actor's).
+  HandlerContext target_ctx = ctx;
+  target_ctx.actor = ctx.target;
+  auto max_range_gv = resolve_game_value(_config.max_range, target_ctx);
+  int resolved_max_range = static_cast<int>(max_range_gv.read());
+  if (resolved_max_range <= 0) return;
+
   for (const auto& dir : _config.directions) {
-    for (unsigned int dist = 1; dist <= _config.max_range; ++dist) {
+    for (int dist = 1; dist <= resolved_max_range; ++dist) {
       int64_t r = static_cast<int64_t>(origin.r) + static_cast<int64_t>(dir.first) * dist;
       int64_t c = static_cast<int64_t>(origin.c) + static_cast<int64_t>(dir.second) * dist;
 
