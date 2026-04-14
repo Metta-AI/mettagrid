@@ -78,7 +78,7 @@ Cogs can broadcast a **vibe** — a visible emoji signal to communicate intent. 
 | `miner` | ⛏️ | Miner role signal |
 | `scout` | 🔭 | Scout role signal |
 
-The full vibe catalog contains 152 vibes across categories: emotion, resource, gear, station, identity, navigation, combat, numerals, hearts, and misc. The machina_1 training recipe overrides the 7 defaults and enables all 152.
+The full vibe catalog contains 152 vibes across categories: emotion, resource, gear, station, identity, navigation, combat, numerals, hearts, and misc. CvC missions use the 7-role default unless a caller explicitly overrides the vibe list.
 
 ## 4. Resources and Economy
 
