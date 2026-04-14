@@ -45,6 +45,10 @@ void SpawnObjectMutation::apply(HandlerContext& ctx) {
     return;
   }
 
+  // Update ctx.target to the spawned object so subsequent mutations in
+  // the same handler can reference it (e.g. deposit resources onto it).
+  ctx.target = obj;
+
   if (ctx.tag_index) {
     ctx.tag_index->register_object(obj);
   }
