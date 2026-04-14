@@ -107,9 +107,10 @@ struct RemoveTagsWithPrefixMutationConfig {
   std::vector<int> tag_ids;  // All tag IDs sharing the prefix (resolved at config time)
 };
 
-struct RelocateMutationConfig {};   // Move actor to target cell
-struct SwapMutationConfig {};       // Swap actor and target positions
-struct UseTargetMutationConfig {};  // Delegate to target's onUse handler
+struct RelocateMutationConfig {};    // Move actor to target cell
+struct SwapMutationConfig {};        // Swap actor and target positions
+struct UseTargetMutationConfig {};   // Delegate to target's onUse handler
+struct PushObjectMutationConfig {};  // Push target one cell further along actor->target
 
 struct SpawnObjectMutationConfig {
   std::string object_type;  // Object type name to spawn at target_location
@@ -141,7 +142,8 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     UseTargetMutationConfig,
                                     SpawnObjectMutationConfig,
                                     RaycastSpawnMutationConfig,
-                                    ChangeVibeMutationConfig>;
+                                    ChangeVibeMutationConfig,
+                                    PushObjectMutationConfig>;
 
 }  // namespace mettagrid
 

@@ -457,6 +457,7 @@ inline void bind_handler_config(py::module& m) {
   py::class_<RelocateMutationConfig>(m, "RelocateMutationConfig").def(py::init<>());
   py::class_<SwapMutationConfig>(m, "SwapMutationConfig").def(py::init<>());
   py::class_<UseTargetMutationConfig>(m, "UseTargetMutationConfig").def(py::init<>());
+  py::class_<PushObjectMutationConfig>(m, "PushObjectMutationConfig").def(py::init<>());
 
   py::class_<SpawnObjectMutationConfig>(m, "SpawnObjectMutationConfig")
       .def(py::init<>())
@@ -606,6 +607,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_raycast_spawn_mutation",
           [](HandlerConfig& self, const RaycastSpawnMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_push_object_mutation",
+          [](HandlerConfig& self, const PushObjectMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"));
 
   // ResourceDelta for presence_deltas

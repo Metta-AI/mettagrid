@@ -5,6 +5,7 @@
 #include "handler/mutations/attack_mutation.hpp"
 #include "handler/mutations/change_vibe_mutation.hpp"
 #include "handler/mutations/game_value_mutation.hpp"
+#include "handler/mutations/push_object_mutation.hpp"
 #include "handler/mutations/query_inventory_mutation.hpp"
 #include "handler/mutations/raycast_spawn_mutation.hpp"
 #include "handler/mutations/recompute_materialized_query_mutation.hpp"
@@ -56,6 +57,8 @@ std::unique_ptr<Mutation> create_mutation(const MutationConfig& config) {
           return std::make_unique<RaycastSpawnMutation>(cfg);
         } else if constexpr (std::is_same_v<T, ChangeVibeMutationConfig>) {
           return std::make_unique<ChangeVibeMutation>(cfg);
+        } else if constexpr (std::is_same_v<T, PushObjectMutationConfig>) {
+          return std::make_unique<PushObjectMutation>(cfg);
         } else {
           return nullptr;
         }

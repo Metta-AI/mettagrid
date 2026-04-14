@@ -21,6 +21,7 @@ from mettagrid.config.mutation.change_vibe_mutation import ChangeVibeMutation, c
 from mettagrid.config.mutation.clear_inventory_mutation import ClearInventoryMutation
 from mettagrid.config.mutation.game_value_mutation import SetGameValueMutation
 from mettagrid.config.mutation.mutation import EntityTarget, Mutation
+from mettagrid.config.mutation.push_object_mutation import PushObjectMutation
 from mettagrid.config.mutation.query_inventory_mutation import (
     QueryInventoryMutation,
     queryDelta,
@@ -83,6 +84,7 @@ AnyMutation = Annotated[
         Annotated[UseTargetMutation, Tag("use_target")],
         Annotated[ChangeVibeMutation, Tag("change_vibe")],
         Annotated[RaycastSpawnMutation, Tag("raycast_spawn")],
+        Annotated[PushObjectMutation, Tag("push_object")],
     ],
     Discriminator("mutation_type"),
 ]
@@ -112,6 +114,7 @@ _mutation_namespace = {
     "RaycastSpawnMutation": RaycastSpawnMutation,
     "SwapMutation": SwapMutation,
     "UseTargetMutation": UseTargetMutation,
+    "PushObjectMutation": PushObjectMutation,
 }
 AttackMutation.model_rebuild(_types_namespace=_mutation_namespace)
 SetGameValueMutation.model_rebuild(_types_namespace=_mutation_namespace)
@@ -143,6 +146,7 @@ __all__ = [
     "RaycastSpawnMutation",
     "SwapMutation",
     "UseTargetMutation",
+    "PushObjectMutation",
     "useTarget",
     "AnyMutation",
     # Mutation helpers

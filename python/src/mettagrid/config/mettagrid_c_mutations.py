@@ -11,6 +11,7 @@ from mettagrid.config.mutation import (
     ChangeVibeMutation,
     ClearInventoryMutation,
     EntityTarget,
+    PushObjectMutation,
     QueryInventoryMutation,
     RaycastSpawnMutation,
     RecomputeMaterializedQueryMutation,
@@ -32,6 +33,7 @@ from mettagrid.mettagrid_c import ChangeVibeMutationConfig as CppChangeVibeMutat
 from mettagrid.mettagrid_c import ClearInventoryMutationConfig as CppClearInventoryMutationConfig
 from mettagrid.mettagrid_c import EntityRef as CppEntityRef
 from mettagrid.mettagrid_c import GameValueMutationConfig as CppGameValueMutationConfig
+from mettagrid.mettagrid_c import PushObjectMutationConfig as CppPushObjectMutationConfig
 from mettagrid.mettagrid_c import QueryInventoryMutationConfig as CppQueryInventoryMutationConfig
 from mettagrid.mettagrid_c import RaycastSpawnMutationConfig as CppRaycastSpawnMutationConfig
 from mettagrid.mettagrid_c import (
@@ -253,6 +255,9 @@ def convert_mutations(
 
         elif isinstance(mutation, RelocateMutation):
             target_obj.add_relocate_mutation(CppRelocateMutationConfig())
+
+        elif isinstance(mutation, PushObjectMutation):
+            target_obj.add_push_object_mutation(CppPushObjectMutationConfig())
 
         elif isinstance(mutation, SwapMutation):
             target_obj.add_swap_mutation(CppSwapMutationConfig())
