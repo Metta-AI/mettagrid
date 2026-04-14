@@ -8,7 +8,7 @@ import typer
 
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.policy.loader import initialize_or_load_policy
-from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
+from mettagrid.policy.policy import AgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.protobuf.sim.policy_v1 import policy_pb2
 from mettagrid.simulator import Action, AgentObservation, Location, ObservationToken, VisibleTalk
@@ -103,17 +103,8 @@ def encode_action_id(action: Action, policy_env: PolicyEnvInterface) -> int | No
     return flat_action_indices.get(action.name)
 
 
-def _serialize_infos_json(agent_policy: AgentPolicy) -> str:
-    infos = agent_policy.infos
-    if not infos:
-        return ""
-    return json.dumps(infos)
-
-
 @dataclass
 class Episode:
-    episode_id: str
-    policy: MultiAgentPolicy
     policy_env: PolicyEnvInterface
     features: dict[int, ObservationFeatureSpec]
     parse_observations: ObservationParser
@@ -143,8 +134,6 @@ class LocalPolicyServer:
         agent_policies = {agent_id: policy.agent_policy(agent_id) for agent_id in req.agent_ids}
         logger.info("Agent policies for policy %s: %s", self._policy_uri, agent_policies)
         episode = Episode(
-            episode_id=req.episode_id,
-            policy=policy,
             policy_env=policy_env,
             features=features,
             parse_observations=parse_observations,
@@ -180,7 +169,7 @@ class LocalPolicyServer:
                     agent_id=agent_id,
                     action_id=[action_id],
                     talk_text=action.talk or "",
-                    infos_json=_serialize_infos_json(agent_policy),
+                    infos_json=json.dumps(agent_policy.infos) if agent_policy.infos else "",
                 )
             )
         return resp
