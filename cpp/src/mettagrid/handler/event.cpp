@@ -66,6 +66,11 @@ bool Event::try_apply(GridObject* target, const HandlerContext& ctx) {
   HandlerContext target_ctx = ctx;
   target_ctx.actor = target;
   target_ctx.target = target;
+  // Expose the target's cell as target_location so location-dependent
+  // mutations (e.g. SpawnObjectMutation) work naturally when fired from
+  // an event. Move handlers set this via the action pipeline, but events
+  // previously inherited the default {0, 0}.
+  target_ctx.target_location = target->location;
 
   if (!check_filters(target, target_ctx)) {
     return false;
@@ -82,6 +87,7 @@ bool Event::check_filters(GridObject* target, const HandlerContext& ctx) const {
   HandlerContext target_ctx = ctx;
   target_ctx.actor = target;
   target_ctx.target = target;
+  target_ctx.target_location = target->location;
 
   for (const auto& filter : _filters) {
     if (!filter->passes(target_ctx)) {
