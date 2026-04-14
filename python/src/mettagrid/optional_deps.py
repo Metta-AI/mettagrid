@@ -22,9 +22,9 @@ def require_train(context: str) -> None:
     """
     if has_train():
         return
-    raise SystemExit(
+    raise ImportError(
         f"'{context}' requires PyTorch and PufferLib, which are not installed.\n"
         "\n"
         "Install them with:\n"
-        "  pip install mettagrid[train]\n"
+        "  pip install mettagrid[train]"
     )

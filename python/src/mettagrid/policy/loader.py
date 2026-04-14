@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import importlib
+import logging
 import os
 import pkgutil
 from typing import Optional
@@ -107,10 +108,10 @@ def _walk_and_import_package(package_name: str) -> None:
                 # If it's a package, recursively discover its submodules
                 if ispkg:
                     _walk_and_import_package(name)
-            except (ImportError, AttributeError, TypeError, OSError):
+            except (ImportError, AttributeError, TypeError, OSError) as exc:
                 # Skip modules that can't be imported (may have missing dependencies)
                 # OSError covers ctypes failing to load native libraries (e.g., Nim bindings)
-                pass
+                logging.getLogger(__name__).debug("Skipping %s during policy discovery: %s", name, exc)
 
         # Also check for namespace packages (directories without __init__.py)
         # that might not be found by iter_modules
