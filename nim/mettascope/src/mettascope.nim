@@ -1,7 +1,7 @@
 import
   std/[strutils, strformat, os],
   opengl, windy, bumpy, vmath, silky, chroma,
-  mettascope/[replays, common, replayloader, configs],
+  mettascope/[replays, common, atlas, replayloader, configs],
   mettascope/gamemode/[worldmap, minimap, gameplayer, camera, talk],
   mettascope/panelmode/[panes, footer, timeline, header,
     objectpanel, policyinfopanel, envpanel, vibespanel, scorepanel,
@@ -311,7 +311,9 @@ proc initMettascope*() {.measure.} =
     else:
       popupWarning = "Unsupported file type.\nOnly .json.z replay files are supported."
 
-  sk = newSilky(window, dataDir / "silky.atlas.png")
+  let atlasPath = dataDir / "silky.atlas.png"
+  buildSilkyAtlas(atlasPath)
+  sk = newSilky(window, atlasPath)
   initPanels()
   window.onRune = proc(rune: Rune) =
     if talkComposeActive and rune.int >= 32 and rune.int <= 126:

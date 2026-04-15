@@ -1,7 +1,7 @@
 import
   std/os,
   silky,
-  ../tools/gen_atlas
+  ../src/mettascope/atlas
 
 let testDataDir = currentSourcePath().parentDir() / ".." / "data"
 setDataDir(testDataDir)

@@ -1,7 +1,7 @@
 import
   std/os,
   silky,
-  ../src/mettascope/common
+  common
 
 export common
 
@@ -25,7 +25,3 @@ proc buildSilkyAtlas*(imagePath: string) =
   builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "Default", 18.0, subpixelSteps = 10)
   builder.addFont(dataDir / "fonts/pf_tempesta_five_compressed.ttf", "pixelated", 32.0)
   builder.write(imagePath)
-
-when isMainModule:
-  setDataDir("data")
-  buildSilkyAtlas(dataDir / "silky.atlas.png")
