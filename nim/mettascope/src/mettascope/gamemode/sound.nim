@@ -20,7 +20,11 @@ proc playSound*(fileName: string, gain: float32 = 1.0) =
 proc playEntitySound*(obj: Entity) =
   if obj.isNil: return
   if soundMuted: return
-  playSound(obj.typeName.addFileExt("wav"))
+  let fileName = obj.typeName.addFileExt("wav")
+  if fileName.fileExists():
+    playSound(fileName)
+  else:
+    playSound("entity_selection".addFileExt("wav"))
 
 proc playScrubberStepSound*(t :SomeFloat) =
   if soundMuted: return
