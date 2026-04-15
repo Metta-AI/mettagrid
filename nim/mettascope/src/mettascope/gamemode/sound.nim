@@ -13,9 +13,13 @@ proc playSound*(fileName: string, gain: float32 = 1.0) =
   if soundMuted: return
   let filepath = soundPath(fileName)
   if not filePath.fileExists(): return
-  let s = newSound(filePath)
-  var source = s.play()
-  source.gain = gain
+  try:
+    let s = newSound(filePath)
+    var source = s.play()
+    source.gain = gain
+  except Exception as e:
+    echo "Error playing sound: ", fileName, " ", e.getStackTrace()
+    return
 
 proc playEntitySound*(obj: Entity) =
   if obj.isNil: return
