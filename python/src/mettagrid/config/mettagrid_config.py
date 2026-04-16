@@ -45,6 +45,7 @@ from mettagrid.config.handler_config import (
     AnyHandler,
     AOEConfig,
     Handler,
+    firstMatch,
 )
 from mettagrid.config.id_map import IdMap
 from mettagrid.config.obs_config import (  # noqa: F401 - re-exported
@@ -149,6 +150,10 @@ class GridObjectConfig(Config):
         default=None,
         description="Handler triggered when agent uses/activates this object.",
     )
+    on_use_handlers: dict[str, Handler] = Field(
+        default_factory=dict,
+        description="Dict of named handlers (legacy convenience). Merged into on_use_handler as a FirstMatch composite.",
+    )
     on_tag_remove: dict[str, Handler] = Field(
         default_factory=dict,
         description="Handlers triggered when a matching tag is removed from this object (tag_prefix -> handler)",
@@ -158,6 +163,9 @@ class GridObjectConfig(Config):
     def _defaults_from_name(self) -> "GridObjectConfig":
         if not self.map_name:
             self.map_name = self.name
+        if self.on_use_handlers:
+            merged = firstMatch([self.on_use_handler, *self.on_use_handlers.values()])
+            self.on_use_handler = merged
         return self
 
 
