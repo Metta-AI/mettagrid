@@ -71,6 +71,13 @@ class TestParseUri:
         parsed = parse_uri("metta://policy/123")
         assert parsed.scheme == "metta"
 
+    def test_parse_signed_http_checkpoint_uri_preserves_checkpoint_info(self):
+        parsed = parse_uri(
+            "https://bucket.s3.amazonaws.com/checkpoints/relh.run.name:v12.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256"
+        )
+        assert parsed.scheme == "s3"
+        assert parsed.checkpoint_info == ("relh.run.name", 12)
+
     def test_parse_plain_path(self, tmp_path):
         parsed = parse_uri(str(tmp_path / "test.txt"))
         assert parsed.scheme == "file"
