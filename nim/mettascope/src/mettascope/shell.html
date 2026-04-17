@@ -20,10 +20,51 @@
         height: 100%;
       }
     </style>
+    <script
+      src="https://js.sentry-cdn.com/d6f8413a242a1ceb577700010035f476.min.js"
+      crossorigin="anonymous"
+    ></script>
   </head>
   <body>
     <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
     <script type='text/javascript'>
+
+      function setupCrashHandler(reportFn) {
+        window.addEventListener('error', (e) => { /* Resource failures, Sync errors */
+          if (e.target !== window) {
+            reportFn({ type: 'resource', tag: e.target.tagName, src: e.target.src || e.target.href });
+          } else {
+            reportFn({ type: 'error', message: e.message, file: e.filename, line: e.lineno, col: e.colno, stack: e.error?.stack });
+          }
+        }, true);
+        window.addEventListener('unhandledrejection', (e) => { /* Unhandled promise rejections */
+          const err = e.reason;
+          reportFn({ type: 'rejection', message: err?.message || String(err), stack: err?.stack });
+        });
+      }
+
+      function reportToSentry(err) {
+        if (typeof Sentry === 'undefined') return;
+        var level = err.type === 'resource' ? 'warning' : 'error';
+
+        if (err.type === 'resource') {
+          Sentry.captureMessage('Resource load failure: ' + (err.src || err.tag), { level: level });
+        } else {
+          Sentry.captureException(new Error(err.message), {
+            level: level,
+            contexts: {
+              error_info: {
+                type: err.type,
+                file: err.file,
+                line: err.line,
+                col: err.col,
+                stack: err.stack
+              }
+            }
+          });
+        }
+      }
+
       var Module = {
         preRun: [],
         postRun: [],
@@ -33,7 +74,14 @@
             "webglcontextlost",
             function(e) {
               console.error('WebGL context lost. You will need to reload the page.');
+              reportToSentry({ type: 'webgl', message: 'WebGL context lost' });
               e.preventDefault();
+            }, false);
+          canvas.addEventListener(
+            "webglcontextcreationerror",
+            function(e) {
+              console.error('WebGL context creation failed: ' + e.statusMessage);
+              reportToSentry({ type: 'webgl', message: 'WebGL context creation failed: ' + e.statusMessage });
             }, false);
 
           return canvas;
@@ -50,6 +98,10 @@
       window.onerror = function() {
         console.info('Exception thrown, see JavaScript console');
       };
+      setupCrashHandler(function(err) { /** @description Temporary Error report function. TO BE REMOVED. */
+        console.error(JSON.stringify(err, null, 2))
+      })
+      setupCrashHandler(reportToSentry)
     </script>
     {{{ SCRIPT }}}
   </body>
