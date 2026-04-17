@@ -1,10 +1,25 @@
 import
   std/os,
+  std/strutils,
   silky,
   ../src/mettascope/atlas
 
+const LfsPointerPrefix = "version https://git-lfs.github.com/spec/"
+
+proc isLfsPointer(path: string): bool =
+  ## True when the file at path is a git-lfs pointer stub, not the real blob.
+  let f = open(path)
+  defer: f.close()
+  f.readLine().startsWith(LfsPointerPrefix)
+
 let testDataDir = currentSourcePath().parentDir() / ".." / "data"
 setDataDir(testDataDir)
+
+let canary = testDataDir / "ui" / "help.png"
+if isLfsPointer(canary):
+  echo "Skipping silky atlas test: LFS assets are unsmudged pointer stubs."
+  echo "Run `git lfs pull` (or unset GIT_LFS_SKIP_SMUDGE) to exercise this test."
+  quit(0)
 
 block test_silky_atlas:
   echo "Testing shared silky atlas generation"
