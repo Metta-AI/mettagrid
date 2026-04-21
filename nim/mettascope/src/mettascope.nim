@@ -1,7 +1,7 @@
 import
   std/[strutils, strformat, os],
   opengl, windy, bumpy, vmath, silky, chroma,
-  mettascope/[replays, common, atlas, replayloader, configs],
+  mettascope/[replays, common, atlas, replayloader, configs, notebook],
   mettascope/gamemode/[worldmap, minimap, gameplayer, camera, talk],
   mettascope/panelmode/[panes, footer, timeline, header,
     objectpanel, policyinfopanel, envpanel, vibespanel, scorepanel,
@@ -105,14 +105,8 @@ proc replaySwitch(replay: string) =
           popupWarning = "Failed to load replay file.\n" & getCurrentExceptionMsg()
           common.replay = EmptyReplay
     elif common.replay == nil:
-      let defaultReplay = dataDir / "replays" / "default.json.z"
-      echo "Loading replay from default file: ", defaultReplay
-      try:
-        common.replay = loadReplay(defaultReplay)
-        onReplayLoaded()
-      except:
-        popupWarning = "Failed to load default replay file.\n" & getCurrentExceptionMsg()
-        common.replay = EmptyReplay
+      echo "No replay specified, starting empty."
+      common.replay = EmptyReplay
   of Realtime:
     echo "Realtime mode"
     onReplayLoaded()
@@ -287,6 +281,9 @@ proc onFrame() =
   sk.endUi()
   window.swapBuffers()
 
+  emitStepToParent()
+  emitSelectedAgentToParent()
+
   if window.cursor.kind != sk.cursor.kind:
     window.cursor = sk.cursor
 
@@ -334,6 +331,9 @@ proc initMettascope*() {.measure.} =
     else:
       parseArgs()
     replaySwitch(commandLineReplay)
+
+  when defined(emscripten):
+    setupPostMessageReplayHandler(nil)
 
   slappyInit()
 
