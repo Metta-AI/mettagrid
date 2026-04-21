@@ -11,6 +11,7 @@
 #include "handler/mutations/recompute_materialized_query_mutation.hpp"
 #include "handler/mutations/relocate_mutation.hpp"
 #include "handler/mutations/resource_mutation.hpp"
+#include "handler/mutations/set_relative_target_mutation.hpp"
 #include "handler/mutations/spawn_object_mutation.hpp"
 #include "handler/mutations/stats_mutation.hpp"
 #include "handler/mutations/swap_mutation.hpp"
@@ -59,6 +60,8 @@ std::unique_ptr<Mutation> create_mutation(const MutationConfig& config) {
           return std::make_unique<ChangeVibeMutation>(cfg);
         } else if constexpr (std::is_same_v<T, PushObjectMutationConfig>) {
           return std::make_unique<PushObjectMutation>(cfg);
+        } else if constexpr (std::is_same_v<T, SetRelativeTargetMutationConfig>) {
+          return std::make_unique<SetRelativeTargetMutation>(cfg);
         } else {
           return nullptr;
         }

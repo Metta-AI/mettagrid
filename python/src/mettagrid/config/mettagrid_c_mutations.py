@@ -21,6 +21,7 @@ from mettagrid.config.mutation import (
     ResourceDeltaMutation,
     ResourceTransferMutation,
     SetGameValueMutation,
+    SetRelativeTargetMutation,
     SpawnObjectMutation,
     StatsEntity,
     StatsMutation,
@@ -44,6 +45,7 @@ from mettagrid.mettagrid_c import RemoveTagMutationConfig as CppRemoveTagMutatio
 from mettagrid.mettagrid_c import RemoveTagsWithPrefixMutationConfig as CppRemoveTagsWithPrefixMutationConfig
 from mettagrid.mettagrid_c import ResourceDeltaMutationConfig as CppResourceDeltaMutationConfig
 from mettagrid.mettagrid_c import ResourceTransferMutationConfig as CppResourceTransferMutationConfig
+from mettagrid.mettagrid_c import SetRelativeTargetMutationConfig as CppSetRelativeTargetMutationConfig
 from mettagrid.mettagrid_c import SpawnObjectMutationConfig as CppSpawnObjectMutationConfig
 from mettagrid.mettagrid_c import StatsEntity as CppStatsEntity
 from mettagrid.mettagrid_c import StatsMutationConfig as CppStatsMutationConfig
@@ -71,6 +73,18 @@ _STATS_ENTITY_TO_CPP: dict[StatsEntity, CppStatsEntity] = {
 
 
 _DIR_MAP = {"north": (-1, 0), "south": (1, 0), "east": (0, 1), "west": (0, -1)}
+
+# Map direction name to the C++ Orientation enum value (see actions/orientation.hpp).
+_ORIENTATION_ID = {
+    "north": 0,
+    "south": 1,
+    "west": 2,
+    "east": 3,
+    "northwest": 4,
+    "northeast": 5,
+    "southwest": 6,
+    "southeast": 7,
+}
 
 
 def _convert_raycast_spawn_mutation(mutation, target_obj, id_maps):
@@ -258,6 +272,12 @@ def convert_mutations(
 
         elif isinstance(mutation, PushObjectMutation):
             target_obj.add_push_object_mutation(CppPushObjectMutationConfig())
+
+        elif isinstance(mutation, SetRelativeTargetMutation):
+            cpp_mutation = CppSetRelativeTargetMutationConfig()
+            cpp_mutation.direction = _ORIENTATION_ID[mutation.direction]
+            cpp_mutation.distance = mutation.distance
+            target_obj.add_set_relative_target_mutation(cpp_mutation)
 
         elif isinstance(mutation, SwapMutation):
             target_obj.add_swap_mutation(CppSwapMutationConfig())

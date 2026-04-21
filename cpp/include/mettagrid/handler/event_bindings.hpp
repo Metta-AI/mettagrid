@@ -117,6 +117,14 @@ inline void bind_event_config(py::module& m) {
       .def(
           "add_spawn_object_mutation",
           [](EventConfig& self, const SpawnObjectMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_relocate_mutation",
+          [](EventConfig& self, const RelocateMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_set_relative_target_mutation",
+          [](EventConfig& self, const SetRelativeTargetMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"));
 }
 

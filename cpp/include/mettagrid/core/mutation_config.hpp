@@ -112,6 +112,14 @@ struct SwapMutationConfig {};        // Swap actor and target positions
 struct UseTargetMutationConfig {};   // Delegate to target's onUse handler
 struct PushObjectMutationConfig {};  // Push target one cell further along actor->target
 
+// Set ctx.target_location (and ctx.target/ctx.move_direction) to a cell
+// offset from the actor by (direction * distance). The direction is an
+// Orientation enum value in [0,7].
+struct SetRelativeTargetMutationConfig {
+  int direction = 0;  // Orientation enum value (0=N, 1=S, 2=W, 3=E, 4=NW, 5=NE, 6=SW, 7=SE)
+  unsigned int distance = 1;
+};
+
 struct SpawnObjectMutationConfig {
   std::string object_type;  // Object type name to spawn at target_location
 };
@@ -143,7 +151,8 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     SpawnObjectMutationConfig,
                                     RaycastSpawnMutationConfig,
                                     ChangeVibeMutationConfig,
-                                    PushObjectMutationConfig>;
+                                    PushObjectMutationConfig,
+                                    SetRelativeTargetMutationConfig>;
 
 }  // namespace mettagrid
 

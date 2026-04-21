@@ -459,6 +459,11 @@ inline void bind_handler_config(py::module& m) {
   py::class_<UseTargetMutationConfig>(m, "UseTargetMutationConfig").def(py::init<>());
   py::class_<PushObjectMutationConfig>(m, "PushObjectMutationConfig").def(py::init<>());
 
+  py::class_<SetRelativeTargetMutationConfig>(m, "SetRelativeTargetMutationConfig")
+      .def(py::init<>())
+      .def_readwrite("direction", &SetRelativeTargetMutationConfig::direction)
+      .def_readwrite("distance", &SetRelativeTargetMutationConfig::distance);
+
   py::class_<SpawnObjectMutationConfig>(m, "SpawnObjectMutationConfig")
       .def(py::init<>())
       .def_readwrite("object_type", &SpawnObjectMutationConfig::object_type);
@@ -611,6 +616,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_push_object_mutation",
           [](HandlerConfig& self, const PushObjectMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_set_relative_target_mutation",
+          [](HandlerConfig& self, const SetRelativeTargetMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"));
 
   // ResourceDelta for presence_deltas

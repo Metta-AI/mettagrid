@@ -42,6 +42,7 @@ from mettagrid.config.mutation.resource_mutation import (
     updateTarget,
     withdraw,
 )
+from mettagrid.config.mutation.set_relative_target_mutation import SetRelativeTargetMutation
 from mettagrid.config.mutation.spawn_object_mutation import SpawnObjectMutation
 from mettagrid.config.mutation.stats_mutation import (
     StatsEntity,
@@ -79,6 +80,7 @@ AnyMutation = Annotated[
         Annotated[RecomputeMaterializedQueryMutation, Tag("recompute_materialized_query")],
         Annotated[QueryInventoryMutation, Tag("query_inventory")],
         Annotated[RelocateMutation, Tag("relocate")],
+        Annotated[SetRelativeTargetMutation, Tag("set_relative_target")],
         Annotated[SpawnObjectMutation, Tag("spawn_object")],
         Annotated[SwapMutation, Tag("swap")],
         Annotated[UseTargetMutation, Tag("use_target")],
@@ -109,6 +111,7 @@ _mutation_namespace = {
     "RecomputeMaterializedQueryMutation": RecomputeMaterializedQueryMutation,
     "QueryInventoryMutation": QueryInventoryMutation,
     "RelocateMutation": RelocateMutation,
+    "SetRelativeTargetMutation": SetRelativeTargetMutation,
     "SpawnObjectMutation": SpawnObjectMutation,
     "ChangeVibeMutation": ChangeVibeMutation,
     "RaycastSpawnMutation": RaycastSpawnMutation,
@@ -142,6 +145,7 @@ __all__ = [
     "RecomputeMaterializedQueryMutation",
     "QueryInventoryMutation",
     "RelocateMutation",
+    "SetRelativeTargetMutation",
     "SpawnObjectMutation",
     "RaycastSpawnMutation",
     "SwapMutation",
