@@ -5,23 +5,22 @@ import
 
 export common
 
-proc buildSilkyAtlas*(imagePath: string) =
-  ## Build the silky UI atlas as one PNG with embedded metadata.
-  var builder = newAtlasBuilder(8192, 4)
-  builder.addDir(dataDir / "theme/", dataDir / "theme/")
-  builder.addDir(dataDir / "ui/", dataDir & "/")
-  builder.addDir(dataDir / "vibe/", dataDir & "/")
-  builder.addDir(dataDir / "resources/", dataDir & "/")
-  builder.addDir(dataDir / "icons/", dataDir & "/")
-  builder.addDir(dataDir / "profiles/", dataDir & "/")
-  builder.addDir(dataDir / "icons/agents/", dataDir & "/")
-  builder.addDir(dataDir / "icons/objects/", dataDir & "/")
-  builder.addDir(dataDir / "agents/", dataDir & "/")
-  builder.addDir(dataDir / "objects/", dataDir & "/")
-  builder.addDir(dataDir / "view/", dataDir & "/")
-  builder.addDir(dataDir / "terrain/", dataDir & "/")
-  builder.addDir(dataDir / "minimap/", dataDir & "/")
-  builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "H1", 32.0)
-  builder.addFont(dataDir / "fonts/Inter-Regular.ttf", "Default", 18.0, subpixelSteps = 10)
-  builder.addFont(dataDir / "fonts/pf_tempesta_five_compressed.ttf", "pixelated", 32.0)
-  builder.write(imagePath)
+proc buildSilkyAtlas*(): AtlasBuilder =
+  ## Build the silky UI atlas in memory.
+  result = newAtlasBuilder(8192, 4)
+  result.addDir(dataDir / "theme/", dataDir / "theme/")
+  result.addDir(dataDir / "ui/", dataDir & "/")
+  result.addDir(dataDir / "vibe/", dataDir & "/")
+  result.addDir(dataDir / "resources/", dataDir & "/")
+  result.addDir(dataDir / "icons/", dataDir & "/")
+  result.addDir(dataDir / "profiles/", dataDir & "/")
+  result.addDir(dataDir / "icons/agents/", dataDir & "/")
+  result.addDir(dataDir / "icons/objects/", dataDir & "/")
+  result.addDir(dataDir / "agents/", dataDir & "/")
+  result.addDir(dataDir / "objects/", dataDir & "/")
+  result.addDir(dataDir / "view/", dataDir & "/")
+  result.addDir(dataDir / "terrain/", dataDir & "/")
+  result.addDir(dataDir / "minimap/", dataDir & "/")
+  result.addFont(dataDir / "fonts/Inter-Regular.ttf", "H1", 32.0)
+  result.addFont(dataDir / "fonts/Inter-Regular.ttf", "Default", 18.0, subpixelSteps = 10)
+  result.addFont(dataDir / "fonts/pf_tempesta_five_compressed.ttf", "pixelated", 32.0)

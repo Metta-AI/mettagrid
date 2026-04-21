@@ -311,9 +311,8 @@ proc initMettascope*() {.measure.} =
     else:
       popupWarning = "Unsupported file type.\nOnly .json.z replay files are supported."
 
-  let atlasPath = dataDir / "silky.atlas.png"
-  buildSilkyAtlas(atlasPath)
-  sk = newSilky(window, atlasPath)
+  let builder = buildSilkyAtlas()
+  sk = newSilky(window, builder.atlasImage, builder.atlas)
   initPanels()
   window.onRune = proc(rune: Rune) =
     if talkComposeActive and rune.int >= 32 and rune.int <= 126:
