@@ -140,7 +140,7 @@ proc drawWorldMap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: 
   sk.draw9Patch("panel.body.empty.9patch", 3, contentPos, contentSize)
 
   worldMapZoomInfo.rect = irect(contentPos.x, contentPos.y, contentSize.x, contentSize.y)
-  worldMapZoomInfo.hasMouse = sk.mouseInsideClip(window, rect(contentPos, contentSize))
+  worldMapZoomInfo.hasMouse = sk.mouseHover(window, rect(contentPos, contentSize))
 
   applyModeSwitchCenter(worldMapZoomInfo)
 
@@ -166,7 +166,7 @@ proc drawMinimap(panel: Panel, frameId: string, contentPos: Vec2, contentSize: V
   let minimapZoomInfo = ZoomInfo()
   minimapZoomInfo.rect = irect(contentPos.x, contentPos.y, contentSize.x, contentSize.y)
   # Adjust zoom info and draw the minimap.
-  minimapZoomInfo.hasMouse = sk.mouseInsideClip(window, rect(contentPos, contentSize))
+  minimapZoomInfo.hasMouse = sk.mouseHover(window, rect(contentPos, contentSize))
 
   saveTransform()
   translateTransform(contentPos)

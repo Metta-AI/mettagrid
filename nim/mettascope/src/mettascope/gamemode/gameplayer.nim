@@ -120,26 +120,31 @@ proc drawIconScaled(
   )
 
 const
-  ResourceCellWidth = 120.0f
+  ResourceCellWidth = 140.0f
 
-proc resourceCell(pos: Vec2, icon: string, amount: int) =
-  ## Draw one fixed-size resource cell (icon + 3-digit amount).
+proc resourceCell(pos: Vec2, icon: string, amount: int, showIcon = true) =
+  ## Draw one fixed-size resource cell (icon + 4-digit amount).
   const
     IconSize = 48.0f
     IconTextGap = 8.0f
     NumberBgName = "ui/resource_bg"
-    NumberBgFallbackSize = vec2(64, 40)
+    NumberBgSize = vec2(80, 40)
     NumberTextPaddingX = 8.0f
-  drawIconScaled(icon, pos, IconSize)
-  let
-    numberBgSize =
-      if NumberBgName in sk.atlas.entries:
-        sk.getImageSize(NumberBgName)
-      else:
-        NumberBgFallbackSize
-    numberBgPos = pos + vec2(IconSize + IconTextGap, (IconSize - numberBgSize.y) * 0.5f + 4)
+  if showIcon:
+    drawIconScaled(icon, pos, IconSize)
+  let numberBgPos =
+    if showIcon:
+      pos + vec2(IconSize + IconTextGap, (IconSize - NumberBgSize.y) * 0.5f + 4)
+    else:
+      pos
   if NumberBgName in sk.atlas.entries:
-    sk.drawImage(NumberBgName, numberBgPos)
+    let uv = sk.atlas.entries[NumberBgName]
+    sk.drawQuad(
+      numberBgPos, NumberBgSize,
+      vec2(uv.x.float32, uv.y.float32),
+      vec2(uv.width.float32, uv.height.float32),
+      rgbx(255, 255, 255, 255)
+    )
 
   let amountLabel = $amount
   discard sk.drawText(
@@ -147,8 +152,8 @@ proc resourceCell(pos: Vec2, icon: string, amount: int) =
     amountLabel,
     numberBgPos + vec2(NumberTextPaddingX, -4),
     Yellow,
-    maxWidth = max(0.0f, numberBgSize.x - NumberTextPaddingX * 2.0f),
-    maxHeight = numberBgSize.y,
+    maxWidth = max(0.0f, NumberBgSize.x - NumberTextPaddingX * 2.0f),
+    maxHeight = NumberBgSize.y,
     clip = false,
     hAlign = RightAlign,
     vAlign = MiddleAlign
@@ -297,30 +302,73 @@ proc topLeftPanel() =
     clip = false
   )
 
+
 proc topRightPanel(winW: float32) =
-  ## Draw top-right panel with resource counts for the active team.
+  ## Draw top-right panel with resource counts for all teams.
+  const
+    ColSpacing = 98.0f
+    IconSize = 48.0f
+    NumberBgWidth = 80.0f
+    IconRowHeight = 56.0f
+    DataRowHeight = 44.0f
+    NumResources = 4
+    ContentWidth = NumResources.float32 * ColSpacing
+    BorderLeft = 30
+    BorderRight = 30
+    BorderTop = 55
+    BorderBottom = 100
+    PadLeft = 20.0f
+    PadRight = 16.0f
+    PadTop = 0.0f
+    PadBottom = 8.0f
+
   let
-    trSize = sk.getImageSize("ui/panel_topright")
-    trPos = vec2(winW - trSize.x, 0)
-  sk.drawImage("ui/panel_topright", trPos)
+    numTeams = getNumTeams()
+    contentHeight =
+      IconRowHeight + max(numTeams, 1).float32 * DataRowHeight
+    panelWidth =
+      BorderLeft.float32 + PadLeft +
+      ContentWidth + PadRight + BorderRight.float32
+    panelHeight =
+      BorderTop.float32 + PadTop +
+      contentHeight + PadBottom + BorderBottom.float32
+    trPos = vec2(winW - panelWidth, 0)
+  sk.draw9Patch(
+    "ui/panel_topright",
+    BorderTop, BorderRight, BorderBottom, BorderLeft,
+    trPos,
+    vec2(panelWidth, panelHeight)
+  )
 
   if not replay.isNil:
-    let teamIdx = lastSelectedTeam
-    const
-      CellSpacing = 32.0f
-      YPad = 42.0f
-      XPad = 52.0f
-    let globalResources = [
-      ("resources/carbon", "carbon"),
-      ("resources/oxygen", "oxygen"),
-      ("resources/germanium", "germanium"),
-      ("resources/silicon", "silicon"),
-    ]
-    var x = trPos.x + XPad
-    let y = trPos.y + YPad
-    for (icon, name) in globalResources:
-      resourceCell(vec2(x, y), icon, getGlobalResourceCount(teamIdx, name))
-      x += ResourceCellWidth + CellSpacing
+    let
+      globalResources = [
+        ("resources/carbon", "carbon"),
+        ("resources/oxygen", "oxygen"),
+        ("resources/germanium", "germanium"),
+        ("resources/silicon", "silicon"),
+      ]
+      contentX = trPos.x + BorderLeft.float32 + PadLeft
+
+    # Header row: icons centered over each column.
+    let iconY = trPos.y + BorderTop.float32 + PadTop
+    for i, (icon, name) in globalResources:
+      let x = contentX + i.float32 * ColSpacing +
+        (ColSpacing - IconSize) * 0.5f
+      drawIconScaled(icon, vec2(x, iconY), IconSize)
+
+    # Data rows: numbers only.
+    for teamIdx in 0 ..< numTeams:
+      for i, (icon, name) in globalResources:
+        let
+          x = contentX + i.float32 * ColSpacing +
+            (ColSpacing - NumberBgWidth) * 0.5f
+          y = iconY + IconRowHeight + teamIdx.float32 * DataRowHeight
+        resourceCell(
+          vec2(x, y), icon,
+          getGlobalResourceCount(teamIdx, name),
+          showIcon = false
+        )
 
 proc bottomBarStretch(winW: float32, winH: float32) =
   ## Draw the stretch bar between the two bottom panels.
@@ -852,7 +900,7 @@ proc drawTimelineSlider*(value: var float32, minVal: float32, maxVal: float32, l
     let t = clamp((sk.mousePos.x - trackStart) / travelSafe, 0f, 1f)
     value = minF + t * range
     playScrubberStepSound(t)
-  elif sk.mouseInsideClip(window, handleRect) or sk.mouseInsideClip(window, controlRect):
+  elif sk.mouseHover(window, handleRect) or sk.mouseHover(window, controlRect):
     if window.buttonPressed[MouseLeft]:
       worldMapZoomInfo.hasMouse = false
       timeLineDragging = true

@@ -67,7 +67,7 @@ proc drawTimelineSlider*(id: string, value: var float32, minVal: float32, maxVal
   if sliderState.dragging:
     let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
     value = minF + t * range
-  elif sk.mouseInsideClip(window, handleRect) or sk.mouseInsideClip(window, controlRect):
+  elif sk.mouseHover(window, handleRect) or sk.mouseHover(window, controlRect):
     if window.buttonPressed[MouseLeft]:
       sliderState.dragging = true
       let t = clamp((window.mousePos.vec2.x - trackStart) / travelSafe, 0f, 1f)
