@@ -18,14 +18,20 @@ from mettagrid.simulator.talk import ActiveTalk
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
 
 
-def _make_sim(*, cooldown_steps: int = 3) -> Simulation:
+def _make_sim(*, cooldown_steps: int = 3, broadcast_resource: str | None = None) -> Simulation:
     cfg = MettaGridConfig(
         game=GameConfig(
             max_steps=20,
             num_agents=3,
             obs=ObsConfig(width=5, height=5, num_tokens=64),
+            resource_names=["meeting_active"],
             actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
-            talk=TalkConfig(enabled=True, max_length=140, cooldown_steps=cooldown_steps),
+            talk=TalkConfig(
+                enabled=True,
+                max_length=140,
+                cooldown_steps=cooldown_steps,
+                broadcast_resource=broadcast_resource,
+            ),
             agents=[AgentConfig() for _ in range(3)],
             objects={"wall": WallConfig()},
             map_builder=ObjectNameMapBuilder.Config(
@@ -180,3 +186,23 @@ def test_zero_cooldown_allows_talk_replacement_on_the_next_step() -> None:
     sim.step()
 
     assert _talk_texts(sim, 1) == [(0, "second")]
+
+
+def test_talk_broadcast_resource_shares_meeting_speech_with_all_participants() -> None:
+    sim = _make_sim(broadcast_resource="meeting_active")
+    sim.agent(0).set_inventory({"meeting_active": 1})
+    sim.agent(1).set_inventory({"meeting_active": 1})
+
+    sim.agent(0).set_action(Action(name="noop"))
+    sim.agent(0).set_talk("body in lower engine")
+    _set_noops(sim, skip_agent_id=0)
+    sim.step()
+
+    assert _talk_texts(sim, 1) == [(0, "body in lower engine")]
+    assert _talk_texts(sim, 2) == []
+
+    sim.agent(2).set_inventory({"meeting_active": 1})
+    _set_noops(sim)
+    sim.step()
+
+    assert _talk_texts(sim, 2) == [(0, "body in lower engine")]

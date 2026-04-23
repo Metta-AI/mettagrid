@@ -79,6 +79,17 @@ class RenderConfig(Config):
         default_factory=dict,
         description="Type-name to asset mapping, optionally with resource/tag conditions",
     )
+    terrain_tile: Optional[str] = Field(
+        default=None,
+        description="Optional terrain tile path (relative to mettascope data root) for splat background rendering",
+    )
+    stamp_assets: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Optional object-type to splat-stamp atlas path mapping used by MettaScope terrain stamps "
+            "(e.g. {'wiring_station': 'amongus/terrain/stamp.among_us_wiring'})"
+        ),
+    )
 
     @model_validator(mode="after")
     def _sort_by_rank(self) -> "RenderConfig":

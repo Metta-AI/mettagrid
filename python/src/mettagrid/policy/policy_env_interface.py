@@ -227,7 +227,7 @@ class PolicyEnvInterface(BaseModel):
     def to_json(self) -> str:
         """Convert PolicyEnvInterface to JSON."""
         # TODO: Andre: replace this with `.model_dump(mode="json")`, now that it supports all fields
-        payload = self.model_dump(mode="json", include={"num_agents", "tags", "talk"})
+        payload = self.model_dump(mode="json", include={"num_agents", "tags", "talk"}, exclude_none=True)
         payload["obs_width"] = self.obs_width
         payload["obs_height"] = self.obs_height
         payload["actions"] = self.all_action_names

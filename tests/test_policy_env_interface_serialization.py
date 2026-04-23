@@ -105,6 +105,35 @@ def test_policy_env_interface_to_json_includes_talk():
     }
 
 
+def test_policy_env_interface_to_json_includes_talk_broadcast_resource():
+    config = MettaGridConfig(
+        game=GameConfig(
+            num_agents=4,
+            obs=ObsConfig(width=5, height=5, num_tokens=100),
+            max_steps=100,
+            resource_names=["meeting_active"],
+            actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
+            talk=TalkConfig(
+                enabled=True,
+                max_length=140,
+                cooldown_steps=50,
+                broadcast_resource="meeting_active",
+            ),
+            objects={"wall": WallConfig()},
+            map_builder=RandomMapBuilder.Config(width=10, height=10, agents=4, seed=42),
+        )
+    )
+
+    payload = json.loads(PolicyEnvInterface.from_mg_cfg(config).to_json())
+
+    assert payload["talk"] == {
+        "enabled": True,
+        "max_length": 140,
+        "cooldown_steps": 50,
+        "broadcast_resource": "meeting_active",
+    }
+
+
 def test_policy_env_interface_proto_round_trip_preserves_talk():
     config = MettaGridConfig(
         game=GameConfig(

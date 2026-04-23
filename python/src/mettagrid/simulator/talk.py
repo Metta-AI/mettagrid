@@ -110,6 +110,7 @@ class TalkChannel:
         agent_locations: dict[int, Location],
         obs_height: int,
         obs_width: int,
+        broadcast_agent_ids: set[int] | None = None,
     ) -> list[VisibleTalk]:
         if not self.config.enabled or not self._active_by_agent:
             return []
@@ -120,6 +121,7 @@ class TalkChannel:
 
         row_radius = obs_height >> 1
         col_radius = obs_width >> 1
+        observer_is_broadcast = broadcast_agent_ids is not None and observer_agent_id in broadcast_agent_ids
         visible_talk: list[VisibleTalk] = []
         for agent_id, active_talk in sorted(self._active_by_agent.items()):
             talk_location = agent_locations.get(agent_id)
@@ -127,13 +129,20 @@ class TalkChannel:
                 continue
             row_offset = talk_location.row - observer_location.row
             col_offset = talk_location.col - observer_location.col
-            if not _within_observation_shape(row_offset, col_offset, obs_height=obs_height, obs_width=obs_width):
+            in_shape = _within_observation_shape(row_offset, col_offset, obs_height=obs_height, obs_width=obs_width)
+            is_broadcast = observer_is_broadcast and broadcast_agent_ids is not None and agent_id in broadcast_agent_ids
+            if not in_shape and not is_broadcast:
                 continue
+            location = (
+                Location(row=row_offset + row_radius, col=col_offset + col_radius)
+                if in_shape
+                else Location(row=row_radius, col=col_radius)
+            )
             visible_talk.append(
                 VisibleTalk(
                     agent_id=agent_id,
                     text=active_talk.text,
-                    location=Location(row=row_offset + row_radius, col=col_offset + col_radius),
+                    location=location,
                     remaining_steps=active_talk.remaining_steps(current_step),
                 )
             )

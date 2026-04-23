@@ -880,10 +880,8 @@ def convert_to_cpp_game_config(
         del game_cpp_params["territories"]
     if "render" in game_cpp_params:
         del game_cpp_params["render"]
-    if "talk" in game_cpp_params:
-        del game_cpp_params["talk"]
-    if "on_tick" in game_cpp_params:
-        del game_cpp_params["on_tick"]
+    for key in ("talk", "on_tick", "stat_writers", "end_episode_on_game_stats"):
+        game_cpp_params.pop(key, None)
 
     if "obs" in game_cpp_params:
         obs_config = game_cpp_params.pop("obs")

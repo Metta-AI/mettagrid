@@ -194,6 +194,10 @@ class TalkConfig(Config):
     enabled: bool = Field(default=False, description="Whether talk mode is enabled for the game.")
     max_length: int = Field(default=140, ge=1, description="Maximum number of characters allowed in a talk message.")
     cooldown_steps: int = Field(default=50, ge=0, description="Minimum resend gap in steps. Zero disables cooldown.")
+    broadcast_resource: str | None = Field(
+        default=None,
+        description="Optional resource name that enables full broadcast among agents currently holding it.",
+    )
 
 
 # Note: GridObjectConfig is included to allow direct use of the base class for simple objects
@@ -300,6 +304,13 @@ class GameConfig(Config):
     on_tick: AnyHandler | None = Field(
         default=None,
         description="Handler run every tick at game level (actor=target=nullptr).",
+    )
+    end_episode_on_game_stats: dict[str, float] = Field(
+        default_factory=dict,
+        description=(
+            "Optional game-stat thresholds that force episode end when met. "
+            "Format: {stat_name: min_value}. Handled in Python simulator event handlers."
+        ),
     )
 
     @model_validator(mode="after")

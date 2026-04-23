@@ -16,6 +16,7 @@ from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.map_builder.map_builder import GameMap, HasSeed, MapBuilderConfig
 from mettagrid.mettagrid_c import MettaGrid as MettaGridCpp
 from mettagrid.profiling.stopwatch import Stopwatch, with_instance_timer
+from mettagrid.simulator.game_stat_end_handler import GameStatEndEpisodeHandler
 from mettagrid.simulator.interface import (
     AgentObservation,
     Location,
@@ -69,6 +70,7 @@ class Simulation:
         self._config = config
         self._seed = seed
         self._event_handlers = list(event_handlers)
+        self._add_builtin_event_handlers()
         self._simulator = simulator
         self._maps_cache = maps_cache
         self._context: Dict[str, Any] = {}
@@ -128,6 +130,8 @@ class Simulation:
         self._talk_channel = TalkChannel(self._config.game.talk)
         self._agent_locations_by_id: dict[int, Location] = {}
         self._agent_locations_step = -1
+        self._resource_holders_by_name: dict[str, set[int]] = {}
+        self._resource_holders_step = -1
 
         self._start_episode()
 
@@ -135,6 +139,12 @@ class Simulation:
 
     def agents(self) -> list[SimulationAgent]:
         return [self.agent(agent_id) for agent_id in range(self.num_agents)]
+
+    def _add_builtin_event_handlers(self) -> None:
+        """Attach simulator-level handlers derived from config flags."""
+        thresholds = dict(self._config.game.end_episode_on_game_stats)
+        if thresholds and not any(isinstance(handler, GameStatEndEpisodeHandler) for handler in self._event_handlers):
+            self._event_handlers.append(GameStatEndEpisodeHandler(thresholds))
 
     def agent(self, agent_id: int) -> SimulationAgent:
         return SimulationAgent(self, agent_id)
@@ -153,6 +163,8 @@ class Simulation:
         self._talk_channel.reset()
         self._agent_locations_by_id = {}
         self._agent_locations_step = -1
+        self._resource_holders_by_name = {}
+        self._resource_holders_step = -1
 
         for handler in self._event_handlers:
             with self._timer(f"sim.on_episode_start.{handler.__class__.__name__}"):
@@ -328,16 +340,36 @@ class Simulation:
         agent_locations = self._agent_locations()
         obs_height = int(self._c_sim.obs_height)
         obs_width = int(self._c_sim.obs_width)
+        broadcast_agent_ids = None
+        broadcast_resource = self._config.game.talk.broadcast_resource
+        if broadcast_resource is not None:
+            broadcast_agent_ids = self._agents_with_resource(broadcast_resource)
         return self._talk_channel.visible_talk(
             observer_agent_id,
             current_step=self.current_step,
             agent_locations=agent_locations,
             obs_height=obs_height,
             obs_width=obs_width,
+            broadcast_agent_ids=broadcast_agent_ids,
         )
 
     def talk_states(self) -> dict[int, TalkState]:
         return self._talk_channel.render_states(current_step=self.current_step)
+
+    def _agents_with_resource(self, resource_name: str) -> set[int]:
+        if self._resource_holders_step != self.current_step:
+            self._resource_holders_by_name = {}
+            self._resource_holders_step = self.current_step
+        inventory_key = f"inv:{resource_name}"
+        holders = self._resource_holders_by_name.get(resource_name)
+        if holders is None:
+            holders = {
+                int(agent_id)
+                for grid_object in self.grid_objects(ignore_types=["wall"]).values()
+                if (agent_id := grid_object.get("agent_id")) is not None and int(grid_object.get(inventory_key, 0)) > 0
+            }
+            self._resource_holders_by_name[resource_name] = holders
+        return holders
 
     def _seeded_map_builder(self, map_builder: MapBuilderConfig) -> MapBuilderConfig:
         if not isinstance(map_builder, HasSeed):
