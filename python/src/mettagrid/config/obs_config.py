@@ -50,6 +50,13 @@ class ObsConfig(Config):
     Default 256 for efficient byte packing.
     """
     global_obs: GlobalObsConfig = Field(default_factory=GlobalObsConfig)
+    observation_radius_value: AnyGameValue | None = Field(
+        default=None,
+        description=(
+            "Optional per-agent game value used to clamp spatial observation radius each step. "
+            "Radius 0 emits only the center tile; larger radii expand symmetrically up to the configured window."
+        ),
+    )
 
     # Optional per-tile AOE observability. When enabled, MettaGrid emits `aoe_mask` tokens
     # with collapsed territory semantics:

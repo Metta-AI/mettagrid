@@ -190,6 +190,23 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   _make_buffers(num_agents);
 }
 
+std::pair<ObservationCoord, ObservationCoord> MettaGrid::_observable_window(size_t agent_idx) const {
+  if (!_game_config.observation_radius_value.has_value()) {
+    return {obs_width, obs_height};
+  }
+
+  mettagrid::HandlerContext value_ctx = _game_ctx;
+  value_ctx.actor = _agents[agent_idx];
+  float raw_radius = value_ctx.resolve_game_value(*_game_config.observation_radius_value, mettagrid::EntityRef::actor);
+  int radius = static_cast<int>(std::max(0.0f, raw_radius));
+
+  ObservationCoord visible_height =
+      static_cast<ObservationCoord>(std::min(static_cast<int>(obs_height), radius * 2 + 1));
+  ObservationCoord visible_width =
+      static_cast<ObservationCoord>(std::min(static_cast<int>(obs_width), radius * 2 + 1));
+  return {visible_width, visible_height};
+}
+
 MettaGrid::~MettaGrid() {
   // Signal all workers to stop and wake them so they can exit
   _obs_workers_stop.store(true, std::memory_order_release);
@@ -505,6 +522,13 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
   // Calculate observation boundaries
   ObservationCoord obs_width_radius = observable_width >> 1;
   ObservationCoord obs_height_radius = observable_height >> 1;
+  bool observation_clipped = observable_width != obs_width || observable_height != obs_height;
+  ObservationCoord location_width_radius = observation_clipped ? obs_width >> 1 : obs_width_radius;
+  ObservationCoord location_height_radius = observation_clipped ? obs_height >> 1 : obs_height_radius;
+  mettagrid::ObservationShape visible_shape;
+  if (observation_clipped) {
+    visible_shape = mettagrid::make_observation_shape(observable_height, observable_width);
+  }
 
   int r_start = std::max(static_cast<int>(observer_row) - static_cast<int>(obs_height_radius), 0);
   int c_start = std::max(static_cast<int>(observer_col) - static_cast<int>(obs_width_radius), 0);
@@ -586,6 +610,9 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
 
   // Process locations in increasing manhattan distance order (using pre-computed offsets)
   for (const auto& [r_offset, c_offset] : _observation_offsets) {
+    if (observation_clipped && !mettagrid::within_observation_shape(r_offset, c_offset, visible_shape)) {
+      continue;
+    }
     int r = static_cast<int>(observer_row) + r_offset;
     int c = static_cast<int>(observer_col) + c_offset;
 
@@ -599,8 +626,8 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
     auto obj = _grid->object_at(object_loc);
 
     // Calculate position within the observation window (agent is at the center)
-    int obs_r = r - static_cast<int>(observer_row) + static_cast<int>(obs_height_radius);
-    int obs_c = c - static_cast<int>(observer_col) + static_cast<int>(obs_width_radius);
+    int obs_r = r - static_cast<int>(observer_row) + static_cast<int>(location_height_radius);
+    int obs_c = c - static_cast<int>(observer_col) + static_cast<int>(location_width_radius);
     uint8_t location = PackedCoordinate::pack(static_cast<uint8_t>(obs_r), static_cast<uint8_t>(obs_c));
 
     // Prepare observation buffer for this location
@@ -672,6 +699,13 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
   // Calculate observation boundaries
   ObservationCoord obs_width_radius = observable_width >> 1;
   ObservationCoord obs_height_radius = observable_height >> 1;
+  bool observation_clipped = observable_width != obs_width || observable_height != obs_height;
+  ObservationCoord location_width_radius = observation_clipped ? obs_width >> 1 : obs_width_radius;
+  ObservationCoord location_height_radius = observation_clipped ? obs_height >> 1 : obs_height_radius;
+  mettagrid::ObservationShape visible_shape;
+  if (observation_clipped) {
+    visible_shape = mettagrid::make_observation_shape(observable_height, observable_width);
+  }
 
   int r_start = std::max(static_cast<int>(observer_row) - static_cast<int>(obs_height_radius), 0);
   int c_start = std::max(static_cast<int>(observer_col) - static_cast<int>(obs_width_radius), 0);
@@ -754,6 +788,9 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
 
   // Process locations in increasing manhattan distance order (using pre-computed offsets)
   for (const auto& [r_offset, c_offset] : _observation_offsets) {
+    if (observation_clipped && !mettagrid::within_observation_shape(r_offset, c_offset, visible_shape)) {
+      continue;
+    }
     int r = static_cast<int>(observer_row) + r_offset;
     int c = static_cast<int>(observer_col) + c_offset;
 
@@ -767,8 +804,8 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
     auto obj = _grid->object_at(object_loc);
 
     // Calculate position within the observation window (agent is at the center)
-    int obs_r = r - static_cast<int>(observer_row) + static_cast<int>(obs_height_radius);
-    int obs_c = c - static_cast<int>(observer_col) + static_cast<int>(obs_width_radius);
+    int obs_r = r - static_cast<int>(observer_row) + static_cast<int>(location_height_radius);
+    int obs_c = c - static_cast<int>(observer_col) + static_cast<int>(location_width_radius);
     uint8_t location = PackedCoordinate::pack(static_cast<uint8_t>(obs_r), static_cast<uint8_t>(obs_c));
 
     // Once buffer is full, we still compute features to track exact tokens_dropped.
@@ -827,8 +864,13 @@ void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_ac
   if (_validation_enabled) {
     // Serial — shadow validation not thread-safe
     for (size_t idx = 0; idx < _agents.size(); idx++) {
-      _compute_observation(
-          _agents[idx]->location.r, _agents[idx]->location.c, obs_width, obs_height, idx, executed_actions[idx]);
+      auto [observable_width, observable_height] = _observable_window(idx);
+      _compute_observation(_agents[idx]->location.r,
+                           _agents[idx]->location.c,
+                           observable_width,
+                           observable_height,
+                           idx,
+                           executed_actions[idx]);
     }
     return;
   }
@@ -857,10 +899,11 @@ void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_ac
             size_t end = std::min(start + chunk, _agents.size());
 
             for (size_t idx = start; idx < end; idx++) {
+              auto [observable_width, observable_height] = _observable_window(idx);
               _compute_observation_optimized(_agents[idx]->location.r,
                                              _agents[idx]->location.c,
-                                             obs_width,
-                                             obs_height,
+                                             observable_width,
+                                             observable_height,
                                              idx,
                                              (*_obs_current_actions)[idx],
                                              buf);
@@ -906,8 +949,13 @@ void MettaGrid::_compute_observations(const std::vector<ActionType>& executed_ac
 
   // Serial fallback
   for (size_t idx = 0; idx < _agents.size(); idx++) {
-    _compute_observation(
-        _agents[idx]->location.r, _agents[idx]->location.c, obs_width, obs_height, idx, executed_actions[idx]);
+    auto [observable_width, observable_height] = _observable_window(idx);
+    _compute_observation(_agents[idx]->location.r,
+                         _agents[idx]->location.c,
+                         observable_width,
+                         observable_height,
+                         idx,
+                         executed_actions[idx]);
   }
 }
 

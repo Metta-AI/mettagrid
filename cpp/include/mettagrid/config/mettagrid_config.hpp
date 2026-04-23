@@ -6,6 +6,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -65,6 +66,7 @@ struct GameConfig {
 
   // Observation encoding settings
   unsigned int token_value_base = 256;  // Base for multi-token inventory encoding (value per token: 0 to base-1)
+  std::optional<GameValueConfig> observation_radius_value;
 
   // Events - timestep-triggered effects that apply mutations to filtered objects
   std::map<std::string, mettagrid::EventConfig> events;
@@ -364,6 +366,7 @@ inline void bind_game_config(py::module& m) {
 
                     // Observation encoding
                     unsigned int,
+                    const std::optional<GameValueConfig>&,
 
                     // Events
                     const std::map<std::string, mettagrid::EventConfig>&,
@@ -395,6 +398,7 @@ inline void bind_game_config(py::module& m) {
 
            // Observation encoding
            py::arg("token_value_base") = 256,
+           py::arg("observation_radius_value") = py::none(),
 
            // Events
            py::arg("events") = std::map<std::string, mettagrid::EventConfig>(),
@@ -431,6 +435,7 @@ inline void bind_game_config(py::module& m) {
 
       // Observation encoding
       .def_readwrite("token_value_base", &GameConfig::token_value_base)
+      .def_readwrite("observation_radius_value", &GameConfig::observation_radius_value)
 
       // Events
       .def_readwrite("events", &GameConfig::events)

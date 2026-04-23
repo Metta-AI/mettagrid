@@ -313,6 +313,7 @@ private:
 
   void _compute_observations(const std::vector<ActionType>& executed_actions);
   void _step();
+  std::pair<ObservationCoord, ObservationCoord> _observable_window(size_t agent_idx) const;
 
   void _handle_invalid_action(size_t agent_idx, const std::string& stat, ActionType type);
   AgentConfig _create_agent_config(const py::dict& agent_group_cfg_py);

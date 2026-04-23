@@ -891,6 +891,10 @@ def convert_to_cpp_game_config(
         game_cpp_params["obs_height"] = obs_config["height"]
         game_cpp_params["num_observation_tokens"] = obs_config["num_tokens"]
         game_cpp_params["token_value_base"] = obs_config.get("token_value_base", 256)
+        if game_config.obs.observation_radius_value is not None:
+            game_cpp_params["observation_radius_value"] = resolve_game_value(
+                game_config.obs.observation_radius_value, id_maps
+            )
 
     id_map = game_config.id_map()
     game_cpp_params["feature_ids"] = {feature.name: feature.id for feature in id_map.features()}
