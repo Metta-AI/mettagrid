@@ -102,6 +102,11 @@ struct QueryInventoryMutationConfig {
   std::vector<std::pair<InventoryItem, std::string>> transfer_stat_names;
 };
 
+struct QueryPlaceAdjacentMutationConfig {
+  std::shared_ptr<QueryConfig> query;
+  EntityRef target = EntityRef::actor;
+};
+
 struct RemoveTagsWithPrefixMutationConfig {
   EntityRef entity = EntityRef::target;
   std::vector<int> tag_ids;  // All tag IDs sharing the prefix (resolved at config time)
@@ -144,6 +149,7 @@ using MutationConfig = std::variant<ResourceDeltaMutationConfig,
                                     GameValueMutationConfig,
                                     RecomputeMaterializedQueryMutationConfig,
                                     QueryInventoryMutationConfig,
+                                    QueryPlaceAdjacentMutationConfig,
                                     RemoveTagsWithPrefixMutationConfig,
                                     RelocateMutationConfig,
                                     SwapMutationConfig,

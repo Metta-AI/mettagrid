@@ -28,6 +28,7 @@ from mettagrid.config.mutation.query_inventory_mutation import (
     queryDeposit,
     queryWithdraw,
 )
+from mettagrid.config.mutation.query_place_adjacent_mutation import QueryPlaceAdjacentMutation, queryPlaceAdjacent
 from mettagrid.config.mutation.raycast_spawn_mutation import RaycastSpawnMutation
 from mettagrid.config.mutation.recompute_materialized_query_mutation import (
     RecomputeMaterializedQueryMutation,
@@ -77,6 +78,7 @@ AnyMutation = Annotated[
         Annotated[RemoveTagMutation, Tag("remove_tag")],
         Annotated[RemoveTagsWithPrefixMutation, Tag("remove_tags_with_prefix")],
         Annotated[SetGameValueMutation, Tag("set_game_value")],
+        Annotated[QueryPlaceAdjacentMutation, Tag("query_place_adjacent")],
         Annotated[RecomputeMaterializedQueryMutation, Tag("recompute_materialized_query")],
         Annotated[QueryInventoryMutation, Tag("query_inventory")],
         Annotated[RelocateMutation, Tag("relocate")],
@@ -108,6 +110,7 @@ _mutation_namespace = {
     "RemoveTagMutation": RemoveTagMutation,
     "RemoveTagsWithPrefixMutation": RemoveTagsWithPrefixMutation,
     "SetGameValueMutation": SetGameValueMutation,
+    "QueryPlaceAdjacentMutation": QueryPlaceAdjacentMutation,
     "RecomputeMaterializedQueryMutation": RecomputeMaterializedQueryMutation,
     "QueryInventoryMutation": QueryInventoryMutation,
     "RelocateMutation": RelocateMutation,
@@ -121,6 +124,7 @@ _mutation_namespace = {
 }
 AttackMutation.model_rebuild(_types_namespace=_mutation_namespace)
 SetGameValueMutation.model_rebuild(_types_namespace=_mutation_namespace)
+QueryPlaceAdjacentMutation.model_rebuild(_types_namespace=_mutation_namespace)
 RecomputeMaterializedQueryMutation.model_rebuild(_types_namespace=_mutation_namespace)
 QueryInventoryMutation.model_rebuild(_types_namespace=_mutation_namespace)
 # RaycastSpawnMutation references AnyFilter — rebuild after filter module is loaded.
@@ -142,6 +146,7 @@ __all__ = [
     "RemoveTagMutation",
     "RemoveTagsWithPrefixMutation",
     "SetGameValueMutation",
+    "QueryPlaceAdjacentMutation",
     "RecomputeMaterializedQueryMutation",
     "QueryInventoryMutation",
     "RelocateMutation",
@@ -170,6 +175,7 @@ __all__ = [
     "queryDeposit",
     "queryWithdraw",
     "queryDelta",
+    "queryPlaceAdjacent",
     "recomputeMaterializedQuery",
     "changeTargetVibe",
 ]

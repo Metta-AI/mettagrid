@@ -13,6 +13,7 @@ from mettagrid.config.mutation import (
     EntityTarget,
     PushObjectMutation,
     QueryInventoryMutation,
+    QueryPlaceAdjacentMutation,
     RaycastSpawnMutation,
     RecomputeMaterializedQueryMutation,
     RelocateMutation,
@@ -36,6 +37,7 @@ from mettagrid.mettagrid_c import EntityRef as CppEntityRef
 from mettagrid.mettagrid_c import GameValueMutationConfig as CppGameValueMutationConfig
 from mettagrid.mettagrid_c import PushObjectMutationConfig as CppPushObjectMutationConfig
 from mettagrid.mettagrid_c import QueryInventoryMutationConfig as CppQueryInventoryMutationConfig
+from mettagrid.mettagrid_c import QueryPlaceAdjacentMutationConfig as CppQueryPlaceAdjacentMutationConfig
 from mettagrid.mettagrid_c import RaycastSpawnMutationConfig as CppRaycastSpawnMutationConfig
 from mettagrid.mettagrid_c import (
     RecomputeMaterializedQueryMutationConfig as CppRecomputeMaterializedQueryMutationConfig,
@@ -261,6 +263,20 @@ def convert_mutations(
                     for rname, stat_name in mutation.transfer_stats.items()
                 ]
             target_obj.add_query_inventory_mutation(cpp_mutation)
+
+        elif isinstance(mutation, QueryPlaceAdjacentMutation):
+            from mettagrid.config.mettagrid_c_config import _convert_tag_query  # noqa: PLC0415
+
+            cpp_mutation = CppQueryPlaceAdjacentMutationConfig()
+            cpp_mutation.set_query(
+                _convert_tag_query(
+                    mutation.query,
+                    id_maps,
+                    context=f"{context} query_place_adjacent mutation",
+                )
+            )
+            cpp_mutation.target = convert_entity_ref(mutation.target)
+            target_obj.add_query_place_adjacent_mutation(cpp_mutation)
 
         elif isinstance(mutation, SpawnObjectMutation):
             cpp_mutation = CppSpawnObjectMutationConfig()

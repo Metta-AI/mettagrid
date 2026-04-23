@@ -104,6 +104,10 @@ inline void bind_event_config(py::module& m) {
           [](EventConfig& self, const QueryInventoryMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))
       .def(
+          "add_query_place_adjacent_mutation",
+          [](EventConfig& self, const QueryPlaceAdjacentMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
           "add_change_vibe_mutation",
           [](EventConfig& self, const ChangeVibeMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))

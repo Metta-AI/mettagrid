@@ -449,6 +449,14 @@ inline void bind_handler_config(py::module& m) {
           [](QueryInventoryMutationConfig& self, const QueryConfigHolder& q) { self.query = q.config; },
           py::arg("query"));
 
+  py::class_<QueryPlaceAdjacentMutationConfig>(m, "QueryPlaceAdjacentMutationConfig")
+      .def(py::init<>())
+      .def_readwrite("target", &QueryPlaceAdjacentMutationConfig::target)
+      .def(
+          "set_query",
+          [](QueryPlaceAdjacentMutationConfig& self, const QueryConfigHolder& q) { self.query = q.config; },
+          py::arg("query"));
+
   // Move-specific filter configs (no fields, just marker types)
   py::class_<TargetLocEmptyFilterConfig>(m, "TargetLocEmptyFilterConfig").def(py::init<>());
   py::class_<TargetIsUsableFilterConfig>(m, "TargetIsUsableFilterConfig").def(py::init<>());
@@ -574,6 +582,10 @@ inline void bind_handler_config(py::module& m) {
       .def(
           "add_query_inventory_mutation",
           [](HandlerConfig& self, const QueryInventoryMutationConfig& cfg) { self.mutations.push_back(cfg); },
+          py::arg("mutation"))
+      .def(
+          "add_query_place_adjacent_mutation",
+          [](HandlerConfig& self, const QueryPlaceAdjacentMutationConfig& cfg) { self.mutations.push_back(cfg); },
           py::arg("mutation"))
       .def(
           "add_change_vibe_mutation",

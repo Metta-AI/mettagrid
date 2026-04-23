@@ -7,6 +7,7 @@
 #include "handler/mutations/game_value_mutation.hpp"
 #include "handler/mutations/push_object_mutation.hpp"
 #include "handler/mutations/query_inventory_mutation.hpp"
+#include "handler/mutations/query_place_adjacent_mutation.hpp"
 #include "handler/mutations/raycast_spawn_mutation.hpp"
 #include "handler/mutations/recompute_materialized_query_mutation.hpp"
 #include "handler/mutations/relocate_mutation.hpp"
@@ -44,6 +45,8 @@ std::unique_ptr<Mutation> create_mutation(const MutationConfig& config) {
           return std::make_unique<RecomputeMaterializedQueryMutation>(cfg);
         } else if constexpr (std::is_same_v<T, QueryInventoryMutationConfig>) {
           return std::make_unique<QueryInventoryMutation>(cfg);
+        } else if constexpr (std::is_same_v<T, QueryPlaceAdjacentMutationConfig>) {
+          return std::make_unique<QueryPlaceAdjacentMutation>(cfg);
         } else if constexpr (std::is_same_v<T, RemoveTagsWithPrefixMutationConfig>) {
           return std::make_unique<RemoveTagsWithPrefixMutation>(cfg);
         } else if constexpr (std::is_same_v<T, RelocateMutationConfig>) {
