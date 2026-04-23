@@ -20,7 +20,8 @@ from mettagrid.config.game_value import (
     val,
     weighted_sum,
 )
-from mettagrid.config.reward_config import AgentReward, reward
+from mettagrid.config.mettagrid_config import MettaGridConfig
+from mettagrid.config.reward_config import AgentReward, inventoryReward, reward
 from mettagrid.config.tag import typeTag
 
 
@@ -146,3 +147,25 @@ def test_reward_helper_supports_log_aggregation_and_weight():
     assert isinstance(inner.numerator, SumGameValue)
     assert inner.numerator.weights == [0.75, 0.75]
     assert inner.numerator.log is True
+
+
+def test_mettagrid_update_materializes_inventory_reward_overrides():
+    config = MettaGridConfig()
+
+    config.update(
+        {
+            "game.agent.rewards.ore_red.max": 2,
+            "game.agent.rewards.ore_red.weight": 0.5,
+        }
+    )
+
+    assert config.game.agent.rewards["ore_red"] == inventoryReward("ore_red", weight=0.5, max=2)
+
+
+def test_mettagrid_update_preserves_existing_inventory_reward_settings():
+    config = MettaGridConfig()
+    config.game.agent.rewards["ore_red"] = inventoryReward("ore_red", weight=0.25, max=1, per_tick=True)
+
+    config.update({"game.agent.rewards.ore_red.max": 3})
+
+    assert config.game.agent.rewards["ore_red"] == inventoryReward("ore_red", weight=0.25, max=3, per_tick=True)

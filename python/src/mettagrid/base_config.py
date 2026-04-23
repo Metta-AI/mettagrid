@@ -64,6 +64,32 @@ class Config(BaseModel):
         except (TypeError, ValueError):
             return None
 
+    def _dict_value_type(self, parent_obj: Config, field_name: str) -> type[Config] | None:
+        """Return the Config subtype stored in a dict field, if there is one."""
+        field = type(parent_obj).model_fields.get(field_name)
+        if not field:
+            return None
+
+        field_type = self._unwrap_optional(field.annotation)
+        if get_origin(field_type) is not dict:
+            return None
+
+        _, value_type = get_args(field_type)
+        value_type = self._unwrap_optional(value_type)
+        return value_type if isinstance(value_type, type) and issubclass(value_type, Config) else None
+
+    def _auto_initialize_dict_entry(
+        self, parent_dict: dict[str, Any], value_type: type[Config] | None, key: str
+    ) -> Config | None:
+        """Auto-initialize a missing dict entry when the dict stores Config values."""
+        if value_type is None:
+            return None
+
+        default_for_key = getattr(value_type, "default_for_key", None)
+        new_value = default_for_key(key) if default_for_key else value_type()
+        parent_dict[key] = new_value
+        return new_value
+
     def _unwrap_optional(self, field_type):
         """Unwrap Optional[T] → T if applicable, else return original type."""
         if get_origin(field_type) is Union:
@@ -85,6 +111,7 @@ class Config(BaseModel):
             )
 
         inner_cfg: Config | dict[str, Any] = self
+        dict_value_type: type[Config] | None = None
         traversed_path: list[str] = []
         i = 0
         while i < len(key_path) - 1:
@@ -94,6 +121,7 @@ class Config(BaseModel):
                 # Check if the key_part exists in the dict
                 if key_part in inner_cfg:
                     inner_cfg = inner_cfg[key_part]
+                    dict_value_type = None
                     traversed_path.append(key_part)
                     i += 1
                     continue
@@ -105,6 +133,14 @@ class Config(BaseModel):
                     # We found the full path as a single key - set it directly
                     inner_cfg[remaining_path] = value
                     return self
+
+                next_inner_cfg = self._auto_initialize_dict_entry(inner_cfg, dict_value_type, key_part)
+                if next_inner_cfg is not None:
+                    inner_cfg = next_inner_cfg
+                    dict_value_type = None
+                    traversed_path.append(key_part)
+                    i += 1
+                    continue
 
                 # If we're at the last part before the final key, allow creating new dict keys
                 # This allows creating new keys like stats["silicon.gained"]
@@ -132,18 +168,13 @@ class Config(BaseModel):
                 failed_path = ".".join(traversed_path + [key_part])
                 fail(f"key {failed_path} is not a Config object")
 
+            if isinstance(next_inner_cfg, dict):
+                dict_value_type = self._dict_value_type(inner_cfg, key_part)
+            else:
+                dict_value_type = None
             inner_cfg = next_inner_cfg
             traversed_path.append(key_part)
             i += 1
-
-        # We allow dicts to get new keys, but not Configs. This is because we want to allow overrides like
-        # env_cfg.game.agent.rewards.inventory.ore_red = 0.1
-        # without requiring that "ore_red" was already in the inventory dict. Note that allowing overrides / updates
-        # to dicts like this leads to an obnoxious inconsistency in the way dicts are updated via overrides
-        # (foo.bar.baz = 1) vs how they're set in Python (foo.bar["baz"] = 1).
-        if isinstance(inner_cfg, Config):
-            if not hasattr(inner_cfg, key_path[-1]):
-                fail(f"key {key} not found")
 
         if isinstance(inner_cfg, dict):
             # Final key - check if it exists, or if the full remaining path (with dots) exists
@@ -162,10 +193,8 @@ class Config(BaseModel):
 
         cls = type(inner_cfg)
         field = cls.model_fields.get(key_path[-1])
-        if field is None:
-            fail(f"key {key} is not a valid field")
-
-        value = TypeAdapter(field.annotation).validate_python(value)
+        if field is not None:
+            value = TypeAdapter(field.annotation).validate_python(value)
         setattr(inner_cfg, key_path[-1], value)
 
         return self

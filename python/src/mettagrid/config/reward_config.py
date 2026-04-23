@@ -25,6 +25,42 @@ class AgentReward(Config):
     reward: AnyGameValue = Field(default_factory=lambda: val(0.0))
     per_tick: bool = False  # Accumulate value each tick instead of delta at end of episode
 
+    @classmethod
+    def default_for_key(cls, key: str) -> "AgentReward":
+        return reward(InventoryValue(item=key))
+
+    @property
+    def weight(self) -> float:
+        game_value = self.reward.values[0] if isinstance(self.reward, MinGameValue) else self.reward
+        assert isinstance(game_value, SumGameValue)
+        assert game_value.weights is not None
+        return game_value.weights[0]
+
+    @weight.setter
+    def weight(self, value: int | float) -> None:
+        game_value = self.reward.values[0] if isinstance(self.reward, MinGameValue) else self.reward
+        assert isinstance(game_value, SumGameValue)
+        assert game_value.weights is not None
+        game_value.weights[0] = float(value)
+
+    @property
+    def max(self) -> float | None:
+        if isinstance(self.reward, MinGameValue):
+            max_value = self.reward.values[1]
+            assert isinstance(max_value, ConstValue)
+            return max_value.value
+        return None
+
+    @max.setter
+    def max(self, value: int | float | None) -> None:
+        if isinstance(self.reward, MinGameValue):
+            if value is None:
+                self.reward = self.reward.values[0]
+            else:
+                self.reward.values[1] = val(value)
+        elif value is not None:
+            self.reward = MinGameValue(values=[self.reward, val(value)])
+
 
 # ===== Helper functions for concise reward definitions =====
 
