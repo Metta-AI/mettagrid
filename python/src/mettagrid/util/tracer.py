@@ -15,6 +15,7 @@ import gc
 import json
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from types import TracebackType
 from typing import IO, Self
@@ -87,6 +88,7 @@ class Tracer:
         self._file.write("[")
         self._first = True
         self._flushed = False
+        self._writing_event = False
         self._gc_start_ns: int = 0
         self._known_pids: set[int] = set()
         gc.callbacks.append(self._gc_callback)
@@ -95,7 +97,7 @@ class Tracer:
     def _gc_callback(self, phase: str, info: dict) -> None:
         """Record GC events in the trace."""
         with self._write_lock:
-            if self._flushed:
+            if self._flushed or self._writing_event:
                 return
             if phase == "start":
                 self._gc_start_ns = time.time_ns()
@@ -118,6 +120,14 @@ class Tracer:
         """Record a completed span with explicit timing."""
         self._write_span(name, start_ns, duration_ns, metadata, pid=pid)
 
+    @contextmanager
+    def _ignore_reentrant_gc_callbacks(self):
+        self._writing_event = True
+        try:
+            yield
+        finally:
+            self._writing_event = False
+
     def _write_event(self, event: dict) -> None:
         """Write a single event to the trace file.
 
@@ -127,9 +137,10 @@ class Tracer:
         with self._write_lock:
             if self._flushed:
                 return
-            prefix = "" if self._first else ","
+            with self._ignore_reentrant_gc_callbacks():
+                prefix = "" if self._first else ","
+                self._file.write(prefix + json.dumps(event) + "\n")
             self._first = False
-            self._file.write(prefix + json.dumps(event) + "\n")
 
     def _write_process_name(self, pid: int, name: str, sort_index: int) -> None:
         """Write process name and sort index metadata events."""
