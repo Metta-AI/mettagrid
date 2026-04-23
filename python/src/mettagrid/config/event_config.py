@@ -93,6 +93,7 @@ class EventConfig(Handler):
         timesteps: List of timesteps when this event fires
         filters: (inherited) List of filters to select target objects (all must pass)
         mutations: (inherited) List of mutations to apply to matching objects
+        priority: Lower values fire earlier than higher values on the same timestep
         max_targets: Maximum number of targets to apply mutations to (0 = unlimited, default 1)
 
     Note:
@@ -108,6 +109,10 @@ class EventConfig(Handler):
     timesteps: list[int] = Field(
         default_factory=list,
         description="List of timesteps when this event fires",
+    )
+    priority: int = Field(
+        default=0,
+        description="Lower values fire earlier than higher values on the same timestep",
     )
     max_targets: Optional[int] = Field(
         default=None,

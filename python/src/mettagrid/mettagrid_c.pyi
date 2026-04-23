@@ -479,6 +479,7 @@ class EventConfig(HandlerConfig):
     name: str
     def set_target_query(self, query: QueryConfigHolder) -> None: ...
     timesteps: list[int]
+    priority: int
     max_targets: int
     fallback: str
 

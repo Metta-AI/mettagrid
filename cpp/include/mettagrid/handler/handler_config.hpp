@@ -81,6 +81,7 @@ struct EventConfig {
   std::vector<int> timesteps;                 // Timesteps when this event fires
   std::vector<FilterConfig> filters;          // All must pass for event to affect object
   std::vector<MutationConfig> mutations;      // Applied to matching objects
+  int priority = 0;                           // Lower values fire earlier within the same timestep
   int max_targets = -1;                       // Maximum targets to apply to (-1 = unlimited)
   std::string fallback;                       // Event name to fire if no targets match (optional)
 

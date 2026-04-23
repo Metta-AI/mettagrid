@@ -22,6 +22,7 @@ inline void bind_event_config(py::module& m) {
           [](EventConfig& self, const QueryConfigHolder& holder) { self.target_query = holder.config; },
           py::arg("query"))
       .def_readwrite("timesteps", &EventConfig::timesteps)
+      .def_readwrite("priority", &EventConfig::priority)
       .def_readwrite("max_targets", &EventConfig::max_targets)
       .def_readwrite("fallback", &EventConfig::fallback)
       // Add filter methods - each type wraps into the variant

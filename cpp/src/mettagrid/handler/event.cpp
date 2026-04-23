@@ -12,6 +12,7 @@ namespace mettagrid {
 Event::Event(const EventConfig& config)
     : _name(config.name),
       _target_query(config.target_query),
+      _priority(config.priority),
       _max_targets(config.max_targets),
       _fallback_name(config.fallback) {
   // Create filters from config using shared factory

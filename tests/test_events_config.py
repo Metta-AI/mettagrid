@@ -24,13 +24,16 @@ from mettagrid.config.filter.filter import HandlerTarget
 from mettagrid.config.game_value import SumGameValue, stat, val
 from mettagrid.config.mettagrid_config import (
     GameConfig,
+    GridObjectConfig,
     MettaGridConfig,
 )
 from mettagrid.config.mutation import (
     StatsMutation,
+    addTag,
     logStat,
 )
 from mettagrid.config.tag import typeTag
+from mettagrid.simulator import Simulation
 
 
 class TestPeriodicHelper:
@@ -180,6 +183,7 @@ class TestEventConfig:
         )
         assert event.name == "test_event"
         assert event.timesteps == [100, 200, 300]
+        assert event.priority == 0
         assert len(event.filters) == 1
         assert len(event.mutations) == 1
 
@@ -304,6 +308,51 @@ class TestEventsInGameConfig:
         restored = MettaGridConfig.model_validate_json(json_str)
         assert len(restored.game.events) == 1
         assert restored.game.events["room_event"].name == "room_event"
+
+    def test_same_timestep_events_follow_priority_before_name(self):
+        """Lower-priority-number events should run before alphabetically earlier names."""
+        config = MettaGridConfig.EmptyRoom(
+            num_agents=1,
+            width=5,
+            height=5,
+            border_width=0,
+            with_walls=True,
+        ).with_ascii_map(
+            [
+                ["#", "#", "#", "#", "#"],
+                ["#", ".", ".", "@", "#"],
+                ["#", ".", "M", ".", "#"],
+                ["#", ".", ".", ".", "#"],
+                ["#", "#", "#", "#", "#"],
+            ],
+            char_to_map_name={"#": "wall", ".": "empty", "M": "marker", "@": "agent.agent"},
+        )
+        config.game.tags = ["armed"]
+        config.game.objects["marker"] = GridObjectConfig(name="marker", tags=[typeTag("marker")])
+        config.game.events = {
+            "a_check_armed": EventConfig(
+                name="a_check_armed",
+                target_query=query(typeTag("marker")),
+                timesteps=[1],
+                priority=20,
+                filters=[hasTag("armed")],
+                mutations=[logStat("event.armed_checked")],
+            ),
+            "z_arm_marker": EventConfig(
+                name="z_arm_marker",
+                target_query=query(typeTag("marker")),
+                timesteps=[1],
+                priority=10,
+                mutations=[addTag("armed")],
+            ),
+        }
+
+        sim = Simulation(config)
+        try:
+            sim.step()
+            assert sim.episode_stats["game"].get("event.armed_checked", 0) == 1
+        finally:
+            sim.close()
 
 
 class TestFilterPolymorphism:
