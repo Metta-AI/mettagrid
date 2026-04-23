@@ -20,9 +20,14 @@ public:
       return;
     }
 
+    // QueryPlaceAdjacent exists for mechanics that want to snap an entity next to a semantic anchor instead of
+    // hard-coding a destination cell. A meeting button, teleporter, or "gather here" trigger can query a central
+    // object and pull actors beside it no matter where they started. We scan cardinal neighbors because configs care
+    // about adjacency, not exact landing coordinates, and we reject the entity's current tile so adjacent users do
+    // not turn the mutation into a silent no-op.
     auto results = _config.query->evaluate(ctx);
     for (GridObject* destination : results) {
-      if (destination == nullptr || destination == entity) {
+      if (destination == nullptr) {
         continue;
       }
 

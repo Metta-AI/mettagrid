@@ -1,5 +1,5 @@
 from mettagrid.config.handler_config import Handler
-from mettagrid.config.mettagrid_config import GridObjectConfig, MettaGridConfig
+from mettagrid.config.mettagrid_config import AgentConfig, GridObjectConfig, MettaGridConfig
 from mettagrid.config.mutation import queryPlaceAdjacent
 from mettagrid.config.query import query
 from mettagrid.simulator import Simulation
@@ -74,3 +74,30 @@ def test_query_place_adjacent_mutation_can_anchor_on_use_target() -> None:
     )
 
     _assert_teleport_position(cfg, (1, 3))
+
+
+def test_query_place_adjacent_mutation_can_query_the_actor_itself() -> None:
+    cfg = MettaGridConfig.EmptyRoom(num_agents=1, with_walls=True).with_ascii_map(
+        [
+            ["#", "#", "#", "#", "#"],
+            ["#", "@", "T", ".", "#"],
+            ["#", ".", ".", ".", "#"],
+            ["#", "#", "#", "#", "#"],
+        ],
+        char_to_map_name={
+            "#": "wall",
+            ".": "empty",
+            "@": "agent.agent",
+            "T": "teleporter",
+        },
+    )
+    cfg.game.agent = AgentConfig(tags=["anchor:exit"])
+    cfg.game.objects["teleporter"] = GridObjectConfig(
+        name="teleporter",
+        on_use_handler=Handler(
+            name="teleport",
+            mutations=[queryPlaceAdjacent(query("anchor:exit"))],
+        ),
+    )
+
+    _assert_teleport_position(cfg, (2, 1))
