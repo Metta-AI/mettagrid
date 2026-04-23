@@ -31,6 +31,11 @@ struct CellOwnership {
   int64_t winning_score = 0;
 };
 
+struct ObservedTerritory {
+  ObservationType label = 0;
+  int winning_tag = -1;
+};
+
 /**
  * TerritoryTracker manages territory influence zones.
  *
@@ -41,12 +46,12 @@ struct CellOwnership {
  * tag with the highest total.
  *
  * Provides:
- *   1. Observation masks (friendly/enemy/neutral per tile)
+ *   1. Observation labels and boundaries (friendly/other/neutral plus sparse edge transitions)
  *   2. Per-tick handler effects (on_enter, on_exit, presence)
  *
  * Handlers fire with actor = proxy cell object (carries winning tag),
  * target = affected agent. Handlers use filters (e.g. sharedTagPrefix)
- * to distinguish friendly vs enemy territory — the tracker itself is
+ * to distinguish friendly vs other territory — the tracker itself is
  * team-agnostic.
  */
 class TerritoryTracker {
@@ -58,9 +63,16 @@ public:
   void unregister_source(GridObject& source);
   void notify_source_moved(GridObject& source, const GridLocation& old_location);
 
-  void compute_observability_at(const GridLocation& loc,
-                                GridObject& observer,
-                                ObservationType* out_territory_mask) const;
+  // Relative territory label for observations:
+  //   0 = neutral
+  //   1 = friendly
+  //   2 = other
+  // `other` collapses all non-self territory owners into one bucket, including Clips
+  // and all non-self teams in multi-team modes.
+  //
+  // The winning_tag is still returned so the observation encoder can preserve
+  // borders between distinct non-self owners as `other -> other` edges.
+  ObservedTerritory observed_territory_at(const GridLocation& loc, const GridObject& observer) const;
 
   void apply_effects(GridObject& target, HandlerContext& ctx);
 

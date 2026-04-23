@@ -427,47 +427,4 @@ size_t AOETracker::fixed_effect_count_at(const GridLocation& loc) const {
   return _cell_effects[loc.r][loc.c].size();
 }
 
-void AOETracker::fixed_observability_at(const GridLocation& loc,
-                                        GridObject& observer,
-                                        const HandlerContext& ctx,
-                                        ObservationType* out_aoe_mask) const {
-  if (out_aoe_mask != nullptr) {
-    *out_aoe_mask = 0;
-  }
-
-  if (out_aoe_mask == nullptr || loc.r >= _height || loc.c >= _width) {
-    return;
-  }
-
-  const auto& cell_effects = _cell_effects[loc.r][loc.c];
-  if (cell_effects.empty()) {
-    return;
-  }
-
-  HandlerContext obs_ctx = ctx;
-  obs_ctx.actor = nullptr;
-  obs_ctx.target = &observer;
-
-  int64_t total_score = 0;
-
-  for (const auto& aoe_source : cell_effects) {
-    GridObject* source = aoe_source->source;
-    if (source == nullptr) {
-      continue;
-    }
-
-    if (!is_territory_aoe(aoe_source.get())) {
-      continue;
-    }
-
-    if (!aoe_source->passes_filters(&observer, obs_ctx)) {
-      continue;
-    }
-
-    total_score += territory_influence_score(aoe_source->config, distance_sq(source->location, loc));
-  }
-
-  *out_aoe_mask = (total_score > 0) ? 1 : 0;
-}
-
 }  // namespace mettagrid

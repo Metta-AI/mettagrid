@@ -9,7 +9,7 @@ Territory is a **game-level** concept where objects project influence onto nearb
 aggregates influence from all contributing objects, grouped by tag. The tag with the highest total influence wins that
 cell. Territory enables:
 
-- **Observation masks** — agents observe whether each nearby tile is friendly, enemy, or neutral.
+- **Territory observations** — agents observe their current territory label plus sparse boundary edges in view.
 - **Handler effects** — `on_enter`, `on_exit`, and `presence` handlers fire as agents move through territory.
 
 Territory types are defined on `GameConfig.territories`. Objects declare which territory types they influence via
@@ -89,24 +89,45 @@ For each cell and each territory type:
 3. Sum influence scores per tag across all sources.
 4. The tag with the highest total score wins. **Ties resolve to neutral** (no owner).
 
-## Observation Mask
+## Territory Observations
 
-When `ObsConfig.aoe_mask=True`, the territory system emits a per-tile token in each agent's observation:
+When `ObsConfig.territory=True`, the territory system emits sparse territory-control observations:
 
-| Value | Meaning                                      |
-| ----- | -------------------------------------------- |
-| `0`   | Neutral (no influence, tie, or out of range) |
-| `1`   | Friendly (observer shares the winning tag)   |
-| `2`   | Enemy (observer does not share winning tag)  |
+- one global `territory:here` token with:
+  - `0 = neutral`
+  - `1 = friendly`
+  - `2 = other`
+- sparse edge tokens on visible tiles:
+  - `territory:north`
+  - `territory:south`
+  - `territory:east`
+  - `territory:west`
 
-If multiple territory types exist, the first non-neutral result is reported.
+Edge tokens live on the current visible tile. The feature name identifies which neighboring edge of the token's tile
+changes territory. The value encodes the full transition as `from * 3 + to`, where `from` is the token tile's
+territory label and `to` is the neighboring tile's label using the same `neutral/friendly/other = 0/1/2` mapping.
+
+`other` means any non-self territory owner. In CvC, that includes Clips. In multi-team cog modes such as FourScore, all
+non-self cog teams also collapse into `other`.
+
+Example:
+
+- if the token tile is friendly and the tile to the east is other, the token tile emits
+  `territory:east = friendly -> other`
+- the other-owned tile emits the mirrored cue `territory:west = other -> friendly`
+- if two adjacent visible tiles belong to two different non-self owners, each side emits `other -> other`
+  on the corresponding `territory:*` border token
+
+No edge token is emitted when territory does not change across that edge. Different non-self owners still emit
+`territory:*` borders, but the value remains `other -> other` because the observation alphabet intentionally stays relative to
+the observer. If multiple territory types exist, the first non-neutral result is reported.
 
 ## Handler Effects
 
 Territory handlers fire with `actor` = a proxy cell object (carrying the winning tag of the cell) and `target` = the
 affected agent. **Handlers fire on any owned territory**, regardless of which team owns it. Use filters like
 `sharedTagPrefix("team:")` to restrict effects to friendly territory, or invert with `isNot(sharedTagPrefix(...))` for
-enemy-only effects.
+other-only effects.
 
 ### on_enter
 
@@ -153,7 +174,7 @@ Territory and AOE are separate systems:
 | Spatial model   | Influence aggregated per cell        | Per-source radius check               |
 | Team resolution | Tag-based competition (highest wins) | Filter-based (e.g. `sharedTagPrefix`) |
 | Effects         | Handlers on `TerritoryConfig`        | Mutations/presence on `AOEConfig`     |
-| Observation     | `aoe_mask` observation tokens        | No observation output                 |
+| Observation     | `territory:here` + `territory:*` | No observation output                |
 
 Objects can participate in both systems simultaneously. For example, an object might project territory influence _and_
 have an independent AOE with different filters/mutations.
@@ -166,8 +187,8 @@ have an independent AOE with different filters/mutations.
    radius.
 2. **Computes ownership per tick** — for each agent, `apply_effects()` determines cell ownership per territory type and
    fires enter/exit/presence handlers.
-3. **Emits observations** — `compute_observability_at()` returns friendly/enemy/neutral per tile for the observation
-   encoder.
+3. **Emits observations** — `observed_territory_at()` resolves friendly/other/neutral cell ownership for the
+   observation encoder, which then emits the global current-tile label plus sparse boundary edges.
 
 Source registration is spatial: changing a source's tags or removing a source triggers re-evaluation of ownership at
 affected cells on the next tick.

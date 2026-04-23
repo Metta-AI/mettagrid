@@ -18,7 +18,11 @@ ObservationType LpWest;
 ObservationType LpNorth;
 ObservationType LpSouth;
 ObservationType AgentId;
-ObservationType AoeMask;
+ObservationType TerritoryHere;
+ObservationType TerritoryEdgeNorth;
+ObservationType TerritoryEdgeSouth;
+ObservationType TerritoryEdgeEast;
+ObservationType TerritoryEdgeWest;
 
 void Initialize(const std::unordered_map<std::string, ObservationType>& feature_ids) {
   _instance = std::make_shared<ObservationFeaturesImpl>(feature_ids);
@@ -37,6 +41,10 @@ void Initialize(const std::unordered_map<std::string, ObservationType>& feature_
   LpNorth = _instance->LpNorth;
   LpSouth = _instance->LpSouth;
   AgentId = _instance->AgentId;
-  AoeMask = _instance->AoeMask;
+  TerritoryHere = _instance->TerritoryHere;
+  TerritoryEdgeNorth = _instance->TerritoryEdgeNorth;
+  TerritoryEdgeSouth = _instance->TerritoryEdgeSouth;
+  TerritoryEdgeEast = _instance->TerritoryEdgeEast;
+  TerritoryEdgeWest = _instance->TerritoryEdgeWest;
 }
 }  // namespace ObservationFeature

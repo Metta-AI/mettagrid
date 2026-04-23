@@ -58,9 +58,16 @@ class ObsConfig(Config):
         ),
     )
 
-    # Optional per-tile AOE observability. When enabled, MettaGrid emits `aoe_mask` tokens
+    # Optional per-tile AOE observability. When enabled directly, MettaGrid emits `aoe_mask` tokens
     # with collapsed territory semantics:
     # - 1: friendly territory/influence
     # - 2: enemy territory/influence
     # - 0 / no token: neutral or no influence.
+    #
     aoe_mask: bool = Field(default=False)
+
+    # Optional sparse territory-control observations:
+    # - one global `territory:here` token with 0=neutral, 1=friendly, 2=other
+    #   where `other` means any non-self territory owner, including Clips and all non-self teams in multi-team modes
+    # - sparse `territory:*` directional tokens on visible tiles where territory changes across an edge
+    territory: bool = Field(default=False)

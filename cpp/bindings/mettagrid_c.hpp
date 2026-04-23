@@ -221,6 +221,7 @@ private:
   struct ObsComputeBuffers {
     std::vector<PartialObservationToken> global_tokens;
     std::vector<PartialObservationToken> obs_features_scratch;
+    std::vector<mettagrid::ObservedTerritory> territory_observations;
     size_t tokens_written = 0;
     size_t tokens_dropped = 0;
     size_t tokens_free_space = 0;
@@ -254,13 +255,11 @@ private:
 
   void init_action_handlers();
   size_t _emit_obs_value_tokens(size_t agent_idx, size_t tokens_written, ObservationType global_location);
-  void _emit_tile_observability_tokens(size_t agent_idx,
-                                       const GridLocation& object_loc,
-                                       uint8_t location,
-                                       ObservationToken*& obs_ptr,
-                                       size_t& tokens_written,
-                                       size_t& attempted_tokens_written,
-                                       size_t buffer_capacity);
+  void _prepare_territory_observations(ObservationCoord observable_width,
+                                       ObservationCoord observable_height,
+                                       size_t agent_idx,
+                                       std::vector<PartialObservationToken>& global_tokens,
+                                       std::vector<mettagrid::ObservedTerritory>& territory_observations) const;
   void _throw_observation_token_overflow(size_t agent_idx,
                                          size_t attempted_tokens_written,
                                          size_t buffer_capacity) const;

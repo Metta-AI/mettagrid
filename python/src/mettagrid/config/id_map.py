@@ -222,14 +222,15 @@ class IdMap:
             token_features, feature_id = make_multi_token_features(prefix, feature_id, normalization, num_inv_tokens)
             features.extend(token_features)
 
-        # Optional per-tile AOE observability.
-        # Appended at the end so IDs of existing features remain stable.
         if self._config.obs.aoe_mask:
             add_feature("aoe_mask", 3.0)
 
-        # Optional global token: whether the agent's location changed on the last step.
-        # Appended at the end so IDs of existing features remain stable.
         if self._config.obs.global_obs.last_action_move:
             add_feature("last_action_move", 1.0)
+
+        if self._config.obs.territory:
+            add_feature("territory:here", 3.0)
+            for direction in ("north", "south", "east", "west"):
+                add_feature(f"territory:{direction}", 9.0)
 
         return features

@@ -251,25 +251,17 @@ CellOwnership TerritoryTracker::compute_cell_ownership(const GridLocation& loc, 
   return result;
 }
 
-void TerritoryTracker::compute_observability_at(const GridLocation& loc,
-                                                GridObject& observer,
-                                                ObservationType* out_territory_mask) const {
-  if (out_territory_mask != nullptr) {
-    *out_territory_mask = 0;
-  }
-  if (out_territory_mask == nullptr) return;
-
+ObservedTerritory TerritoryTracker::observed_territory_at(const GridLocation& loc, const GridObject& observer) const {
   for (size_t ti = 0; ti < _num_territories; ++ti) {
     auto cell_own = compute_cell_ownership(loc, static_cast<int>(ti));
     if (cell_own.winning_tag < 0) continue;
 
     if (observer.has_tag(cell_own.winning_tag)) {
-      *out_territory_mask = 1;  // friendly
-    } else {
-      *out_territory_mask = 2;  // enemy
+      return {.label = 1, .winning_tag = cell_own.winning_tag};
     }
-    return;
+    return {.label = 2, .winning_tag = cell_own.winning_tag};
   }
+  return {};
 }
 
 void TerritoryTracker::apply_effects(GridObject& target, HandlerContext& ctx) {

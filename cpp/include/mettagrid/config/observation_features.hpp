@@ -29,7 +29,11 @@ public:
     _lp_north = has("lp:north") ? get("lp:north") : 0;
     _lp_south = has("lp:south") ? get("lp:south") : 0;
     _agent_id = has("agent_id") ? get("agent_id") : 0;
-    _aoe_mask = has("aoe_mask") ? get("aoe_mask") : 0;
+    _territory_here = has("territory:here") ? get("territory:here") : 0;
+    _territory_edge_north = has("territory:north") ? get("territory:north") : 0;
+    _territory_edge_south = has("territory:south") ? get("territory:south") : 0;
+    _territory_edge_east = has("territory:east") ? get("territory:east") : 0;
+    _territory_edge_west = has("territory:west") ? get("territory:west") : 0;
 
     // Initialize public members (must be done AFTER private members are set above)
     Group = _group;
@@ -45,7 +49,11 @@ public:
     LpNorth = _lp_north;
     LpSouth = _lp_south;
     AgentId = _agent_id;
-    AoeMask = _aoe_mask;
+    TerritoryHere = _territory_here;
+    TerritoryEdgeNorth = _territory_edge_north;
+    TerritoryEdgeSouth = _territory_edge_south;
+    TerritoryEdgeEast = _territory_edge_east;
+    TerritoryEdgeWest = _territory_edge_west;
   }
 
   // Get feature ID by name (throws if not found)
@@ -76,7 +84,11 @@ public:
   ObservationType LpNorth;
   ObservationType LpSouth;
   ObservationType AgentId;
-  ObservationType AoeMask;
+  ObservationType TerritoryHere;
+  ObservationType TerritoryEdgeNorth;
+  ObservationType TerritoryEdgeSouth;
+  ObservationType TerritoryEdgeEast;
+  ObservationType TerritoryEdgeWest;
 
 private:
   std::unordered_map<std::string, ObservationType> _name_to_id;
@@ -95,7 +107,11 @@ private:
   ObservationType _lp_north;
   ObservationType _lp_south;
   ObservationType _agent_id;
-  ObservationType _aoe_mask;
+  ObservationType _territory_here;
+  ObservationType _territory_edge_north;
+  ObservationType _territory_edge_south;
+  ObservationType _territory_edge_east;
+  ObservationType _territory_edge_west;
 };
 
 // Global singleton instance
@@ -121,7 +137,11 @@ extern ObservationType LpWest;
 extern ObservationType LpNorth;
 extern ObservationType LpSouth;
 extern ObservationType AgentId;
-extern ObservationType AoeMask;
+extern ObservationType TerritoryHere;
+extern ObservationType TerritoryEdgeNorth;
+extern ObservationType TerritoryEdgeSouth;
+extern ObservationType TerritoryEdgeEast;
+extern ObservationType TerritoryEdgeWest;
 }  // namespace ObservationFeature
 
 #endif  // PACKAGES_METTAGRID_CPP_INCLUDE_METTAGRID_CONFIG_OBSERVATION_FEATURES_HPP_

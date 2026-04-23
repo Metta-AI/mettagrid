@@ -192,7 +192,7 @@ Non-spatial state is encoded with `packed_location = 0xFE` (254):
 | `agent:group` | Team/group ID of observed entity |
 | `vibe` | Current vibe of entity |
 | `tag` | Tag value |
-| `aoe_mask` | Territory: 0=neutral, 1=friendly, 2=enemy |
+| `territory:here`, `territory:*` | Sparse territory observations; see `mettagrid/docs/territory.md` |
 
 ### Inventory Features
 

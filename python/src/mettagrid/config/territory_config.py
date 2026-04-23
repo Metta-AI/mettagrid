@@ -18,12 +18,12 @@ class TerritoryConfig(Config):
 
     Handlers fire with actor = proxy cell object (carrying the winning tag),
     target = affected agent. Use filters (e.g. sharedTagPrefix("team:")) to
-    distinguish friendly vs enemy territory in handler logic.
+    distinguish friendly vs other territory in handler logic.
 
-    Observation mask (per tile relative to observer):
+    Observed territory label (relative to observer):
       0 = no influence or tie
       1 = observer shares the winning tag
-      2 = observer does not share the winning tag
+      2 = observer does not share the winning tag (`other`, including Clips and all non-self teams)
     """
 
     tag_prefix: str = Field(

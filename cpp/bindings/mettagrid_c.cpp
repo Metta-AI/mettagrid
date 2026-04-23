@@ -4,6 +4,7 @@
 #include <pybind11/stl.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -38,6 +39,87 @@
 #include "systems/stats_tracker.hpp"
 
 namespace py = pybind11;
+
+namespace {
+struct TerritoryEdgeSpec {
+  ObservationType feature_id;
+  int row_delta;
+  int col_delta;
+};
+
+std::array<TerritoryEdgeSpec, 4> territory_edge_specs() {
+  return {{
+      {ObservationFeature::TerritoryEdgeNorth, -1, 0},
+      {ObservationFeature::TerritoryEdgeSouth, 1, 0},
+      {ObservationFeature::TerritoryEdgeEast, 0, 1},
+      {ObservationFeature::TerritoryEdgeWest, 0, -1},
+  }};
+}
+
+bool territory_edge_features_enabled() {
+  const auto edge_specs = territory_edge_specs();
+  return std::any_of(
+      edge_specs.begin(), edge_specs.end(), [](const TerritoryEdgeSpec& edge) { return edge.feature_id != 0; });
+}
+
+void emit_tile_territory_tokens(const std::vector<mettagrid::ObservedTerritory>& territory_observations,
+                                ObservationCoord observable_width,
+                                ObservationCoord observable_height,
+                                uint8_t obs_row,
+                                uint8_t obs_col,
+                                uint8_t location,
+                                ObservationToken*& obs_ptr,
+                                size_t& tokens_written,
+                                size_t& attempted_tokens_written,
+                                size_t buffer_capacity) {
+  if (territory_observations.empty()) {
+    return;
+  }
+  constexpr ObservationType kNoTerritoryObservation = std::numeric_limits<ObservationType>::max();
+  constexpr ObservationType kOtherTerritory = 2;
+  size_t index = static_cast<size_t>(obs_row) * static_cast<size_t>(observable_width) + static_cast<size_t>(obs_col);
+  const auto& token_tile = territory_observations[index];
+  if (token_tile.label == kNoTerritoryObservation) {
+    return;
+  }
+
+  // Edge values are encoded relative to the tile carrying the token: token tile -> neighbor.
+  auto emit_edge = [&](ObservationType feature_id, ObservationType neighbor_territory) {
+    attempted_tokens_written += 1;
+    if (tokens_written >= buffer_capacity) {
+      return;
+    }
+    obs_ptr[0].location = location;
+    obs_ptr[0].feature_id = feature_id;
+    obs_ptr[0].value = static_cast<ObservationType>(token_tile.label * 3 + neighbor_territory);
+    obs_ptr += 1;
+    tokens_written += 1;
+  };
+
+  auto territory_at = [&](int row, int col) -> mettagrid::ObservedTerritory {
+    if (row < 0 || row >= observable_height || col < 0 || col >= observable_width) {
+      return {.label = kNoTerritoryObservation};
+    }
+    return territory_observations[static_cast<size_t>(row) * static_cast<size_t>(observable_width) +
+                                  static_cast<size_t>(col)];
+  };
+
+  auto emit_if_territory_changes = [&](ObservationType feature_id, int row, int col) {
+    const auto neighbor = territory_at(row, col);
+    bool distinct_other_boundary =
+        token_tile.label == kOtherTerritory && neighbor.label == kOtherTerritory && token_tile.winning_tag >= 0 &&
+        neighbor.winning_tag >= 0 && token_tile.winning_tag != neighbor.winning_tag;
+    if (feature_id != 0 && neighbor.label != kNoTerritoryObservation &&
+        (neighbor.label != token_tile.label || distinct_other_boundary)) {
+      emit_edge(feature_id, neighbor.label);
+    }
+  };
+
+  for (const auto& [feature_id, row_delta, col_delta] : territory_edge_specs()) {
+    emit_if_territory_changes(feature_id, static_cast<int>(obs_row) + row_delta, static_cast<int>(obs_col) + col_delta);
+  }
+}
+}  // namespace
 
 MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned int seed)
     : obs_width(game_config.obs_width),
@@ -103,6 +185,8 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
     for (auto& buf : _obs_thread_buffers) {
       buf.global_tokens.reserve(32);
       buf.obs_features_scratch.resize(Agent::max_obs_features(max_tags, num_resources, tokens_per_item));
+      buf.territory_observations.reserve(
+          static_cast<size_t>(game_config.obs_width) * static_cast<size_t>(game_config.obs_height));
     }
   }
 
@@ -351,30 +435,45 @@ void MettaGrid::add_agent(Agent* agent) {
   _agents.push_back(agent);
 }
 
-void MettaGrid::_emit_tile_observability_tokens(size_t agent_idx,
-                                                const GridLocation& object_loc,
-                                                uint8_t location,
-                                                ObservationToken*& obs_ptr,
-                                                size_t& tokens_written,
-                                                size_t& attempted_tokens_written,
-                                                size_t buffer_capacity) {
-  ObservationType aoe_mask = 0;
-  ObservationType* aoe_mask_ptr = (ObservationFeature::AoeMask != 0) ? &aoe_mask : nullptr;
-  if (aoe_mask_ptr == nullptr) {
+void MettaGrid::_prepare_territory_observations(ObservationCoord observable_width,
+                                                ObservationCoord observable_height,
+                                                size_t agent_idx,
+                                                std::vector<PartialObservationToken>& global_tokens,
+                                                std::vector<mettagrid::ObservedTerritory>& territory_observations) const {
+  const auto& observer = *_agents[agent_idx];
+
+  if (ObservationFeature::TerritoryHere != 0) {
+    auto observed = _territory_tracker->observed_territory_at(observer.location, observer);
+    global_tokens.push_back({ObservationFeature::TerritoryHere, observed.label});
+  }
+
+  if (!territory_edge_features_enabled()) {
+    territory_observations.clear();
     return;
   }
 
-  _territory_tracker->compute_observability_at(object_loc, *_agents[agent_idx], aoe_mask_ptr);
+  constexpr ObservationType kNoTerritoryObservation = std::numeric_limits<ObservationType>::max();
+  territory_observations.assign(static_cast<size_t>(observable_width) * static_cast<size_t>(observable_height),
+                                mettagrid::ObservedTerritory{.label = kNoTerritoryObservation});
 
-  if (aoe_mask != 0) {
-    attempted_tokens_written += 1;
-    if (tokens_written < buffer_capacity) {
-      obs_ptr[0].location = location;
-      obs_ptr[0].feature_id = ObservationFeature::AoeMask;
-      obs_ptr[0].value = aoe_mask;
-      obs_ptr += 1;
-      tokens_written += 1;
+  ObservationCoord obs_width_radius = observable_width >> 1;
+  ObservationCoord obs_height_radius = observable_height >> 1;
+  GridCoord observer_row = observer.location.r;
+  GridCoord observer_col = observer.location.c;
+
+  for (const auto& [r_offset, c_offset] : _observation_offsets) {
+    int obs_r = static_cast<int>(obs_height_radius) + r_offset;
+    int obs_c = static_cast<int>(obs_width_radius) + c_offset;
+    int map_r = static_cast<int>(observer_row) + r_offset;
+    int map_c = static_cast<int>(observer_col) + c_offset;
+    if (map_r < 0 || map_r >= static_cast<int>(_grid->height) || map_c < 0 || map_c >= static_cast<int>(_grid->width)) {
+      continue;
     }
+
+    auto observed = _territory_tracker->observed_territory_at(
+        GridLocation(static_cast<GridCoord>(map_r), static_cast<GridCoord>(map_c)), observer);
+    size_t index = static_cast<size_t>(obs_r) * static_cast<size_t>(observable_width) + static_cast<size_t>(obs_c);
+    territory_observations[index] = observed;
   }
 }
 
@@ -597,6 +696,9 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
     }
   }
 
+  _prepare_territory_observations(
+      observable_width, observable_height, agent_idx, global_tokens, _obs_thread_buffers[0].territory_observations);
+
   // Global tokens use a dedicated location marker (0xFE) distinct from spatial coordinates.
   uint8_t global_location = PackedCoordinate::GLOBAL_LOCATION;
 
@@ -634,11 +736,18 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
     ObservationToken* obs_ptr =
         reinterpret_cast<ObservationToken*>(observation_view.mutable_data(agent_idx, tokens_written, 0));
 
-    _emit_tile_observability_tokens(
-        agent_idx, object_loc, location, obs_ptr, tokens_written, attempted_tokens_written, buffer_capacity);
+    emit_tile_territory_tokens(_obs_thread_buffers[0].territory_observations,
+                               observable_width,
+                               observable_height,
+                               static_cast<uint8_t>(obs_r),
+                               static_cast<uint8_t>(obs_c),
+                               location,
+                               obs_ptr,
+                               tokens_written,
+                               attempted_tokens_written,
+                               buffer_capacity);
 
     if (!obj) {
-      // Empty space: AOE token(s) (if any) are the only emissions for this location.
       tokens_written = std::min(attempted_tokens_written, buffer_capacity);
       continue;
     }
@@ -775,6 +884,9 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
     }
   }
 
+  _prepare_territory_observations(
+      observable_width, observable_height, agent_idx, global_tokens, buffers.territory_observations);
+
   // Global tokens use a dedicated location marker (0xFE) distinct from spatial coordinates.
   uint8_t global_location = PackedCoordinate::GLOBAL_LOCATION;
 
@@ -813,8 +925,16 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
     ObservationToken* obs_ptr =
         reinterpret_cast<ObservationToken*>(observation_view.mutable_data(agent_idx, tokens_written, 0));
 
-    _emit_tile_observability_tokens(
-        agent_idx, object_loc, location, obs_ptr, tokens_written, attempted_tokens_written, buffer_capacity);
+    emit_tile_territory_tokens(buffers.territory_observations,
+                               observable_width,
+                               observable_height,
+                               static_cast<uint8_t>(obs_r),
+                               static_cast<uint8_t>(obs_c),
+                               location,
+                               obs_ptr,
+                               tokens_written,
+                               attempted_tokens_written,
+                               buffer_capacity);
 
     if (!obj) {
       tokens_written = std::min(attempted_tokens_written, buffer_capacity);
