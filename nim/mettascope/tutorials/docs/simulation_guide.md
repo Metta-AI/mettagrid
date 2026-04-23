@@ -516,7 +516,7 @@ cogames tutorial play
 ### Programmatic Use
 
 ```python
-from cogames.games.cogs_vs_clips.missions.machina_1 import make_machina1_mission
+from cogsguard.missions.machina_1 import make_machina1_mission
 
 # Create a mission
 mission = make_machina1_mission(num_agents=8, max_steps=10000)
