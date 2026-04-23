@@ -2,7 +2,12 @@
 
 from mettagrid.config.game_value import Scope, StatValue
 from mettagrid.config.mettagrid_c_config import convert_to_cpp_game_config
-from mettagrid.config.mettagrid_config import GameConfig, MettaGridConfig
+from mettagrid.config.mettagrid_config import (
+    AgentConfig,
+    GameConfig,
+    InventoryConfig,
+    MettaGridConfig,
+)
 from mettagrid.config.obs_config import GlobalObsConfig, ObsConfig
 from mettagrid.simulator.simulator import Simulation, Simulator
 from mettagrid.test_support.map_builders import ObjectNameMapBuilder
@@ -173,4 +178,38 @@ def test_obs_tokens_present_after_step():
     )
     assert len(delta_tokens) >= 1, f"Expected delta stat tokens, got features: {[t.feature.name for t in obs2.tokens]}"
 
+    sim.close()
+
+
+def test_initial_agent_stats_are_visible_in_initial_observation():
+    game_config = GameConfig(
+        num_agents=1,
+        max_steps=10,
+        agents=[
+            AgentConfig(
+                inventory=InventoryConfig(initial={}, limits={}),
+                rewards={},
+                initial_stats={"secret_role": 7.0},
+                on_tick={},
+            )
+        ],
+        obs=ObsConfig(
+            global_obs=GlobalObsConfig(
+                obs={
+                    "secret_role": StatValue(name="secret_role", scope=Scope.AGENT),
+                }
+            )
+        ),
+    )
+
+    game_map = [["agent.agent"]]
+
+    cfg = MettaGridConfig(game=game_config)
+    cfg.game.map_builder = ObjectNameMapBuilder.Config(map_data=game_map)
+
+    sim = Simulation(cfg, seed=42)
+    obs = sim.agent(0).observation
+    stat_tokens = [t for t in obs.tokens if t.feature.name == "secret_role"]
+    assert len(stat_tokens) >= 1
+    assert stat_tokens[0].value == 7
     sim.close()

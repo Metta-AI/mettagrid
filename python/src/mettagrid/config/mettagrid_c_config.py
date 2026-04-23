@@ -678,6 +678,7 @@ def convert_to_cpp_game_config(
 
         inv_config = agent_props.get("inventory", {})
         initial_inventory = {resource_name_to_id[k]: v for k, v in inv_config.get("initial", {}).items()}
+        initial_stats = {name: float(value) for name, value in agent_cfg.initial_stats.items()}
 
         agent_tag_names = list(agent_cfg.tags) + [typeTag(agent_cfg.name)]
         tag_ids = [tag_name_to_id[name] for name in agent_tag_names]
@@ -716,6 +717,7 @@ def convert_to_cpp_game_config(
             inventory_config=inventory_config,
             reward_config=reward_config,
             initial_inventory=initial_inventory,
+            initial_stats=initial_stats,  # pyright: ignore[reportCallIssue]
         )
         cpp_agent_config.tag_ids = tag_ids
 

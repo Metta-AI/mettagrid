@@ -25,6 +25,7 @@ struct AgentConfig : public GridObjectConfig {
               const InventoryConfig& inventory_config = InventoryConfig(),
               const RewardConfig& reward_config = RewardConfig(),
               const std::unordered_map<InventoryItem, InventoryQuantity>& initial_inventory = {},
+              const std::unordered_map<std::string, float>& initial_stats = {},
               std::shared_ptr<mettagrid::Handler> on_tick = nullptr)
       : GridObjectConfig(type_id, type_name, initial_vibe),
         group_id(group_id),
@@ -32,6 +33,7 @@ struct AgentConfig : public GridObjectConfig {
         inventory_config(inventory_config),
         reward_config(reward_config),
         initial_inventory(initial_inventory),
+        initial_stats(initial_stats),
         on_tick(std::move(on_tick)) {}
 
   unsigned char group_id;
@@ -39,6 +41,7 @@ struct AgentConfig : public GridObjectConfig {
   InventoryConfig inventory_config;
   RewardConfig reward_config;
   std::unordered_map<InventoryItem, InventoryQuantity> initial_inventory;
+  std::unordered_map<std::string, float> initial_stats;
   std::shared_ptr<mettagrid::Handler> on_tick;
   std::shared_ptr<mettagrid::Handler> on_after_use_handler;
 };
@@ -55,6 +58,7 @@ inline void bind_agent_config(py::module& m) {
                     const InventoryConfig&,
                     const RewardConfig&,
                     const std::unordered_map<InventoryItem, InventoryQuantity>&,
+                    const std::unordered_map<std::string, float>&,
                     std::shared_ptr<mettagrid::Handler>>(),
            py::arg("type_id"),
            py::arg("type_name") = "agent",
@@ -64,6 +68,7 @@ inline void bind_agent_config(py::module& m) {
            py::arg("inventory_config") = InventoryConfig(),
            py::arg("reward_config") = RewardConfig(),
            py::arg("initial_inventory") = std::unordered_map<InventoryItem, InventoryQuantity>(),
+           py::arg("initial_stats") = std::unordered_map<std::string, float>(),
            py::arg("on_tick") = nullptr)
       .def_readwrite("type_id", &AgentConfig::type_id)
       .def_readwrite("type_name", &AgentConfig::type_name)
@@ -74,6 +79,7 @@ inline void bind_agent_config(py::module& m) {
       .def_readwrite("inventory_config", &AgentConfig::inventory_config)
       .def_readwrite("reward_config", &AgentConfig::reward_config)
       .def_readwrite("initial_inventory", &AgentConfig::initial_inventory)
+      .def_readwrite("initial_stats", &AgentConfig::initial_stats)
       .def_readwrite("on_tick", &AgentConfig::on_tick)
       .def_readwrite("on_after_use_handler", &AgentConfig::on_after_use_handler);
 }

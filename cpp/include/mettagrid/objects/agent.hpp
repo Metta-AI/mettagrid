@@ -60,6 +60,7 @@ public:
   void track_coverage();
 
   void populate_initial_inventory(const std::unordered_map<InventoryItem, InventoryQuantity>& initial_inventory);
+  void populate_initial_stats(const std::unordered_map<std::string, float>& initial_stats);
 
   void set_inventory(const std::unordered_map<InventoryItem, InventoryQuantity>& inventory);
 

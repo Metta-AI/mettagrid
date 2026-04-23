@@ -180,6 +180,10 @@ class AgentConfig(GridObjectConfig):
     name: str = Field(default="agent")
     team_id: int = Field(default=0, ge=0, description="Team ID for grouping agents")
     rewards: dict[str, AgentReward] = Field(default_factory=dict)
+    initial_stats: dict[str, float] = Field(
+        default_factory=dict,
+        description="Private agent stats seeded before the first observation.",
+    )
     on_tick: AnyHandler | None = Field(
         default=None,
         description="Handler run every tick with actor=target=this agent",

@@ -19,6 +19,7 @@ Agent::Agent(GridCoord r, GridCoord c, const AgentConfig& config, const std::vec
       spawn_location(r, c),
       steps_without_motion(0) {
   populate_initial_inventory(config.initial_inventory);
+  populate_initial_stats(config.initial_stats);
   GridObject::init(config.type_id, config.type_name, GridLocation(r, c), config.tag_ids, config.initial_vibe);
 }
 
@@ -80,6 +81,12 @@ void Agent::populate_initial_inventory(const std::unordered_map<InventoryItem, I
   for (const auto& [item, amount] : initial_inventory) {
     this->inventory.update(item, amount, /*ignore_limits=*/true, /*notify=*/false);
     this->stats.set(this->stats.resource_name(item) + ".amount", static_cast<float>(amount));
+  }
+}
+
+void Agent::populate_initial_stats(const std::unordered_map<std::string, float>& initial_stats) {
+  for (const auto& [name, value] : initial_stats) {
+    this->stats.set(name, value);
   }
 }
 
