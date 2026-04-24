@@ -222,6 +222,7 @@ class IdMap:
             token_features, feature_id = make_multi_token_features(prefix, feature_id, normalization, num_inv_tokens)
             features.extend(token_features)
 
+        # Optional observation features are appended so existing feature IDs remain stable.
         if self._config.obs.aoe_mask:
             add_feature("aoe_mask", 3.0)
 

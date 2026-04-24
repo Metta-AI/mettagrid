@@ -4,7 +4,6 @@
 #include <pybind11/stl.h>
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -41,25 +40,9 @@
 namespace py = pybind11;
 
 namespace {
-struct TerritoryEdgeSpec {
-  ObservationType feature_id;
-  int row_delta;
-  int col_delta;
-};
-
-std::array<TerritoryEdgeSpec, 4> territory_edge_specs() {
-  return {{
-      {ObservationFeature::TerritoryEdgeNorth, -1, 0},
-      {ObservationFeature::TerritoryEdgeSouth, 1, 0},
-      {ObservationFeature::TerritoryEdgeEast, 0, 1},
-      {ObservationFeature::TerritoryEdgeWest, 0, -1},
-  }};
-}
-
 bool territory_edge_features_enabled() {
-  const auto edge_specs = territory_edge_specs();
-  return std::any_of(
-      edge_specs.begin(), edge_specs.end(), [](const TerritoryEdgeSpec& edge) { return edge.feature_id != 0; });
+  return ObservationFeature::TerritoryEdgeNorth != 0 || ObservationFeature::TerritoryEdgeSouth != 0 ||
+         ObservationFeature::TerritoryEdgeEast != 0 || ObservationFeature::TerritoryEdgeWest != 0;
 }
 
 void emit_tile_territory_tokens(const std::vector<mettagrid::ObservedTerritory>& territory_observations,
@@ -115,9 +98,10 @@ void emit_tile_territory_tokens(const std::vector<mettagrid::ObservedTerritory>&
     }
   };
 
-  for (const auto& [feature_id, row_delta, col_delta] : territory_edge_specs()) {
-    emit_if_territory_changes(feature_id, static_cast<int>(obs_row) + row_delta, static_cast<int>(obs_col) + col_delta);
-  }
+  emit_if_territory_changes(ObservationFeature::TerritoryEdgeNorth, static_cast<int>(obs_row) - 1, obs_col);
+  emit_if_territory_changes(ObservationFeature::TerritoryEdgeSouth, static_cast<int>(obs_row) + 1, obs_col);
+  emit_if_territory_changes(ObservationFeature::TerritoryEdgeEast, obs_row, static_cast<int>(obs_col) + 1);
+  emit_if_territory_changes(ObservationFeature::TerritoryEdgeWest, obs_row, static_cast<int>(obs_col) - 1);
 }
 }  // namespace
 
