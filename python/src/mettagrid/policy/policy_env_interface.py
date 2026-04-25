@@ -39,9 +39,9 @@ class PolicyEnvInterface(BaseModel):
         default=None,
         description="Energy cost for a single move action, if configured.",
     )
-    observation_kind: Literal["token", "box", "bitmask"] = Field(
+    observation_kind: Literal["token", "box", "bitmask", "bitworld"] = Field(
         default="token",
-        description="Whether env_obs contains token observations, bitmask observations, or raw box observations.",
+        description="Whether env_obs contains token observations, bitmask observations, bitworld frames, or raw boxes.",
     )
     observation_dtype: str = Field(
         default=dtype_observations.name,
@@ -177,6 +177,7 @@ class PolicyEnvInterface(BaseModel):
         num_agents: int,
         action_names: list[str] | None = None,
         vibe_action_names: list[str] | None = None,
+        observation_kind: Literal["token", "box", "bitmask", "bitworld"] = "box",
     ) -> "PolicyEnvInterface":
         """Create PolicyEnvInterface from generic Gymnasium spaces."""
         if not isinstance(observation_space, gym.spaces.Box):
@@ -218,7 +219,7 @@ class PolicyEnvInterface(BaseModel):
             num_agents=int(num_agents),
             observation_shape=obs_shape,
             egocentric_shape=egocentric_shape,
-            observation_kind="box",
+            observation_kind=observation_kind,
             observation_dtype=np.dtype(observation_space.dtype).name,
             observation_low=scalar_low,
             observation_high=scalar_high,
