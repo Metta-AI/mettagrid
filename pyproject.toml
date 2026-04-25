@@ -35,6 +35,7 @@ dependencies = [
   "requests>=2.32.0",
   "httpx>=0.28.0",
   "websockets>=13.0",
+  "websocket-client>=1.6.0",
 ]
 
 [project.optional-dependencies]

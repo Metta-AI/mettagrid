@@ -265,6 +265,7 @@ def run_episode_isolated(
             policy_names=compact_policy_names,
             assignments=per_agent_assignments,
             env=spec.env,
+            game_engine=spec.game_engine,
             results_uri=local_results_uri,
             replay_uri=local_replay_uri,
             debug_dir=str(debug_dir) if debug_dir else None,

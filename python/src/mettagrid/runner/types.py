@@ -30,6 +30,7 @@ class EpisodeJobSummary(BaseModel):
 
 class EpisodeSpec(EpisodeJobSummary):
     env: MettaGridConfig
+    game_engine: str = "mettagrid"
     seed: int = 0
     max_action_time_ms: int = 10000
     overage_budget_ms: int | None = None
@@ -44,6 +45,7 @@ class PureSingleEpisodeJob(BaseModel):
     assignments: list[int]
 
     env: MettaGridConfig
+    game_engine: str = "mettagrid"
 
     results_uri: str | None  # file:// URI for episode results JSON
     replay_uri: str | None  # file:// URI for replay. If missing, do not generate a replay
@@ -115,6 +117,7 @@ class SingleEpisodeJob(EpisodeSpec):
             policy_names=self.policy_names,
             assignments=self.assignments,
             env=self.env,
+            game_engine=self.game_engine,
             seed=self.seed,
             max_action_time_ms=self.max_action_time_ms,
             overage_budget_ms=self.overage_budget_ms,

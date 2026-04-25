@@ -9,7 +9,7 @@ from mettagrid.map_builder.map_builder import HasSeed
 from mettagrid.policy.loader import AgentPolicy, PolicyEnvInterface, initialize_or_load_policy
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
 from mettagrid.renderer.renderer import RenderMode
-from mettagrid.runner.types import PureSingleEpisodeResult
+from mettagrid.runner.types import PureSingleEpisodeJob, PureSingleEpisodeResult
 from mettagrid.simulator.multi_episode.rollout import EpisodeRolloutResult, MultiEpisodeRolloutResult
 from mettagrid.simulator.replay_log_writer import EpisodeReplay, InMemoryReplayWriter
 from mettagrid.simulator.rollout import Rollout
@@ -159,6 +159,7 @@ def run_episode_local(
     device: Optional[str] = None,
     render_mode: Optional[RenderMode] = None,
     autostart: bool = False,
+    game_engine: str = "mettagrid",
 ) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
     """Run a single episode in the current process, loading policies from PolicySpecs.
 
@@ -167,6 +168,24 @@ def run_episode_local(
     interactive play. For running untrusted or remote policies in a subprocess, use
     run_episode_isolated instead.
     """
+    if game_engine == "bitworld":
+        from mettagrid.runner.bitworld_runner import run_bitworld_episode  # noqa: PLC0415
+
+        job = PureSingleEpisodeJob(
+            policy_uris=[spec.data_path or spec.class_path for spec in policy_specs],
+            assignments=list(assignments),
+            env=env,
+            game_engine=game_engine,
+            results_uri=str(results_path.resolve().as_uri()) if results_path else None,
+            replay_uri=None,
+            seed=seed,
+            max_action_time_ms=max_action_time_ms,
+        )
+        results = run_bitworld_episode(job)
+        return results, None
+    elif game_engine != "mettagrid":
+        raise ValueError(f"Unknown game engine: {game_engine}")
+
     if len(assignments) != env.game.num_agents or not all(0 <= a < len(policy_specs) for a in assignments):
         raise ValueError("Assignments must match agent count and be within policy range")
 
@@ -219,6 +238,7 @@ def run_multi_episode_rollout(
     device: Optional[str] = None,
     on_progress: Optional[Callable[[int, EpisodeRolloutResult], None]] = None,
     shuffle_assignments: bool = True,
+    game_engine: str = "mettagrid",
 ) -> tuple[MultiEpisodeRolloutResult, list[str]]:
     if replay_dir is not None:
         if create_replay_dir:
@@ -248,6 +268,7 @@ def run_multi_episode_rollout(
             max_action_time_ms=max_action_time_ms,
             overage_budget_ms=overage_budget_ms,
             device=device,
+            game_engine=game_engine,
         )
         result = EpisodeRolloutResult(
             assignments=list(assignments_list),

@@ -47,6 +47,16 @@ def _write_error(path: str, exc: Exception) -> None:
 
 
 def _run(job: PureSingleEpisodeJob) -> None:
+    if job.game_engine == "bitworld":
+        from mettagrid.runner.bitworld_runner import run_bitworld_episode  # noqa: PLC0415
+
+        results = run_bitworld_episode(job)
+        if job.results_uri is not None:
+            write_data(job.results_uri, results.model_dump_json(), content_type="application/json")
+        return
+    if job.game_engine != "mettagrid":
+        raise ValueError(f"Unknown game engine: {job.game_engine}")
+
     env_for_rollout = resolve_env_for_seed(job.env, job.seed)
     env_interface = PolicyEnvInterface.from_mg_cfg(env_for_rollout)
     policy_agent_ids = _compute_policy_agent_ids(job.assignments, policy_count=len(job.policy_uris))
