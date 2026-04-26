@@ -33,12 +33,7 @@ from .symbol import DEFAULT_SYMBOL_MAP
 class MiniscopeRenderer(Renderer):
     """Emoji-based renderer for MettaGridEnv using component architecture."""
 
-    def __init__(self, interactive: bool = True):
-        """Initialize the renderer.
-
-        Args:
-            interactive: Ignored, always runs in interactive mode
-        """
+    def __init__(self):
         super().__init__()
 
         # Renderer state
