@@ -24,38 +24,51 @@ from typing import Any
 import numpy as np
 import websocket
 
+from mettagrid.bitworld import (
+    BITWORLD_ACTION_COUNT,
+    BITWORLD_ACTION_MASKS,
+    BITWORLD_ACTION_NAMES,
+    BITWORLD_DEFAULT_FRAME_STACK,
+    FRAME_PIXELS,
+    PROTOCOL_BYTES,
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH,
+)
+from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
 from mettagrid.runner.types import PureSingleEpisodeJob, PureSingleEpisodeResult
 from mettagrid.types import EpisodeStats
 
 logger = logging.getLogger(__name__)
 
-SCREEN_WIDTH = 128
-SCREEN_HEIGHT = 128
-PROTOCOL_BYTES = (SCREEN_WIDTH * SCREEN_HEIGHT) // 2
 SERVER_START_ATTEMPTS = 5
 SERVER_START_GRACE_S = 0.1
-BITWORLD_ACTION_COUNT = 128
+BITWORLD_CNN_INPUT_WEIGHT_SUFFIX = "feature_extractor.func.extractor.cnn1.weight"
+
+BITWORLD_AMONG_THEM_AGENT_COUNT = 5
+BITWORLD_GAME_NAME = "among_them"
 
 
 @dataclass
 class BitWorldConfig:
-    game_name: str = "among_them"
     binary_path: str | None = None
     host: str = "127.0.0.1"
     port: int = 8080
+    seed: int = 0
     max_ticks: int = 10000
-    num_players: int = 5
+    num_players: int = BITWORLD_AMONG_THEM_AGENT_COUNT
     connect_timeout_s: float = 10.0
 
     @classmethod
     def from_env_config(cls, config: dict[str, Any]) -> BitWorldConfig:
-        game = config.get("game", {})
-        label = config.get("label", "")
-        game_name = label.removeprefix("bitworld_") if label.startswith("bitworld_") else "among_them"
+        game = config["game"]
+        num_players = game["num_agents"]
+        if num_players != BITWORLD_AMONG_THEM_AGENT_COUNT:
+            raise ValueError(
+                f"BitWorld {BITWORLD_GAME_NAME} expects {BITWORLD_AMONG_THEM_AGENT_COUNT} agents, got {num_players}"
+            )
         return cls(
-            game_name=game_name,
-            max_ticks=game.get("max_steps", 10000),
-            num_players=game.get("num_agents", 5),
+            max_ticks=game["max_steps"],
+            num_players=num_players,
         )
 
 
@@ -65,13 +78,17 @@ class PlayerConnection:
     player_index: int
     address: str
     alive: bool = True
-    latest_frame: bytes | None = None
+    observation_stack: np.ndarray | None = None
+
+
+@dataclass(frozen=True)
+class LoadedBitWorldPolicy:
+    policy: MultiAgentPolicy
+    frame_stack: int
 
 
 @dataclass
 class RewardState:
-    """Tracks accumulated rewards from the /reward WebSocket."""
-
     rewards_by_address: dict[str, float] = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
     ws: websocket.WebSocket | None = None
@@ -87,34 +104,31 @@ def _find_bitworld_binary(config: BitWorldConfig) -> Path:
         raise FileNotFoundError(f"BitWorld binary not found: {config.binary_path}")
 
     candidates = [
-        Path("/opt/bitworld") / config.game_name / config.game_name,
-        Path.home() / "bitworld" / config.game_name / config.game_name,
+        Path("/opt/bitworld") / BITWORLD_GAME_NAME / BITWORLD_GAME_NAME,
+        Path.home() / "bitworld" / BITWORLD_GAME_NAME / BITWORLD_GAME_NAME,
     ]
     for c in candidates:
         if c.exists():
             return c
     raise FileNotFoundError(
-        f"BitWorld binary for '{config.game_name}' not found. Searched: {[str(c) for c in candidates]}"
-    )
-
-
-def _build_server_config_json(config: BitWorldConfig) -> str:
-    """Build JSON config string to pass to the BitWorld server."""
-    return json.dumps(
-        {
-            "minPlayers": config.num_players,
-            "maxTicks": config.max_ticks,
-        }
+        f"BitWorld binary for '{BITWORLD_GAME_NAME}' not found. Searched: {[str(c) for c in candidates]}"
     )
 
 
 def _start_server(binary_path: Path, config: BitWorldConfig) -> subprocess.Popen:
-    config_json = _build_server_config_json(config)
+    server_config = json.dumps(
+        {
+            "seed": config.seed,
+            "maxTicks": config.max_ticks,
+            "minPlayers": config.num_players,
+        },
+        separators=(",", ":"),
+    )
     cmd = [
         str(binary_path),
-        f"--address={config.host}",
-        f"--port={config.port}",
-        f"--config={config_json}",
+        f"--address:{config.host}",
+        f"--port:{config.port}",
+        f"--config:{server_config}",
     ]
     logger.info("Starting BitWorld server: %s", " ".join(cmd))
     return subprocess.Popen(
@@ -125,8 +139,8 @@ def _start_server(binary_path: Path, config: BitWorldConfig) -> subprocess.Popen
     )
 
 
-def _connect_player(config: BitWorldConfig, player_index: int) -> websocket.WebSocket:
-    url = f"ws://{config.host}:{config.port}/player?name=player_{player_index}"
+def _connect_websocket(config: BitWorldConfig, path: str, label: str) -> websocket.WebSocket:
+    url = f"ws://{config.host}:{config.port}{path}"
     deadline = time.monotonic() + config.connect_timeout_s
     last_error = None
     while time.monotonic() < deadline:
@@ -134,33 +148,15 @@ def _connect_player(config: BitWorldConfig, player_index: int) -> websocket.WebS
         ws.settimeout(2.0)
         try:
             ws.connect(url)
-            logger.info("Connected player %d to %s", player_index, url)
+            logger.info("Connected %s to %s", label, url)
             return ws
         except (ConnectionRefusedError, OSError, websocket.WebSocketException) as e:
             last_error = e
             time.sleep(0.1)
-    raise ConnectionError(f"Could not connect to BitWorld server at {url}: {last_error}")
-
-
-def _connect_reward_ws(config: BitWorldConfig) -> websocket.WebSocket:
-    url = f"ws://{config.host}:{config.port}/reward"
-    deadline = time.monotonic() + config.connect_timeout_s
-    last_error = None
-    while time.monotonic() < deadline:
-        ws = websocket.WebSocket()
-        ws.settimeout(2.0)
-        try:
-            ws.connect(url)
-            logger.info("Connected reward listener to %s", url)
-            return ws
-        except (ConnectionRefusedError, OSError, websocket.WebSocketException) as e:
-            last_error = e
-            time.sleep(0.1)
-    raise ConnectionError(f"Could not connect to BitWorld reward endpoint at {url}: {last_error}")
+    raise ConnectionError(f"Could not connect BitWorld {label} at {url}: {last_error}")
 
 
 def _reward_listener(state: RewardState) -> None:
-    """Background thread that reads reward messages from the /reward WebSocket."""
     assert state.ws is not None
     while not state.stop_event.is_set():
         try:
@@ -209,82 +205,118 @@ def _start_server_on_free_port(binary_path: Path, config: BitWorldConfig) -> sub
     raise RuntimeError(f"BitWorld server failed to start after {SERVER_START_ATTEMPTS} port attempts")
 
 
-def _build_bitworld_env_interface() -> Any:
-    """Build a PolicyEnvInterface for BitWorld's observation/action spaces."""
+def _build_bitworld_env_interface(frame_stack: int = BITWORLD_DEFAULT_FRAME_STACK) -> Any:
     import gymnasium as gym  # noqa: PLC0415
 
     from mettagrid.policy.policy_env_interface import PolicyEnvInterface  # noqa: PLC0415
 
-    def _action_names() -> list[str]:
-        names = []
-        buttons = ("up", "down", "left", "right", "select", "a", "b")
-        for mask in range(128):
-            pressed = [b for i, b in enumerate(buttons) if mask & (1 << i)]
-            names.append("+".join(pressed) if pressed else "noop")
-        return names
-
-    obs_space = gym.spaces.Box(low=0, high=255, shape=(PROTOCOL_BYTES,), dtype=np.uint8)
+    obs_space = gym.spaces.Box(low=0, high=15, shape=(frame_stack, SCREEN_HEIGHT, SCREEN_WIDTH), dtype=np.uint8)
     act_space = gym.spaces.Discrete(BITWORLD_ACTION_COUNT)
     return PolicyEnvInterface.from_spaces(
         observation_space=obs_space,
         action_space=act_space,
         num_agents=1,
-        action_names=_action_names(),
-        observation_kind="bitworld",
+        action_names=list(BITWORLD_ACTION_NAMES),
     )
 
 
+def _infer_policy_frame_stack(policy_spec: PolicySpec) -> int:
+    if not policy_spec.data_path:
+        return BITWORLD_DEFAULT_FRAME_STACK
+
+    weights_path = Path(policy_spec.data_path)
+    if weights_path.suffix != ".safetensors":
+        return BITWORLD_DEFAULT_FRAME_STACK
+
+    from safetensors import safe_open  # noqa: PLC0415
+
+    with safe_open(weights_path, framework="pt", device="cpu") as weights:
+        input_weight_keys = [key for key in weights.keys() if key.endswith(BITWORLD_CNN_INPUT_WEIGHT_SUFFIX)]
+        if len(input_weight_keys) != 1:
+            raise ValueError(
+                f"Expected one BitWorld CNN input weight in {weights_path}, found {len(input_weight_keys)}"
+            )
+        shape = weights.get_tensor(input_weight_keys[0]).shape
+
+    frame_stack = int(shape[1])
+    if frame_stack < 1:
+        raise ValueError(f"BitWorld frame stack must be positive, got {frame_stack}")
+    return frame_stack
+
+
+def _unpack_frame(frame_data: bytes) -> np.ndarray:
+    packed = np.frombuffer(frame_data, dtype=np.uint8)
+    frame = np.empty(FRAME_PIXELS, dtype=np.uint8)
+    frame[0::2] = packed & 0x0F
+    frame[1::2] = packed >> 4
+    return frame.reshape(SCREEN_HEIGHT, SCREEN_WIDTH)
+
+
+def _stack_observation(conn: PlayerConnection, frame_data: bytes, frame_stack: int) -> np.ndarray:
+    frame = _unpack_frame(frame_data)
+    if conn.observation_stack is None:
+        conn.observation_stack = np.repeat(frame[np.newaxis, :, :], frame_stack, axis=0)
+    else:
+        conn.observation_stack[:-1] = conn.observation_stack[1:]
+        conn.observation_stack[-1] = frame
+    return conn.observation_stack
+
+
+def _policy_action_masks(policy: MultiAgentPolicy, observations: np.ndarray) -> np.ndarray:
+    actions = np.zeros((observations.shape[0],), dtype=np.int64)
+    policy.step_batch(observations, actions)
+    invalid_indices = np.flatnonzero((actions < 0) | (actions >= BITWORLD_ACTION_COUNT))
+    if invalid_indices.size:
+        batch_index = int(invalid_indices[0])
+        raise ValueError(
+            f"BitWorld policy action index must be in [0, {BITWORLD_ACTION_COUNT}), "
+            f"got {int(actions[batch_index])} at batch index {batch_index}"
+        )
+    return BITWORLD_ACTION_MASKS[actions]
+
+
 def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
+    from mettagrid.policy.loader import initialize_or_load_policy  # noqa: PLC0415
+    from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
+
     config = BitWorldConfig.from_env_config(job.env.model_dump(mode="json"))
+    config.seed = job.seed
+    if len(job.assignments) != config.num_players:
+        raise ValueError(
+            f"BitWorld {BITWORLD_GAME_NAME} expects {config.num_players} assignments, got {len(job.assignments)}"
+        )
+
+    policies: list[LoadedBitWorldPolicy] = []
+    for uri in job.policy_uris:
+        policy_spec = PolicySpec(class_path=uri) if "://" not in uri else policy_spec_from_uri(uri)
+        frame_stack = _infer_policy_frame_stack(policy_spec)
+        env_interface = _build_bitworld_env_interface(frame_stack)
+        policies.append(LoadedBitWorldPolicy(initialize_or_load_policy(env_interface, policy_spec), frame_stack))
+
     binary_path = _find_bitworld_binary(config)
     server_proc = _start_server_on_free_port(binary_path, config)
 
     connections: list[PlayerConnection] = []
-    num_agents = len(job.assignments)
     reward_state = RewardState()
 
     try:
-        # Connect all players. The server stays in Lobby phase until
-        # minPlayers (== num_agents) have connected, then auto-starts.
-        for i in range(num_agents):
-            ws = _connect_player(config, i)
-            connections.append(
-                PlayerConnection(
-                    ws=ws,
-                    player_index=i,
-                    address=f"player_{i}",
-                )
-            )
-
-        # Connect reward listener
-        reward_state.ws = _connect_reward_ws(config)
+        reward_state.ws = _connect_websocket(config, "/reward", "reward listener")
         reward_state.thread = threading.Thread(target=_reward_listener, args=(reward_state,), daemon=True)
         reward_state.thread.start()
 
-        # Load policies
-        env_interface = _build_bitworld_env_interface()
-        from mettagrid.policy.loader import initialize_or_load_policy  # noqa: PLC0415
-        from mettagrid.policy.policy import PolicySpec  # noqa: PLC0415
-        from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
+        for i in range(config.num_players):
+            address = f"player_{i}"
+            ws = _connect_websocket(config, f"/player?name={address}", f"player {i}")
+            connections.append(PlayerConnection(ws=ws, player_index=i, address=address))
 
-        def _resolve_policy_spec(uri: str) -> PolicySpec:
-            # Raw class paths (from run_episode_local) don't have a scheme
-            if "://" not in uri:
-                return PolicySpec(class_path=uri)
-            return policy_spec_from_uri(uri)
-
-        policy_specs = [_resolve_policy_spec(uri) for uri in job.policy_uris]
-        policies = [initialize_or_load_policy(env_interface, spec) for spec in policy_specs]
-
-        # Run the episode tick loop
         for _tick in range(config.max_ticks):
             all_dead = True
+            pending_actions: list[tuple[PlayerConnection, LoadedBitWorldPolicy, np.ndarray]] = []
             for conn in connections:
                 if not conn.alive:
                     continue
                 all_dead = False
 
-                # Receive frame
                 try:
                     frame_data = conn.ws.recv()
                 except websocket.WebSocketTimeoutException:
@@ -296,55 +328,47 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
                 if not isinstance(frame_data, bytes) or len(frame_data) != PROTOCOL_BYTES:
                     continue
 
-                conn.latest_frame = frame_data
+                loaded_policy = policies[job.assignments[conn.player_index]]
+                observation = _stack_observation(conn, frame_data, loaded_policy.frame_stack)
+                pending_actions.append((conn, loaded_policy, observation))
 
-                # Get action from policy
-                policy_index = job.assignments[conn.player_index]
-                policy = policies[policy_index]
-                obs = np.frombuffer(frame_data, dtype=np.uint8)
-                actions = np.zeros((1,), dtype=np.int64)
-                policy.step_batch(obs.reshape(1, -1), actions)
-                action_mask = int(actions[0]) % BITWORLD_ACTION_COUNT
-
-                # Send action to server
-                conn.ws.send(struct.pack("B", action_mask), websocket.ABNF.OPCODE_BINARY)
+            for loaded_policy in policies:
+                batch = [
+                    (conn, observation)
+                    for conn, policy_for_conn, observation in pending_actions
+                    if policy_for_conn is loaded_policy
+                ]
+                if not batch:
+                    continue
+                observations = np.stack([observation for _conn, observation in batch])
+                action_masks = _policy_action_masks(loaded_policy.policy, observations)
+                for (conn, _observation), action_mask in zip(batch, action_masks, strict=True):
+                    conn.ws.send(struct.pack("B", int(action_mask)), websocket.ABNF.OPCODE_BINARY)
 
             if all_dead:
                 break
 
-        # Collect final rewards from the reward listener
         with reward_state.lock:
             rewards_by_addr = dict(reward_state.rewards_by_address)
 
-        # Map rewards to agent indices. The server uses addresses like "player_0", etc.
-        # but the actual address depends on how the server assigns them. We use the
-        # connection order as a fallback.
-        rewards = [0.0] * num_agents
+        rewards = [0.0] * len(connections)
         for conn in connections:
             if conn.address in rewards_by_addr:
                 rewards[conn.player_index] = rewards_by_addr[conn.address]
 
-        # If no address-based rewards were found, try positional mapping
-        if all(r == 0.0 for r in rewards) and rewards_by_addr:
-            sorted_addrs = sorted(rewards_by_addr.keys())
-            for i, addr in enumerate(sorted_addrs):
-                if i < num_agents:
-                    rewards[i] = rewards_by_addr[addr]
-
         stats: EpisodeStats = {
-            "game": {"ticks": float(config.max_ticks), "num_players": float(num_agents)},
-            "agent": [{"reward": rewards[i]} for i in range(num_agents)],
+            "game": {"ticks": float(config.max_ticks), "num_players": float(config.num_players)},
+            "agent": [{"reward": rewards[i]} for i in range(config.num_players)],
         }
 
         return PureSingleEpisodeResult(
             rewards=rewards,
-            action_timeouts=[0] * num_agents,
+            action_timeouts=[0] * config.num_players,
             stats=stats,
             steps=config.max_ticks,
         )
 
     finally:
-        # Stop reward listener
         reward_state.stop_event.set()
         if reward_state.ws is not None:
             try:
@@ -354,14 +378,12 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
         if reward_state.thread is not None:
             reward_state.thread.join(timeout=2.0)
 
-        # Close player connections
         for conn in connections:
             try:
                 conn.ws.close()
             except Exception:
                 logger.debug("Failed to close WebSocket for player %d", conn.player_index, exc_info=True)
 
-        # Shut down server
         if server_proc.poll() is None:
             server_proc.terminate()
             try:
