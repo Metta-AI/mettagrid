@@ -19,4 +19,7 @@ block test_silky_atlas:
   doAssert "minimap/agent" in builder.atlas.entries, "Silky atlas should contain minimap/agent"
   doAssert "minimap/hub" in builder.atlas.entries, "Silky atlas should contain minimap/hub"
   doAssert "minimap/unknown" in builder.atlas.entries, "Silky atlas should contain minimap/unknown"
+  if dirExists(testDataDir / "amongus"):
+    doAssert "objects/crew_station" in builder.atlas.entries
+    doAssert "amongus/terrain/stamp.among_us_wiring" in builder.atlas.entries
   echo "Shared silky atlas test passed"

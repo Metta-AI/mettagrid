@@ -1,5 +1,5 @@
 import
-  std/[math, random, os, strutils],
+  std/[math, random, os, strutils, tables],
   opengl, windy, silky/drawers/ogl, shady, vmath, chroma,
   ../common,
   ./[tilemap, pixelator, shaderquad]
@@ -124,6 +124,9 @@ proc generateTerrainMap(atlasPath: string): TileMap =
 
 proc stampForTypeName(typeName: string): tuple[sprite: string, offset: IVec2] =
   let normalized = normalizeTypeName(typeName)
+  let configured = replay.config.game.render.stamp_assets.getOrDefault(normalized)
+  if configured.len > 0:
+    return (sprite: configured, offset: ivec2(0, 0))
   case normalized
   of "carbon_extractor":
     (sprite: "terrain/stamp.carbon", offset: ivec2(0, 0))
@@ -236,7 +239,12 @@ proc drawSplats*(mvp: Mat4, px: Pixelator) =
     ""
 
   if splatSandQuad == nil:
-    splatSandQuad = newGridQuad(dataDir / "terrain/repeating.sand.png", 1, 1)
+    let terrainTile =
+      if replay.config.game.render.terrain_tile.len > 0:
+        replay.config.game.render.terrain_tile
+      else:
+        "terrain/repeating.sand.png"
+    splatSandQuad = newGridQuad(dataDir / terrainTile, 1, 1)
   let sandImageSize = splatSandQuad.imageSize()
   let sandTileSpan = vec2(
     max(1.0f, sandImageSize.x.float32 / TileSize.float32),
