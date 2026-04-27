@@ -330,6 +330,7 @@ PYBIND11_MODULE(mettagrid_c, m) {
       .def_readwrite("territory_controls", &GridObjectConfig::territory_controls)
       .def_readwrite("initial_inventory", &GridObjectConfig::initial_inventory)
       .def_readwrite("inventory_config", &GridObjectConfig::inventory_config)
+      .def_readwrite("blocks_vision", &GridObjectConfig::blocks_vision)
       .def(
           "add_on_tag_add_handler",
           [](GridObjectConfig& self, int tag_id, const mettagrid::HandlerConfig& hc) {

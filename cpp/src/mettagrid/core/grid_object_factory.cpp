@@ -99,6 +99,7 @@ GridObject* create_object_from_config(GridCoord r,
                                       TagIndex* tag_index) {
   auto* obj = _create_object(r, c, config, stats, resource_names, grid, obs_encoder, current_timestep_ptr);
   obj->set_obs_encoder(obs_encoder);
+  obj->blocks_vision = config->blocks_vision;
   _set_up_handlers(obj, config, tag_index);
   return obj;
 }

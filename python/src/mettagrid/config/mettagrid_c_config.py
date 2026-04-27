@@ -845,6 +845,7 @@ def convert_to_cpp_game_config(
 
         if cpp_config is not None:
             cpp_config.tag_ids = tag_ids
+            cpp_config.blocks_vision = object_config.blocks_vision
 
             cpp_config.on_use_handler = _convert_any_handler(object_config.on_use_handler, id_maps)
             if object_config.aoes:

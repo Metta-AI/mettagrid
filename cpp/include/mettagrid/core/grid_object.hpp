@@ -85,6 +85,9 @@ struct GridObjectConfig {
   std::unordered_map<int, std::vector<mettagrid::HandlerConfig>> on_tag_add;
   std::unordered_map<int, std::vector<mettagrid::HandlerConfig>> on_tag_remove;
 
+  // Whether this object blocks line of sight for observations.
+  bool blocks_vision = false;
+
   GridObjectConfig(TypeId type_id, const std::string& type_name, ObservationType initial_vibe = 0)
       : type_id(type_id),
         type_name(type_name),
@@ -113,6 +116,7 @@ public:
   std::string type_name;  // Class type (e.g., "hub")
   std::string name;       // Instance name (e.g., "carbon_extractor"), defaults to type_name
   std::bitset<kMaxTags> tag_bits;
+  bool blocks_vision{false};
 
   // Constructor with optional inventory config (defaults to empty)
   explicit GridObject(const InventoryConfig& inv_config = InventoryConfig());

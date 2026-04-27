@@ -578,6 +578,7 @@ class GridObjectConfig:
     aoe_configs: list[AOEConfig]
     initial_inventory: dict[int, int]
     inventory_config: InventoryConfig
+    blocks_vision: bool
 
 class LimitDef:
     def __init__(

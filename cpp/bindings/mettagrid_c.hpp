@@ -29,6 +29,7 @@
 #include "core/tag_index.hpp"
 #include "core/territory_tracker.hpp"
 #include "core/types.hpp"
+#include "core/vision.hpp"
 #include "handler/event_scheduler.hpp"
 #include "handler/handler.hpp"
 #include "handler/handler_context.hpp"
@@ -217,11 +218,19 @@ private:
   // Pre-computed observation pattern offsets (Manhattan distance order)
   std::vector<std::pair<int, int>> _observation_offsets;
 
+  // Precomputed shadow masks for this env's observation window. Geometric only
+  // — no grid/observer dependence — so a single read-only copy is shared
+  // across the serial and parallel observation paths.
+  mettagrid::ShadowTable _shadow_table;
+
   // Per-thread buffers for observation computation (at least 1, used by serial path too)
   struct ObsComputeBuffers {
     std::vector<PartialObservationToken> global_tokens;
     std::vector<PartialObservationToken> obs_features_scratch;
     std::vector<mettagrid::ObservedTerritory> territory_observations;
+    // Line-of-sight mask over the observation rectangle (row-major, obs_height * obs_width).
+    // 1 = visible from observer, 0 = hidden by a blocker.
+    std::vector<uint8_t> visibility_bitmap;
     size_t tokens_written = 0;
     size_t tokens_dropped = 0;
     size_t tokens_free_space = 0;

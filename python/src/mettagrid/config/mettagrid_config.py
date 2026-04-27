@@ -139,6 +139,11 @@ class GridObjectConfig(Config):
     )
     inventory: InventoryConfig = Field(default_factory=InventoryConfig)
 
+    blocks_vision: bool = Field(
+        default=False,
+        description="Whether this object blocks line of sight for observations",
+    )
+
     # Handlers - dict[name, Handler] for backwards compatibility
     handlers: dict[str, Handler] = Field(
         default_factory=dict,
@@ -192,6 +197,15 @@ class AgentConfig(GridObjectConfig):
         default=None,
         description="Handler fired after agent successfully uses a target (actor=agent, target=object).",
     )
+
+    @model_validator(mode="after")
+    def _reject_blocks_vision(self) -> "AgentConfig":
+        if self.blocks_vision:
+            raise ValueError(
+                "AgentConfig.blocks_vision=True is not supported: agents do not block vision. "
+                "Set blocks_vision on object types like WallConfig instead."
+            )
+        return self
 
 
 class TalkConfig(Config):

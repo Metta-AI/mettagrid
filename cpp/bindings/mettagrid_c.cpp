@@ -26,6 +26,7 @@
 #include "core/grid_object_factory.hpp"
 #include "core/observation_shape.hpp"
 #include "core/types.hpp"
+#include "core/vision.hpp"
 #include "handler/handler_bindings.hpp"
 #include "handler/handler_context.hpp"
 #include "objects/agent.hpp"
@@ -136,6 +137,10 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
   // Pre-compute in-vision observation offsets (Manhattan distance order).
   mettagrid::compute_observation_offsets(obs_height, obs_width, _observation_offsets);
 
+  // Precompute per-cell shadow masks for this window's geometry. Used every
+  // tick by both observation paths; depends only on (obs_height, obs_width).
+  _shadow_table = mettagrid::ShadowTable(obs_height, obs_width);
+
   // Parallel observation dispatch is opt-in until validated on production
   // EPYC hardware. Set METTAGRID_OBS_THREADS to enable:
   //   "auto" → heuristic clamp(num_agents / 4, 1, 6)
@@ -171,6 +176,7 @@ MettaGrid::MettaGrid(const GameConfig& game_config, const py::list map, unsigned
       buf.obs_features_scratch.resize(Agent::max_obs_features(max_tags, num_resources, tokens_per_item));
       buf.territory_observations.reserve(
           static_cast<size_t>(game_config.obs_width) * static_cast<size_t>(game_config.obs_height));
+      buf.visibility_bitmap.resize(static_cast<size_t>(obs_width) * static_cast<size_t>(obs_height), 0);
     }
   }
 
@@ -621,6 +627,12 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
   int c_end =
       std::min(static_cast<int>(observer_col) + static_cast<int>(obs_width_radius) + 1, static_cast<int>(_grid->width));
 
+  // Line-of-sight mask for the observation rectangle. Uses thread buffer 0:
+  // the original path is invoked serially (validation and non-optimized primary).
+  mettagrid::compute_visibility_bitmap(
+      *_grid, observer_row, observer_col, _shadow_table, _obs_thread_buffers[0].visibility_bitmap);
+  const auto& visibility_bitmap = _obs_thread_buffers[0].visibility_bitmap;
+
   // Fill in visible objects. Observations should have been cleared in _step, so
   // we don't need to do that here.
   size_t attempted_tokens_written = 0;
@@ -707,13 +719,22 @@ void MettaGrid::_compute_observation_original(GridCoord observer_row,
       continue;
     }
 
+    // Position within the observation window (agent is at the center).
+    int obs_r = r_offset + static_cast<int>(location_height_radius);
+    int obs_c = c_offset + static_cast<int>(location_width_radius);
+
+    // Skip cells hidden by a vision-blocking object. This suppresses both
+    // object tokens and AOE/observability tokens for hidden cells, and also
+    // skips the cell.visited staleness bookkeeping.
+    if (!visibility_bitmap[static_cast<size_t>(obs_r) * static_cast<size_t>(observable_width) +
+                           static_cast<size_t>(obs_c)]) {
+      continue;
+    }
+
     // Process a single grid location
     GridLocation object_loc(static_cast<GridCoord>(r), static_cast<GridCoord>(c));
     auto obj = _grid->object_at(object_loc);
 
-    // Calculate position within the observation window (agent is at the center)
-    int obs_r = r - static_cast<int>(observer_row) + static_cast<int>(location_height_radius);
-    int obs_c = c - static_cast<int>(observer_col) + static_cast<int>(location_width_radius);
     uint8_t location = PackedCoordinate::pack(static_cast<uint8_t>(obs_r), static_cast<uint8_t>(obs_c));
 
     // Prepare observation buffer for this location
@@ -808,6 +829,13 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
   int c_end =
       std::min(static_cast<int>(observer_col) + static_cast<int>(obs_width_radius) + 1, static_cast<int>(_grid->width));
 
+  // Line-of-sight mask for the observation rectangle. The shadow table is
+  // read-only after construction, so sharing it across worker threads is safe;
+  // the destination bitmap lives on the thread-local buffer.
+  mettagrid::compute_visibility_bitmap(
+      *_grid, observer_row, observer_col, _shadow_table, buffers.visibility_bitmap);
+  const auto& visibility_bitmap = buffers.visibility_bitmap;
+
   // Fill in visible objects. Observations should have been cleared in _step, so
   // we don't need to do that here.
   size_t attempted_tokens_written = 0;
@@ -895,13 +923,22 @@ void MettaGrid::_compute_observation_optimized(GridCoord observer_row,
       continue;
     }
 
+    // Position within the observation window (agent is at the center).
+    int obs_r = r_offset + static_cast<int>(location_height_radius);
+    int obs_c = c_offset + static_cast<int>(location_width_radius);
+
+    // Skip cells hidden by a vision-blocking object. This suppresses both
+    // object tokens and AOE/observability tokens for hidden cells, and also
+    // skips the cell.visited staleness bookkeeping.
+    if (!visibility_bitmap[static_cast<size_t>(obs_r) * static_cast<size_t>(observable_width) +
+                           static_cast<size_t>(obs_c)]) {
+      continue;
+    }
+
     // Process a single grid location
     GridLocation object_loc(static_cast<GridCoord>(r), static_cast<GridCoord>(c));
     auto obj = _grid->object_at(object_loc);
 
-    // Calculate position within the observation window (agent is at the center)
-    int obs_r = r - static_cast<int>(observer_row) + static_cast<int>(location_height_radius);
-    int obs_c = c - static_cast<int>(observer_col) + static_cast<int>(location_width_radius);
     uint8_t location = PackedCoordinate::pack(static_cast<uint8_t>(obs_r), static_cast<uint8_t>(obs_c));
 
     // Once buffer is full, we still compute features to track exact tokens_dropped.

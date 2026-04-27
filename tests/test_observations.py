@@ -4,9 +4,11 @@ import pytest
 
 from mettagrid.config.mettagrid_config import (
     ActionsConfig,
+    AgentConfig,
     ChangeVibeActionConfig,
     GameConfig,
     GlobalObsConfig,
+    GridObjectConfig,
     MettaGridConfig,
     MoveActionConfig,
     NoopActionConfig,
@@ -527,3 +529,83 @@ class TestEdgeObservations:
         assert len(wall_tokens) > 0, "Should still see walls at edges even at bottom-right corner"
 
         print("\nSUCCESS: Observation window correctly tracks agent movement to corner")
+
+
+class TestVisionBlocking:
+    """Line-of-sight behavior when objects declare blocks_vision=True."""
+
+    def _build_sim(self, map_data, blocks_vision: bool, obs_width: int = 7, obs_height: int = 7) -> Simulation:
+        cfg = MettaGridConfig(
+            game=GameConfig(
+                num_agents=2,
+                obs=ObsConfig(width=obs_width, height=obs_height, num_tokens=NUM_OBS_TOKENS),
+                max_steps=10,
+                actions=ActionsConfig(noop=NoopActionConfig(), move=MoveActionConfig()),
+                objects={"wall": WallConfig(tags=["wall"], blocks_vision=blocks_vision)},
+                resource_names=["laser", "armor", "heart"],
+                map_builder=AsciiMapBuilder.Config(map_data=map_data, char_to_map_name=DEFAULT_CHAR_TO_NAME),
+            )
+        )
+        return Simulation(cfg)
+
+    @staticmethod
+    def _los_map() -> list[list[str]]:
+        return [
+            ["#", "#", "#", "#", "#", "#", "#"],
+            ["#", "@", ".", "#", ".", "@", "#"],
+            ["#", ".", ".", ".", ".", ".", "#"],
+            ["#", "#", "#", "#", "#", "#", "#"],
+        ]
+
+    def test_wall_hides_agent_behind_it(self):
+        # Use 9x5 observation window so (dr=0, dc=+4) to agent 1 is in-shape.
+        sim = self._build_sim(self._los_map(), blocks_vision=True, obs_width=9, obs_height=5)
+        obs = sim._c_sim.observations()
+        helper = ObservationHelper()
+        # Agent 0 at (row=1, col=1); wall at (row=1, col=3); agent 1 at (row=1, col=5).
+        # Agent 1's local coords in agent 0's obs: (row=2, col=8).
+        agent1_tokens = helper.find_tokens(obs[0], location=xy(8, 2))
+        assert len(agent1_tokens) == 0, f"Agent 1 should be hidden behind the wall, got {agent1_tokens}"
+
+    def test_wall_itself_visible(self):
+        sim = self._build_sim(self._los_map(), blocks_vision=True, obs_width=9, obs_height=5)
+        obs = sim._c_sim.observations()
+        helper = ObservationHelper()
+        tag_feature_id = sim.config.game.id_map().feature_id("tag")
+        tag_names_list = sim.config.game.id_map().tag_names()
+        wall_tag_id = tag_names_list.index("wall")
+
+        # Wall at col offset +2 from agent 0 → local col 4+2=6, row 2. Packed (row=2, col=6) → xy(6, 2).
+        wall_tokens = helper.find_tokens(obs[0], location=xy(6, 2), feature_id=tag_feature_id, value=wall_tag_id)
+        assert len(wall_tokens) > 0, "Blocking wall should itself be visible"
+
+    def test_hole_does_not_block_vision(self):
+        # Same layout but with blocks_vision=False: agent 1 is visible.
+        sim = self._build_sim(self._los_map(), blocks_vision=False, obs_width=9, obs_height=5)
+        obs = sim._c_sim.observations()
+        helper = ObservationHelper()
+        agent1_tokens = helper.find_tokens(obs[0], location=xy(8, 2))
+        assert len(agent1_tokens) > 0, "Without blocks_vision, agent 1 should be visible"
+
+    def test_symmetry_two_agents(self):
+        sim = self._build_sim(self._los_map(), blocks_vision=True, obs_width=9, obs_height=5)
+        obs = sim._c_sim.observations()
+        helper = ObservationHelper()
+
+        agent0_sees_1 = len(helper.find_tokens(obs[0], location=xy(8, 2)))
+        # Agent 1 at (1,5); agent 0 at local (0, -4) → col 4-4=0 (obs_width=9 center is 4, row 2).
+        agent1_sees_0 = len(helper.find_tokens(obs[1], location=xy(0, 2)))
+        assert agent0_sees_1 == agent1_sees_0 == 0, (
+            f"Symmetric occlusion expected; got agent0_sees_1={agent0_sees_1}, agent1_sees_0={agent1_sees_0}"
+        )
+
+    def test_agent_config_rejects_blocks_vision_true(self):
+        with pytest.raises(ValueError, match="blocks_vision"):
+            AgentConfig(blocks_vision=True)
+
+    def test_wall_config_default_blocks_vision_false(self):
+        # Regression: default wall config must not block vision so existing envs are unchanged.
+        assert WallConfig().blocks_vision is False
+
+    def test_grid_object_config_default_blocks_vision_false(self):
+        assert GridObjectConfig(name="thing").blocks_vision is False
