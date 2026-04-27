@@ -16,6 +16,7 @@ import socket
 import subprocess
 import threading
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -382,7 +383,7 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
 
     connections: list[PlayerConnection] = []
     reward_state = RewardState()
-    action_stats: list[dict[str, float]] = [dict() for _ in range(config.num_players)]
+    action_stats: list[Counter[str]] = [Counter() for _ in range(config.num_players)]
 
     try:
         reward_state.ws = _connect_websocket(config, REWARD_PATH, "reward listener")
@@ -431,8 +432,7 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
                 for (conn, _observation), action_mask in zip(batch, action_masks, strict=True):
                     mask = int(action_mask)
                     conn.ws.send(pack_input_packet(mask), websocket.ABNF.OPCODE_BINARY)
-                    stat_key = _action_stat_key(mask)
-                    action_stats[conn.player_index][stat_key] = action_stats[conn.player_index].get(stat_key, 0.0) + 1.0
+                    action_stats[conn.player_index][_action_stat_key(mask)] += 1
 
             if all_dead:
                 break
