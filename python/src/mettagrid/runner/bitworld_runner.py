@@ -50,7 +50,10 @@ logger = logging.getLogger(__name__)
 
 SERVER_START_ATTEMPTS = 5
 SERVER_START_GRACE_S = 0.1
-BITWORLD_CNN_INPUT_WEIGHT_SUFFIX = "feature_extractor.func.extractor.cnn1.weight"
+BITWORLD_CNN_INPUT_WEIGHT_SUFFIXES = (
+    "feature_extractor.func.extractor.cnn1.weight",
+    "encoder.0.weight",
+)
 
 BITWORLD_AMONG_THEM_AGENT_COUNT = 5
 BITWORLD_GAME_NAME = "among_them"
@@ -240,7 +243,7 @@ def _infer_policy_frame_stack(policy_spec: PolicySpec) -> int:
     from safetensors import safe_open  # noqa: PLC0415
 
     with safe_open(weights_path, framework="pt", device="cpu") as weights:
-        input_weight_keys = [key for key in weights.keys() if key.endswith(BITWORLD_CNN_INPUT_WEIGHT_SUFFIX)]
+        input_weight_keys = [key for key in weights.keys() if key.endswith(BITWORLD_CNN_INPUT_WEIGHT_SUFFIXES)]
         if len(input_weight_keys) != 1:
             raise ValueError(
                 f"Expected one BitWorld CNN input weight in {weights_path}, found {len(input_weight_keys)}"

@@ -204,6 +204,14 @@ def test_infer_policy_frame_stack_from_checkpoint_weights(tmp_path):
     assert bitworld_runner._infer_policy_frame_stack(policy_spec) == 3
 
 
+def test_infer_policy_frame_stack_from_native_bitworld_checkpoint_weights(tmp_path):
+    weights_path = tmp_path / "weights.safetensors"
+    save_file({"encoder.0.weight": torch.zeros((32, 4, 8, 8))}, weights_path)
+    policy_spec = PolicySpec(class_path="metta.agent.policy.CheckpointPolicy", data_path=str(weights_path))
+
+    assert bitworld_runner._infer_policy_frame_stack(policy_spec) == 4
+
+
 def test_stack_observation_unpacks_server_frames_and_preserves_history():
     conn = bitworld_runner.PlayerConnection(ws=cast(Any, _FakeWebSocket()), player_index=0, address="player_0")
     first = (np.arange(bitworld_runner.FRAME_PIXELS, dtype=np.uint8) % 16).reshape(
