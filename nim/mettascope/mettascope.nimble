@@ -14,7 +14,7 @@ requires "fluffy >= 0.1.0"
 task bindings, "Generate bindings":
 
   proc compile(libName: string) =
-    exec "nim c -d:release --app:lib --tlsEmulation:off --out:" & libName & " --outdir:bindings/generated bindings/bindings.nim"
+    exec "nim c -d:release -d:ssl --app:lib --tlsEmulation:off --out:" & libName & " --outdir:bindings/generated bindings/bindings.nim"
     # Post-process generated Python file: fix cstring -> c_char_p for Python ctypes compatibility
     let pyFile = "bindings/generated/mettascope.py"
     var content = readFile(pyFile)

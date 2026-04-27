@@ -37,7 +37,10 @@ class MettascopeRenderer(Renderer):
 
         from importlib.metadata import version as pkg_version  # noqa: PLC0415
 
-        self._version = pkg_version("mettagrid")
+        from packaging.version import Version  # noqa: PLC0415
+
+        # Strip dev/post suffixes (e.g. "0.26.8.post1.dev4" -> "0.26.8") since S3 only has release versions.
+        self._version = Version(pkg_version("mettagrid")).base_version
         os.environ.setdefault("METTASCOPE_DISABLE_CTRL_C", "1")
         self._autostart = autostart
 

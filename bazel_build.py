@@ -333,7 +333,7 @@ def _run_nim_build(name: str, nim_dir: Path, package_dir: Path, *, copy_bindings
     cmd(["nimby", "sync", "-g", "nimby.lock"], cwd=nim_dir, max_attempts=3)
     _sanitize_nim_cfg(nim_dir)
     _ensure_nim_cfg_has_nimby_paths(nim_dir)
-    cmd(["nim", "c", "--skipProjCfg:on", "bindings/bindings.nim"], cwd=nim_dir)
+    cmd(["nim", "c", "--skipProjCfg:on", "-d:ssl", "bindings/bindings.nim"], cwd=nim_dir)
 
     print(f"Successfully built {name}")
     if not copy_bindings:
