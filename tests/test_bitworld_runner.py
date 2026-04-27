@@ -109,7 +109,7 @@ def test_bitworld_env_interface_uses_trainable_action_space():
         bitworld_runner.SCREEN_WIDTH,
     )
     assert env_interface.observation_space.dtype == np.uint8
-    assert env_interface.observation_kind == "palette_screen"
+    assert env_interface.observation_kind == "pixels"
     assert list(env_interface.action_names) == list(bitworld_runner.BITWORLD_ACTION_NAMES)
     assert env_interface.action_names[0] == "noop"
     assert env_interface.action_names[1] == "a"

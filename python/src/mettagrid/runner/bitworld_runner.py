@@ -222,7 +222,7 @@ def _build_bitworld_env_interface(frame_stack: int = BITWORLD_DEFAULT_FRAME_STAC
         action_space=act_space,
         num_agents=1,
         action_names=list(BITWORLD_ACTION_NAMES),
-        observation_kind="palette_screen",
+        observation_kind="pixels",
     )
 
 
