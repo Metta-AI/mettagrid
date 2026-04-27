@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 import logging
 import socket
-import struct
 import subprocess
 import threading
 import time
@@ -30,9 +29,15 @@ from mettagrid.bitworld import (
     BITWORLD_ACTION_NAMES,
     BITWORLD_DEFAULT_FRAME_STACK,
     FRAME_PIXELS,
+    PLAYER_PATH,
     PROTOCOL_BYTES,
+    REWARD_PATH,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
+    BitWorldEndpoint,
+    pack_input_packet,
+    parse_reward_packet,
+    unpack_frame_pixels,
 )
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
 from mettagrid.runner.types import PureSingleEpisodeJob, PureSingleEpisodeResult
@@ -139,8 +144,13 @@ def _start_server(binary_path: Path, config: BitWorldConfig) -> subprocess.Popen
     )
 
 
-def _connect_websocket(config: BitWorldConfig, path: str, label: str) -> websocket.WebSocket:
-    url = f"ws://{config.host}:{config.port}{path}"
+def _connect_websocket(
+    config: BitWorldConfig,
+    path: str,
+    label: str,
+    player_name: str | None = None,
+) -> websocket.WebSocket:
+    url = BitWorldEndpoint(address=config.host, port=config.port).websocket_url(path, player_name)
     deadline = time.monotonic() + config.connect_timeout_s
     last_error = None
     while time.monotonic() < deadline:
@@ -167,16 +177,11 @@ def _reward_listener(state: RewardState) -> None:
             break
         if not isinstance(data, str):
             continue
-        for line in data.strip().split("\n"):
-            parts = line.split()
-            if len(parts) == 3 and parts[0] == "reward":
-                address = parts[1]
-                try:
-                    reward = float(parts[2])
-                except ValueError:
-                    continue
+        packet = parse_reward_packet(data)
+        for entry in packet.entries:
+            if entry.name == "reward":
                 with state.lock:
-                    state.rewards_by_address[address] = reward
+                    state.rewards_by_address[entry.player] = float(entry.value)
 
 
 def _pick_free_port() -> int:
@@ -217,6 +222,7 @@ def _build_bitworld_env_interface(frame_stack: int = BITWORLD_DEFAULT_FRAME_STAC
         action_space=act_space,
         num_agents=1,
         action_names=list(BITWORLD_ACTION_NAMES),
+        observation_kind="palette_screen",
     )
 
 
@@ -245,11 +251,12 @@ def _infer_policy_frame_stack(policy_spec: PolicySpec) -> int:
 
 
 def _unpack_frame(frame_data: bytes) -> np.ndarray:
-    packed = np.frombuffer(frame_data, dtype=np.uint8)
-    frame = np.empty(FRAME_PIXELS, dtype=np.uint8)
-    frame[0::2] = packed & 0x0F
-    frame[1::2] = packed >> 4
-    return frame.reshape(SCREEN_HEIGHT, SCREEN_WIDTH)
+    frame = np.frombuffer(unpack_frame_pixels(frame_data), dtype=np.uint8)
+    return frame.reshape(FRAME_PIXELS // SCREEN_WIDTH, SCREEN_WIDTH)
+
+
+def unpack_frame(frame_data: bytes) -> np.ndarray:
+    return _unpack_frame(frame_data)
 
 
 def _stack_observation(conn: PlayerConnection, frame_data: bytes, frame_stack: int) -> np.ndarray:
@@ -300,13 +307,13 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
     reward_state = RewardState()
 
     try:
-        reward_state.ws = _connect_websocket(config, "/reward", "reward listener")
+        reward_state.ws = _connect_websocket(config, REWARD_PATH, "reward listener")
         reward_state.thread = threading.Thread(target=_reward_listener, args=(reward_state,), daemon=True)
         reward_state.thread.start()
 
         for i in range(config.num_players):
             address = f"player_{i}"
-            ws = _connect_websocket(config, f"/player?name={address}", f"player {i}")
+            ws = _connect_websocket(config, PLAYER_PATH, f"player {i}", player_name=address)
             connections.append(PlayerConnection(ws=ws, player_index=i, address=address))
 
         for _tick in range(config.max_ticks):
@@ -343,7 +350,7 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
                 observations = np.stack([observation for _conn, observation in batch])
                 action_masks = _policy_action_masks(loaded_policy.policy, observations)
                 for (conn, _observation), action_mask in zip(batch, action_masks, strict=True):
-                    conn.ws.send(struct.pack("B", int(action_mask)), websocket.ABNF.OPCODE_BINARY)
+                    conn.ws.send(pack_input_packet(int(action_mask)), websocket.ABNF.OPCODE_BINARY)
 
             if all_dead:
                 break

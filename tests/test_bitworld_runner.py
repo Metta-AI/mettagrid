@@ -1,6 +1,7 @@
 import io
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -68,7 +69,7 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
     config = bitworld_runner.BitWorldConfig(host="0.0.0.0", port=8123, seed=17, max_ticks=99)
     server_proc = bitworld_runner._start_server(Path("/tmp/bitworld/among_them"), config)
 
-    cmd = captured["cmd"]
+    cmd = cast(list[str], captured["cmd"])
     assert server_proc.poll() is None
     assert cmd[:3] == ["/tmp/bitworld/among_them", "--address:0.0.0.0", "--port:8123"]
     assert json.loads(cmd[3].removeprefix("--config:")) == {"seed": 17, "maxTicks": 99, "minPlayers": 5}
@@ -89,7 +90,12 @@ def test_connect_websocket_uses_named_among_them_player_url(monkeypatch):
     _FakeWebSocket.urls = []
     monkeypatch.setattr(bitworld_runner.websocket, "WebSocket", _FakeWebSocket)
 
-    bitworld_runner._connect_websocket(bitworld_runner.BitWorldConfig(port=8123), "/player?name=player_2", "player 2")
+    bitworld_runner._connect_websocket(
+        bitworld_runner.BitWorldConfig(port=8123),
+        bitworld_runner.PLAYER_PATH,
+        "player 2",
+        player_name="player_2",
+    )
 
     assert _FakeWebSocket.urls == ["ws://127.0.0.1:8123/player?name=player_2"]
 
@@ -103,7 +109,7 @@ def test_bitworld_env_interface_uses_trainable_action_space():
         bitworld_runner.SCREEN_WIDTH,
     )
     assert env_interface.observation_space.dtype == np.uint8
-    assert env_interface.observation_kind == "box"
+    assert env_interface.observation_kind == "palette_screen"
     assert list(env_interface.action_names) == list(bitworld_runner.BITWORLD_ACTION_NAMES)
     assert env_interface.action_names[0] == "noop"
     assert env_interface.action_names[1] == "a"
@@ -114,6 +120,21 @@ def test_bitworld_env_interface_accepts_checkpoint_frame_stack():
     env_interface = bitworld_runner._build_bitworld_env_interface(frame_stack=2)
 
     assert env_interface.observation_space.shape == (2, bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH)
+
+
+def test_unpack_frame_expands_4bit_palette_indices():
+    packed = bytes([0x21, 0xF0]) + bytes(bitworld_runner.PROTOCOL_BYTES - 2)
+
+    frame = bitworld_runner.unpack_frame(packed)
+
+    assert frame.shape == (bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH)
+    assert frame.dtype == np.uint8
+    assert frame[0, :4].tolist() == [1, 2, 0, 15]
+
+
+def test_unpack_frame_rejects_wrong_size():
+    with pytest.raises(ValueError, match="BitWorld frames"):
+        bitworld_runner.unpack_frame(b"\x00")
 
 
 def test_infer_policy_frame_stack_from_checkpoint_weights(tmp_path):
@@ -128,7 +149,7 @@ def test_infer_policy_frame_stack_from_checkpoint_weights(tmp_path):
 
 
 def test_stack_observation_unpacks_server_frames_and_preserves_history():
-    conn = bitworld_runner.PlayerConnection(ws=_FakeWebSocket(), player_index=0, address="player_0")
+    conn = bitworld_runner.PlayerConnection(ws=cast(Any, _FakeWebSocket()), player_index=0, address="player_0")
     first = (np.arange(bitworld_runner.FRAME_PIXELS, dtype=np.uint8) % 16).reshape(
         bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH
     )
