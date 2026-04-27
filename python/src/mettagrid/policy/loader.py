@@ -141,7 +141,6 @@ def discover_and_register_policies(*packages: str) -> None:
     for package_name in [
         "mettagrid.policy",
         "metta.agent.policy",
-        "metta.rl.bitworld",
         "metta.rl.training.cuda_teacher",
         "cogames.policy",
         "cogames_agents.policy",
