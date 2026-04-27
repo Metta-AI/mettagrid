@@ -28,7 +28,16 @@ class MettascopeRenderer(Renderer):
         import mettascope  # noqa: PLC0415
 
         self._mettascope = mettascope
-        self._data_dir = str(nim_root / "data") if nim_root else "."
+        source_data = nim_root / "data" if nim_root else None
+        force_download = os.environ.get("METTAGRID_NO_LOCAL_DATA")
+        if not force_download and source_data and source_data.is_dir() and any(source_data.iterdir()):
+            self._data_dir = str(source_data)
+        else:
+            self._data_dir = ""
+
+        from importlib.metadata import version as pkg_version  # noqa: PLC0415
+
+        self._version = pkg_version("mettagrid")
         os.environ.setdefault("METTASCOPE_DISABLE_CTRL_C", "1")
         self._autostart = autostart
 
@@ -76,7 +85,7 @@ class MettascopeRenderer(Renderer):
         # mettascope.init requires data_dir, replay, and autostart arguments
         json_str = json.dumps(initial_replay, allow_nan=False)
         try:
-            self.response = self._mettascope.init(self._data_dir, json_str, self._autostart)
+            self.response = self._mettascope.init(self._data_dir, self._version, json_str, self._autostart)
         except KeyboardInterrupt:
             logger.info("Interrupt received during mettascope init; ending episode.")
             self._sim.end_episode()

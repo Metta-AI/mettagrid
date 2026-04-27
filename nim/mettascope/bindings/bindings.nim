@@ -2,7 +2,7 @@ import
   os, genny, openGL, jsony, vmath, windy, silky,
   std/[times, math],
   ../src/mettascope,
-  ../src/mettascope/[replays, common, replayloader, configs],
+  ../src/mettascope/[replays, common, replayloader, configs, assets],
   ../src/mettascope/gamemode/[worldmap, heatmap],
   ../src/mettascope/panelmode/[timeline, envpanel, vibespanel]
 
@@ -47,14 +47,19 @@ proc ctrlCHandler() {.noconv.} =
     window.close()
   quit(0)
 
-proc init(dataDir: string, replay: string, autostart: bool = false): RenderResponse =
+proc init(dataDir: string, version: string, replay: string, autostart: bool = false): RenderResponse =
   result = RenderResponse(shouldClose: false, actions: @[])
   try:
     echo "Initializing Mettascope..."
     if os.getEnv("METTASCOPE_DISABLE_CTRL_C", "") == "":
       setControlCHook(ctrlCHandler)
     playMode = Realtime
-    setDataDir(dataDir)
+    let resolvedDir =
+      if dataDir.len > 0 and dirExists(dataDir):
+        dataDir
+      else:
+        ensureAssets(version)
+    setDataDir(resolvedDir)
     play = autostart
     common.replay = loadReplayString(replay, "MettaScope")
     let config = loadConfig()

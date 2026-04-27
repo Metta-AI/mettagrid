@@ -14,3 +14,4 @@ prune nim/mettascope/nimbledeps
 prune nim/mettascope/dist
 prune nim/mettascope/build
 prune nim/mettascope/tools
+prune nim/mettascope/data

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any, cast
 
@@ -85,10 +84,13 @@ class _FakeSimulation:
         raise AssertionError("render_pending should not close the episode")
 
 
-def test_mettascope_renderer_uses_pending_binding_without_building_replay(monkeypatch) -> None:
+def test_mettascope_renderer_uses_pending_binding_without_building_replay(monkeypatch, tmp_path) -> None:
     fake_module = _FakeMettascopeModule()
     monkeypatch.setitem(sys.modules, "mettascope", fake_module)
-    monkeypatch.setattr("mettagrid.renderer.mettascope._resolve_nim_root", lambda: Path("/tmp"))
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "placeholder").touch()
+    monkeypatch.setattr("mettagrid.renderer.mettascope._resolve_nim_root", lambda: tmp_path)
 
     renderer = MettascopeRenderer()
     renderer.set_simulation(cast(Any, _FakeSimulation()))
