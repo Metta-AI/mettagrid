@@ -302,7 +302,6 @@ proc topLeftPanel() =
     clip = false
   )
 
-
 proc topRightPanel(winW: float32) =
   ## Draw top-right panel with resource counts for all teams.
   const
@@ -667,8 +666,9 @@ proc centerPanel(winW: float32, winH: float32) =
   if selected.isNil:
     return
 
-  let bcSize = sk.getImageSize("ui/panel_center")
-  let bcPos = vec2((winW - bcSize.x) / 2.0, winH - bcSize.y - 20)
+  let
+    bcSize = sk.getImageSize("ui/panel_center")
+    bcPos = vec2((winW - bcSize.x) / 2.0, winH - bcSize.y - 20)
   sk.drawImage("ui/panel_center", bcPos)
   var at = vec2(bcPos.x + 69, bcPos.y + 32)
 
@@ -699,8 +699,6 @@ proc centerPanel(winW: float32, winH: float32) =
     profileName =
       if resolvedAsset.len > 0 and ("profiles/" & resolvedAsset) in sk.atlas.entries:
         "profiles/" & resolvedAsset
-      elif rig == "agent":
-        "profiles/cog"
       else:
         "profiles/" & rig
   else:
@@ -721,7 +719,7 @@ proc centerPanel(winW: float32, winH: float32) =
       else:
         "profiles/" & normalized
 
-  # 1) Name
+  # Draw entity display name and policy label.
   discard sk.drawText("pixelated", displayName, at, Yellow, clip = false)
   if isAgent:
     let policyLabel =
@@ -737,8 +735,8 @@ proc centerPanel(winW: float32, winH: float32) =
       clip = false,
     )
 
-  # 2) Agent bars
-  var useCustomStatus = replay.hasCustomStatus(selected)
+  # Draw agent stat bars or custom status display.
+  let useCustomStatus = replay.hasCustomStatus(selected)
   if useCustomStatus:
     discard drawCustomStatusBars(selected, bcPos + vec2(0, 32.0f))
   elif isAgent:
@@ -755,7 +753,7 @@ proc centerPanel(winW: float32, winH: float32) =
     drawStatBar(bcPos + vec2(69, 113), hud1Cfg.short_name, hud1, hud1Cfg.max, 10, deltaHud1)
     drawStatBar(bcPos + vec2(69, 145), hud2Cfg.short_name, hud2, hud2Cfg.max, 20, deltaHud2)
 
-  # 3) Object resources (inline, wrapped, no resource_bg) shared for agent/building.
+  # Draw inventory resources as inline wrapped icons for agents and buildings.
   if useCustomStatus:
     let cr = collectCustomResources(selected, bcPos + vec2(0, 32.0f))
     resourcesToDraw = cr.resources
@@ -812,10 +810,15 @@ proc centerPanel(winW: float32, winH: float32) =
     )
     cursorX += itemWidth + ItemGap
 
-  # 4) Profile
+  # Draw profile portrait with optional team color mask.
   if profileName in sk.atlas.entries:
-    sk.drawImage(profileName, profilePos)
-
+    let
+      profileMask = profileName & ".mask"
+      profileTeamIdx = getEntityTeamIndex(selected)
+    if profileTeamIdx >= 0 and profileMask in sk.atlas.entries:
+      sk.drawImage(profileName, profilePos, getTeamColor(profileTeamIdx), profileMask)
+    else:
+      sk.drawImage(profileName, profilePos)
 
 proc bottomLeftMinimap(winH: float32) =
   ## Draw minimap inside the bottom-left panel.
@@ -849,7 +852,6 @@ proc bottomLeftMinimap(winH: float32) =
   drawMinimap(mmZoom)
   restoreTransform()
 
-
 proc drawTimelineSlider*(value: var float32, minVal: float32, maxVal: float32, label: string = "") =
   ## Draw a mettascope timeline slider.
   ## Similar to the slider in silky but customized for mettascope.
@@ -857,11 +859,7 @@ proc drawTimelineSlider*(value: var float32, minVal: float32, maxVal: float32, l
     minF = minVal
     maxF = maxVal
     range = maxF - minF
-
-  let
     clampedValue = clamp(value, minF, maxF)
-
-  let
     baseHandleSize = sk.getImageSize("scrubber.handle")
     buttonHandleSize = sk.getImageSize("button.9patch")
     labelSize = if label.len > 0: sk.getTextSize(sk.textStyle, label) else: vec2(0, 0)
@@ -887,8 +885,8 @@ proc drawTimelineSlider*(value: var float32, minVal: float32, maxVal: float32, l
     travel = max(0f, trackEnd - trackStart)
     travelSafe = if travel <= 0: 1f else: travel
 
-  let norm = if range == 0: 0f else: clamp((clampedValue - minF) / range, 0f, 1f)
   let
+    norm = if range == 0: 0f else: clamp((clampedValue - minF) / range, 0f, 1f)
     handlePos = vec2(trackStart + norm * travel - handleSize.x * 0.5, controlRect.y + (height - handleSize.y) * 0.5)
     handleRect = bumpy.rect(handlePos, handleSize)
 
@@ -908,10 +906,10 @@ proc drawTimelineSlider*(value: var float32, minVal: float32, maxVal: float32, l
       value = minF + t * range
       playSound("UIscrub3.wav")
 
-  let displayValue = clamp(value, minF, maxF)
-  let norm2 = if range == 0: 0f else: clamp((displayValue - minF) / range, 0f, 1f)
-  let handlePos2 = vec2(trackStart + norm2 * travel - handleSize.x * 0.5, controlRect.y + (height - handleSize.y) * 0.5)
   let
+    displayValue = clamp(value, minF, maxF)
+    norm2 = if range == 0: 0f else: clamp((displayValue - minF) / range, 0f, 1f)
+    handlePos2 = vec2(trackStart + norm2 * travel - handleSize.x * 0.5, controlRect.y + (height - handleSize.y) * 0.5)
     sliderPos = handlePos2 - vec2(32, 24)
     sliderSize = sk.getImageSize("ui/timeslider")
     labelPaddingX = 10.0f

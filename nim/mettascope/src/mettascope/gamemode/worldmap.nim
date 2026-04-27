@@ -823,6 +823,20 @@ proc drawObjects*() {.measure.} =
           getTeamColor(teamIdx),
           lamp = "objects/junction.lamp"
         )
+      elif teamIdx >= 0:
+        let mask = spriteName & ".mask"
+        if mask in px:
+          px.drawSprite(
+            spriteName,
+            (pos * TileSize.float32 + SpriteOffset.vec2).ivec2,
+            getTeamColor(teamIdx),
+            mask
+          )
+        else:
+          px.drawSprite(
+            spriteName,
+            (pos * TileSize.float32 + SpriteOffset.vec2).ivec2
+          )
       else:
         px.drawSprite(
           spriteName,
