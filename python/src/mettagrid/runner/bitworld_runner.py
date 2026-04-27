@@ -52,10 +52,6 @@ logger = logging.getLogger(__name__)
 
 SERVER_START_ATTEMPTS = 5
 SERVER_START_GRACE_S = 0.1
-BITWORLD_CNN_INPUT_WEIGHT_SUFFIXES = (
-    "feature_extractor.func.extractor.cnn1.weight",
-    "encoder.0.weight",
-)
 
 BITWORLD_AMONG_THEM_AGENT_COUNT = 5
 BITWORLD_GAME_NAME = "among_them"
@@ -235,30 +231,6 @@ def _build_bitworld_env_interface(
     )
 
 
-def _infer_policy_frame_stack(policy_spec: PolicySpec) -> int:
-    if not policy_spec.data_path:
-        return BITWORLD_DEFAULT_FRAME_STACK
-
-    weights_path = Path(policy_spec.data_path)
-    if weights_path.suffix != ".safetensors":
-        return BITWORLD_DEFAULT_FRAME_STACK
-
-    from safetensors import safe_open  # noqa: PLC0415
-
-    with safe_open(weights_path, framework="pt", device="cpu") as weights:
-        input_weight_keys = [key for key in weights.keys() if key.endswith(BITWORLD_CNN_INPUT_WEIGHT_SUFFIXES)]
-        if len(input_weight_keys) != 1:
-            raise ValueError(
-                f"Expected one BitWorld CNN input weight in {weights_path}, found {len(input_weight_keys)}"
-            )
-        shape = weights.get_tensor(input_weight_keys[0]).shape
-
-    frame_stack = int(shape[1])
-    if frame_stack < 1:
-        raise ValueError(f"BitWorld frame stack must be positive, got {frame_stack}")
-    return frame_stack
-
-
 def _bitworld_frame_stack(env_interface: PolicyEnvInterface) -> int:
     if env_interface.observation_kind != "pixels":
         raise ValueError(f"BitWorld policies require pixel observations, got {env_interface.observation_kind!r}")
@@ -280,8 +252,12 @@ def _bitworld_frame_stack(env_interface: PolicyEnvInterface) -> int:
 
 def _bitworld_policy_env_interface(policy_spec: PolicySpec, num_agents: int = 1) -> tuple[PolicyEnvInterface, int]:
     if policy_spec.policy_env_interface is None:
-        frame_stack = _infer_policy_frame_stack(policy_spec)
-        env_interface = _build_bitworld_env_interface(frame_stack, num_agents=num_agents)
+        if policy_spec.data_path is not None:
+            raise ValueError(
+                "BitWorld policy bundles with data_path must include policy_env_interface in policy_spec.json"
+            )
+        env_interface = _build_bitworld_env_interface(num_agents=num_agents)
+        frame_stack = BITWORLD_DEFAULT_FRAME_STACK
     else:
         env_interface = policy_spec.policy_env_interface
         frame_stack = _bitworld_frame_stack(env_interface)

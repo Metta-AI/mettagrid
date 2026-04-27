@@ -5,8 +5,6 @@ from typing import Any, cast
 
 import numpy as np
 import pytest
-import torch
-from safetensors.torch import save_file
 
 from mettagrid import MettaGridConfig
 from mettagrid.policy.policy import PolicySpec
@@ -205,23 +203,13 @@ def test_unpack_frame_rejects_wrong_size():
         bitworld_runner.unpack_frame(b"\x00")
 
 
-def test_infer_policy_frame_stack_from_checkpoint_weights(tmp_path):
+def test_bitworld_policy_env_interface_requires_submission_contract_for_data_policy(tmp_path):
     weights_path = tmp_path / "weights.safetensors"
-    save_file(
-        {"_sequential_network.module.feature_extractor.func.extractor.cnn1.weight": torch.zeros((64, 3, 3, 3))},
-        weights_path,
-    )
+    weights_path.write_bytes(b"not inspected")
     policy_spec = PolicySpec(class_path="metta.agent.policy.CheckpointPolicy", data_path=str(weights_path))
 
-    assert bitworld_runner._infer_policy_frame_stack(policy_spec) == 3
-
-
-def test_infer_policy_frame_stack_from_native_bitworld_checkpoint_weights(tmp_path):
-    weights_path = tmp_path / "weights.safetensors"
-    save_file({"encoder.0.weight": torch.zeros((32, 4, 8, 8))}, weights_path)
-    policy_spec = PolicySpec(class_path="metta.agent.policy.CheckpointPolicy", data_path=str(weights_path))
-
-    assert bitworld_runner._infer_policy_frame_stack(policy_spec) == 4
+    with pytest.raises(ValueError, match="policy_env_interface"):
+        bitworld_runner._bitworld_policy_env_interface(policy_spec)
 
 
 def test_bitworld_policy_env_interface_uses_submission_contract():
