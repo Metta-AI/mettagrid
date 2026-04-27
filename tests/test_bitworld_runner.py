@@ -212,6 +212,36 @@ def test_infer_policy_frame_stack_from_native_bitworld_checkpoint_weights(tmp_pa
     assert bitworld_runner._infer_policy_frame_stack(policy_spec) == 4
 
 
+def test_bitworld_policy_env_interface_uses_submission_contract():
+    policy_spec = PolicySpec(
+        class_path="metta.agent.policy.CheckpointPolicy",
+        policy_env_interface=bitworld_runner._build_bitworld_env_interface(frame_stack=3),
+    )
+
+    env_interface, frame_stack = bitworld_runner._bitworld_policy_env_interface(policy_spec, num_agents=5)
+
+    assert frame_stack == 3
+    assert env_interface.observation_shape == (
+        3,
+        bitworld_runner.SCREEN_HEIGHT,
+        bitworld_runner.SCREEN_WIDTH,
+    )
+    assert env_interface.num_agents == 5
+
+
+def test_bitworld_policy_env_interface_defaults_for_class_policy():
+    policy_spec = PolicySpec(class_path="mettagrid.policy.bitworld.BitWorldRandomDpadPolicy")
+
+    env_interface, frame_stack = bitworld_runner._bitworld_policy_env_interface(policy_spec)
+
+    assert frame_stack == bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK
+    assert env_interface.observation_shape == (
+        bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
+        bitworld_runner.SCREEN_HEIGHT,
+        bitworld_runner.SCREEN_WIDTH,
+    )
+
+
 def test_stack_observation_unpacks_server_frames_and_preserves_history():
     conn = bitworld_runner.PlayerConnection(ws=cast(Any, _FakeWebSocket()), player_index=0, address="player_0")
     first = (np.arange(bitworld_runner.FRAME_PIXELS, dtype=np.uint8) % 16).reshape(

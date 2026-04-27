@@ -5,11 +5,9 @@ from __future__ import annotations
 import ctypes
 import json
 from abc import abstractmethod
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, Sequence, Tuple, TypeVar, cast
 
 import numpy as np
-from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     import torch.nn as nn
@@ -17,6 +15,7 @@ if TYPE_CHECKING:
 from mettagrid.mettagrid_c import dtype_observations
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.policy.policy_registry import PolicyRegistryMeta
+from mettagrid.policy.policy_spec import PolicySpec as PolicySpec
 from mettagrid.simulator import Action, AgentObservation, Simulation
 
 # Type variable for agent state - can be any type
@@ -381,22 +380,3 @@ class StatefulPolicyImpl(Generic[StateType]):
     def set_active_agent(self, agent_id: Optional[int]) -> None:
         """Optional hook for implementations that need the calling agent id."""
         _ = agent_id
-
-
-class PolicySpec(BaseModel):
-    """Specification for a policy used during evaluation."""
-
-    class_path: str = Field(description="Local path to policy class, or shorthand")
-
-    data_path: Optional[str] = Field(default=None, description="Local file path to policy weights, if applicable")
-
-    init_kwargs: dict[str, Any] = Field(default_factory=dict)
-
-    @property
-    def name(self) -> str:
-        parts = [
-            self.class_path.split(".")[-1],
-        ]
-        if self.data_path:
-            parts.append(Path(self.data_path).name)
-        return "-".join(parts)
