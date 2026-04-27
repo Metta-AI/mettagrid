@@ -1,14 +1,16 @@
 import json
 import logging
+import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Annotated
 
+import numpy as np
 import typer
 
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.policy.loader import initialize_or_load_policy
-from mettagrid.policy.policy import AgentPolicy
+from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.protobuf.sim.policy_v1 import policy_pb2
 from mettagrid.simulator import Action, AgentObservation, Location, ObservationToken, VisibleTalk
@@ -107,8 +109,10 @@ def encode_action_id(action: Action, policy_env: PolicyEnvInterface) -> int | No
 class Episode:
     policy_env: PolicyEnvInterface
     features: dict[int, ObservationFeatureSpec]
-    parse_observations: ObservationParser
+    parse_observations: ObservationParser | None
+    policy: MultiAgentPolicy
     agent_policies: dict[int, AgentPolicy]
+    agent_ids: set[int]
 
 
 class LocalPolicyServer:
@@ -118,10 +122,12 @@ class LocalPolicyServer:
 
     def prepare_policy(self, req: policy_pb2.PreparePolicyRequest) -> policy_pb2.PreparePolicyResponse:
         logger.info("PreparePolicy: %s", req)
+        policy_env = _policy_env_from_prepare_request(req)
         parse_observations = OBSERVATION_PARSERS.get(req.observations_format)
-        if parse_observations is None:
+        if policy_env.observation_kind == "token" and parse_observations is None:
             raise UnsupportedObservationFormatError(req.observations_format)
-        policy_env = PolicyEnvInterface.from_proto(req.env_interface)
+        if policy_env.observation_kind != "token":
+            parse_observations = None
         logger.info("Preparing policy for policy %s with env_interface %s", self._policy_uri, policy_env)
         policy_spec = policy_spec_from_uri(self._policy_uri)
         logger.info("Policy spec for policy %s: %s", self._policy_uri, policy_spec)
@@ -131,13 +137,19 @@ class LocalPolicyServer:
             f.id: ObservationFeatureSpec(id=f.id, name=f.name, normalization=f.normalization)
             for f in req.game_rules.features
         }
-        agent_policies = {agent_id: policy.agent_policy(agent_id) for agent_id in req.agent_ids}
+        agent_policies = (
+            {agent_id: policy.agent_policy(agent_id) for agent_id in req.agent_ids}
+            if policy_env.observation_kind == "token"
+            else {}
+        )
         logger.info("Agent policies for policy %s: %s", self._policy_uri, agent_policies)
         episode = Episode(
             policy_env=policy_env,
             features=features,
             parse_observations=parse_observations,
+            policy=policy,
             agent_policies=agent_policies,
+            agent_ids=set(req.agent_ids),
         )
         self._episodes[req.episode_id] = episode
         return policy_pb2.PreparePolicyResponse()
@@ -147,6 +159,8 @@ class LocalPolicyServer:
         episode = self._episodes.get(req.episode_id)
         if episode is None:
             raise EpisodeNotFoundError(req.episode_id)
+        if episode.parse_observations is None:
+            return _batch_step_raw(episode, req)
 
         resp = policy_pb2.BatchStepResponse()
         for agent_obs in req.agent_observations:
@@ -173,6 +187,54 @@ class LocalPolicyServer:
                 )
             )
         return resp
+
+
+def _policy_env_from_prepare_request(req: policy_pb2.PreparePolicyRequest) -> PolicyEnvInterface:
+    policy_env = PolicyEnvInterface.from_proto(req.env_interface)
+    if req.observations_format != policy_pb2.AgentObservations.Format.AGENT_OBSERVATIONS_FORMAT_UNKNOWN:
+        return policy_env
+    return policy_env.model_copy(
+        update={
+            "observation_kind": "pixels",
+            "observation_dtype": "uint8",
+            "observation_low": 0.0,
+            "observation_high": 15.0,
+        }
+    )
+
+
+def _decode_raw_observation(data: bytes, policy_env: PolicyEnvInterface) -> np.ndarray:
+    dtype = np.dtype(policy_env.observation_dtype)
+    expected_bytes = math.prod(policy_env.observation_shape) * dtype.itemsize
+    if len(data) != expected_bytes:
+        raise ValueError(f"raw observation must be {expected_bytes} bytes, got {len(data)}")
+    return np.frombuffer(data, dtype=dtype).reshape(policy_env.observation_shape)
+
+
+def _batch_step_raw(episode: Episode, req: policy_pb2.BatchStepRequest) -> policy_pb2.BatchStepResponse:
+    for agent_obs in req.agent_observations:
+        if agent_obs.agent_id not in episode.agent_ids:
+            raise AgentNotFoundError(agent_obs.agent_id)
+
+    observations = np.stack(
+        [_decode_raw_observation(agent_obs.observations, episode.policy_env) for agent_obs in req.agent_observations]
+    )
+    actions = np.zeros((len(req.agent_observations),), dtype=np.int64)
+    episode.policy.step_batch(observations, actions)
+
+    max_action_id = len(episode.policy_env.all_action_names) - 1
+    resp = policy_pb2.BatchStepResponse()
+    for agent_obs, action_id in zip(req.agent_observations, actions, strict=True):
+        action_id = int(action_id)
+        if action_id < 0 or action_id > max_action_id:
+            raise ValueError(f"raw policy returned action_id {action_id}; expected range [0, {max_action_id}]")
+        resp.agent_actions.append(
+            policy_pb2.AgentActions(
+                agent_id=agent_obs.agent_id,
+                action_id=[action_id],
+            )
+        )
+    return resp
 
 
 @cli.command()

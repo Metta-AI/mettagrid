@@ -127,6 +127,57 @@ def test_action_stat_key_marks_noop_and_non_noop_actions():
     assert bitworld_runner._action_stat_key(1) == "action.up.success"
 
 
+def test_load_bitworld_policy_uses_policy_server_client_for_ws_uri(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class _FakePolicyServerClient:
+        def __init__(self, env_interface, *, url: str, agent_ids: list[int]):
+            captured["env_interface"] = env_interface
+            captured["url"] = url
+            captured["agent_ids"] = agent_ids
+
+    monkeypatch.setattr(bitworld_runner, "WebSocketRawPolicyServerClient", _FakePolicyServerClient)
+
+    loaded_policy = bitworld_runner._load_bitworld_policy(
+        "ws://127.0.0.1:9000",
+        agent_ids=[0, 3],
+        num_agents=5,
+    )
+
+    assert loaded_policy.policy is not None
+    assert loaded_policy.frame_stack == bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK
+    assert captured["url"] == "ws://127.0.0.1:9000"
+    assert captured["agent_ids"] == [0, 3]
+    env_interface = captured["env_interface"]
+    assert env_interface.num_agents == 5
+    assert env_interface.observation_kind == "pixels"
+
+
+def test_load_bitworld_policy_uses_frame_stack_from_policy_server_uri(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class _FakePolicyServerClient:
+        def __init__(self, env_interface, *, url: str, agent_ids: list[int]):
+            captured["env_interface"] = env_interface
+            captured["url"] = url
+            captured["agent_ids"] = agent_ids
+
+    monkeypatch.setattr(bitworld_runner, "WebSocketRawPolicyServerClient", _FakePolicyServerClient)
+
+    loaded_policy = bitworld_runner._load_bitworld_policy(
+        "ws://127.0.0.1:9000?frame_stack=7",
+        agent_ids=[1],
+        num_agents=5,
+    )
+
+    assert loaded_policy.frame_stack == 7
+    assert captured["env_interface"].observation_shape == (
+        7,
+        bitworld_runner.SCREEN_HEIGHT,
+        bitworld_runner.SCREEN_WIDTH,
+    )
+
+
 def test_unpack_frame_expands_4bit_palette_indices():
     packed = bytes([0x21, 0xF0]) + bytes(bitworld_runner.PROTOCOL_BYTES - 2)
 

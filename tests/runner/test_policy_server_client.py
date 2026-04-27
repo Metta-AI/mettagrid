@@ -1,6 +1,10 @@
 import threading
 from unittest.mock import patch
 
+import gymnasium as gym
+import numpy as np
+
+from mettagrid.bitworld import BITWORLD_ACTION_COUNT, BITWORLD_ACTION_NAMES
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.config.mettagrid_config import TalkConfig
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
@@ -10,6 +14,7 @@ from mettagrid.runner.policy_server.websocket_transport import (
     WebSocketPolicyServer,
     WebSocketPolicyServerAgentClient,
     WebSocketPolicyServerClient,
+    WebSocketRawPolicyServerClient,
     _serialize_triplet_v1,
 )
 from mettagrid.simulator import Action, AgentObservation, Location, ObservationToken, VisibleTalk
@@ -73,6 +78,19 @@ class _InfoPolicy(MultiAgentPolicy):
         return self._agents.setdefault(agent_id, _InfoAgentPolicy(self._policy_env_info))
 
 
+class _RawActionPolicy(MultiAgentPolicy):
+    def __init__(self, policy_env_info: PolicyEnvInterface):
+        super().__init__(policy_env_info)
+        self.observations: list[np.ndarray] = []
+
+    def agent_policy(self, _agent_id: int) -> AgentPolicy:
+        raise NotImplementedError
+
+    def step_batch(self, raw_observations: np.ndarray, raw_actions: np.ndarray) -> None:
+        self.observations.append(raw_observations.copy())
+        raw_actions[...] = raw_observations.reshape(raw_observations.shape[0], -1)[:, 0]
+
+
 def _run_ws_test(policy: MultiAgentPolicy, env: PolicyEnvInterface, test_fn):
     service = LocalPolicyServer("fake://policy")
 
@@ -87,6 +105,28 @@ def _run_ws_test(policy: MultiAgentPolicy, env: PolicyEnvInterface, test_fn):
 
         port = server.port
         client = WebSocketPolicyServerClient(env, url=f"ws://127.0.0.1:{port}", agent_ids=list(range(env.num_agents)))
+
+        try:
+            test_fn(client, env)
+        finally:
+            client.close()
+            server_thread.join(timeout=2)
+
+
+def _run_raw_ws_test(policy: MultiAgentPolicy, env: PolicyEnvInterface, test_fn):
+    service = LocalPolicyServer("fake://policy")
+
+    with (
+        patch("mettagrid.runner.policy_server.server.policy_spec_from_uri", return_value=None),
+        patch("mettagrid.runner.policy_server.server.initialize_or_load_policy", return_value=policy),
+    ):
+        server = WebSocketPolicyServer(service)
+
+        server_thread = threading.Thread(target=server.serve, daemon=True)
+        server_thread.start()
+
+        port = server.port
+        client = WebSocketRawPolicyServerClient(env, url=f"ws://127.0.0.1:{port}", agent_ids=[0, 1])
 
         try:
             test_fn(client, env)
@@ -252,6 +292,35 @@ def test_ws_policy_step_group_round_trips_policy_infos_per_agent():
         assert agent1.infos == {"current_task": "task-1", "agent_id": 1}
 
     _run_ws_test(_InfoPolicy(env), env, check)
+
+
+def test_ws_raw_policy_step_batch_round_trips_pixel_observations():
+    env = PolicyEnvInterface.from_spaces(
+        observation_space=gym.spaces.Box(low=0, high=15, shape=(1, 2, 2), dtype=np.uint8),
+        action_space=gym.spaces.Discrete(BITWORLD_ACTION_COUNT),
+        num_agents=2,
+        action_names=list(BITWORLD_ACTION_NAMES),
+        observation_kind="pixels",
+    )
+    policy = _RawActionPolicy(env)
+
+    def check(client: WebSocketRawPolicyServerClient, env: PolicyEnvInterface):
+        observations = np.array(
+            [
+                [[[1, 0], [0, 0]]],
+                [[[3, 0], [0, 0]]],
+            ],
+            dtype=np.uint8,
+        )
+        actions = np.zeros((2,), dtype=np.int64)
+
+        client.step_batch_for_agents([0, 1], observations, actions)
+
+        assert actions.tolist() == [1, 3]
+        assert len(policy.observations) == 1
+        assert np.array_equal(policy.observations[0], observations)
+
+    _run_raw_ws_test(policy, env, check)
 
 
 def test_serialize_triplet_v1_empty():

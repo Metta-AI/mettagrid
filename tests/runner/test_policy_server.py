@@ -13,7 +13,6 @@ from mettagrid.runner.policy_server.server import (
     EpisodeNotFoundError,
     LocalPolicyServer,
     UnknownActionError,
-    UnsupportedObservationFormatError,
     encode_action_id,
 )
 from mettagrid.simulator import Action, AgentObservation, Location, VisibleTalk
@@ -129,15 +128,33 @@ def test_prepare_policy():
     assert resp == policy_pb2.PreparePolicyResponse()
 
 
-def test_prepare_policy_unsupported_observation_format():
+def test_prepare_policy_unknown_observation_format_uses_raw_observations():
     service = _make_service()
+    env = _policy_env()
+    policy = ConstantActionPolicy(env, Action(name="move"))
     req = policy_pb2.PreparePolicyRequest(
         episode_id="ep-123",
+        game_rules=policy_pb2.GameRules(
+            features=[
+                policy_pb2.GameRules.Feature(id=f.id, name=f.name, normalization=f.normalization)
+                for f in env.obs_features
+            ],
+            actions=[policy_pb2.GameRules.Action(id=i, name=name) for i, name in enumerate(env.all_action_names)],
+        ),
+        env_interface=env.to_proto(),
         agent_ids=[0],
         observations_format=policy_pb2.AgentObservations.Format.AGENT_OBSERVATIONS_FORMAT_UNKNOWN,
     )
-    with pytest.raises(UnsupportedObservationFormatError):
-        service.prepare_policy(req)
+    with (
+        patch("mettagrid.runner.policy_server.server.policy_spec_from_uri", return_value=None),
+        patch("mettagrid.runner.policy_server.server.initialize_or_load_policy", return_value=policy),
+    ):
+        assert service.prepare_policy(req) == policy_pb2.PreparePolicyResponse()
+
+    episode = service._episodes["ep-123"]
+    assert episode.policy_env.observation_kind == "pixels"
+    assert episode.parse_observations is None
+    assert episode.agent_policies == {}
 
 
 def test_batch_step():

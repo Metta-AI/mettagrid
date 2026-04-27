@@ -4,6 +4,7 @@ import threading
 from collections.abc import Sequence
 from typing import Any
 
+import numpy as np
 from google.protobuf import json_format
 from websockets.exceptions import ConnectionClosed
 from websockets.sync.client import connect as ws_connect
@@ -241,6 +242,97 @@ class WebSocketPolicyServerClient(MultiAgentPolicy):
         self._ws.close()
 
     def __enter__(self) -> "WebSocketPolicyServerClient":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+
+class WebSocketRawPolicyServerClient(MultiAgentPolicy):
+    def __init__(self, policy_env_info: PolicyEnvInterface, *, url: str, agent_ids: list[int]):
+        super().__init__(policy_env_info)
+        if policy_env_info.observation_kind != "pixels" or policy_env_info.observation_dtype != "uint8":
+            raise ValueError("Raw WebSocket policy clients require uint8 pixel observations")
+        self._url = url
+        self._ws = ws_connect(url, open_timeout=PREPARE_TIMEOUT)
+        self._episode_id = "raw-ws-episode"
+        self._next_step_id = 0
+        self._ws_lock = threading.Lock()
+        self._agent_ids = list(agent_ids)
+        self._prepare(agent_ids)
+
+    def _prepare(self, agent_ids: list[int]) -> None:
+        action_names = self._policy_env_info.all_action_names
+        req = policy_pb2.PreparePolicyRequest(
+            episode_id=self._episode_id,
+            game_rules=policy_pb2.GameRules(
+                actions=[policy_pb2.GameRules.Action(id=i, name=name) for i, name in enumerate(action_names)]
+            ),
+            agent_ids=agent_ids,
+            observations_format=policy_pb2.AgentObservations.Format.AGENT_OBSERVATIONS_FORMAT_UNKNOWN,
+            env_interface=self._policy_env_info.to_proto(),
+        )
+        logger.info("Sending raw prepare policy request to policy server for %s", self._url)
+        self._ws.send(json_format.MessageToJson(req))
+        logger.info("Waiting for raw prepare policy response from policy server for %s", self._url)
+        self._ws.recv(timeout=PREPARE_TIMEOUT)
+        logger.info("Received raw prepare policy response from policy server for %s", self._url)
+
+    def step_batch_for_agents(
+        self,
+        agent_ids: Sequence[int],
+        raw_observations: np.ndarray,
+        raw_actions: np.ndarray,
+    ) -> None:
+        if raw_observations.shape[0] != len(agent_ids) or raw_actions.shape[0] != len(agent_ids):
+            raise ValueError("agent_ids, raw_observations, and raw_actions must have matching batch size")
+
+        with self._ws_lock:
+            step_req = policy_pb2.BatchStepRequest(
+                episode_id=self._episode_id,
+                step_id=self._next_step_id,
+                agent_observations=[
+                    policy_pb2.AgentObservations(
+                        agent_id=agent_id,
+                        observations=np.ascontiguousarray(observation).tobytes(),
+                    )
+                    for agent_id, observation in zip(agent_ids, raw_observations, strict=True)
+                ],
+            )
+            self._next_step_id += 1
+            self._ws.send(step_req.SerializeToString())
+            resp = self._ws.recv()
+
+        if not isinstance(resp, bytes):
+            raise PolicyStepError("Expected binary BatchStepResponse message")
+
+        step_resp = policy_pb2.BatchStepResponse()
+        step_resp.ParseFromString(resp)
+        actions_by_agent: dict[int, int] = {}
+        for agent_actions in step_resp.agent_actions:
+            if len(agent_actions.action_id) != 1:
+                raise PolicyStepError(f"Agent {agent_actions.agent_id} returned {len(agent_actions.action_id)} actions")
+            actions_by_agent[agent_actions.agent_id] = int(agent_actions.action_id[0])
+
+        missing_agent_ids = [agent_id for agent_id in agent_ids if agent_id not in actions_by_agent]
+        if missing_agent_ids:
+            raise PolicyStepError(f"Missing actions for agent_ids {missing_agent_ids}")
+
+        for index, agent_id in enumerate(agent_ids):
+            raw_actions[index] = actions_by_agent[agent_id]
+
+    def step_batch(self, raw_observations: np.ndarray, raw_actions: np.ndarray) -> None:
+        if raw_observations.shape[0] != len(self._agent_ids):
+            raise ValueError("Raw WebSocket policy needs explicit agent IDs when stepping partial batches")
+        self.step_batch_for_agents(self._agent_ids, raw_observations, raw_actions)
+
+    def agent_policy(self, agent_id: int) -> AgentPolicy:
+        raise NotImplementedError("Raw WebSocket policy clients do not expose AgentPolicy adapters")
+
+    def close(self) -> None:
+        self._ws.close()
+
+    def __enter__(self) -> "WebSocketRawPolicyServerClient":
         return self
 
     def __exit__(self, *exc: object) -> None:

@@ -270,9 +270,8 @@ class PolicyEnvInterface(BaseModel):
     def from_proto(proto: "policy_pb2.PolicyEnvInterface") -> "PolicyEnvInterface":
         """Create PolicyEnvInterface from protobuf message."""
         proto_as_any = cast(Any, proto)
-        primary_action_names, vibe_action_names = PolicyEnvInterface._split_action_names(
-            list(proto_as_any.action_names)
-        )
+        action_names = list(proto_as_any.action_names)
+        primary_action_names, vibe_action_names = PolicyEnvInterface._split_action_names(action_names)
 
         return PolicyEnvInterface(
             obs_features=[

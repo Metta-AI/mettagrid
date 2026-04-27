@@ -19,6 +19,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 import websocket
@@ -41,6 +42,7 @@ from mettagrid.bitworld import (
     unpack_frame_pixels,
 )
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
+from mettagrid.runner.policy_server.websocket_transport import WebSocketRawPolicyServerClient
 from mettagrid.runner.types import PureSingleEpisodeJob, PureSingleEpisodeResult
 from mettagrid.types import EpisodeStats
 
@@ -211,7 +213,7 @@ def _start_server_on_free_port(binary_path: Path, config: BitWorldConfig) -> sub
     raise RuntimeError(f"BitWorld server failed to start after {SERVER_START_ATTEMPTS} port attempts")
 
 
-def _build_bitworld_env_interface(frame_stack: int = BITWORLD_DEFAULT_FRAME_STACK) -> Any:
+def _build_bitworld_env_interface(frame_stack: int = BITWORLD_DEFAULT_FRAME_STACK, num_agents: int = 1) -> Any:
     import gymnasium as gym  # noqa: PLC0415
 
     from mettagrid.policy.policy_env_interface import PolicyEnvInterface  # noqa: PLC0415
@@ -221,7 +223,7 @@ def _build_bitworld_env_interface(frame_stack: int = BITWORLD_DEFAULT_FRAME_STAC
     return PolicyEnvInterface.from_spaces(
         observation_space=obs_space,
         action_space=act_space,
-        num_agents=1,
+        num_agents=num_agents,
         action_names=list(BITWORLD_ACTION_NAMES),
         observation_kind="pixels",
     )
@@ -270,9 +272,51 @@ def _stack_observation(conn: PlayerConnection, frame_data: bytes, frame_stack: i
     return conn.observation_stack
 
 
-def _policy_action_masks(policy: MultiAgentPolicy, observations: np.ndarray) -> np.ndarray:
+def _is_policy_server_uri(uri: str) -> bool:
+    return urlparse(uri).scheme in {"ws", "wss"}
+
+
+def _policy_server_frame_stack(uri: str) -> int:
+    values = parse_qs(urlparse(uri).query).get("frame_stack")
+    if values:
+        frame_stack = int(values[-1])
+        if frame_stack < 1:
+            raise ValueError(f"BitWorld frame_stack query parameter must be positive, got {frame_stack}")
+        return frame_stack
+    return BITWORLD_DEFAULT_FRAME_STACK
+
+
+def _policy_agent_ids(assignments: list[int], policy_count: int) -> list[list[int]]:
+    policy_agent_ids: list[list[int]] = [[] for _ in range(policy_count)]
+    for agent_id, policy_index in enumerate(assignments):
+        policy_agent_ids[policy_index].append(agent_id)
+    return policy_agent_ids
+
+
+def _load_bitworld_policy(uri: str, agent_ids: list[int], num_agents: int) -> LoadedBitWorldPolicy:
+    if _is_policy_server_uri(uri):
+        frame_stack = _policy_server_frame_stack(uri)
+        env_interface = _build_bitworld_env_interface(frame_stack, num_agents=num_agents)
+        return LoadedBitWorldPolicy(
+            WebSocketRawPolicyServerClient(env_interface, url=uri, agent_ids=agent_ids),
+            frame_stack,
+        )
+
+    from mettagrid.policy.loader import initialize_or_load_policy  # noqa: PLC0415
+    from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
+
+    policy_spec = PolicySpec(class_path=uri) if "://" not in uri else policy_spec_from_uri(uri)
+    frame_stack = _infer_policy_frame_stack(policy_spec)
+    env_interface = _build_bitworld_env_interface(frame_stack, num_agents=num_agents)
+    return LoadedBitWorldPolicy(initialize_or_load_policy(env_interface, policy_spec), frame_stack)
+
+
+def _policy_action_masks(policy: MultiAgentPolicy, observations: np.ndarray, agent_ids: list[int]) -> np.ndarray:
     actions = np.zeros((observations.shape[0],), dtype=np.int64)
-    policy.step_batch(observations, actions)
+    if isinstance(policy, WebSocketRawPolicyServerClient):
+        policy.step_batch_for_agents(agent_ids, observations, actions)
+    else:
+        policy.step_batch(observations, actions)
     invalid_indices = np.flatnonzero((actions < 0) | (actions >= BITWORLD_ACTION_COUNT))
     if invalid_indices.size:
         batch_index = int(invalid_indices[0])
@@ -288,9 +332,6 @@ def _action_stat_key(action_mask: int) -> str:
 
 
 def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
-    from mettagrid.policy.loader import initialize_or_load_policy  # noqa: PLC0415
-    from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
-
     config = BitWorldConfig.from_env_config(job.env.model_dump(mode="json"))
     config.seed = job.seed
     if len(job.assignments) != config.num_players:
@@ -299,11 +340,9 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
         )
 
     policies: list[LoadedBitWorldPolicy] = []
-    for uri in job.policy_uris:
-        policy_spec = PolicySpec(class_path=uri) if "://" not in uri else policy_spec_from_uri(uri)
-        frame_stack = _infer_policy_frame_stack(policy_spec)
-        env_interface = _build_bitworld_env_interface(frame_stack)
-        policies.append(LoadedBitWorldPolicy(initialize_or_load_policy(env_interface, policy_spec), frame_stack))
+    policy_agent_ids = _policy_agent_ids(job.assignments, len(job.policy_uris))
+    for policy_index, uri in enumerate(job.policy_uris):
+        policies.append(_load_bitworld_policy(uri, policy_agent_ids[policy_index], config.num_players))
 
     binary_path = _find_bitworld_binary(config)
     server_proc = _start_server_on_free_port(binary_path, config)
@@ -354,7 +393,8 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
                 if not batch:
                     continue
                 observations = np.stack([observation for _conn, observation in batch])
-                action_masks = _policy_action_masks(loaded_policy.policy, observations)
+                agent_ids = [conn.player_index for conn, _observation in batch]
+                action_masks = _policy_action_masks(loaded_policy.policy, observations, agent_ids)
                 for (conn, _observation), action_mask in zip(batch, action_masks, strict=True):
                     mask = int(action_mask)
                     conn.ws.send(pack_input_packet(mask), websocket.ABNF.OPCODE_BINARY)
@@ -393,6 +433,11 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
                 pass
         if reward_state.thread is not None:
             reward_state.thread.join(timeout=2.0)
+
+        for loaded_policy in policies:
+            close = getattr(loaded_policy.policy, "close", None)
+            if close is not None:
+                close()
 
         for conn in connections:
             try:
