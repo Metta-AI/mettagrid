@@ -122,6 +122,11 @@ def test_bitworld_env_interface_accepts_checkpoint_frame_stack():
     assert env_interface.observation_space.shape == (2, bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH)
 
 
+def test_action_stat_key_marks_noop_and_non_noop_actions():
+    assert bitworld_runner._action_stat_key(0) == "action.noop.success"
+    assert bitworld_runner._action_stat_key(1) == "action.up.success"
+
+
 def test_unpack_frame_expands_4bit_palette_indices():
     packed = bytes([0x21, 0xF0]) + bytes(bitworld_runner.PROTOCOL_BYTES - 2)
 

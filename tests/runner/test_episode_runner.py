@@ -1,9 +1,12 @@
+import json
 import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
+from urllib.parse import urlparse
 
 import pytest
 
+from mettagrid.config.mettagrid_config import MettaGridConfig
 from mettagrid.runner.episode_runner import (
     _compact_policy_names,
     _download_presigned_policy,
@@ -13,7 +16,9 @@ from mettagrid.runner.episode_runner import (
     _per_agent_policy_mapping,
     _spawn_policy_servers,
     _to_file_uri,
+    run_episode_isolated,
 )
+from mettagrid.runner.types import EpisodeSpec
 
 
 class TestIsPresignedUrl:
@@ -197,6 +202,59 @@ def test_secrets_remap_drops_policies_with_no_secrets() -> None:
     }
     assert compact_secrets == {0: {"API_KEY": "abc"}}
     assert 1 not in compact_secrets
+
+
+def test_run_episode_isolated_bitworld_passes_local_policy_uris_to_subprocess(tmp_path: Path) -> None:
+    captured_job: dict = {}
+
+    class FakeProc:
+        returncode = 0
+
+        def __init__(self, cmd: list[str], **_kwargs: object) -> None:
+            job_spec_path = Path(cmd[-2])
+            payload = json.loads(job_spec_path.read_text())
+            captured_job.update(payload["job"])
+            results_path = Path(urlparse(captured_job["results_uri"]).path)
+            results_path.write_text(
+                json.dumps(
+                    {
+                        "rewards": [0.0, 0.0],
+                        "action_timeouts": [0, 0],
+                        "stats": {"agent": [{"reward": 0.0}, {"reward": 0.0}], "game": {}},
+                        "steps": 1,
+                    }
+                )
+            )
+
+        def communicate(self) -> tuple[str, str]:
+            return "", ""
+
+    spec = EpisodeSpec(
+        policy_uris=["metta://policy/alpha", "metta://policy/beta"],
+        policy_names=["alpha:v1", "beta:v1"],
+        assignments=[0, 1],
+        env=MettaGridConfig.EmptyRoom(num_agents=2),
+        game_engine="bitworld",
+    )
+
+    with (
+        patch(
+            "mettagrid.runner.episode_runner._localize_policy_uri",
+            side_effect=lambda uri, _temp_dirs: f"file:///localized/{uri.rsplit('/', 1)[-1]}.zip",
+        ),
+        patch("mettagrid.runner.episode_runner._spawn_policy_servers") as spawn_policy_servers,
+        patch("mettagrid.runner.episode_runner.subprocess.Popen", FakeProc),
+    ):
+        policy_log_dir = tmp_path / "policy-logs"
+        result = run_episode_isolated(spec, tmp_path / "results.json", policy_log_dir=policy_log_dir)
+
+    spawn_policy_servers.assert_not_called()
+    assert not policy_log_dir.exists()
+    assert captured_job["game_engine"] == "bitworld"
+    assert captured_job["policy_uris"] == ["file:///localized/alpha.zip", "file:///localized/beta.zip"]
+    assert captured_job["assignments"] == [0, 1]
+    assert captured_job["policy_names"] == ["alpha:v1", "beta:v1"]
+    assert result.steps == 1
 
 
 class TestDownloadPresignedPolicy:

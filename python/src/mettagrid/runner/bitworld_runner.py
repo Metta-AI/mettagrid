@@ -35,6 +35,7 @@ from mettagrid.bitworld import (
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
     BitWorldEndpoint,
+    bitworld_input_mask_name,
     pack_input_packet,
     parse_reward_packet,
     unpack_frame_pixels,
@@ -282,6 +283,10 @@ def _policy_action_masks(policy: MultiAgentPolicy, observations: np.ndarray) -> 
     return BITWORLD_ACTION_MASKS[actions]
 
 
+def _action_stat_key(action_mask: int) -> str:
+    return f"action.{bitworld_input_mask_name(action_mask)}.success"
+
+
 def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
     from mettagrid.policy.loader import initialize_or_load_policy  # noqa: PLC0415
     from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
@@ -305,6 +310,7 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
 
     connections: list[PlayerConnection] = []
     reward_state = RewardState()
+    action_stats: list[dict[str, float]] = [dict() for _ in range(config.num_players)]
 
     try:
         reward_state.ws = _connect_websocket(config, REWARD_PATH, "reward listener")
@@ -350,7 +356,10 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
                 observations = np.stack([observation for _conn, observation in batch])
                 action_masks = _policy_action_masks(loaded_policy.policy, observations)
                 for (conn, _observation), action_mask in zip(batch, action_masks, strict=True):
-                    conn.ws.send(pack_input_packet(int(action_mask)), websocket.ABNF.OPCODE_BINARY)
+                    mask = int(action_mask)
+                    conn.ws.send(pack_input_packet(mask), websocket.ABNF.OPCODE_BINARY)
+                    stat_key = _action_stat_key(mask)
+                    action_stats[conn.player_index][stat_key] = action_stats[conn.player_index].get(stat_key, 0.0) + 1.0
 
             if all_dead:
                 break
@@ -365,7 +374,7 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
 
         stats: EpisodeStats = {
             "game": {"ticks": float(config.max_ticks), "num_players": float(config.num_players)},
-            "agent": [{"reward": rewards[i]} for i in range(config.num_players)],
+            "agent": [{"reward": rewards[i], **action_stats[i]} for i in range(config.num_players)],
         }
 
         return PureSingleEpisodeResult(

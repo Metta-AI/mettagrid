@@ -4,11 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from mettagrid.bitworld import (
-    BITWORLD_ACTION_COUNT,
-    bitworld_action_name,
-    dpad_action_indices,
-)
+from mettagrid.bitworld import BITWORLD_ACTION_COUNT, bitworld_action_name, dpad_action_indices
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.simulator import Action, AgentObservation

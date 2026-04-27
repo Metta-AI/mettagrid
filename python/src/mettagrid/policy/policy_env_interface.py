@@ -39,7 +39,7 @@ class PolicyEnvInterface(BaseModel):
         default=None,
         description="Energy cost for a single move action, if configured.",
     )
-    observation_kind: Literal["token", "box", "bitmask", "pixels"] = Field(
+    observation_kind: Literal["token", "box", "bitmask", "pixels", "state"] = Field(
         default="token",
         description="Policy-facing observation shape consumed by the model.",
     )
@@ -177,7 +177,7 @@ class PolicyEnvInterface(BaseModel):
         num_agents: int,
         action_names: list[str] | None = None,
         vibe_action_names: list[str] | None = None,
-        observation_kind: Literal["token", "box", "bitmask", "pixels"] = "box",
+        observation_kind: Literal["token", "box", "bitmask", "pixels", "state"] = "box",
     ) -> "PolicyEnvInterface":
         """Create PolicyEnvInterface from generic Gymnasium spaces."""
         if not isinstance(observation_space, gym.spaces.Box):

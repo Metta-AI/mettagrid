@@ -240,28 +240,36 @@ def run_episode_isolated(
         )
         compact_policy_names = _compact_policy_names(spec.policy_names, policy_index_remap)
 
-        # Remap policy_secrets from original indices to compact indices
-        compact_secrets: dict[int, dict[str, str]] | None = None
-        if policy_secrets:
-            compact_secrets = {
-                compact_idx: policy_secrets[orig_idx]
-                for orig_idx, compact_idx in policy_index_remap.items()
-                if orig_idx in policy_secrets
-            }
+        if spec.game_engine == "bitworld":
+            episode_policy_uris = per_agent_policy_uris
+            logger.info(
+                "Prepared %d compact local policies for BitWorld episode (%d agents)",
+                len(episode_policy_uris),
+                len(spec.assignments),
+            )
+        else:
+            # Remap policy_secrets from original indices to compact indices.
+            compact_secrets: dict[int, dict[str, str]] | None = None
+            if policy_secrets:
+                compact_secrets = {
+                    compact_idx: policy_secrets[orig_idx]
+                    for orig_idx, compact_idx in policy_index_remap.items()
+                    if orig_idx in policy_secrets
+                }
 
-        servers, http_policy_uris = _spawn_policy_servers(per_agent_policy_uris, compact_secrets)
-        logger.info(
-            "Policy servers spawned in %.1fs for %d compact policies (%d agents)",
-            time.monotonic() - t1,
-            len(http_policy_uris),
-            len(spec.assignments),
-        )
+            servers, episode_policy_uris = _spawn_policy_servers(per_agent_policy_uris, compact_secrets)
+            logger.info(
+                "Policy servers spawned in %.1fs for %d compact policies (%d agents)",
+                time.monotonic() - t1,
+                len(episode_policy_uris),
+                len(spec.assignments),
+            )
 
         local_results_uri = _to_file_uri(results_path)
         local_replay_uri = _to_file_uri(replay_path) if replay_path else None
 
         pure_job = PureSingleEpisodeJob(
-            policy_uris=http_policy_uris,
+            policy_uris=episode_policy_uris,
             policy_names=compact_policy_names,
             assignments=per_agent_assignments,
             env=spec.env,
@@ -327,11 +335,12 @@ def run_episode_isolated(
                 runner_error = _read_subprocess_error(error_file_path)
                 raise EpisodeSubprocessError(f"episode_subprocess failed ({detail})", runner_error=runner_error)
 
-        # Copy policy logs to output directory if requested.
+        # Copy local policy-server logs to output directory if requested.
+        # BitWorld jobs pass localized bundles directly to the subprocess.
         # We keep one log artifact per agent index for compatibility with
         # downstream upload consumers, even when multiple agents share a
         # compacted policy server.
-        if policy_log_dir is not None:
+        if policy_log_dir is not None and spec.game_engine != "bitworld":
             policy_log_dir.mkdir(parents=True, exist_ok=True)
             for agent_idx, policy_idx in enumerate(per_agent_assignments):
                 shutil.copy(servers[policy_idx]._log_file, policy_log_dir / f"{agent_idx}.log")
