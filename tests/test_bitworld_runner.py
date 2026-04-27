@@ -8,8 +8,10 @@ import pytest
 import torch
 from safetensors.torch import save_file
 
+from mettagrid import MettaGridConfig
 from mettagrid.policy.policy import PolicySpec
 from mettagrid.runner import bitworld_runner
+from mettagrid.runner.types import PureSingleEpisodeJob
 
 
 def test_find_bitworld_binary_uses_container_layout(monkeypatch):
@@ -26,6 +28,16 @@ class _FakeProc:
 
     def poll(self) -> int | None:
         return None if self._alive else 1
+
+    def terminate(self) -> None:
+        self._alive = False
+
+    def wait(self, timeout: float | None = None) -> None:
+        del timeout
+        self._alive = False
+
+    def kill(self) -> None:
+        self._alive = False
 
 
 def test_start_server_on_free_port_retries_after_failed_bind(monkeypatch):
@@ -257,6 +269,76 @@ def test_stack_observation_unpacks_server_frames_and_preserves_history():
     second_obs = bitworld_runner._stack_observation(conn, _pack_frame(second), frame_stack=2)
     assert np.array_equal(second_obs[0], first)
     assert np.array_equal(second_obs[1], second)
+
+
+def test_run_bitworld_episode_does_not_duplicate_reward_in_agent_stats(monkeypatch):
+    frame = _pack_frame(np.zeros((bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH), dtype=np.uint8))
+
+    class _FixedActionPolicy:
+        def step_batch(self, _observations: np.ndarray, actions: np.ndarray) -> None:
+            actions[:] = 1
+
+        def close(self) -> None:
+            pass
+
+    class _InlineThread:
+        def __init__(self, target, args, daemon):
+            del daemon
+            self._target = target
+            self._args = args
+
+        def start(self) -> None:
+            self._target(*self._args)
+
+        def join(self, timeout: float | None = None) -> None:
+            del timeout
+
+    class _FakePlayerWebSocket:
+        def recv(self) -> bytes:
+            return frame
+
+        def send(self, _data: bytes, _opcode: int) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+    class _FakeRewardWebSocket:
+        def close(self) -> None:
+            pass
+
+    def fake_reward_listener(state: bitworld_runner.RewardState) -> None:
+        with state.lock:
+            state.rewards_by_address.update({f"player_{i}": float(i + 1) for i in range(5)})
+
+    sockets = iter([cast(Any, _FakeRewardWebSocket()), *[_FakePlayerWebSocket() for _i in range(5)]])
+
+    monkeypatch.setattr(bitworld_runner, "_find_bitworld_binary", lambda _config: Path("/tmp/bitworld/among_them"))
+    monkeypatch.setattr(bitworld_runner, "_start_server_on_free_port", lambda _path, _config: _FakeProc(alive=True))
+    monkeypatch.setattr(bitworld_runner, "_connect_websocket", lambda *_args, **_kwargs: next(sockets))
+    monkeypatch.setattr(bitworld_runner, "_reward_listener", fake_reward_listener)
+    monkeypatch.setattr(bitworld_runner.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(
+        bitworld_runner,
+        "_load_bitworld_policy",
+        lambda _uri, _agent_ids, _num_agents: bitworld_runner.LoadedBitWorldPolicy(_FixedActionPolicy(), frame_stack=1),
+    )
+
+    result = bitworld_runner.run_bitworld_episode(
+        PureSingleEpisodeJob(
+            policy_uris=["fake_policy"],
+            assignments=[0, 0, 0, 0, 0],
+            env=MettaGridConfig(game={"num_agents": 5, "max_steps": 1}),
+            game_engine="bitworld",
+            results_uri=None,
+            replay_uri=None,
+            seed=17,
+        )
+    )
+
+    assert result.rewards == [1.0, 2.0, 3.0, 4.0, 5.0]
+    assert all("reward" not in agent_stats for agent_stats in result.stats["agent"])
+    assert [agent_stats["action.a.success"] for agent_stats in result.stats["agent"]] == [1, 1, 1, 1, 1]
 
 
 def _pack_frame(frame: np.ndarray) -> bytes:

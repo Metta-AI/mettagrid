@@ -447,7 +447,7 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
 
         stats: EpisodeStats = {
             "game": {"ticks": float(config.max_ticks), "num_players": float(config.num_players)},
-            "agent": [{"reward": rewards[i], **action_stats[i]} for i in range(config.num_players)],
+            "agent": [dict(action_stats[i]) for i in range(config.num_players)],
         }
 
         return PureSingleEpisodeResult(
