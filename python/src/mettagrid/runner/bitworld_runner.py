@@ -46,7 +46,7 @@ from mettagrid.bitworld import (
 )
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
-from mettagrid.runner.policy_server.websocket_transport import WebSocketRawPolicyServerClient
+from mettagrid.runner.policy_server.websocket_transport import PolicyStepError, WebSocketRawPolicyServerClient
 from mettagrid.runner.types import PureSingleEpisodeJob, PureSingleEpisodeResult
 from mettagrid.types import EpisodeStats
 
@@ -245,37 +245,8 @@ def _build_bitworld_env_interface(
     )
 
 
-def _bitworld_frame_stack(env_interface: PolicyEnvInterface) -> int:
-    if env_interface.observation_kind != "pixels":
-        raise ValueError(f"BitWorld policies require pixel observations, got {env_interface.observation_kind!r}")
-
-    shape = env_interface.observation_shape
-    if len(shape) != 3 or shape[1:] != (SCREEN_HEIGHT, SCREEN_WIDTH):
-        raise ValueError(
-            f"BitWorld policies require observation_shape (frame_stack, {SCREEN_HEIGHT}, {SCREEN_WIDTH}), got {shape}"
-        )
-
-    if env_interface.action_names != list(BITWORLD_ACTION_NAMES):
-        raise ValueError("BitWorld policy action names do not match the BitWorld action space")
-
-    frame_stack = int(shape[0])
-    if frame_stack < 1:
-        raise ValueError(f"BitWorld frame stack must be positive, got {frame_stack}")
-    return frame_stack
-
-
-def _bitworld_policy_env_interface(policy_spec: PolicySpec, num_agents: int = 1) -> tuple[PolicyEnvInterface, int]:
-    if policy_spec.policy_env_interface is None:
-        if policy_spec.data_path is not None:
-            raise ValueError(
-                "BitWorld policy bundles with data_path must include policy_env_interface in policy_spec.json"
-            )
-        env_interface = _build_bitworld_env_interface(num_agents=num_agents)
-        frame_stack = BITWORLD_DEFAULT_FRAME_STACK
-    else:
-        env_interface = policy_spec.policy_env_interface
-        frame_stack = _bitworld_frame_stack(env_interface)
-    return env_interface.model_copy(update={"num_agents": num_agents}), frame_stack
+def _bitworld_policy_env_interface(num_agents: int = 1) -> tuple[PolicyEnvInterface, int]:
+    return _build_bitworld_env_interface(num_agents=num_agents), BITWORLD_DEFAULT_FRAME_STACK
 
 
 def _unpack_frame(frame_data: bytes) -> np.ndarray:
@@ -331,7 +302,7 @@ def _load_bitworld_policy(uri: str, agent_ids: list[int], num_agents: int) -> Lo
     from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
 
     policy_spec = PolicySpec(class_path=uri) if "://" not in uri else policy_spec_from_uri(uri)
-    env_interface, frame_stack = _bitworld_policy_env_interface(policy_spec, num_agents=num_agents)
+    env_interface, frame_stack = _bitworld_policy_env_interface(num_agents=num_agents)
     return LoadedBitWorldPolicy(initialize_or_load_policy(env_interface, policy_spec), frame_stack)
 
 
@@ -344,7 +315,7 @@ def _policy_action_masks(policy: MultiAgentPolicy, observations: np.ndarray, age
     invalid_indices = np.flatnonzero((actions < 0) | (actions >= BITWORLD_ACTION_COUNT))
     if invalid_indices.size:
         batch_index = int(invalid_indices[0])
-        raise ValueError(
+        raise PolicyStepError(
             f"BitWorld policy action index must be in [0, {BITWORLD_ACTION_COUNT}), "
             f"got {int(actions[batch_index])} at batch index {batch_index}"
         )

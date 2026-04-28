@@ -10,7 +10,9 @@ from mettagrid import MettaGridConfig
 from mettagrid.bitworld import BitWorldServerConfig
 from mettagrid.policy.policy import PolicySpec
 from mettagrid.runner import bitworld_runner
+from mettagrid.runner.policy_server.websocket_transport import PolicyStepError
 from mettagrid.runner.types import PureSingleEpisodeJob
+from mettagrid.util.uri_resolvers import schemes as uri_schemes
 
 
 def test_find_bitworld_binary_uses_container_layout(monkeypatch):
@@ -249,36 +251,8 @@ def test_unpack_frame_rejects_wrong_size():
         bitworld_runner.unpack_frame(b"\x00")
 
 
-def test_bitworld_policy_env_interface_requires_submission_contract_for_data_policy(tmp_path):
-    weights_path = tmp_path / "weights.safetensors"
-    weights_path.write_bytes(b"not inspected")
-    policy_spec = PolicySpec(class_path="metta.agent.policy.CheckpointPolicy", data_path=str(weights_path))
-
-    with pytest.raises(ValueError, match="policy_env_interface"):
-        bitworld_runner._bitworld_policy_env_interface(policy_spec)
-
-
-def test_bitworld_policy_env_interface_uses_submission_contract():
-    policy_spec = PolicySpec(
-        class_path="metta.agent.policy.CheckpointPolicy",
-        policy_env_interface=bitworld_runner._build_bitworld_env_interface(frame_stack=3),
-    )
-
-    env_interface, frame_stack = bitworld_runner._bitworld_policy_env_interface(policy_spec, num_agents=5)
-
-    assert frame_stack == 3
-    assert env_interface.observation_shape == (
-        3,
-        bitworld_runner.SCREEN_HEIGHT,
-        bitworld_runner.SCREEN_WIDTH,
-    )
-    assert env_interface.num_agents == 5
-
-
-def test_bitworld_policy_env_interface_defaults_for_class_policy():
-    policy_spec = PolicySpec(class_path="mettagrid.policy.bitworld.BitWorldRandomDpadPolicy")
-
-    env_interface, frame_stack = bitworld_runner._bitworld_policy_env_interface(policy_spec)
+def test_bitworld_policy_env_interface_comes_from_game_contract():
+    env_interface, frame_stack = bitworld_runner._bitworld_policy_env_interface(num_agents=5)
 
     assert frame_stack == bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK
     assert env_interface.observation_shape == (
@@ -286,6 +260,50 @@ def test_bitworld_policy_env_interface_defaults_for_class_policy():
         bitworld_runner.SCREEN_HEIGHT,
         bitworld_runner.SCREEN_WIDTH,
     )
+    assert env_interface.num_agents == 5
+
+
+def test_load_bitworld_policy_passes_game_contract_to_data_policy(monkeypatch):
+    captured: dict[str, object] = {}
+    policy_spec = PolicySpec(
+        class_path="metta.agent.policy.CheckpointPolicy",
+        data_path="weights.safetensors",
+        policy_env_interface=bitworld_runner._build_bitworld_env_interface(frame_stack=2),
+    )
+
+    monkeypatch.setattr(uri_schemes, "policy_spec_from_uri", lambda _uri: policy_spec)
+
+    def fake_initialize_or_load_policy(env_interface, incoming_policy_spec):
+        captured["env_interface"] = env_interface
+        captured["policy_spec"] = incoming_policy_spec
+        return object()
+
+    monkeypatch.setattr("mettagrid.policy.loader.initialize_or_load_policy", fake_initialize_or_load_policy)
+
+    loaded_policy = bitworld_runner._load_bitworld_policy("file:///tmp/policy.zip", agent_ids=[0], num_agents=5)
+
+    assert loaded_policy.frame_stack == bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK
+    assert captured["policy_spec"] == policy_spec
+    assert captured["env_interface"].observation_shape == (
+        bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
+        bitworld_runner.SCREEN_HEIGHT,
+        bitworld_runner.SCREEN_WIDTH,
+    )
+    assert captured["env_interface"].num_agents == 5
+
+
+def test_policy_action_masks_rejects_invalid_policy_actions():
+    class _InvalidActionPolicy:
+        def step_batch(self, _observations: np.ndarray, actions: np.ndarray) -> None:
+            actions[:] = bitworld_runner.BITWORLD_ACTION_COUNT
+
+    observations = np.zeros(
+        (1, bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK, bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH),
+        dtype=np.uint8,
+    )
+
+    with pytest.raises(PolicyStepError, match="BitWorld policy action index"):
+        bitworld_runner._policy_action_masks(cast(Any, _InvalidActionPolicy()), observations, [0])
 
 
 def test_stack_observation_unpacks_server_frames_and_preserves_history():
