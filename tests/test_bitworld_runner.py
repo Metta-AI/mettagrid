@@ -44,18 +44,24 @@ class _FakeProc:
 def test_start_server_on_free_port_retries_after_failed_bind(monkeypatch):
     ports = iter([1001, 1002])
     started_ports: list[int] = []
+    replay_path = Path("/tmp/replay.json.z")
 
     monkeypatch.setattr(bitworld_runner, "_pick_free_port", lambda: next(ports))
     monkeypatch.setattr(bitworld_runner.time, "sleep", lambda _seconds: None)
 
-    def fake_start_server(_binary_path: Path, config: bitworld_runner.BitWorldConfig) -> _FakeProc:
+    def fake_start_server(
+        _binary_path: Path,
+        config: bitworld_runner.BitWorldConfig,
+        passed_replay_path: Path | None = None,
+    ) -> _FakeProc:
         started_ports.append(config.port)
+        assert passed_replay_path == replay_path
         return _FakeProc(alive=len(started_ports) == 2)
 
     monkeypatch.setattr(bitworld_runner, "_start_server", fake_start_server)
 
     config = bitworld_runner.BitWorldConfig()
-    server_proc = bitworld_runner._start_server_on_free_port(Path("/tmp/bitworld"), config)
+    server_proc = bitworld_runner._start_server_on_free_port(Path("/tmp/bitworld"), config, replay_path)
 
     assert server_proc.poll() is None
     assert started_ports == [1001, 1002]
@@ -120,7 +126,8 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
     config = bitworld_runner.BitWorldConfig(
         host="0.0.0.0", port=8123, seed=17, max_ticks=99, num_players=8, imposter_count=2
     )
-    server_proc = bitworld_runner._start_server(Path("/tmp/bitworld/among_them"), config)
+    replay_path = Path("/tmp/replay.json.z")
+    server_proc = bitworld_runner._start_server(Path("/tmp/bitworld/among_them"), config, replay_path)
 
     cmd = cast(list[str], captured["cmd"])
     assert server_proc.poll() is None
@@ -131,7 +138,14 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
         "minPlayers": 8,
         "imposterCount": 2,
     }
+    assert cmd[4] == "--save-replay:/tmp/replay.json.z"
     assert captured["cwd"] == "/tmp/bitworld"
+
+
+def test_replay_path_from_file_uri(tmp_path):
+    replay_path = tmp_path / "replay.json.z"
+
+    assert bitworld_runner._replay_path_from_uri(replay_path.as_uri()) == replay_path
 
 
 class _FakeWebSocket:
@@ -366,7 +380,11 @@ def test_run_bitworld_episode_does_not_duplicate_reward_in_agent_stats(monkeypat
     sockets = iter([cast(Any, _FakeRewardWebSocket()), *[_FakePlayerWebSocket() for _i in range(5)]])
 
     monkeypatch.setattr(bitworld_runner, "_find_bitworld_binary", lambda _config: Path("/tmp/bitworld/among_them"))
-    monkeypatch.setattr(bitworld_runner, "_start_server_on_free_port", lambda _path, _config: _FakeProc(alive=True))
+    monkeypatch.setattr(
+        bitworld_runner,
+        "_start_server_on_free_port",
+        lambda _path, _config, _replay_path=None: _FakeProc(alive=True),
+    )
     monkeypatch.setattr(bitworld_runner, "_connect_websocket", lambda *_args, **_kwargs: next(sockets))
     monkeypatch.setattr(bitworld_runner, "_reward_listener", fake_reward_listener)
     monkeypatch.setattr(bitworld_runner.threading, "Thread", _InlineThread)

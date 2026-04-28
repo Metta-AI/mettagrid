@@ -49,6 +49,7 @@ from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.runner.policy_server.websocket_transport import PolicyStepError, WebSocketRawPolicyServerClient
 from mettagrid.runner.types import PureSingleEpisodeJob, PureSingleEpisodeResult
 from mettagrid.types import EpisodeStats
+from mettagrid.util.uri_resolvers.schemes import parse_uri
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +138,17 @@ def _find_bitworld_binary(config: BitWorldConfig) -> Path:
     )
 
 
-def _start_server(binary_path: Path, config: BitWorldConfig) -> subprocess.Popen:
+def _replay_path_from_uri(replay_uri: str | None) -> Path | None:
+    if replay_uri is None:
+        return None
+
+    parsed = parse_uri(replay_uri, allow_none=False)
+    if parsed.scheme != "file":
+        raise ValueError(f"BitWorld replay URI must be file://, got: {replay_uri}")
+    return parsed.local_path
+
+
+def _start_server(binary_path: Path, config: BitWorldConfig, replay_path: Path | None = None) -> subprocess.Popen:
     server_config = json.dumps(
         {
             "seed": config.seed,
@@ -153,6 +164,8 @@ def _start_server(binary_path: Path, config: BitWorldConfig) -> subprocess.Popen
         f"--port:{config.port}",
         f"--config:{server_config}",
     ]
+    if replay_path is not None:
+        cmd.append(f"--save-replay:{replay_path}")
     logger.info("Starting BitWorld server: %s", " ".join(cmd))
     return subprocess.Popen(
         cmd,
@@ -208,10 +221,14 @@ def _pick_free_port() -> int:
         return s.getsockname()[1]
 
 
-def _start_server_on_free_port(binary_path: Path, config: BitWorldConfig) -> subprocess.Popen:
+def _start_server_on_free_port(
+    binary_path: Path,
+    config: BitWorldConfig,
+    replay_path: Path | None = None,
+) -> subprocess.Popen:
     for attempt in range(SERVER_START_ATTEMPTS):
         config.port = _pick_free_port()
-        server_proc = _start_server(binary_path, config)
+        server_proc = _start_server(binary_path, config, replay_path)
         time.sleep(SERVER_START_GRACE_S)
         if server_proc.poll() is None:
             return server_proc
@@ -340,7 +357,8 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
         policies.append(_load_bitworld_policy(uri, policy_agent_ids[policy_index], config.num_players))
 
     binary_path = _find_bitworld_binary(config)
-    server_proc = _start_server_on_free_port(binary_path, config)
+    replay_path = _replay_path_from_uri(job.replay_uri)
+    server_proc = _start_server_on_free_port(binary_path, config, replay_path)
 
     connections: list[PlayerConnection] = []
     reward_state = RewardState()
