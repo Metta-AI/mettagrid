@@ -10,6 +10,13 @@ build --action_env=PYTHON_BIN_PATH
 build --action_env=PYTHON_LIB_PATH
 build --python_path=python
 
+# On NixOS, gcc workers invoked by Bazel still go through nix-ld for
+# /lib64/ld-linux-x86-64.so.2; without these env vars, nix-ld panics.
+# Linux-only: macOS has no nix-ld, and --action_env on an unset var
+# crashes Bazel 9 with an NPE on startup.
+build:linux --action_env=NIX_LD
+build:linux --action_env=NIX_LD_LIBRARY_PATH
+
 # Prod build mode. --compilation_mode=[opt|dbg] is a required Bazel field.
 build:opt --compilation_mode=opt
 build:opt --copt=-O3
