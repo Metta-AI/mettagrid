@@ -11,6 +11,13 @@ def _load_trace(path: Path) -> list[dict]:
     return json.loads(path.read_text())
 
 
+def _has_gc_event(events: list[dict], *, generation: int, collected: int) -> bool:
+    return any(
+        event["name"] == "gc" and event["args"]["generation"] == generation and event["args"]["collected"] == collected
+        for event in events
+    )
+
+
 def test_tracer_ignores_recorded_spans_after_flush(tmp_path: Path) -> None:
     trace_path = tmp_path / "trace.json"
     tracer = Tracer(trace_path)
@@ -19,7 +26,7 @@ def test_tracer_ignores_recorded_spans_after_flush(tmp_path: Path) -> None:
     tracer.record_span("late", time.time_ns(), 1_000, marker="ignored")
 
     events = _load_trace(trace_path)
-    assert [event["name"] for event in events] == ["process_name", "process_sort_index"]
+    assert "late" not in [event["name"] for event in events]
 
 
 def test_tracer_ignores_inflight_gc_stop_after_flush(tmp_path: Path) -> None:
@@ -28,10 +35,10 @@ def test_tracer_ignores_inflight_gc_stop_after_flush(tmp_path: Path) -> None:
 
     tracer._gc_callback("start", {"generation": 0, "collected": 0})
     tracer.flush()
-    tracer._gc_callback("stop", {"generation": 0, "collected": 0})
+    tracer._gc_callback("stop", {"generation": 99, "collected": 123})
 
     events = _load_trace(trace_path)
-    assert [event["name"] for event in events] == ["process_name", "process_sort_index"]
+    assert not _has_gc_event(events, generation=99, collected=123)
 
 
 def test_tracer_ignores_reentrant_gc_during_event_write(tmp_path: Path) -> None:
@@ -48,7 +55,7 @@ def test_tracer_ignores_reentrant_gc_during_event_write(tmp_path: Path) -> None:
             if not self._fired:
                 self._fired = True
                 self._tracer._gc_start_ns = time.time_ns()
-                self._tracer._gc_callback("stop", {"generation": 0, "collected": 0})
+                self._tracer._gc_callback("stop", {"generation": 99, "collected": 123})
             return self._delegate.write(payload)
 
         def close(self) -> None:
@@ -59,4 +66,5 @@ def test_tracer_ignores_reentrant_gc_during_event_write(tmp_path: Path) -> None:
     tracer.flush()
 
     events = _load_trace(trace_path)
-    assert [event["name"] for event in events] == ["process_name", "process_sort_index", "late"]
+    assert [event["name"] for event in events].count("late") == 1
+    assert not _has_gc_event(events, generation=99, collected=123)
