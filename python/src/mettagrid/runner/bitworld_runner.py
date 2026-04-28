@@ -24,6 +24,7 @@ from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 import websocket
+from pydantic import BaseModel, ConfigDict, Field
 
 from mettagrid.bitworld import (
     BITWORLD_ACTION_COUNT,
@@ -37,6 +38,7 @@ from mettagrid.bitworld import (
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
     BitWorldEndpoint,
+    BitWorldServerConfig,
     bitworld_input_mask_name,
     pack_input_packet,
     parse_reward_packet,
@@ -57,6 +59,20 @@ BITWORLD_AMONG_THEM_AGENT_COUNT = 5
 BITWORLD_GAME_NAME = "among_them"
 
 
+class BitWorldGameConfig(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    num_agents: int = Field(ge=1)
+    max_steps: int = Field(ge=0)
+    bitworld: BitWorldServerConfig = Field(default_factory=BitWorldServerConfig)
+
+
+class BitWorldEnvConfig(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    game: BitWorldGameConfig
+
+
 @dataclass
 class BitWorldConfig:
     binary_path: str | None = None
@@ -65,17 +81,16 @@ class BitWorldConfig:
     seed: int = 0
     max_ticks: int = 10000
     num_players: int = BITWORLD_AMONG_THEM_AGENT_COUNT
+    imposter_count: int = 1
     connect_timeout_s: float = 10.0
 
     @classmethod
     def from_env_config(cls, config: dict[str, Any]) -> BitWorldConfig:
-        game = config["game"]
-        num_players = game["num_agents"]
-        if num_players < 1:
-            raise ValueError(f"BitWorld {BITWORLD_GAME_NAME} requires at least 1 agent, got {num_players}")
+        env_config = BitWorldEnvConfig.model_validate(config)
         return cls(
-            max_ticks=game["max_steps"],
-            num_players=num_players,
+            max_ticks=env_config.game.max_steps,
+            num_players=env_config.game.num_agents,
+            imposter_count=env_config.game.bitworld.imposter_count,
         )
 
 
@@ -128,6 +143,7 @@ def _start_server(binary_path: Path, config: BitWorldConfig) -> subprocess.Popen
             "seed": config.seed,
             "maxTicks": config.max_ticks,
             "minPlayers": config.num_players,
+            "imposterCount": config.imposter_count,
         },
         separators=(",", ":"),
     )

@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from mettagrid import MettaGridConfig
+from mettagrid.bitworld import BitWorldServerConfig
 from mettagrid.policy.policy import PolicySpec
 from mettagrid.runner import bitworld_runner
 from mettagrid.runner.types import PureSingleEpisodeJob
@@ -59,15 +60,46 @@ def test_start_server_on_free_port_retries_after_failed_bind(monkeypatch):
     assert config.port == 1002
 
 
-def test_config_uses_env_agent_count():
-    config = bitworld_runner.BitWorldConfig.from_env_config({"game": {"max_steps": 99, "num_agents": 8}})
+def test_config_uses_env_agent_and_imposter_count():
+    config = bitworld_runner.BitWorldConfig.from_env_config(
+        {"game": {"max_steps": 99, "num_agents": 8, "bitworld": {"imposterCount": 2}}}
+    )
 
     assert config.max_ticks == 99
     assert config.num_players == 8
+    assert config.imposter_count == 2
+
+
+def test_config_defaults_to_one_imposter():
+    config = bitworld_runner.BitWorldConfig.from_env_config({"game": {"max_steps": 99, "num_agents": 8}})
+
+    assert config.imposter_count == 1
+
+
+def test_episode_job_validation_preserves_bitworld_config():
+    env = MettaGridConfig.EmptyRoom(num_agents=8)
+    env.game.max_steps = 99
+    env.game.bitworld = BitWorldServerConfig(imposter_count=2)
+
+    job = PureSingleEpisodeJob.model_validate(
+        {
+            "policy_uris": ["mock://policy"],
+            "assignments": [0] * 8,
+            "env": env.model_dump(mode="json"),
+            "game_engine": "bitworld",
+            "results_uri": None,
+            "replay_uri": None,
+        }
+    )
+    config = bitworld_runner.BitWorldConfig.from_env_config(job.env.model_dump(mode="json"))
+
+    assert config.max_ticks == 99
+    assert config.num_players == 8
+    assert config.imposter_count == 2
 
 
 def test_config_rejects_empty_among_them_agent_count():
-    with pytest.raises(ValueError, match="requires at least 1 agent"):
+    with pytest.raises(ValueError, match="greater than or equal to 1"):
         bitworld_runner.BitWorldConfig.from_env_config({"game": {"max_steps": 99, "num_agents": 0}})
 
 
@@ -83,13 +115,20 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
 
     monkeypatch.setattr(bitworld_runner.subprocess, "Popen", fake_popen)
 
-    config = bitworld_runner.BitWorldConfig(host="0.0.0.0", port=8123, seed=17, max_ticks=99, num_players=8)
+    config = bitworld_runner.BitWorldConfig(
+        host="0.0.0.0", port=8123, seed=17, max_ticks=99, num_players=8, imposter_count=2
+    )
     server_proc = bitworld_runner._start_server(Path("/tmp/bitworld/among_them"), config)
 
     cmd = cast(list[str], captured["cmd"])
     assert server_proc.poll() is None
     assert cmd[:3] == ["/tmp/bitworld/among_them", "--address:0.0.0.0", "--port:8123"]
-    assert json.loads(cmd[3].removeprefix("--config:")) == {"seed": 17, "maxTicks": 99, "minPlayers": 8}
+    assert json.loads(cmd[3].removeprefix("--config:")) == {
+        "seed": 17,
+        "maxTicks": 99,
+        "minPlayers": 8,
+        "imposterCount": 2,
+    }
     assert captured["cwd"] == "/tmp/bitworld"
 
 

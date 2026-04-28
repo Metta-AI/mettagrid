@@ -13,6 +13,7 @@ from pydantic import (
 )
 
 from mettagrid.base_config import Config
+from mettagrid.bitworld import BitWorldServerConfig
 from mettagrid.config.action_config import (  # noqa: F401 - re-exported for backward compat
     ActionConfig,
     ActionsConfig,
@@ -306,6 +307,11 @@ class GameConfig(Config):
 
     reward_estimates: Optional[dict[str, float]] = Field(default=None)
     talk: TalkConfig = Field(default_factory=TalkConfig, description="Optional talk-mode configuration.")
+    bitworld: BitWorldServerConfig | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description="Optional BitWorld server configuration carried through episode dispatch.",
+    )
 
     # Explicit list of tags used in the game. All tag references in filters/mutations
     # must refer to one of these, or obj.tags, or the implicit type:object_type tag.

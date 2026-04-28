@@ -131,6 +131,12 @@ class BitWorldEndpoint(BaseModel):
         return self.websocket_url(REWARD_PATH)
 
 
+class BitWorldServerConfig(BaseModel):
+    model_config = ConfigDict(frozen=True, populate_by_name=True, serialize_by_alias=True)
+
+    imposter_count: int = Field(default=1, alias="imposterCount", ge=0)
+
+
 class RewardEntry(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -303,6 +309,7 @@ __all__ = [
     "BITWORLD_DEFAULT_FRAME_STACK",
     "BITWORLD_INPUT_MASK_COUNT",
     "BitWorldEndpoint",
+    "BitWorldServerConfig",
     "Button",
     "BUTTON_NAMES",
     "BUTTON_TO_MASK",
