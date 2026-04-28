@@ -107,6 +107,12 @@ class RunnerError(BaseModel):
     error_type: RunnerErrorType
     message: str
 
+    # Policy-failure attribution: set when error_type == "policy_error" and
+    # the failing policy could be identified.
+    failed_policy_index: int | None = None
+    failed_policy_uri: str | None = None
+    failed_policy_name: str | None = None
+
 
 class SingleEpisodeJob(EpisodeSpec):
     model_config = {"extra": "ignore"}

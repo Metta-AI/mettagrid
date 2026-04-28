@@ -22,7 +22,15 @@ PREPARE_TIMEOUT = 300.0
 
 
 class PolicyStepError(Exception):
-    pass
+    """Raised when a policy server returns an invalid response or crashes.
+
+    Carries an optional ``policy_index`` so callers can attribute the failure
+    to a specific policy in a multi-policy episode.
+    """
+
+    def __init__(self, message: str, *, policy_index: int | None = None):
+        super().__init__(message)
+        self.policy_index = policy_index
 
 
 def _serialize_triplet_v1(obs: AgentObservation) -> bytes:
@@ -145,9 +153,17 @@ class WebSocketPolicyServer:
 
 
 class WebSocketPolicyServerClient(MultiAgentPolicy):
-    def __init__(self, policy_env_info: PolicyEnvInterface, *, url: str, agent_ids: list[int]):
+    def __init__(
+        self,
+        policy_env_info: PolicyEnvInterface,
+        *,
+        url: str,
+        agent_ids: list[int],
+        policy_index: int | None = None,
+    ):
         super().__init__(policy_env_info)
         self._url = url
+        self._policy_index = policy_index
         self._ws = ws_connect(url, open_timeout=PREPARE_TIMEOUT)
         self._episode_id = "ws-episode"
         self._next_step_id = 0
@@ -205,7 +221,7 @@ class WebSocketPolicyServerClient(MultiAgentPolicy):
             resp = self._ws.recv()
 
         if not isinstance(resp, bytes):
-            raise PolicyStepError("Expected binary BatchStepResponse message")
+            raise PolicyStepError("Expected binary BatchStepResponse message", policy_index=self._policy_index)
 
         step_resp = policy_pb2.BatchStepResponse()
         step_resp.ParseFromString(resp)
@@ -214,12 +230,17 @@ class WebSocketPolicyServerClient(MultiAgentPolicy):
         infos_by_agent: dict[int, dict[str, Any]] = {}
         for agent_actions in step_resp.agent_actions:
             agent_id = agent_actions.agent_id
-            actions_by_agent[agent_id] = _decode_agent_actions(agent_actions, self._policy_env_info)
-            infos_by_agent[agent_id] = _decode_infos_json(agent_actions)
+            try:
+                actions_by_agent[agent_id] = _decode_agent_actions(agent_actions, self._policy_env_info)
+                infos_by_agent[agent_id] = _decode_infos_json(agent_actions)
+            except PolicyStepError as e:
+                if e.policy_index is None:
+                    e.policy_index = self._policy_index
+                raise
 
         missing_agent_ids = [agent_id for agent_id, _ in agent_observations if agent_id not in actions_by_agent]
         if missing_agent_ids:
-            raise PolicyStepError(f"Missing actions for agent_ids {missing_agent_ids}")
+            raise PolicyStepError(f"Missing actions for agent_ids {missing_agent_ids}", policy_index=self._policy_index)
 
         for agent_id, _ in agent_observations:
             agent_policy = self.agent_policy(agent_id)
@@ -349,7 +370,10 @@ class WebSocketPolicyServerAgentClient(AgentPolicy):
         try:
             return self._parent.step_agent(self._agent_id, obs)
         except (ConnectionClosed, EOFError, OSError) as e:
-            raise PolicyStepError(f"WebSocket communication failed for agent {self._agent_id}") from e
+            raise PolicyStepError(
+                f"WebSocket communication failed for agent {self._agent_id}",
+                policy_index=self._parent._policy_index,
+            ) from e
 
     def can_step_group(self, policies: Sequence[AgentPolicy]) -> bool:
         return all(
@@ -361,4 +385,7 @@ class WebSocketPolicyServerAgentClient(AgentPolicy):
         try:
             return self._parent.step_agents(observations)
         except (ConnectionClosed, EOFError, OSError) as e:
-            raise PolicyStepError("WebSocket communication failed during batched step") from e
+            raise PolicyStepError(
+                "WebSocket communication failed during batched step",
+                policy_index=self._parent._policy_index,
+            ) from e

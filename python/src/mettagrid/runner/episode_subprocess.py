@@ -42,7 +42,12 @@ def _compute_policy_agent_ids(assignments: list[int], *, policy_count: int) -> l
 
 
 def _write_error(path: str, exc: Exception) -> None:
-    error = {"error_type": _classify(exc), "message": str(exc)[:2000]}
+    error: dict[str, object] = {"error_type": _classify(exc), "message": str(exc)[:2000]}
+    if isinstance(exc, PolicyStepError) and exc.policy_index is not None:
+        # Only write the compact index here; the parent process (episode_runner)
+        # maps it back to the original policy index and resolves the user-facing
+        # URI and name.
+        error["failed_policy_index"] = exc.policy_index
     Path(path).write_text(json.dumps(error))
 
 
@@ -67,6 +72,7 @@ def _run(job: PureSingleEpisodeJob) -> None:
                 env_interface,
                 url=uri,
                 agent_ids=policy_agent_ids[policy_index],
+                policy_index=policy_index,
             )
             for policy_index, uri in enumerate(job.policy_uris)
         ]

@@ -333,6 +333,37 @@ def run_episode_isolated(
                 code = proc.returncode
                 detail = f"signal {-code}" if code < 0 else f"exit {code}"
                 runner_error = _read_subprocess_error(error_file_path)
+
+                # The subprocess only knows compact policy indices and ws://
+                # transport URIs.  Replace with the original user-facing values
+                # so downstream consumers (executor, event processor, logs) see
+                # meaningful identifiers.
+                if runner_error and runner_error.failed_policy_index is not None:
+                    compact_idx = runner_error.failed_policy_index
+                    # Reverse policy_index_remap: compact → original
+                    compact_to_original = {v: k for k, v in policy_index_remap.items()}
+                    orig_idx = compact_to_original.get(compact_idx)
+                    if orig_idx is not None:
+                        runner_error.failed_policy_index = orig_idx
+                        if orig_idx < len(spec.policy_uris):
+                            runner_error.failed_policy_uri = spec.policy_uris[orig_idx]
+                        if spec.policy_names and orig_idx < len(spec.policy_names):
+                            runner_error.failed_policy_name = spec.policy_names[orig_idx]
+
+                if runner_error and runner_error.failed_policy_name:
+                    logger.error(
+                        "Episode failed due to policy %r (index %s, uri %s)",
+                        runner_error.failed_policy_name,
+                        runner_error.failed_policy_index,
+                        runner_error.failed_policy_uri,
+                    )
+                elif runner_error and runner_error.failed_policy_index is not None:
+                    logger.error(
+                        "Episode failed due to policy index %d (uri %s)",
+                        runner_error.failed_policy_index,
+                        runner_error.failed_policy_uri,
+                    )
+
                 raise EpisodeSubprocessError(f"episode_subprocess failed ({detail})", runner_error=runner_error)
 
         # Copy local policy-server logs to output directory if requested.

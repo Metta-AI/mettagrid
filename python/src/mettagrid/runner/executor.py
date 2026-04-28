@@ -17,7 +17,7 @@ from mettagrid.runner.episode_runner import (
     _read_log_with_limit,
     run_episode_isolated,
 )
-from mettagrid.runner.types import RunnerError, RunnerErrorType, RuntimeInfo, SingleEpisodeJob
+from mettagrid.runner.types import RunnerError, RuntimeInfo, SingleEpisodeJob
 from mettagrid.util.file import copy_data, read, write_data
 from mettagrid.util.tracer import Tracer
 
@@ -26,8 +26,7 @@ logger = logging.getLogger(__name__)
 
 def _write_runner_error(
     error_info_uri: str | None,
-    error_type: RunnerErrorType,
-    message: str,
+    runner_error: RunnerError,
 ) -> None:
     """Write a structured error artifact to S3 so the event processor can read it directly.
 
@@ -36,9 +35,10 @@ def _write_runner_error(
     if not error_info_uri:
         return
     try:
-        error = RunnerError(error_type=error_type, message=message[:2000])
-        write_data(error_info_uri, error.model_dump_json().encode("utf-8"), content_type="application/json")
-        logger.info(f"Wrote runner error: type={error_type}")
+        write_data(error_info_uri, runner_error.model_dump_json().encode("utf-8"), content_type="application/json")
+        logger.info(
+            f"Wrote runner error: type={runner_error.error_type}, failed_policy={runner_error.failed_policy_name}"
+        )
     except Exception as e:
         logger.warning(f"Failed to write runner error: {e}")
 
@@ -162,7 +162,7 @@ def main() -> None:
     try:
         job = SingleEpisodeJob.model_validate_json(raw_spec, context=LENIENT_CONTEXT)
     except Exception as e:
-        _write_runner_error(error_info_uri, "config_error", str(e))
+        _write_runner_error(error_info_uri, RunnerError(error_type="config_error", message=str(e)[:2000]))
         raise
     logger.info(f"Job spec loaded in {time.monotonic() - t0:.1f}s")
 
@@ -239,18 +239,12 @@ def main() -> None:
 
             logger.info(f"Job completed successfully, total time {time.monotonic() - t0:.1f}s")
         except EpisodeSubprocessError as e:
-            if e.runner_error:
-                _write_runner_error(
-                    error_info_uri,
-                    e.runner_error.error_type,
-                    e.runner_error.message,
-                )
-            else:
-                _write_runner_error(error_info_uri, "crash", str(e))
+            runner_error = e.runner_error or RunnerError(error_type="crash", message=str(e)[:2000])
+            _write_runner_error(error_info_uri, runner_error)
             raise
         except Exception as e:
             # Pre-subprocess: only policy localization/spawn can fail here
-            _write_runner_error(error_info_uri, "policy_error", str(e))
+            _write_runner_error(error_info_uri, RunnerError(error_type="policy_error", message=str(e)[:2000]))
             raise
         finally:
             if tracer:
