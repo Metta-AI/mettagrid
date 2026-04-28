@@ -71,10 +71,8 @@ class BitWorldConfig:
     def from_env_config(cls, config: dict[str, Any]) -> BitWorldConfig:
         game = config["game"]
         num_players = game["num_agents"]
-        if num_players != BITWORLD_AMONG_THEM_AGENT_COUNT:
-            raise ValueError(
-                f"BitWorld {BITWORLD_GAME_NAME} expects {BITWORLD_AMONG_THEM_AGENT_COUNT} agents, got {num_players}"
-            )
+        if num_players < 1:
+            raise ValueError(f"BitWorld {BITWORLD_GAME_NAME} requires at least 1 agent, got {num_players}")
         return cls(
             max_ticks=game["max_steps"],
             num_players=num_players,
