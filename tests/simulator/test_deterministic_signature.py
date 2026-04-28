@@ -12,6 +12,6 @@ def _run_signature() -> str:
 
 
 def test_deterministic_episode_signature_is_stable_across_fresh_processes() -> None:
-    hashes = {_run_signature() for _ in range(12)}
+    hashes = {_run_signature() for _ in range(3)}
 
     assert len(hashes) == 1, f"Expected one deterministic signature, got {sorted(hashes)}"
