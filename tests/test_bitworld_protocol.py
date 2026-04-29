@@ -7,16 +7,19 @@ from mettagrid.bitworld import (
     BITWORLD_ACTION_MASKS,
     FRAME_PIXELS,
     INPUT_PACKET_BYTES,
+    PACKET_CHAT,
     PROTOCOL_BYTES,
     RESET_INPUT_PACKET,
     BitWorldEndpoint,
     Button,
     ControllerState,
     RewardEntry,
+    pack_chat_packet,
     pack_frame_pixels,
     pack_input_packet,
     parse_reward_packet,
     parse_reward_value,
+    unpack_chat_packet,
     unpack_frame_pixels,
     unpack_input_packet,
 )
@@ -52,6 +55,25 @@ def test_input_packets_match_current_bitworld_protocol() -> None:
 
     with pytest.raises(ValueError):
         unpack_input_packet(b"\x01\x21")
+
+
+def test_chat_packets_match_current_bitworld_protocol() -> None:
+    packet = pack_chat_packet(" body in medbay ")
+
+    assert packet == bytes([PACKET_CHAT]) + b"body in medbay"
+    assert unpack_chat_packet(packet) == "body in medbay"
+
+    with pytest.raises(ValueError):
+        pack_chat_packet("")
+
+    with pytest.raises(ValueError):
+        pack_chat_packet("not ascii: \u2603")
+
+    with pytest.raises(ValueError):
+        unpack_chat_packet(b"\x00hello")
+
+    with pytest.raises(ValueError):
+        unpack_chat_packet(bytes([PACKET_CHAT]))
 
 
 def test_bitworld_endpoint_builds_protocol_urls() -> None:

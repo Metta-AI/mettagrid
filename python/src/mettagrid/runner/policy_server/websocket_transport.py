@@ -280,6 +280,7 @@ class WebSocketRawPolicyServerClient(MultiAgentPolicy):
         self._next_step_id = 0
         self._ws_lock = threading.Lock()
         self._agent_ids = list(agent_ids)
+        self._last_talk_by_agent: dict[int, str] = {}
         self._prepare(agent_ids)
 
     def _prepare(self, agent_ids: list[int]) -> None:
@@ -330,10 +331,13 @@ class WebSocketRawPolicyServerClient(MultiAgentPolicy):
         step_resp = policy_pb2.BatchStepResponse()
         step_resp.ParseFromString(resp)
         actions_by_agent: dict[int, int] = {}
+        talk_by_agent: dict[int, str] = {}
         for agent_actions in step_resp.agent_actions:
             if len(agent_actions.action_id) != 1:
                 raise PolicyStepError(f"Agent {agent_actions.agent_id} returned {len(agent_actions.action_id)} actions")
             actions_by_agent[agent_actions.agent_id] = int(agent_actions.action_id[0])
+            if agent_actions.talk_text:
+                talk_by_agent[agent_actions.agent_id] = agent_actions.talk_text
 
         missing_agent_ids = [agent_id for agent_id in agent_ids if agent_id not in actions_by_agent]
         if missing_agent_ids:
@@ -341,11 +345,18 @@ class WebSocketRawPolicyServerClient(MultiAgentPolicy):
 
         for index, agent_id in enumerate(agent_ids):
             raw_actions[index] = actions_by_agent[agent_id]
+        self._last_talk_by_agent = talk_by_agent
 
     def step_batch(self, raw_observations: np.ndarray, raw_actions: np.ndarray) -> None:
         if raw_observations.shape[0] != len(self._agent_ids):
             raise ValueError("Raw WebSocket policy needs explicit agent IDs when stepping partial batches")
         self.step_batch_for_agents(self._agent_ids, raw_observations, raw_actions)
+
+    def bitworld_chat_messages(self, agent_ids: Sequence[int]) -> list[str | None]:
+        return [
+            self._last_talk_by_agent[agent_id] if agent_id in self._last_talk_by_agent else None
+            for agent_id in agent_ids
+        ]
 
     def agent_policy(self, agent_id: int) -> AgentPolicy:
         raise NotImplementedError("Raw WebSocket policy clients do not expose AgentPolicy adapters")

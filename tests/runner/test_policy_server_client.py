@@ -91,6 +91,11 @@ class _RawActionPolicy(MultiAgentPolicy):
         raw_actions[...] = raw_observations.reshape(raw_observations.shape[0], -1)[:, 0]
 
 
+class _RawTalkingPolicy(_RawActionPolicy):
+    def bitworld_chat_messages(self, agent_ids: list[int]) -> list[str | None]:
+        return [f"hello {agent_id}" for agent_id in agent_ids]
+
+
 def _run_ws_test(policy: MultiAgentPolicy, env: PolicyEnvInterface, test_fn):
     service = LocalPolicyServer("fake://policy")
 
@@ -319,6 +324,28 @@ def test_ws_raw_policy_step_batch_round_trips_pixel_observations():
         assert actions.tolist() == [1, 3]
         assert len(policy.observations) == 1
         assert np.array_equal(policy.observations[0], observations)
+
+    _run_raw_ws_test(policy, env, check)
+
+
+def test_ws_raw_policy_step_batch_round_trips_talk_messages():
+    env = PolicyEnvInterface.from_spaces(
+        observation_space=gym.spaces.Box(low=0, high=15, shape=(1, 2, 2), dtype=np.uint8),
+        action_space=gym.spaces.Discrete(BITWORLD_ACTION_COUNT),
+        num_agents=2,
+        action_names=list(BITWORLD_ACTION_NAMES),
+        observation_kind="pixels",
+    )
+    policy = _RawTalkingPolicy(env)
+
+    def check(client: WebSocketRawPolicyServerClient, env: PolicyEnvInterface):
+        del env
+        observations = np.zeros((2, 1, 2, 2), dtype=np.uint8)
+        actions = np.zeros((2,), dtype=np.int64)
+
+        client.step_batch_for_agents([0, 1], observations, actions)
+
+        assert client.bitworld_chat_messages([0, 1]) == ["hello 0", "hello 1"]
 
     _run_raw_ws_test(policy, env, check)
 

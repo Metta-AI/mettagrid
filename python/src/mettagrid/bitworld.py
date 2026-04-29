@@ -20,6 +20,7 @@ BITWORLD_DEFAULT_FRAME_STACK = 4
 PACKET_INPUT = 0
 PACKET_CHAT = 1
 INPUT_PACKET_BYTES = 2
+CHAT_PACKET_HEADER_BYTES = 1
 RESET_INPUT_MASK = 0xFF
 RESET_INPUT_PACKET = bytes([PACKET_INPUT, RESET_INPUT_MASK])
 
@@ -135,6 +136,8 @@ class BitWorldServerConfig(BaseModel):
     model_config = ConfigDict(frozen=True, populate_by_name=True, serialize_by_alias=True)
 
     imposter_count: int = Field(default=1, alias="imposterCount", ge=0)
+    tasks_per_player: int | None = Field(default=None, alias="tasksPerPlayer", ge=0)
+    task_complete_ticks: int | None = Field(default=None, alias="taskCompleteTicks", ge=1)
 
 
 class RewardEntry(BaseModel):
@@ -257,6 +260,26 @@ def unpack_input_packet(packet: bytes | bytearray | memoryview) -> int:
     return raw[1]
 
 
+def pack_chat_packet(text: str) -> bytes:
+    clean_text = text.strip()
+    if not clean_text:
+        raise ValueError("BitWorld chat packets require non-empty text")
+    if any(ord(ch) < 0x20 or ord(ch) >= 0x7F for ch in clean_text):
+        raise ValueError("BitWorld chat text must be printable ASCII")
+    payload = clean_text.encode("ascii")
+    return bytes([PACKET_CHAT]) + payload
+
+
+def unpack_chat_packet(packet: bytes | bytearray | memoryview) -> str:
+    raw = bytes(packet)
+    if len(raw) <= CHAT_PACKET_HEADER_BYTES or raw[0] != PACKET_CHAT:
+        raise ValueError("BitWorld chat packets must start with packet kind 1")
+    payload = raw[1:]
+    if any(byte < 0x20 or byte >= 0x7F for byte in payload):
+        raise ValueError("BitWorld chat text must be printable ASCII")
+    return payload.decode("ascii")
+
+
 def parse_reward_packet(payload: bytes | str) -> RewardPacket:
     text = payload.decode("utf-8") if isinstance(payload, bytes) else payload
     entries: list[RewardEntry] = []
@@ -317,6 +340,7 @@ __all__ = [
     "DIRECTION_BUTTONS",
     "FRAME_PIXELS",
     "GLOBAL_PATH",
+    "CHAT_PACKET_HEADER_BYTES",
     "INPUT_PACKET_BYTES",
     "PACKET_CHAT",
     "PACKET_INPUT",
@@ -342,10 +366,12 @@ __all__ = [
     "dpad_action_indices",
     "dpad_action_masks",
     "encode_buttons",
+    "pack_chat_packet",
     "pack_input_packet",
     "pack_frame_pixels",
     "parse_reward_packet",
     "parse_reward_value",
+    "unpack_chat_packet",
     "unpack_input_packet",
     "unpack_frame_pixels",
 ]

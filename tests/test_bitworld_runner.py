@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from mettagrid import MettaGridConfig
-from mettagrid.bitworld import BitWorldServerConfig
+from mettagrid.bitworld import BitWorldServerConfig, pack_chat_packet
 from mettagrid.policy.policy import PolicySpec
 from mettagrid.runner import bitworld_runner
 from mettagrid.runner.policy_server.websocket_transport import PolicyStepError
@@ -87,7 +87,7 @@ def test_config_defaults_to_one_imposter():
 def test_episode_job_validation_preserves_bitworld_config():
     env = MettaGridConfig.EmptyRoom(num_agents=8)
     env.game.max_steps = 99
-    env.game.bitworld = BitWorldServerConfig(imposter_count=2)
+    env.game.bitworld = BitWorldServerConfig(imposter_count=2, tasks_per_player=3, task_complete_ticks=36)
 
     job = PureSingleEpisodeJob.model_validate(
         {
@@ -104,6 +104,8 @@ def test_episode_job_validation_preserves_bitworld_config():
     assert config.max_ticks == 99
     assert config.num_players == 8
     assert config.imposter_count == 2
+    assert config.tasks_per_player == 3
+    assert config.task_complete_ticks == 36
 
 
 def test_config_rejects_empty_among_them_agent_count():
@@ -124,7 +126,14 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
     monkeypatch.setattr(bitworld_runner.subprocess, "Popen", fake_popen)
 
     config = bitworld_runner.BitWorldConfig(
-        host="0.0.0.0", port=8123, seed=17, max_ticks=99, num_players=8, imposter_count=2
+        host="0.0.0.0",
+        port=8123,
+        seed=17,
+        max_ticks=99,
+        num_players=8,
+        imposter_count=2,
+        tasks_per_player=3,
+        task_complete_ticks=36,
     )
     replay_path = Path("/tmp/replay.json.z")
     server_proc = bitworld_runner._start_server(Path("/tmp/bitworld/among_them"), config, replay_path)
@@ -137,6 +146,8 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
         "maxTicks": 99,
         "minPlayers": 8,
         "imposterCount": 2,
+        "tasksPerPlayer": 3,
+        "taskCompleteTicks": 36,
     }
     assert cmd[4] == "--save-replay:/tmp/replay.json.z"
     assert captured["cwd"] == "/tmp/bitworld"
@@ -250,6 +261,38 @@ def test_load_bitworld_policy_uses_frame_stack_from_policy_server_uri(monkeypatc
     )
 
 
+def test_load_bitworld_policy_uses_frame_stack_query_for_data_policy(monkeypatch):
+    captured: dict[str, object] = {}
+    policy_spec = PolicySpec(class_path="fake.Policy")
+
+    def fake_policy_spec_from_uri(uri: str) -> PolicySpec:
+        captured["uri"] = uri
+        return policy_spec
+
+    def fake_initialize_or_load_policy(env_interface, incoming_policy_spec):
+        captured["env_interface"] = env_interface
+        captured["policy_spec"] = incoming_policy_spec
+        return object()
+
+    monkeypatch.setattr(uri_schemes, "policy_spec_from_uri", fake_policy_spec_from_uri)
+    monkeypatch.setattr("mettagrid.policy.loader.initialize_or_load_policy", fake_initialize_or_load_policy)
+
+    loaded_policy = bitworld_runner._load_bitworld_policy(
+        "metta://policy/amongthem_cyborg?frame_stack=1&llm_talk=false",
+        agent_ids=[0],
+        num_agents=5,
+    )
+
+    assert loaded_policy.frame_stack == 1
+    assert captured["uri"] == "metta://policy/amongthem_cyborg?llm_talk=false"
+    assert captured["policy_spec"] == policy_spec
+    assert captured["env_interface"].observation_shape == (
+        1,
+        bitworld_runner.SCREEN_HEIGHT,
+        bitworld_runner.SCREEN_WIDTH,
+    )
+
+
 def test_unpack_frame_expands_4bit_palette_indices():
     packed = bytes([0x21, 0xF0]) + bytes(bitworld_runner.PROTOCOL_BYTES - 2)
 
@@ -320,6 +363,54 @@ def test_policy_action_masks_rejects_invalid_policy_actions():
         bitworld_runner._policy_action_masks(cast(Any, _InvalidActionPolicy()), observations, [0])
 
 
+def test_policy_step_actions_passes_frame_advances_to_capable_policy():
+    class _FrameAdvancePolicy:
+        def step_batch_for_agents_with_frame_advances(
+            self,
+            agent_ids: list[int],
+            _observations: np.ndarray,
+            actions: np.ndarray,
+            frame_advances: np.ndarray,
+        ) -> None:
+            self.agent_ids = list(agent_ids)
+            self.frame_advances = frame_advances.copy()
+            actions[:] = 1
+
+    observations = np.zeros(
+        (2, bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK, bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH),
+        dtype=np.uint8,
+    )
+    actions = np.zeros(2, dtype=np.int64)
+    frame_advances = np.asarray([1, 37], dtype=np.int32)
+    policy = _FrameAdvancePolicy()
+
+    bitworld_runner._policy_step_actions(cast(Any, policy), observations, actions, [0, 4], frame_advances)
+
+    assert policy.agent_ids == [0, 4]
+    assert policy.frame_advances.tolist() == [1, 37]
+    assert actions.tolist() == [1, 1]
+
+
+def test_policy_debug_stats_are_opt_in(monkeypatch):
+    class _DebugPolicy:
+        def __init__(self):
+            self.calls = 0
+
+        def bitworld_debug_stats(self, agent_ids: list[int]) -> list[dict[str, float]]:
+            self.calls += 1
+            return [{"agent": float(agent_id)} for agent_id in agent_ids]
+
+    policy = _DebugPolicy()
+
+    monkeypatch.delenv(bitworld_runner.DEBUG_STATS_ENV, raising=False)
+    assert bitworld_runner._policy_debug_stats(cast(Any, policy), [2]) == [{}]
+    assert policy.calls == 0
+
+    monkeypatch.setenv(bitworld_runner.DEBUG_STATS_ENV, "1")
+    assert bitworld_runner._policy_debug_stats(cast(Any, policy), [2]) == [{"agent": 2.0}]
+    assert policy.calls == 1
+
+
 def test_stack_observation_unpacks_server_frames_and_preserves_history():
     conn = bitworld_runner.PlayerConnection(ws=cast(Any, _FakeWebSocket()), player_index=0, address="player_0")
     first = (np.arange(bitworld_runner.FRAME_PIXELS, dtype=np.uint8) % 16).reshape(
@@ -335,6 +426,71 @@ def test_stack_observation_unpacks_server_frames_and_preserves_history():
     second_obs = bitworld_runner._stack_observation(conn, _pack_frame(second), frame_stack=2)
     assert np.array_equal(second_obs[0], first)
     assert np.array_equal(second_obs[1], second)
+
+
+def test_receive_player_frame_uses_latest_frame_under_small_backlog():
+    frames = []
+    for value in range(3):
+        frame = np.full((bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH), value, dtype=np.uint8)
+        frames.append(_pack_frame(frame))
+
+    class _FrameQueueWebSocket:
+        def __init__(self):
+            self.timeout = 2.0
+
+        def gettimeout(self) -> float:
+            return self.timeout
+
+        def settimeout(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        def recv(self) -> bytes:
+            if frames:
+                return frames.pop(0)
+            raise bitworld_runner.websocket.WebSocketTimeoutException()
+
+    conn = bitworld_runner.PlayerConnection(ws=cast(Any, _FrameQueueWebSocket()), player_index=0, address="player_0")
+
+    frame_data, frame_advance = bitworld_runner._receive_player_frame(conn)
+
+    assert frame_advance == 3
+    assert frame_data == _pack_frame(
+        np.full((bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH), 2, dtype=np.uint8)
+    )
+    assert conn.queued_frames == []
+
+
+def test_receive_player_frame_drains_to_latest_under_large_backlog():
+    frames = []
+    frame_count = 35
+    for value in range(frame_count):
+        frame = np.full((bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH), value % 16, dtype=np.uint8)
+        frames.append(_pack_frame(frame))
+
+    class _FrameQueueWebSocket:
+        def __init__(self):
+            self.timeout = 2.0
+
+        def gettimeout(self) -> float:
+            return self.timeout
+
+        def settimeout(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        def recv(self) -> bytes:
+            if frames:
+                return frames.pop(0)
+            raise bitworld_runner.websocket.WebSocketTimeoutException()
+
+    conn = bitworld_runner.PlayerConnection(ws=cast(Any, _FrameQueueWebSocket()), player_index=0, address="player_0")
+
+    frame_data, frame_advance = bitworld_runner._receive_player_frame(conn)
+
+    assert frame_advance == frame_count
+    assert frame_data == _pack_frame(
+        np.full((bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH), 2, dtype=np.uint8)
+    )
+    assert conn.queued_frames == []
 
 
 def test_run_bitworld_episode_does_not_duplicate_reward_in_agent_stats(monkeypatch):
@@ -360,7 +516,18 @@ def test_run_bitworld_episode_does_not_duplicate_reward_in_agent_stats(monkeypat
             del timeout
 
     class _FakePlayerWebSocket:
+        def __init__(self):
+            self.timeout = 2.0
+
+        def gettimeout(self) -> float:
+            return self.timeout
+
+        def settimeout(self, timeout: float) -> None:
+            self.timeout = timeout
+
         def recv(self) -> bytes:
+            if self.timeout == 0.0:
+                raise bitworld_runner.websocket.WebSocketTimeoutException()
             return frame
 
         def send(self, _data: bytes, _opcode: int) -> None:
@@ -409,6 +576,96 @@ def test_run_bitworld_episode_does_not_duplicate_reward_in_agent_stats(monkeypat
     assert result.rewards == [1.0, 2.0, 3.0, 4.0, 5.0]
     assert all("reward" not in agent_stats for agent_stats in result.stats["agent"])
     assert [agent_stats["action.a.success"] for agent_stats in result.stats["agent"]] == [1, 1, 1, 1, 1]
+
+
+def test_run_bitworld_episode_sends_policy_chat(monkeypatch):
+    frame = _pack_frame(np.zeros((bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH), dtype=np.uint8))
+
+    class _TalkingPolicy:
+        def step_batch_for_agents(self, agent_ids: list[int], _observations: np.ndarray, actions: np.ndarray) -> None:
+            self.agent_ids = list(agent_ids)
+            actions[:] = 1
+
+        def bitworld_chat_messages(self, agent_ids: list[int]) -> list[str | None]:
+            return ["body in medbay" if agent_id == 0 else None for agent_id in agent_ids]
+
+        def close(self) -> None:
+            pass
+
+    class _InlineThread:
+        def __init__(self, target, args, daemon):
+            del daemon
+            self._target = target
+            self._args = args
+
+        def start(self) -> None:
+            self._target(*self._args)
+
+        def join(self, timeout: float | None = None) -> None:
+            del timeout
+
+    class _FakePlayerWebSocket:
+        def __init__(self):
+            self.sent: list[bytes] = []
+            self.timeout = 2.0
+
+        def gettimeout(self) -> float:
+            return self.timeout
+
+        def settimeout(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        def recv(self) -> bytes:
+            if self.timeout == 0.0:
+                raise bitworld_runner.websocket.WebSocketTimeoutException()
+            return frame
+
+        def send(self, data: bytes, _opcode: int) -> None:
+            self.sent.append(data)
+
+        def close(self) -> None:
+            pass
+
+    class _FakeRewardWebSocket:
+        def close(self) -> None:
+            pass
+
+    def fake_reward_listener(_state: bitworld_runner.RewardState) -> None:
+        pass
+
+    player_sockets = [_FakePlayerWebSocket() for _i in range(5)]
+    sockets = iter([cast(Any, _FakeRewardWebSocket()), *player_sockets])
+
+    monkeypatch.setattr(bitworld_runner, "_find_bitworld_binary", lambda _config: Path("/tmp/bitworld/among_them"))
+    monkeypatch.setattr(
+        bitworld_runner,
+        "_start_server_on_free_port",
+        lambda _path, _config, _replay_path=None: _FakeProc(alive=True),
+    )
+    monkeypatch.setattr(bitworld_runner, "_connect_websocket", lambda *_args, **_kwargs: next(sockets))
+    monkeypatch.setattr(bitworld_runner, "_reward_listener", fake_reward_listener)
+    monkeypatch.setattr(bitworld_runner.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(
+        bitworld_runner,
+        "_load_bitworld_policy",
+        lambda _uri, _agent_ids, _num_agents: bitworld_runner.LoadedBitWorldPolicy(_TalkingPolicy(), frame_stack=1),
+    )
+
+    result = bitworld_runner.run_bitworld_episode(
+        PureSingleEpisodeJob(
+            policy_uris=["fake_policy"],
+            assignments=[0, 0, 0, 0, 0],
+            env=MettaGridConfig(game={"num_agents": 5, "max_steps": 1}),
+            game_engine="bitworld",
+            results_uri=None,
+            replay_uri=None,
+            seed=17,
+        )
+    )
+
+    assert pack_chat_packet("body in medbay") in player_sockets[0].sent
+    assert all(pack_chat_packet("body in medbay") not in socket.sent for socket in player_sockets[1:])
+    assert result.stats["agent"][0]["chat.sent"] == 1.0
 
 
 def _pack_frame(frame: np.ndarray) -> bytes:

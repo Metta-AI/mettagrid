@@ -211,20 +211,39 @@ def _decode_raw_observation(data: bytes, policy_env: PolicyEnvInterface) -> np.n
     return np.frombuffer(data, dtype=dtype).reshape(policy_env.observation_shape)
 
 
+def _raw_policy_chat_messages(policy: MultiAgentPolicy, agent_ids: Sequence[int]) -> list[str | None]:
+    chat_provider = getattr(policy, "bitworld_chat_messages", None)
+    if chat_provider is None:
+        return [None] * len(agent_ids)
+
+    messages = list(chat_provider(agent_ids))
+    if len(messages) != len(agent_ids):
+        raise ValueError(f"raw policy returned {len(messages)} chat messages for {len(agent_ids)} agents")
+    for index, message in enumerate(messages):
+        if message is not None and not isinstance(message, str):
+            raise ValueError(f"raw policy returned non-string chat for agent {agent_ids[index]}")
+    return messages
+
+
 def _batch_step_raw(episode: Episode, req: policy_pb2.BatchStepRequest) -> policy_pb2.BatchStepResponse:
     for agent_obs in req.agent_observations:
         if agent_obs.agent_id not in episode.agent_ids:
             raise AgentNotFoundError(agent_obs.agent_id)
 
+    agent_ids = [agent_obs.agent_id for agent_obs in req.agent_observations]
     observations = np.stack(
         [_decode_raw_observation(agent_obs.observations, episode.policy_env) for agent_obs in req.agent_observations]
     )
     actions = np.zeros((len(req.agent_observations),), dtype=np.int64)
-    episode.policy.step_batch(observations, actions)
+    if (step_batch_for_agents := getattr(episode.policy, "step_batch_for_agents", None)) is not None:
+        step_batch_for_agents(agent_ids, observations, actions)
+    else:
+        episode.policy.step_batch(observations, actions)
+    chat_messages = _raw_policy_chat_messages(episode.policy, agent_ids)
 
     max_action_id = len(episode.policy_env.all_action_names) - 1
     resp = policy_pb2.BatchStepResponse()
-    for agent_obs, action_id in zip(req.agent_observations, actions, strict=True):
+    for agent_obs, action_id, chat_message in zip(req.agent_observations, actions, chat_messages, strict=True):
         action_id = int(action_id)
         if action_id < 0 or action_id > max_action_id:
             raise ValueError(f"raw policy returned action_id {action_id}; expected range [0, {max_action_id}]")
@@ -232,6 +251,7 @@ def _batch_step_raw(episode: Episode, req: policy_pb2.BatchStepRequest) -> polic
             policy_pb2.AgentActions(
                 agent_id=agent_obs.agent_id,
                 action_id=[action_id],
+                talk_text=chat_message or "",
             )
         )
     return resp

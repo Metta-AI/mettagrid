@@ -12,15 +12,16 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import socket
 import subprocess
 import threading
 import time
-from collections import Counter
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
 
 import numpy as np
 import websocket
@@ -40,9 +41,9 @@ from mettagrid.bitworld import (
     BitWorldEndpoint,
     BitWorldServerConfig,
     bitworld_input_mask_name,
+    pack_chat_packet,
     pack_input_packet,
     parse_reward_packet,
-    unpack_frame_pixels,
 )
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
@@ -55,6 +56,9 @@ logger = logging.getLogger(__name__)
 
 SERVER_START_ATTEMPTS = 5
 SERVER_START_GRACE_S = 0.1
+MAX_FRAME_DRAIN = 128
+DEBUG_STATS_ENV = "BITWORLD_DEBUG_STATS"
+POLICY_RUNNER_QUERY_KEYS = {"frame_stack"}
 
 BITWORLD_AMONG_THEM_AGENT_COUNT = 5
 BITWORLD_GAME_NAME = "among_them"
@@ -83,6 +87,8 @@ class BitWorldConfig:
     max_ticks: int = 10000
     num_players: int = BITWORLD_AMONG_THEM_AGENT_COUNT
     imposter_count: int = 1
+    tasks_per_player: int | None = None
+    task_complete_ticks: int | None = None
     connect_timeout_s: float = 10.0
 
     @classmethod
@@ -92,6 +98,8 @@ class BitWorldConfig:
             max_ticks=env_config.game.max_steps,
             num_players=env_config.game.num_agents,
             imposter_count=env_config.game.bitworld.imposter_count,
+            tasks_per_player=env_config.game.bitworld.tasks_per_player,
+            task_complete_ticks=env_config.game.bitworld.task_complete_ticks,
         )
 
 
@@ -102,6 +110,7 @@ class PlayerConnection:
     address: str
     alive: bool = True
     observation_stack: np.ndarray | None = None
+    queued_frames: list[bytes] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -149,15 +158,17 @@ def _replay_path_from_uri(replay_uri: str | None) -> Path | None:
 
 
 def _start_server(binary_path: Path, config: BitWorldConfig, replay_path: Path | None = None) -> subprocess.Popen:
-    server_config = json.dumps(
-        {
-            "seed": config.seed,
-            "maxTicks": config.max_ticks,
-            "minPlayers": config.num_players,
-            "imposterCount": config.imposter_count,
-        },
-        separators=(",", ":"),
-    )
+    server_config_fields = {
+        "seed": config.seed,
+        "maxTicks": config.max_ticks,
+        "minPlayers": config.num_players,
+        "imposterCount": config.imposter_count,
+    }
+    if config.tasks_per_player is not None:
+        server_config_fields["tasksPerPlayer"] = config.tasks_per_player
+    if config.task_complete_ticks is not None:
+        server_config_fields["taskCompleteTicks"] = config.task_complete_ticks
+    server_config = json.dumps(server_config_fields, separators=(",", ":"))
     cmd = [
         str(binary_path),
         f"--address:{config.host}",
@@ -267,7 +278,12 @@ def _bitworld_policy_env_interface(num_agents: int = 1) -> tuple[PolicyEnvInterf
 
 
 def _unpack_frame(frame_data: bytes) -> np.ndarray:
-    frame = np.frombuffer(unpack_frame_pixels(frame_data), dtype=np.uint8)
+    if len(frame_data) != PROTOCOL_BYTES:
+        raise ValueError(f"BitWorld frames must be {PROTOCOL_BYTES} packed bytes, received {len(frame_data)}")
+    packed = np.frombuffer(frame_data, dtype=np.uint8)
+    frame = np.empty(FRAME_PIXELS, dtype=np.uint8)
+    frame[0::2] = packed & 0x0F
+    frame[1::2] = packed >> 4
     return frame.reshape(FRAME_PIXELS // SCREEN_WIDTH, SCREEN_WIDTH)
 
 
@@ -285,11 +301,49 @@ def _stack_observation(conn: PlayerConnection, frame_data: bytes, frame_stack: i
     return conn.observation_stack
 
 
+def _accept_player_frame(conn: PlayerConnection, data: object) -> None:
+    if isinstance(data, bytes) and len(data) == PROTOCOL_BYTES:
+        conn.queued_frames.append(data)
+
+
+def _receive_player_frame(conn: PlayerConnection) -> tuple[bytes | None, int]:
+    if not conn.queued_frames:
+        try:
+            _accept_player_frame(conn, conn.ws.recv())
+        except (BlockingIOError, websocket.WebSocketTimeoutException):
+            return None, 0
+        except (websocket.WebSocketConnectionClosedException, ConnectionError):
+            conn.alive = False
+            return None, 0
+
+    previous_timeout = conn.ws.gettimeout()
+    conn.ws.settimeout(0.0)
+    try:
+        for _ in range(MAX_FRAME_DRAIN):
+            try:
+                _accept_player_frame(conn, conn.ws.recv())
+            except (BlockingIOError, websocket.WebSocketTimeoutException):
+                break
+            except (websocket.WebSocketConnectionClosedException, ConnectionError):
+                conn.alive = False
+                break
+    finally:
+        conn.ws.settimeout(previous_timeout)
+
+    if not conn.queued_frames:
+        return None, 0
+
+    frame_advance = len(conn.queued_frames)
+    frame_data = conn.queued_frames[-1]
+    conn.queued_frames.clear()
+    return frame_data, frame_advance
+
+
 def _is_policy_server_uri(uri: str) -> bool:
     return urlparse(uri).scheme in {"ws", "wss"}
 
 
-def _policy_server_frame_stack(uri: str) -> int:
+def _policy_uri_frame_stack(uri: str) -> int:
     values = parse_qs(urlparse(uri).query).get("frame_stack")
     if values:
         frame_stack = int(values[-1])
@@ -297,6 +351,20 @@ def _policy_server_frame_stack(uri: str) -> int:
             raise ValueError(f"BitWorld frame_stack query parameter must be positive, got {frame_stack}")
         return frame_stack
     return BITWORLD_DEFAULT_FRAME_STACK
+
+
+def _policy_uri_without_runner_query(uri: str) -> str:
+    parsed = urlparse(uri)
+    if not parsed.query:
+        return uri
+    query = urlencode(
+        [
+            (key, value)
+            for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+            if key not in POLICY_RUNNER_QUERY_KEYS
+        ]
+    )
+    return urlunparse(parsed._replace(query=query))
 
 
 def _policy_agent_ids(assignments: list[int], policy_count: int) -> list[list[int]]:
@@ -307,8 +375,8 @@ def _policy_agent_ids(assignments: list[int], policy_count: int) -> list[list[in
 
 
 def _load_bitworld_policy(uri: str, agent_ids: list[int], num_agents: int) -> LoadedBitWorldPolicy:
+    frame_stack = _policy_uri_frame_stack(uri)
     if _is_policy_server_uri(uri):
-        frame_stack = _policy_server_frame_stack(uri)
         env_interface = _build_bitworld_env_interface(frame_stack, num_agents=num_agents)
         return LoadedBitWorldPolicy(
             WebSocketRawPolicyServerClient(env_interface, url=uri, agent_ids=agent_ids),
@@ -318,17 +386,68 @@ def _load_bitworld_policy(uri: str, agent_ids: list[int], num_agents: int) -> Lo
     from mettagrid.policy.loader import initialize_or_load_policy  # noqa: PLC0415
     from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
 
-    policy_spec = PolicySpec(class_path=uri) if "://" not in uri else policy_spec_from_uri(uri)
-    env_interface, frame_stack = _bitworld_policy_env_interface(num_agents=num_agents)
+    policy_uri = _policy_uri_without_runner_query(uri)
+    policy_spec = PolicySpec(class_path=policy_uri) if "://" not in policy_uri else policy_spec_from_uri(policy_uri)
+    env_interface = _build_bitworld_env_interface(frame_stack, num_agents=num_agents)
     return LoadedBitWorldPolicy(initialize_or_load_policy(env_interface, policy_spec), frame_stack)
 
 
-def _policy_action_masks(policy: MultiAgentPolicy, observations: np.ndarray, agent_ids: list[int]) -> np.ndarray:
-    actions = np.zeros((observations.shape[0],), dtype=np.int64)
-    if isinstance(policy, WebSocketRawPolicyServerClient):
+def _policy_step_actions(
+    policy: MultiAgentPolicy,
+    observations: np.ndarray,
+    actions: np.ndarray,
+    agent_ids: list[int],
+    frame_advances: np.ndarray | None = None,
+) -> None:
+    step_with_frame_advances = getattr(policy, "step_batch_for_agents_with_frame_advances", None)
+    if step_with_frame_advances is not None and frame_advances is not None:
+        step_with_frame_advances(agent_ids, observations, actions, frame_advances)
+    elif isinstance(policy, WebSocketRawPolicyServerClient):
         policy.step_batch_for_agents(agent_ids, observations, actions)
+    elif (step_batch_for_agents := getattr(policy, "step_batch_for_agents", None)) is not None:
+        step_batch_for_agents(agent_ids, observations, actions)
     else:
         policy.step_batch(observations, actions)
+
+
+def _policy_chat_messages(policy: MultiAgentPolicy, agent_ids: list[int]) -> list[str | None]:
+    chat_provider = getattr(policy, "bitworld_chat_messages", None)
+    if chat_provider is None:
+        return [None] * len(agent_ids)
+
+    messages = list(chat_provider(agent_ids))
+    if len(messages) != len(agent_ids):
+        raise PolicyStepError(
+            f"BitWorld chat provider returned {len(messages)} messages for {len(agent_ids)} agent_ids"
+        )
+    for index, message in enumerate(messages):
+        if message is not None and not isinstance(message, str):
+            raise PolicyStepError(f"BitWorld chat provider returned non-string message for agent {agent_ids[index]}")
+    return messages
+
+
+def _policy_debug_stats(policy: MultiAgentPolicy, agent_ids: list[int]) -> list[dict[str, float]]:
+    if os.getenv(DEBUG_STATS_ENV, "").lower() not in {"1", "true", "yes", "on"}:
+        return [{} for _agent_id in agent_ids]
+
+    debug_provider = getattr(policy, "bitworld_debug_stats", None)
+    if debug_provider is None:
+        return [{} for _agent_id in agent_ids]
+
+    stats = list(debug_provider(agent_ids))
+    if len(stats) != len(agent_ids):
+        raise PolicyStepError(f"BitWorld debug provider returned {len(stats)} items for {len(agent_ids)} agent_ids")
+    return stats
+
+
+def _policy_action_masks_and_chats(
+    policy: MultiAgentPolicy,
+    observations: np.ndarray,
+    agent_ids: list[int],
+    frame_advances: np.ndarray | None = None,
+) -> tuple[np.ndarray, list[str | None], list[dict[str, float]]]:
+    actions = np.zeros((observations.shape[0],), dtype=np.int64)
+    _policy_step_actions(policy, observations, actions, agent_ids, frame_advances)
     invalid_indices = np.flatnonzero((actions < 0) | (actions >= BITWORLD_ACTION_COUNT))
     if invalid_indices.size:
         batch_index = int(invalid_indices[0])
@@ -336,7 +455,16 @@ def _policy_action_masks(policy: MultiAgentPolicy, observations: np.ndarray, age
             f"BitWorld policy action index must be in [0, {BITWORLD_ACTION_COUNT}), "
             f"got {int(actions[batch_index])} at batch index {batch_index}"
         )
-    return BITWORLD_ACTION_MASKS[actions]
+    return (
+        BITWORLD_ACTION_MASKS[actions],
+        _policy_chat_messages(policy, agent_ids),
+        _policy_debug_stats(policy, agent_ids),
+    )
+
+
+def _policy_action_masks(policy: MultiAgentPolicy, observations: np.ndarray, agent_ids: list[int]) -> np.ndarray:
+    action_masks, _chat_messages, _debug_stats = _policy_action_masks_and_chats(policy, observations, agent_ids)
+    return action_masks
 
 
 def _action_stat_key(action_mask: int) -> str:
@@ -362,7 +490,7 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
 
     connections: list[PlayerConnection] = []
     reward_state = RewardState()
-    action_stats: list[Counter[str]] = [Counter() for _ in range(config.num_players)]
+    action_stats: list[defaultdict[str, float]] = [defaultdict(float) for _agent_id in range(config.num_players)]
 
     try:
         reward_state.ws = _connect_websocket(config, REWARD_PATH, "reward listener")
@@ -376,42 +504,57 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
 
         for _tick in range(config.max_ticks):
             all_dead = True
-            pending_actions: list[tuple[PlayerConnection, LoadedBitWorldPolicy, np.ndarray]] = []
+            pending_actions: list[tuple[PlayerConnection, LoadedBitWorldPolicy, np.ndarray, int]] = []
             for conn in connections:
                 if not conn.alive:
                     continue
                 all_dead = False
 
-                try:
-                    frame_data = conn.ws.recv()
-                except websocket.WebSocketTimeoutException:
-                    continue
-                except (websocket.WebSocketConnectionClosedException, ConnectionError):
-                    conn.alive = False
-                    continue
-
-                if not isinstance(frame_data, bytes) or len(frame_data) != PROTOCOL_BYTES:
+                frame_data, frame_advance = _receive_player_frame(conn)
+                if frame_data is None:
                     continue
 
                 loaded_policy = policies[job.assignments[conn.player_index]]
                 observation = _stack_observation(conn, frame_data, loaded_policy.frame_stack)
-                pending_actions.append((conn, loaded_policy, observation))
+                pending_actions.append((conn, loaded_policy, observation, frame_advance))
 
             for loaded_policy in policies:
                 batch = [
-                    (conn, observation)
-                    for conn, policy_for_conn, observation in pending_actions
+                    (conn, observation, frame_advance)
+                    for conn, policy_for_conn, observation, frame_advance in pending_actions
                     if policy_for_conn is loaded_policy
                 ]
                 if not batch:
                     continue
-                observations = np.stack([observation for _conn, observation in batch])
-                agent_ids = [conn.player_index for conn, _observation in batch]
-                action_masks = _policy_action_masks(loaded_policy.policy, observations, agent_ids)
-                for (conn, _observation), action_mask in zip(batch, action_masks, strict=True):
+                observations = np.stack([observation for _conn, observation, _frame_advance in batch])
+                agent_ids = [conn.player_index for conn, _observation, _frame_advance in batch]
+                frame_advances = np.asarray(
+                    [frame_advance for _conn, _observation, frame_advance in batch], dtype=np.int32
+                )
+                action_masks, chat_messages, debug_stats = _policy_action_masks_and_chats(
+                    loaded_policy.policy, observations, agent_ids, frame_advances
+                )
+                for (conn, _observation), action_mask, chat_message, debug_stat in zip(
+                    [(conn, observation) for conn, observation, _frame_advance in batch],
+                    action_masks,
+                    chat_messages,
+                    debug_stats,
+                    strict=True,
+                ):
                     mask = int(action_mask)
                     conn.ws.send(pack_input_packet(mask), websocket.ABNF.OPCODE_BINARY)
                     action_stats[conn.player_index][_action_stat_key(mask)] += 1
+                    action_stats[conn.player_index]["frame_advance.samples"] += 1
+                    action_stats[conn.player_index]["frame_advance.total"] += float(frame_advance)
+                    action_stats[conn.player_index]["frame_advance.max"] = max(
+                        action_stats[conn.player_index]["frame_advance.max"],
+                        float(frame_advance),
+                    )
+                    for name, value in debug_stat.items():
+                        action_stats[conn.player_index][f"debug.{name}.last"] = float(value)
+                    if chat_message is not None and chat_message.strip():
+                        conn.ws.send(pack_chat_packet(chat_message), websocket.ABNF.OPCODE_BINARY)
+                        action_stats[conn.player_index]["chat.sent"] += 1
 
             if all_dead:
                 break
