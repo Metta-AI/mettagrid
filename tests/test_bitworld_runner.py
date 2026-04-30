@@ -223,76 +223,19 @@ def test_load_bitworld_policy_uses_policy_server_client_for_ws_uri(monkeypatch):
 
     monkeypatch.setattr(bitworld_runner, "WebSocketRawPolicyServerClient", _FakePolicyServerClient)
 
-    loaded_policy = bitworld_runner._load_bitworld_policy(
+    policy = bitworld_runner._load_bitworld_policy(
         "ws://127.0.0.1:9000",
         agent_ids=[0, 3],
         num_agents=5,
+        frame_stack=bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
     )
 
-    assert loaded_policy.policy is not None
-    assert loaded_policy.frame_stack == bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK
+    assert policy is not None
     assert captured["url"] == "ws://127.0.0.1:9000"
     assert captured["agent_ids"] == [0, 3]
     env_interface = captured["env_interface"]
     assert env_interface.num_agents == 5
     assert env_interface.observation_kind == "pixels"
-
-
-def test_load_bitworld_policy_uses_frame_stack_from_policy_server_uri(monkeypatch):
-    captured: dict[str, object] = {}
-
-    class _FakePolicyServerClient:
-        def __init__(self, env_interface, *, url: str, agent_ids: list[int]):
-            captured["env_interface"] = env_interface
-            captured["url"] = url
-            captured["agent_ids"] = agent_ids
-
-    monkeypatch.setattr(bitworld_runner, "WebSocketRawPolicyServerClient", _FakePolicyServerClient)
-
-    loaded_policy = bitworld_runner._load_bitworld_policy(
-        "ws://127.0.0.1:9000?frame_stack=7",
-        agent_ids=[1],
-        num_agents=5,
-    )
-
-    assert loaded_policy.frame_stack == 7
-    assert captured["env_interface"].observation_shape == (
-        7,
-        bitworld_runner.SCREEN_HEIGHT,
-        bitworld_runner.SCREEN_WIDTH,
-    )
-
-
-def test_load_bitworld_policy_uses_frame_stack_query_for_data_policy(monkeypatch):
-    captured: dict[str, object] = {}
-    policy_spec = PolicySpec(class_path="fake.Policy")
-
-    def fake_policy_spec_from_uri(uri: str) -> PolicySpec:
-        captured["uri"] = uri
-        return policy_spec
-
-    def fake_initialize_or_load_policy(env_interface, incoming_policy_spec):
-        captured["env_interface"] = env_interface
-        captured["policy_spec"] = incoming_policy_spec
-        return object()
-
-    monkeypatch.setattr(uri_schemes, "policy_spec_from_uri", fake_policy_spec_from_uri)
-    monkeypatch.setattr("mettagrid.policy.loader.initialize_or_load_policy", fake_initialize_or_load_policy)
-
-    loaded_policy = bitworld_runner._load_bitworld_policy(
-        "metta://policy/amongthem_cyborg?frame_stack=1&llm_talk=false",
-        agent_ids=[0],
-        num_agents=5,
-    )
-
-    assert loaded_policy.frame_stack == 1
-    assert captured["uri"] == "metta://policy/amongthem_cyborg?llm_talk=false"
-    assert captured["policy_spec"] == policy_spec
-    assert captured["env_interface"].observation_shape == (
-        1,
-        bitworld_runner.SCREEN_HEIGHT,
-        bitworld_runner.SCREEN_WIDTH,
-    )
 
 
 def test_unpack_frame_expands_4bit_palette_indices():
@@ -308,18 +251,6 @@ def test_unpack_frame_expands_4bit_palette_indices():
 def test_unpack_frame_rejects_wrong_size():
     with pytest.raises(ValueError, match="BitWorld frames"):
         bitworld_runner.unpack_frame(b"\x00")
-
-
-def test_bitworld_policy_env_interface_comes_from_game_contract():
-    env_interface, frame_stack = bitworld_runner._bitworld_policy_env_interface(num_agents=5)
-
-    assert frame_stack == bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK
-    assert env_interface.observation_shape == (
-        bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
-        bitworld_runner.SCREEN_HEIGHT,
-        bitworld_runner.SCREEN_WIDTH,
-    )
-    assert env_interface.num_agents == 5
 
 
 def test_load_bitworld_policy_passes_game_contract_to_data_policy(monkeypatch):
@@ -340,10 +271,13 @@ def test_load_bitworld_policy_passes_game_contract_to_data_policy(monkeypatch):
     monkeypatch.setattr("mettagrid.policy.loader.initialize_or_load_policy", fake_initialize_or_load_policy)
 
     loaded_policy = bitworld_runner._load_bitworld_policy(
-        "file:///tmp/policy.zip?frame_stack=2", agent_ids=[0], num_agents=5
+        "file:///tmp/policy.zip",
+        agent_ids=[0],
+        num_agents=5,
+        frame_stack=2,
     )
 
-    assert loaded_policy.frame_stack == 2
+    assert loaded_policy is not None
     assert captured["policy_spec"] == policy_spec
     assert captured["env_interface"].observation_shape == (
         2,
@@ -562,7 +496,7 @@ def test_run_bitworld_episode_does_not_duplicate_reward_in_agent_stats(monkeypat
     monkeypatch.setattr(
         bitworld_runner,
         "_load_bitworld_policy",
-        lambda _uri, _agent_ids, _num_agents: bitworld_runner.LoadedBitWorldPolicy(_FixedActionPolicy(), frame_stack=1),
+        lambda _uri, _agent_ids, _num_agents, _frame_stack: _FixedActionPolicy(),
     )
 
     result = bitworld_runner.run_bitworld_episode(
@@ -651,7 +585,7 @@ def test_run_bitworld_episode_sends_policy_chat(monkeypatch):
     monkeypatch.setattr(
         bitworld_runner,
         "_load_bitworld_policy",
-        lambda _uri, _agent_ids, _num_agents: bitworld_runner.LoadedBitWorldPolicy(_TalkingPolicy(), frame_stack=1),
+        lambda _uri, _agent_ids, _num_agents, _frame_stack: _TalkingPolicy(),
     )
 
     result = bitworld_runner.run_bitworld_episode(
