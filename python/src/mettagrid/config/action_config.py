@@ -2,6 +2,13 @@
 
 This module defines all action-related configurations including movement,
 attacks, transfers, and vibe changes.
+
+Framework vs. behavior: these schemas describe what a game *could* configure,
+not the active behavior of any specific game. Whether a given field is
+populated for a particular mission is determined by that game's variant
+chain. Reading these schemas tells you mettagrid's capability surface; for
+a game's actual behavior, consult the game package (e.g. ``cogsguard``) and
+the mission's required variants.
 """
 
 from __future__ import annotations
@@ -114,6 +121,16 @@ class AttackOutcome(Config):
 class AttackActionConfig(ActionConfig):
     """Python attack action configuration.
 
+    Framework note: this is the schema for the ``attack`` action in mettagrid.
+    It is **disabled by default** (``enabled=False`` in ``ActionsConfig``) and
+    is opt-in: a game must both enable it and populate ``vibes`` /
+    ``vibe_bonus`` for any of the vibe-coupled behavior described below to
+    occur. Games that do not enable attack (e.g. Cogs vs Clips
+    ``machina_1``) do not exhibit any of the vibe coupling described here -
+    in those games vibes are a pure signaling channel with no gameplay
+    coupling, and role identity is determined by inventory items rather than
+    by the agent's vibe attribute.
+
     Attack is triggered by moving onto another agent (when vibes match).
     No standalone attack actions are created.
 
@@ -147,11 +164,19 @@ class AttackActionConfig(ActionConfig):
     )
     vibes: list[str] = Field(
         default_factory=list,
-        description="Vibe names that trigger attack on move (e.g., ['weapon'])",
+        description=(
+            "Optional. Empty by default. Vibe names that trigger attack on move when "
+            "AttackActionConfig is enabled. Populated by attack-configuring variants; "
+            "no effect when empty (e.g., ['weapon'])."
+        ),
     )
     vibe_bonus: dict[str, int] = Field(
         default_factory=dict,
-        description="Per-vibe armor bonus. Maps vibe name to bonus amount.",
+        description=(
+            "Optional. Empty by default. Per-vibe armor bonus when AttackActionConfig "
+            "is enabled and the target's vibe matches the key. Populated by "
+            "attack-configuring variants; no effect when empty."
+        ),
     )
 
     def _actions(self) -> list[Action]:
