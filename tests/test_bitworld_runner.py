@@ -253,6 +253,20 @@ def test_unpack_frame_rejects_wrong_size():
         bitworld_runner.unpack_frame(b"\x00")
 
 
+def test_bitworld_policy_env_interface_comes_from_game_contract():
+    env_interface = bitworld_runner._build_bitworld_env_interface(
+        frame_stack=bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
+        num_agents=5,
+    )
+
+    assert env_interface.observation_shape == (
+        bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
+        bitworld_runner.SCREEN_HEIGHT,
+        bitworld_runner.SCREEN_WIDTH,
+    )
+    assert env_interface.num_agents == 5
+
+
 def test_load_bitworld_policy_passes_game_contract_to_data_policy(monkeypatch):
     captured: dict[str, object] = {}
     policy_spec = PolicySpec(
@@ -301,32 +315,33 @@ def test_policy_action_masks_rejects_invalid_policy_actions():
         bitworld_runner._policy_action_masks(cast(Any, _InvalidActionPolicy()), observations, [0])
 
 
-def test_policy_step_actions_passes_frame_advances_to_capable_policy():
-    class _FrameAdvancePolicy:
-        def step_batch_for_agents_with_frame_advances(
-            self,
-            agent_ids: list[int],
-            _observations: np.ndarray,
-            actions: np.ndarray,
-            frame_advances: np.ndarray,
-        ) -> None:
-            self.agent_ids = list(agent_ids)
-            self.frame_advances = frame_advances.copy()
-            actions[:] = 1
+def test_policy_step_actions_uses_slot_indexed_step_batch():
+    class _SlotPolicy:
+        def step_batch(self, observations: np.ndarray, actions: np.ndarray) -> None:
+            self.observations = observations.copy()
+            actions[0] = 1
+            actions[4] = 2
 
     observations = np.zeros(
         (2, bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK, bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH),
         dtype=np.uint8,
     )
+    observations[0, 0, 0, 0] = 7
+    observations[1, 0, 0, 0] = 9
     actions = np.zeros(2, dtype=np.int64)
-    frame_advances = np.asarray([1, 37], dtype=np.int32)
-    policy = _FrameAdvancePolicy()
+    policy = _SlotPolicy()
 
-    bitworld_runner._policy_step_actions(cast(Any, policy), observations, actions, [0, 4], frame_advances)
+    bitworld_runner._policy_step_actions(cast(Any, policy), observations, actions, [0, 4], num_agents=5)
 
-    assert policy.agent_ids == [0, 4]
-    assert policy.frame_advances.tolist() == [1, 37]
-    assert actions.tolist() == [1, 1]
+    assert policy.observations.shape == (
+        5,
+        bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
+        bitworld_runner.SCREEN_HEIGHT,
+        bitworld_runner.SCREEN_WIDTH,
+    )
+    assert policy.observations[0, 0, 0, 0] == 7
+    assert policy.observations[4, 0, 0, 0] == 9
+    assert actions.tolist() == [1, 2]
 
 
 def test_policy_debug_stats_are_opt_in(monkeypatch):
@@ -519,8 +534,7 @@ def test_run_bitworld_episode_sends_policy_chat(monkeypatch):
     frame = _pack_frame(np.zeros((bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH), dtype=np.uint8))
 
     class _TalkingPolicy:
-        def step_batch_for_agents(self, agent_ids: list[int], _observations: np.ndarray, actions: np.ndarray) -> None:
-            self.agent_ids = list(agent_ids)
+        def step_batch(self, _observations: np.ndarray, actions: np.ndarray) -> None:
             actions[:] = 1
 
         def bitworld_chat_messages(self, agent_ids: list[int]) -> list[str | None]:
@@ -587,7 +601,6 @@ def test_run_bitworld_episode_sends_policy_chat(monkeypatch):
         "_load_bitworld_policy",
         lambda _uri, _agent_ids, _num_agents, _frame_stack: _TalkingPolicy(),
     )
-
     result = bitworld_runner.run_bitworld_episode(
         PureSingleEpisodeJob(
             policy_uris=["fake_policy"],

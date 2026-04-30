@@ -325,22 +325,22 @@ def _load_bitworld_policy(
     return initialize_or_load_policy(env_interface, policy_spec)
 
 
+def _slot_indexed_observations(observations: np.ndarray, agent_ids: list[int], num_agents: int) -> np.ndarray:
+    slot_observations = np.zeros((num_agents, *observations.shape[1:]), dtype=observations.dtype)
+    slot_observations[np.asarray(agent_ids, dtype=np.intp)] = observations
+    return slot_observations
+
+
 def _policy_step_actions(
     policy: MultiAgentPolicy,
     observations: np.ndarray,
     actions: np.ndarray,
     agent_ids: list[int],
-    frame_advances: np.ndarray | None = None,
+    num_agents: int,
 ) -> None:
-    step_with_frame_advances = getattr(policy, "step_batch_for_agents_with_frame_advances", None)
-    if step_with_frame_advances is not None and frame_advances is not None:
-        step_with_frame_advances(agent_ids, observations, actions, frame_advances)
-    elif isinstance(policy, WebSocketRawPolicyServerClient):
-        policy.step_batch_for_agents(agent_ids, observations, actions)
-    elif (step_batch_for_agents := getattr(policy, "step_batch_for_agents", None)) is not None:
-        step_batch_for_agents(agent_ids, observations, actions)
-    else:
-        policy.step_batch(observations, actions)
+    slot_actions = np.zeros((num_agents,), dtype=actions.dtype)
+    policy.step_batch(_slot_indexed_observations(observations, agent_ids, num_agents), slot_actions)
+    actions[:] = slot_actions[np.asarray(agent_ids, dtype=np.intp)]
 
 
 def _policy_chat_messages(policy: MultiAgentPolicy, agent_ids: list[int]) -> list[str | None]:
@@ -377,10 +377,11 @@ def _policy_action_masks_and_chats(
     policy: MultiAgentPolicy,
     observations: np.ndarray,
     agent_ids: list[int],
-    frame_advances: np.ndarray | None = None,
+    num_agents: int | None = None,
 ) -> tuple[np.ndarray, list[str | None], list[dict[str, float]]]:
+    num_agents = max(agent_ids) + 1 if num_agents is None else num_agents
     actions = np.zeros((observations.shape[0],), dtype=np.int64)
-    _policy_step_actions(policy, observations, actions, agent_ids, frame_advances)
+    _policy_step_actions(policy, observations, actions, agent_ids, num_agents)
     invalid_indices = np.flatnonzero((actions < 0) | (actions >= BITWORLD_ACTION_COUNT))
     if invalid_indices.size:
         batch_index = int(invalid_indices[0])
@@ -395,8 +396,12 @@ def _policy_action_masks_and_chats(
     )
 
 
-def _policy_action_masks(policy: MultiAgentPolicy, observations: np.ndarray, agent_ids: list[int]) -> np.ndarray:
-    action_masks, _chat_messages, _debug_stats = _policy_action_masks_and_chats(policy, observations, agent_ids)
+def _policy_action_masks(
+    policy: MultiAgentPolicy, observations: np.ndarray, agent_ids: list[int], num_agents: int | None = None
+) -> np.ndarray:
+    action_masks, _chat_messages, _debug_stats = _policy_action_masks_and_chats(
+        policy, observations, agent_ids, num_agents
+    )
     return action_masks
 
 
@@ -470,11 +475,8 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
                     continue
                 observations = np.stack([observation for _conn, observation, _frame_advance in batch])
                 agent_ids = [conn.player_index for conn, _observation, _frame_advance in batch]
-                frame_advances = np.asarray(
-                    [frame_advance for _conn, _observation, frame_advance in batch], dtype=np.int32
-                )
                 action_masks, chat_messages, debug_stats = _policy_action_masks_and_chats(
-                    policy, observations, agent_ids, frame_advances
+                    policy, observations, agent_ids, num_players
                 )
                 for (conn, _observation), action_mask, chat_message, debug_stat in zip(
                     [(conn, observation) for conn, observation, _frame_advance in batch],
