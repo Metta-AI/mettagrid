@@ -6,8 +6,9 @@ from typing import Any, cast
 import numpy as np
 import pytest
 
-from mettagrid import MettaGridConfig
-from mettagrid.bitworld import BitWorldServerConfig, pack_chat_packet
+from mettagrid.bitworld import pack_chat_packet
+from mettagrid.config.any_env_config import resolve_env_config_type
+from mettagrid.config.bitworld_config import BitWorldEnvConfig
 from mettagrid.policy.policy import PolicySpec
 from mettagrid.runner import bitworld_runner
 from mettagrid.runner.policy_server.websocket_transport import PolicyStepError
@@ -19,7 +20,7 @@ def test_find_bitworld_binary_uses_container_layout(monkeypatch):
     expected = Path("/opt/bitworld/among_them/among_them")
     monkeypatch.setattr(Path, "exists", lambda path: path == expected)
 
-    assert bitworld_runner._find_bitworld_binary(bitworld_runner.BitWorldConfig()) == expected
+    assert bitworld_runner._find_bitworld_binary("among_them") == expected
 
 
 class _FakeProc:
@@ -51,77 +52,57 @@ def test_start_server_on_free_port_retries_after_failed_bind(monkeypatch):
 
     def fake_start_server(
         _binary_path: Path,
-        config: bitworld_runner.BitWorldConfig,
-        passed_replay_path: Path | None = None,
+        runtime: bitworld_runner.BitWorldRuntime,
+        _env: BitWorldEnvConfig,
+        *,
+        replay_path: Path | None = None,
     ) -> _FakeProc:
-        started_ports.append(config.port)
-        assert passed_replay_path == replay_path
+        started_ports.append(runtime.port)
+        assert replay_path == Path("/tmp/replay.json.z")
         return _FakeProc(alive=len(started_ports) == 2)
 
     monkeypatch.setattr(bitworld_runner, "_start_server", fake_start_server)
 
-    config = bitworld_runner.BitWorldConfig()
-    server_proc = bitworld_runner._start_server_on_free_port(Path("/tmp/bitworld"), config, replay_path)
+    runtime = bitworld_runner.BitWorldRuntime()
+    env = BitWorldEnvConfig(num_players=5)
+    server_proc = bitworld_runner._start_server_on_free_port(
+        Path("/tmp/bitworld"), runtime, env, replay_path=replay_path
+    )
 
     assert server_proc.poll() is None
     assert started_ports == [1001, 1002]
-    assert config.port == 1002
+    assert runtime.port == 1002
 
 
-def test_config_uses_env_agent_and_imposter_count():
-    config = bitworld_runner.BitWorldConfig.from_env_config(
-        {"game": {"max_steps": 99, "num_agents": 8, "bitworld": {"imposterCount": 2}}}
-    )
-
-    assert config.max_ticks == 99
-    assert config.num_players == 8
-    assert config.imposter_count == 2
+def test_bitworld_env_config_num_agents():
+    env = BitWorldEnvConfig(num_players=5)
+    assert env.num_agents == 5
+    assert env.game_engine == "bitworld"
 
 
-def test_config_defaults_to_canonical_among_them_settings():
-    config = bitworld_runner.BitWorldConfig.from_env_config({"game": {"max_steps": 99, "num_agents": 8}})
-
-    assert config.imposter_count == 2
-    assert config.tasks_per_player == 8
-    assert config.imposter_cooldown_ticks == 1200
-    assert config.vote_timer_ticks == 600
-
-
-def test_episode_job_validation_preserves_bitworld_config():
-    env = MettaGridConfig.EmptyRoom(num_agents=8)
-    env.game.max_steps = 99
-    env.game.bitworld = BitWorldServerConfig(
-        imposter_count=2,
-        tasks_per_player=3,
-        task_complete_ticks=36,
-        imposter_cooldown_ticks=240,
-        vote_timer_ticks=120,
-    )
-
-    job = PureSingleEpisodeJob.model_validate(
-        {
-            "policy_uris": ["mock://policy"],
-            "assignments": [0] * 8,
-            "env": env.model_dump(mode="json"),
-            "game_engine": "bitworld",
-            "results_uri": None,
-            "replay_uri": None,
-        }
-    )
-    config = bitworld_runner.BitWorldConfig.from_env_config(job.env.model_dump(mode="json"))
-
-    assert config.max_ticks == 99
-    assert config.num_players == 8
-    assert config.imposter_count == 2
-    assert config.tasks_per_player == 3
-    assert config.task_complete_ticks == 36
-    assert config.imposter_cooldown_ticks == 240
-    assert config.vote_timer_ticks == 120
+def test_bitworld_env_config_defaults():
+    env = BitWorldEnvConfig()
+    assert env.game_engine == "bitworld"
+    assert env.game_name == "among_them"
+    assert env.tasks_per_player == 8
+    assert env.imposter_cooldown_ticks == 1200
+    assert env.vote_timer_ticks == 600
 
 
-def test_config_rejects_empty_among_them_agent_count():
-    with pytest.raises(ValueError, match="greater than or equal to 1"):
-        bitworld_runner.BitWorldConfig.from_env_config({"game": {"max_steps": 99, "num_agents": 0}})
+def test_resolve_env_config_type_dispatches_static_methods():
+    bw_dict = {"game_engine": "bitworld", "max_ticks": 500, "num_players": 3, "seed": 0}
+    bw_type = resolve_env_config_type(bw_dict)
+    assert bw_type.get_max_steps(bw_dict) == 500
+    assert bw_type.get_num_agents(bw_dict) == 3
+    bw_type.set_max_steps(bw_dict, 999)
+    assert bw_dict["max_ticks"] == 999
+
+    mg_dict = {"game": {"max_steps": 1000, "num_agents": 24, "map_builder": {"seed": 0}}}
+    mg_type = resolve_env_config_type(mg_dict)
+    assert mg_type.get_max_steps(mg_dict) == 1000
+    assert mg_type.get_num_agents(mg_dict) == 24
+    mg_type.set_map_seed(mg_dict, 42)
+    assert mg_dict["game"]["map_builder"]["seed"] == 42
 
 
 def test_start_server_uses_among_them_multi_player_config(monkeypatch):
@@ -136,9 +117,8 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
 
     monkeypatch.setattr(bitworld_runner.subprocess, "Popen", fake_popen)
 
-    config = bitworld_runner.BitWorldConfig(
-        host="0.0.0.0",
-        port=8123,
+    runtime = bitworld_runner.BitWorldRuntime(host="0.0.0.0", port=8123)
+    env = BitWorldEnvConfig(
         seed=17,
         max_ticks=99,
         num_players=8,
@@ -149,7 +129,12 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
         vote_timer_ticks=120,
     )
     replay_path = Path("/tmp/replay.json.z")
-    server_proc = bitworld_runner._start_server(Path("/tmp/bitworld/among_them"), config, replay_path)
+    server_proc = bitworld_runner._start_server(
+        Path("/tmp/bitworld/among_them"),
+        runtime,
+        env,
+        replay_path=replay_path,
+    )
 
     cmd = cast(list[str], captured["cmd"])
     assert server_proc.poll() is None
@@ -189,7 +174,7 @@ def test_connect_websocket_uses_named_among_them_player_url(monkeypatch):
     monkeypatch.setattr(bitworld_runner.websocket, "WebSocket", _FakeWebSocket)
 
     bitworld_runner._connect_websocket(
-        bitworld_runner.BitWorldConfig(port=8123),
+        bitworld_runner.BitWorldRuntime(port=8123),
         bitworld_runner.PLAYER_PATH,
         "player 2",
         player_name="player_2",
@@ -352,12 +337,14 @@ def test_load_bitworld_policy_passes_game_contract_to_data_policy(monkeypatch):
 
     monkeypatch.setattr("mettagrid.policy.loader.initialize_or_load_policy", fake_initialize_or_load_policy)
 
-    loaded_policy = bitworld_runner._load_bitworld_policy("file:///tmp/policy.zip", agent_ids=[0], num_agents=5)
+    loaded_policy = bitworld_runner._load_bitworld_policy(
+        "file:///tmp/policy.zip?frame_stack=2", agent_ids=[0], num_agents=5
+    )
 
-    assert loaded_policy.frame_stack == bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK
+    assert loaded_policy.frame_stack == 2
     assert captured["policy_spec"] == policy_spec
     assert captured["env_interface"].observation_shape == (
-        bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
+        2,
         bitworld_runner.SCREEN_HEIGHT,
         bitworld_runner.SCREEN_WIDTH,
     )
@@ -561,11 +548,11 @@ def test_run_bitworld_episode_does_not_duplicate_reward_in_agent_stats(monkeypat
 
     sockets = iter([cast(Any, _FakeRewardWebSocket()), *[_FakePlayerWebSocket() for _i in range(5)]])
 
-    monkeypatch.setattr(bitworld_runner, "_find_bitworld_binary", lambda _config: Path("/tmp/bitworld/among_them"))
+    monkeypatch.setattr(bitworld_runner, "_find_bitworld_binary", lambda _game_name: Path("/tmp/bitworld/among_them"))
     monkeypatch.setattr(
         bitworld_runner,
         "_start_server_on_free_port",
-        lambda _path, _config, _replay_path=None: _FakeProc(alive=True),
+        lambda _path, _runtime, _env, **_kwargs: _FakeProc(alive=True),
     )
     monkeypatch.setattr(bitworld_runner, "_connect_websocket", lambda *_args, **_kwargs: next(sockets))
     monkeypatch.setattr(bitworld_runner, "_reward_listener", fake_reward_listener)
@@ -580,8 +567,7 @@ def test_run_bitworld_episode_does_not_duplicate_reward_in_agent_stats(monkeypat
         PureSingleEpisodeJob(
             policy_uris=["fake_policy"],
             assignments=[0, 0, 0, 0, 0],
-            env=MettaGridConfig(game={"num_agents": 5, "max_steps": 1}),
-            game_engine="bitworld",
+            env=BitWorldEnvConfig(num_players=5, max_ticks=1),
             results_uri=None,
             replay_uri=None,
             seed=17,
@@ -651,11 +637,11 @@ def test_run_bitworld_episode_sends_policy_chat(monkeypatch):
     player_sockets = [_FakePlayerWebSocket() for _i in range(5)]
     sockets = iter([cast(Any, _FakeRewardWebSocket()), *player_sockets])
 
-    monkeypatch.setattr(bitworld_runner, "_find_bitworld_binary", lambda _config: Path("/tmp/bitworld/among_them"))
+    monkeypatch.setattr(bitworld_runner, "_find_bitworld_binary", lambda _game_name: Path("/tmp/bitworld/among_them"))
     monkeypatch.setattr(
         bitworld_runner,
         "_start_server_on_free_port",
-        lambda _path, _config, _replay_path=None: _FakeProc(alive=True),
+        lambda _path, _runtime, _env, **_kwargs: _FakeProc(alive=True),
     )
     monkeypatch.setattr(bitworld_runner, "_connect_websocket", lambda *_args, **_kwargs: next(sockets))
     monkeypatch.setattr(bitworld_runner, "_reward_listener", fake_reward_listener)
@@ -670,11 +656,9 @@ def test_run_bitworld_episode_sends_policy_chat(monkeypatch):
         PureSingleEpisodeJob(
             policy_uris=["fake_policy"],
             assignments=[0, 0, 0, 0, 0],
-            env=MettaGridConfig(game={"num_agents": 5, "max_steps": 1}),
-            game_engine="bitworld",
+            env=BitWorldEnvConfig(num_players=5, max_ticks=1),
             results_uri=None,
             replay_uri=None,
-            seed=17,
         )
     )
 

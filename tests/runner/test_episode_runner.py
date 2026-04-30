@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-from mettagrid.config.mettagrid_config import MettaGridConfig
+from mettagrid.config.bitworld_config import BitWorldEnvConfig
 from mettagrid.runner.episode_runner import (
     _compact_policy_names,
     _download_presigned_policy,
@@ -233,8 +233,7 @@ def test_run_episode_isolated_bitworld_passes_local_policy_uris_to_subprocess(tm
         policy_uris=["metta://policy/alpha", "metta://policy/beta"],
         policy_names=["alpha:v1", "beta:v1"],
         assignments=[0, 1],
-        env=MettaGridConfig.EmptyRoom(num_agents=2),
-        game_engine="bitworld",
+        env=BitWorldEnvConfig(num_players=2),
     )
 
     with (
@@ -250,7 +249,7 @@ def test_run_episode_isolated_bitworld_passes_local_policy_uris_to_subprocess(tm
 
     spawn_policy_servers.assert_not_called()
     assert not policy_log_dir.exists()
-    assert captured_job["game_engine"] == "bitworld"
+    assert captured_job["env"]["game_engine"] == "bitworld"
     assert captured_job["policy_uris"] == ["file:///localized/alpha.zip", "file:///localized/beta.zip"]
     assert captured_job["assignments"] == [0, 1]
     assert captured_job["policy_names"] == ["alpha:v1", "beta:v1"]

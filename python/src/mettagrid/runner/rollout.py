@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Callable, Optional, Sequence
 
 from mettagrid import MettaGridConfig
+from mettagrid.config.any_env_config import resolve_env_config_type
+from mettagrid.config.env_config import EnvConfig
 from mettagrid.map_builder.map_builder import HasSeed
 from mettagrid.policy.loader import AgentPolicy, PolicyEnvInterface, initialize_or_load_policy
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
@@ -149,7 +151,7 @@ def run_episode_local(
     *,
     policy_specs: Sequence[PolicySpec],
     assignments: Sequence[int],
-    env: MettaGridConfig,
+    env: EnvConfig,
     results_path: Path | None = None,
     replay_path: Path | None = None,
     debug_dir: Path | None = None,
@@ -159,7 +161,7 @@ def run_episode_local(
     device: Optional[str] = None,
     render_mode: Optional[RenderMode] = None,
     autostart: bool = False,
-    game_engine: str = "mettagrid",
+    game_engine: str | None = None,
 ) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
     """Run a single episode in the current process, loading policies from PolicySpecs.
 
@@ -168,14 +170,15 @@ def run_episode_local(
     interactive play. For running untrusted or remote policies in a subprocess, use
     run_episode_isolated instead.
     """
-    if game_engine == "bitworld":
+    resolved_engine = game_engine or env.game_engine
+
+    if resolved_engine == "bitworld":
         from mettagrid.runner.bitworld_runner import run_bitworld_episode  # noqa: PLC0415
 
         job = PureSingleEpisodeJob(
             policy_uris=[spec.data_path or spec.class_path for spec in policy_specs],
             assignments=list(assignments),
-            env=env,
-            game_engine=game_engine,
+            env=env,  # type: ignore[arg-type]  # EnvConfig subclass satisfies AnyEnvConfig at runtime
             results_uri=str(results_path.resolve().as_uri()) if results_path else None,
             replay_uri=None,
             seed=seed,
@@ -183,9 +186,10 @@ def run_episode_local(
         )
         results = run_bitworld_episode(job)
         return results, None
-    elif game_engine != "mettagrid":
-        raise ValueError(f"Unknown game engine: {game_engine}")
+    elif resolved_engine != "mettagrid":
+        raise ValueError(f"Unknown game engine: {resolved_engine}")
 
+    assert isinstance(env, MettaGridConfig)
     if len(assignments) != env.game.num_agents or not all(0 <= a < len(policy_specs) for a in assignments):
         raise ValueError("Assignments must match agent count and be within policy range")
 
@@ -227,7 +231,7 @@ def run_multi_episode_rollout(
     *,
     policy_specs: Sequence[PolicySpec],
     assignments: Sequence[int],
-    env_cfg: MettaGridConfig,
+    env_cfg: EnvConfig,
     episodes: int,
     seed: int,
     max_action_time_ms: int,
@@ -238,7 +242,7 @@ def run_multi_episode_rollout(
     device: Optional[str] = None,
     on_progress: Optional[Callable[[int, EpisodeRolloutResult], None]] = None,
     shuffle_assignments: bool = True,
-    game_engine: str = "mettagrid",
+    game_engine: str | None = None,
 ) -> tuple[MultiEpisodeRolloutResult, list[str]]:
     if replay_dir is not None:
         if create_replay_dir:
@@ -250,6 +254,9 @@ def run_multi_episode_rollout(
     rng = rng or random.Random(seed)
     episode_results: list[EpisodeRolloutResult] = []
     replay_paths: list[str] = []
+    env_dict = env_cfg.model_dump(mode="json")
+    env_type = resolve_env_config_type(env_dict)
+    configured_max_steps = env_type.get_max_steps(env_dict)
 
     for episode_idx in range(episodes):
         if shuffle_assignments:
@@ -277,7 +284,7 @@ def run_multi_episode_rollout(
             stats=ep_results.stats,
             replay_path=str(replay_path) if replay_path else None,
             steps=ep_results.steps,
-            max_steps=env_cfg.game.max_steps,
+            max_steps=configured_max_steps,
             time_averaged_game_stats=ep_results.time_averaged_game_stats,
         )
         episode_results.append(result)

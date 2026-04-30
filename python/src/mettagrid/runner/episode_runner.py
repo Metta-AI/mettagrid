@@ -236,11 +236,11 @@ def run_episode_isolated(
         per_agent_policy_uris, per_agent_assignments, policy_index_remap = _per_agent_policy_mapping(
             local_policy_uris,
             spec.assignments,
-            spec.env.game.num_agents,
+            spec.env.num_agents,
         )
         compact_policy_names = _compact_policy_names(spec.policy_names, policy_index_remap)
 
-        if spec.game_engine == "bitworld":
+        if spec.env.game_engine == "bitworld":
             episode_policy_uris = per_agent_policy_uris
             logger.info(
                 "Prepared %d compact local policies for BitWorld episode (%d agents)",
@@ -273,7 +273,6 @@ def run_episode_isolated(
             policy_names=compact_policy_names,
             assignments=per_agent_assignments,
             env=spec.env,
-            game_engine=spec.game_engine,
             results_uri=local_results_uri,
             replay_uri=local_replay_uri,
             debug_dir=str(debug_dir) if debug_dir else None,
@@ -371,7 +370,7 @@ def run_episode_isolated(
         # We keep one log artifact per agent index for compatibility with
         # downstream upload consumers, even when multiple agents share a
         # compacted policy server.
-        if policy_log_dir is not None and spec.game_engine != "bitworld":
+        if policy_log_dir is not None and spec.env.game_engine != "bitworld":
             policy_log_dir.mkdir(parents=True, exist_ok=True)
             for agent_idx, policy_idx in enumerate(per_agent_assignments):
                 shutil.copy(servers[policy_idx]._log_file, policy_log_dir / f"{agent_idx}.log")

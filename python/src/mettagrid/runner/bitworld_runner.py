@@ -25,17 +25,11 @@ from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
 
 import numpy as np
 import websocket
-from pydantic import BaseModel, ConfigDict, Field
 
 from mettagrid.bitworld import (
     BITWORLD_ACTION_COUNT,
     BITWORLD_ACTION_MASKS,
     BITWORLD_ACTION_NAMES,
-    BITWORLD_AMONG_THEM_IMPOSTER_COOLDOWN_TICKS,
-    BITWORLD_AMONG_THEM_IMPOSTER_COUNT,
-    BITWORLD_AMONG_THEM_PLAYER_COUNT,
-    BITWORLD_AMONG_THEM_TASKS_PER_PLAYER,
-    BITWORLD_AMONG_THEM_VOTE_TIMER_TICKS,
     BITWORLD_DEFAULT_FRAME_STACK,
     FRAME_PIXELS,
     PLAYER_PATH,
@@ -44,12 +38,12 @@ from mettagrid.bitworld import (
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
     BitWorldEndpoint,
-    BitWorldServerConfig,
     bitworld_input_mask_name,
     pack_chat_packet,
     pack_input_packet,
     parse_reward_packet,
 )
+from mettagrid.config.bitworld_config import BitWorldEnvConfig
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.runner.policy_server.websocket_transport import PolicyStepError, WebSocketRawPolicyServerClient
@@ -68,47 +62,13 @@ POLICY_RUNNER_QUERY_KEYS = {"frame_stack"}
 BITWORLD_GAME_NAME = "among_them"
 
 
-class BitWorldGameConfig(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    num_agents: int = Field(ge=1)
-    max_steps: int = Field(ge=0)
-    bitworld: BitWorldServerConfig = Field(default_factory=BitWorldServerConfig)
-
-
-class BitWorldEnvConfig(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    game: BitWorldGameConfig
-
-
 @dataclass
-class BitWorldConfig:
+class BitWorldRuntime:
+    """Runtime settings for the BitWorld server process (not game config)."""
+
     binary_path: str | None = None
     host: str = "127.0.0.1"
     port: int = 8080
-    seed: int = 0
-    max_ticks: int = 10000
-    num_players: int = BITWORLD_AMONG_THEM_PLAYER_COUNT
-    imposter_count: int = BITWORLD_AMONG_THEM_IMPOSTER_COUNT
-    tasks_per_player: int = BITWORLD_AMONG_THEM_TASKS_PER_PLAYER
-    task_complete_ticks: int | None = None
-    imposter_cooldown_ticks: int = BITWORLD_AMONG_THEM_IMPOSTER_COOLDOWN_TICKS
-    vote_timer_ticks: int = BITWORLD_AMONG_THEM_VOTE_TIMER_TICKS
-    connect_timeout_s: float = 10.0
-
-    @classmethod
-    def from_env_config(cls, config: dict[str, Any]) -> BitWorldConfig:
-        env_config = BitWorldEnvConfig.model_validate(config)
-        return cls(
-            max_ticks=env_config.game.max_steps,
-            num_players=env_config.game.num_agents,
-            imposter_count=env_config.game.bitworld.imposter_count,
-            tasks_per_player=env_config.game.bitworld.tasks_per_player,
-            task_complete_ticks=env_config.game.bitworld.task_complete_ticks,
-            imposter_cooldown_ticks=env_config.game.bitworld.imposter_cooldown_ticks,
-            vote_timer_ticks=env_config.game.bitworld.vote_timer_ticks,
-        )
 
 
 @dataclass
@@ -136,23 +96,21 @@ class RewardState:
     stop_event: threading.Event = field(default_factory=threading.Event)
 
 
-def _find_bitworld_binary(config: BitWorldConfig) -> Path:
-    if config.binary_path:
-        p = Path(config.binary_path)
+def _find_bitworld_binary(game_name: str, binary_path: str | None = None) -> Path:
+    if binary_path:
+        p = Path(binary_path)
         if p.exists():
             return p
-        raise FileNotFoundError(f"BitWorld binary not found: {config.binary_path}")
+        raise FileNotFoundError(f"BitWorld binary not found: {binary_path}")
 
     candidates = [
-        Path("/opt/bitworld") / BITWORLD_GAME_NAME / BITWORLD_GAME_NAME,
-        Path.home() / "bitworld" / BITWORLD_GAME_NAME / BITWORLD_GAME_NAME,
+        Path("/opt/bitworld") / game_name / game_name,
+        Path.home() / "bitworld" / game_name / game_name,
     ]
     for c in candidates:
         if c.exists():
             return c
-    raise FileNotFoundError(
-        f"BitWorld binary for '{BITWORLD_GAME_NAME}' not found. Searched: {[str(c) for c in candidates]}"
-    )
+    raise FileNotFoundError(f"BitWorld binary for '{game_name}' not found. Searched: {[str(c) for c in candidates]}")
 
 
 def _replay_path_from_uri(replay_uri: str | None) -> Path | None:
@@ -165,23 +123,29 @@ def _replay_path_from_uri(replay_uri: str | None) -> Path | None:
     return parsed.local_path
 
 
-def _start_server(binary_path: Path, config: BitWorldConfig, replay_path: Path | None = None) -> subprocess.Popen:
-    server_config_fields = {
-        "seed": config.seed,
-        "maxTicks": config.max_ticks,
-        "minPlayers": config.num_players,
-        "imposterCount": config.imposter_count,
-        "tasksPerPlayer": config.tasks_per_player,
-        "imposterCooldownTicks": config.imposter_cooldown_ticks,
-        "voteTimerTicks": config.vote_timer_ticks,
+def _start_server(
+    binary_path: Path,
+    runtime: BitWorldRuntime,
+    env: BitWorldEnvConfig,
+    *,
+    replay_path: Path | None = None,
+) -> subprocess.Popen:
+    server_config_fields: dict[str, Any] = {
+        "seed": env.seed,
+        "maxTicks": env.max_ticks,
+        "minPlayers": env.num_players,
+        "imposterCount": env.imposter_count,
+        "tasksPerPlayer": env.tasks_per_player,
+        "imposterCooldownTicks": env.imposter_cooldown_ticks,
+        "voteTimerTicks": env.vote_timer_ticks,
     }
-    if config.task_complete_ticks is not None:
-        server_config_fields["taskCompleteTicks"] = config.task_complete_ticks
+    if env.task_complete_ticks is not None:
+        server_config_fields["taskCompleteTicks"] = env.task_complete_ticks
     server_config = json.dumps(server_config_fields, separators=(",", ":"))
     cmd = [
         str(binary_path),
-        f"--address:{config.host}",
-        f"--port:{config.port}",
+        f"--address:{runtime.host}",
+        f"--port:{runtime.port}",
         f"--config:{server_config}",
     ]
     if replay_path is not None:
@@ -196,13 +160,14 @@ def _start_server(binary_path: Path, config: BitWorldConfig, replay_path: Path |
 
 
 def _connect_websocket(
-    config: BitWorldConfig,
+    runtime: BitWorldRuntime,
     path: str,
     label: str,
     player_name: str | None = None,
+    connect_timeout_s: float = 10.0,
 ) -> websocket.WebSocket:
-    url = BitWorldEndpoint(address=config.host, port=config.port).websocket_url(path, player_name)
-    deadline = time.monotonic() + config.connect_timeout_s
+    url = BitWorldEndpoint(address=runtime.host, port=runtime.port).websocket_url(path, player_name)
+    deadline = time.monotonic() + connect_timeout_s
     last_error = None
     while time.monotonic() < deadline:
         ws = websocket.WebSocket()
@@ -243,12 +208,14 @@ def _pick_free_port() -> int:
 
 def _start_server_on_free_port(
     binary_path: Path,
-    config: BitWorldConfig,
+    runtime: BitWorldRuntime,
+    env: BitWorldEnvConfig,
+    *,
     replay_path: Path | None = None,
 ) -> subprocess.Popen:
     for attempt in range(SERVER_START_ATTEMPTS):
-        config.port = _pick_free_port()
-        server_proc = _start_server(binary_path, config, replay_path)
+        runtime.port = _pick_free_port()
+        server_proc = _start_server(binary_path, runtime, env, replay_path=replay_path)
         time.sleep(SERVER_START_GRACE_S)
         if server_proc.poll() is None:
             return server_proc
@@ -256,7 +223,7 @@ def _start_server_on_free_port(
         stderr = server_proc.stderr.read().decode(errors="replace").strip() if server_proc.stderr is not None else ""
         logger.warning(
             "BitWorld server exited during startup on port %d (attempt %d/%d): %s",
-            config.port,
+            runtime.port,
             attempt + 1,
             SERVER_START_ATTEMPTS,
             stderr,
@@ -481,37 +448,45 @@ def _action_stat_key(action_mask: int) -> str:
 
 
 def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
-    config = BitWorldConfig.from_env_config(job.env.model_dump(mode="json"))
-    config.seed = job.seed
-    if len(job.assignments) != config.num_players:
-        raise ValueError(
-            f"BitWorld {BITWORLD_GAME_NAME} expects {config.num_players} assignments, got {len(job.assignments)}"
-        )
+    if not isinstance(job.env, BitWorldEnvConfig):
+        raise TypeError(f"Expected BitWorldEnvConfig for bitworld episode, got {type(job.env).__name__}")
+
+    env = job.env
+    game_name = env.game_name
+    num_players = env.num_players
+    max_ticks = env.max_ticks
+
+    if len(job.assignments) != num_players:
+        raise ValueError(f"BitWorld {game_name} expects {num_players} assignments, got {len(job.assignments)}")
 
     policies: list[LoadedBitWorldPolicy] = []
     policy_agent_ids = _policy_agent_ids(job.assignments, len(job.policy_uris))
     for policy_index, uri in enumerate(job.policy_uris):
-        policies.append(_load_bitworld_policy(uri, policy_agent_ids[policy_index], config.num_players))
+        policies.append(_load_bitworld_policy(uri, policy_agent_ids[policy_index], num_players))
 
-    binary_path = _find_bitworld_binary(config)
+    runtime = BitWorldRuntime()
+    binary_path = _find_bitworld_binary(game_name)
     replay_path = _replay_path_from_uri(job.replay_uri)
-    server_proc = _start_server_on_free_port(binary_path, config, replay_path)
+    server_proc = _start_server_on_free_port(binary_path, runtime, env, replay_path=replay_path)
 
     connections: list[PlayerConnection] = []
     reward_state = RewardState()
-    action_stats: list[defaultdict[str, float]] = [defaultdict(float) for _agent_id in range(config.num_players)]
+    action_stats: list[defaultdict[str, float]] = [defaultdict(float) for _ in range(num_players)]
 
     try:
-        reward_state.ws = _connect_websocket(config, REWARD_PATH, "reward listener")
+        timeout_s = env.connect_timeout_s
+        reward_state.ws = _connect_websocket(runtime, REWARD_PATH, "reward listener", connect_timeout_s=timeout_s)
         reward_state.thread = threading.Thread(target=_reward_listener, args=(reward_state,), daemon=True)
         reward_state.thread.start()
 
-        for i in range(config.num_players):
+        for i in range(num_players):
             address = f"player_{i}"
-            ws = _connect_websocket(config, PLAYER_PATH, f"player {i}", player_name=address)
+            ws = _connect_websocket(
+                runtime, PLAYER_PATH, f"player {i}", player_name=address, connect_timeout_s=timeout_s
+            )
             connections.append(PlayerConnection(ws=ws, player_index=i, address=address))
 
-        for _tick in range(config.max_ticks):
+        for _tick in range(max_ticks):
             all_dead = True
             pending_actions: list[tuple[PlayerConnection, LoadedBitWorldPolicy, np.ndarray, int]] = []
             for conn in connections:
@@ -577,15 +552,15 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
                 rewards[conn.player_index] = rewards_by_addr[conn.address]
 
         stats: EpisodeStats = {
-            "game": {"ticks": float(config.max_ticks), "num_players": float(config.num_players)},
-            "agent": [dict(action_stats[i]) for i in range(config.num_players)],
+            "game": {"ticks": float(max_ticks), "num_players": float(num_players)},
+            "agent": [dict(action_stats[i]) for i in range(num_players)],
         }
 
         return PureSingleEpisodeResult(
             rewards=rewards,
-            action_timeouts=[0] * config.num_players,
+            action_timeouts=[0] * num_players,
             stats=stats,
-            steps=config.max_ticks,
+            steps=max_ticks,
         )
 
     finally:

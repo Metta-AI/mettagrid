@@ -27,6 +27,7 @@ from mettagrid.config.action_config import (  # noqa: F401 - re-exported for bac
     MoveActionConfig,
     NoopActionConfig,
 )
+from mettagrid.config.env_config import EnvConfig
 from mettagrid.config.event_config import EventConfig
 from mettagrid.config.game_value import (  # noqa: F401 - re-exported
     AnyGameValue,
@@ -366,12 +367,36 @@ class GameConfig(Config):
         return IdMap(self)
 
 
-class MettaGridConfig(Config):
+class MettaGridConfig(EnvConfig):
     """Environment configuration."""
 
+    game_engine: Literal["mettagrid"] = "mettagrid"
     label: str = Field(default="mettagrid")
     game: GameConfig = Field(default_factory=GameConfig)
     desync_episodes: bool = Field(default=True)
+
+    @property
+    def num_agents(self) -> int:
+        return self.game.num_agents
+
+    @staticmethod
+    def set_map_seed(config: dict[str, Any], seed: int) -> None:
+        map_builder = config["game"]["map_builder"]
+        if "seed" not in map_builder:
+            raise KeyError("env_config.game.map_builder.seed is required")
+        map_builder["seed"] = seed
+
+    @staticmethod
+    def set_max_steps(config: dict[str, Any], max_steps: int) -> None:
+        config["game"]["max_steps"] = max_steps
+
+    @staticmethod
+    def get_max_steps(config: dict[str, Any]) -> int:
+        return config["game"]["max_steps"]
+
+    @staticmethod
+    def get_num_agents(config: dict[str, Any]) -> int:
+        return config["game"]["num_agents"]
 
     def with_ascii_map(self, map_data: list[list[str]], char_to_map_name: dict[str, str]) -> "MettaGridConfig":
         self.game.map_builder = AsciiMapBuilder.Config(
