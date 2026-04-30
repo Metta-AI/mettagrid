@@ -78,16 +78,25 @@ def test_config_uses_env_agent_and_imposter_count():
     assert config.imposter_count == 2
 
 
-def test_config_defaults_to_one_imposter():
+def test_config_defaults_to_canonical_among_them_settings():
     config = bitworld_runner.BitWorldConfig.from_env_config({"game": {"max_steps": 99, "num_agents": 8}})
 
-    assert config.imposter_count == 1
+    assert config.imposter_count == 2
+    assert config.tasks_per_player == 8
+    assert config.imposter_cooldown_ticks == 1200
+    assert config.vote_timer_ticks == 600
 
 
 def test_episode_job_validation_preserves_bitworld_config():
     env = MettaGridConfig.EmptyRoom(num_agents=8)
     env.game.max_steps = 99
-    env.game.bitworld = BitWorldServerConfig(imposter_count=2, tasks_per_player=3, task_complete_ticks=36)
+    env.game.bitworld = BitWorldServerConfig(
+        imposter_count=2,
+        tasks_per_player=3,
+        task_complete_ticks=36,
+        imposter_cooldown_ticks=240,
+        vote_timer_ticks=120,
+    )
 
     job = PureSingleEpisodeJob.model_validate(
         {
@@ -106,6 +115,8 @@ def test_episode_job_validation_preserves_bitworld_config():
     assert config.imposter_count == 2
     assert config.tasks_per_player == 3
     assert config.task_complete_ticks == 36
+    assert config.imposter_cooldown_ticks == 240
+    assert config.vote_timer_ticks == 120
 
 
 def test_config_rejects_empty_among_them_agent_count():
@@ -134,6 +145,8 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
         imposter_count=2,
         tasks_per_player=3,
         task_complete_ticks=36,
+        imposter_cooldown_ticks=240,
+        vote_timer_ticks=120,
     )
     replay_path = Path("/tmp/replay.json.z")
     server_proc = bitworld_runner._start_server(Path("/tmp/bitworld/among_them"), config, replay_path)
@@ -147,6 +160,8 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
         "minPlayers": 8,
         "imposterCount": 2,
         "tasksPerPlayer": 3,
+        "imposterCooldownTicks": 240,
+        "voteTimerTicks": 120,
         "taskCompleteTicks": 36,
     }
     assert cmd[4] == "--save-replay:/tmp/replay.json.z"

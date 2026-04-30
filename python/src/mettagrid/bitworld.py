@@ -17,6 +17,11 @@ PACKED_FRAME_BYTES = PROTOCOL_BYTES
 PACKED_FRAME_SHAPE = (PROTOCOL_BYTES,)
 UNPACKED_FRAME_SHAPE = (1, SCREEN_HEIGHT, SCREEN_WIDTH)
 BITWORLD_DEFAULT_FRAME_STACK = 4
+BITWORLD_AMONG_THEM_PLAYER_COUNT = 8
+BITWORLD_AMONG_THEM_IMPOSTER_COUNT = 2
+BITWORLD_AMONG_THEM_TASKS_PER_PLAYER = 8
+BITWORLD_AMONG_THEM_IMPOSTER_COOLDOWN_TICKS = 1200
+BITWORLD_AMONG_THEM_VOTE_TIMER_TICKS = 600
 PACKET_INPUT = 0
 PACKET_CHAT = 1
 INPUT_PACKET_BYTES = 2
@@ -135,9 +140,15 @@ class BitWorldEndpoint(BaseModel):
 class BitWorldServerConfig(BaseModel):
     model_config = ConfigDict(frozen=True, populate_by_name=True, serialize_by_alias=True)
 
-    imposter_count: int = Field(default=1, alias="imposterCount", ge=0)
-    tasks_per_player: int | None = Field(default=None, alias="tasksPerPlayer", ge=0)
+    imposter_count: int = Field(default=BITWORLD_AMONG_THEM_IMPOSTER_COUNT, alias="imposterCount", ge=0)
+    tasks_per_player: int = Field(default=BITWORLD_AMONG_THEM_TASKS_PER_PLAYER, alias="tasksPerPlayer", ge=0)
     task_complete_ticks: int | None = Field(default=None, alias="taskCompleteTicks", ge=1)
+    imposter_cooldown_ticks: int = Field(
+        default=BITWORLD_AMONG_THEM_IMPOSTER_COOLDOWN_TICKS,
+        alias="imposterCooldownTicks",
+        ge=0,
+    )
+    vote_timer_ticks: int = Field(default=BITWORLD_AMONG_THEM_VOTE_TIMER_TICKS, alias="voteTimerTicks", ge=1)
 
 
 class RewardEntry(BaseModel):
@@ -329,6 +340,11 @@ __all__ = [
     "BITWORLD_ACTION_COUNT",
     "BITWORLD_ACTION_MASKS",
     "BITWORLD_ACTION_NAMES",
+    "BITWORLD_AMONG_THEM_IMPOSTER_COOLDOWN_TICKS",
+    "BITWORLD_AMONG_THEM_IMPOSTER_COUNT",
+    "BITWORLD_AMONG_THEM_PLAYER_COUNT",
+    "BITWORLD_AMONG_THEM_TASKS_PER_PLAYER",
+    "BITWORLD_AMONG_THEM_VOTE_TIMER_TICKS",
     "BITWORLD_DEFAULT_FRAME_STACK",
     "BITWORLD_INPUT_MASK_COUNT",
     "BitWorldEndpoint",

@@ -31,6 +31,11 @@ from mettagrid.bitworld import (
     BITWORLD_ACTION_COUNT,
     BITWORLD_ACTION_MASKS,
     BITWORLD_ACTION_NAMES,
+    BITWORLD_AMONG_THEM_IMPOSTER_COOLDOWN_TICKS,
+    BITWORLD_AMONG_THEM_IMPOSTER_COUNT,
+    BITWORLD_AMONG_THEM_PLAYER_COUNT,
+    BITWORLD_AMONG_THEM_TASKS_PER_PLAYER,
+    BITWORLD_AMONG_THEM_VOTE_TIMER_TICKS,
     BITWORLD_DEFAULT_FRAME_STACK,
     FRAME_PIXELS,
     PLAYER_PATH,
@@ -60,7 +65,6 @@ MAX_FRAME_DRAIN = 128
 DEBUG_STATS_ENV = "BITWORLD_DEBUG_STATS"
 POLICY_RUNNER_QUERY_KEYS = {"frame_stack"}
 
-BITWORLD_AMONG_THEM_AGENT_COUNT = 5
 BITWORLD_GAME_NAME = "among_them"
 
 
@@ -85,10 +89,12 @@ class BitWorldConfig:
     port: int = 8080
     seed: int = 0
     max_ticks: int = 10000
-    num_players: int = BITWORLD_AMONG_THEM_AGENT_COUNT
-    imposter_count: int = 1
-    tasks_per_player: int | None = None
+    num_players: int = BITWORLD_AMONG_THEM_PLAYER_COUNT
+    imposter_count: int = BITWORLD_AMONG_THEM_IMPOSTER_COUNT
+    tasks_per_player: int = BITWORLD_AMONG_THEM_TASKS_PER_PLAYER
     task_complete_ticks: int | None = None
+    imposter_cooldown_ticks: int = BITWORLD_AMONG_THEM_IMPOSTER_COOLDOWN_TICKS
+    vote_timer_ticks: int = BITWORLD_AMONG_THEM_VOTE_TIMER_TICKS
     connect_timeout_s: float = 10.0
 
     @classmethod
@@ -100,6 +106,8 @@ class BitWorldConfig:
             imposter_count=env_config.game.bitworld.imposter_count,
             tasks_per_player=env_config.game.bitworld.tasks_per_player,
             task_complete_ticks=env_config.game.bitworld.task_complete_ticks,
+            imposter_cooldown_ticks=env_config.game.bitworld.imposter_cooldown_ticks,
+            vote_timer_ticks=env_config.game.bitworld.vote_timer_ticks,
         )
 
 
@@ -163,9 +171,10 @@ def _start_server(binary_path: Path, config: BitWorldConfig, replay_path: Path |
         "maxTicks": config.max_ticks,
         "minPlayers": config.num_players,
         "imposterCount": config.imposter_count,
+        "tasksPerPlayer": config.tasks_per_player,
+        "imposterCooldownTicks": config.imposter_cooldown_ticks,
+        "voteTimerTicks": config.vote_timer_ticks,
     }
-    if config.tasks_per_player is not None:
-        server_config_fields["tasksPerPlayer"] = config.tasks_per_player
     if config.task_complete_ticks is not None:
         server_config_fields["taskCompleteTicks"] = config.task_complete_ticks
     server_config = json.dumps(server_config_fields, separators=(",", ":"))
