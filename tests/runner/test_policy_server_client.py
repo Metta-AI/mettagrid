@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import gymnasium as gym
 import numpy as np
+import pytest
 
 from mettagrid.bitworld import BITWORLD_ACTION_COUNT, BITWORLD_ACTION_NAMES
 from mettagrid.config.id_map import ObservationFeatureSpec
@@ -118,7 +119,7 @@ def _run_ws_test(policy: MultiAgentPolicy, env: PolicyEnvInterface, test_fn):
             server_thread.join(timeout=2)
 
 
-def _run_raw_ws_test(policy: MultiAgentPolicy, env: PolicyEnvInterface, test_fn):
+def _run_raw_ws_test(policy: MultiAgentPolicy, env: PolicyEnvInterface, test_fn, agent_ids: list[int] | None = None):
     service = LocalPolicyServer("fake://policy")
 
     with (
@@ -131,7 +132,11 @@ def _run_raw_ws_test(policy: MultiAgentPolicy, env: PolicyEnvInterface, test_fn)
         server_thread.start()
 
         port = server.port
-        client = WebSocketRawPolicyServerClient(env, url=f"ws://127.0.0.1:{port}", agent_ids=[0, 1])
+        client = WebSocketRawPolicyServerClient(
+            env,
+            url=f"ws://127.0.0.1:{port}",
+            agent_ids=[0, 1] if agent_ids is None else agent_ids,
+        )
 
         try:
             test_fn(client, env)
@@ -319,13 +324,36 @@ def test_ws_raw_policy_step_batch_round_trips_pixel_observations():
         )
         actions = np.zeros((2,), dtype=np.int64)
 
-        client.step_batch_for_agents([0, 1], observations, actions)
+        client.step_batch(observations, actions)
 
         assert actions.tolist() == [1, 3]
         assert len(policy.observations) == 1
         assert np.array_equal(policy.observations[0], observations)
 
     _run_raw_ws_test(policy, env, check)
+
+
+def test_ws_raw_policy_step_batch_requires_full_slot_batch():
+    env = PolicyEnvInterface.from_spaces(
+        observation_space=gym.spaces.Box(low=0, high=15, shape=(1, 2, 2), dtype=np.uint8),
+        action_space=gym.spaces.Discrete(BITWORLD_ACTION_COUNT),
+        num_agents=3,
+        action_names=list(BITWORLD_ACTION_NAMES),
+        observation_kind="pixels",
+    )
+    policy = _RawActionPolicy(env)
+
+    def check(client: WebSocketRawPolicyServerClient, env: PolicyEnvInterface):
+        del env
+        observations = np.array([[[[7, 0], [0, 0]]]], dtype=np.uint8)
+        actions = np.zeros((1,), dtype=np.int64)
+
+        with pytest.raises(ValueError, match="full env agent count"):
+            client.step_batch(observations, actions)
+
+        assert policy.observations == []
+
+    _run_raw_ws_test(policy, env, check, agent_ids=[1])
 
 
 def test_ws_raw_policy_step_batch_round_trips_talk_messages():
@@ -343,7 +371,7 @@ def test_ws_raw_policy_step_batch_round_trips_talk_messages():
         observations = np.zeros((2, 1, 2, 2), dtype=np.uint8)
         actions = np.zeros((2,), dtype=np.int64)
 
-        client.step_batch_for_agents([0, 1], observations, actions)
+        client.step_batch(observations, actions)
 
         assert client.bitworld_chat_messages([0, 1]) == ["hello 0", "hello 1"]
 

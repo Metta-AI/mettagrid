@@ -1,6 +1,7 @@
 import json
 from unittest.mock import patch
 
+import numpy as np
 import pytest
 
 from mettagrid.config.id_map import ObservationFeatureSpec
@@ -77,6 +78,19 @@ class InfoActionPolicy(MultiAgentPolicy):
         return self._agents.setdefault(agent_id, InfoActionAgentPolicy(self.policy_env_info))
 
 
+class RawSlotIndexedPolicy(MultiAgentPolicy):
+    def __init__(self, policy_env_info: PolicyEnvInterface):
+        super().__init__(policy_env_info)
+        self.observations: list[np.ndarray] = []
+
+    def agent_policy(self, agent_id: int) -> AgentPolicy:
+        raise NotImplementedError
+
+    def step_batch(self, raw_observations: np.ndarray, raw_actions: np.ndarray) -> None:
+        self.observations.append(raw_observations.copy())
+        raw_actions[:] = np.arange(raw_actions.shape[0], dtype=raw_actions.dtype)
+
+
 def _policy_env(with_vibes: bool = False, *, talk_enabled: bool = False) -> PolicyEnvInterface:
     return PolicyEnvInterface(
         obs_features=[ObservationFeatureSpec(id=1, name="health", normalization=1.0)],
@@ -90,6 +104,19 @@ def _policy_env(with_vibes: bool = False, *, talk_enabled: bool = False) -> Poli
     )
 
 
+def _raw_pixel_env(num_agents: int = 3) -> PolicyEnvInterface:
+    return PolicyEnvInterface(
+        action_names=["noop", "move", "a"],
+        num_agents=num_agents,
+        observation_shape=(1, 2, 2),
+        egocentric_shape=(2, 2),
+        observation_kind="pixels",
+        observation_dtype="uint8",
+        observation_low=0.0,
+        observation_high=15.0,
+    )
+
+
 def _make_service() -> LocalPolicyServer:
     return LocalPolicyServer("fake://policy")
 
@@ -100,6 +127,7 @@ def _prepare(
     env: PolicyEnvInterface,
     episode_id: str = "ep-123",
     agent_ids: list[int] | None = None,
+    observations_format: int = policy_pb2.AgentObservations.Format.TRIPLET_V1,
 ):
     req = policy_pb2.PreparePolicyRequest(
         episode_id=episode_id,
@@ -112,7 +140,7 @@ def _prepare(
         ),
         env_interface=env.to_proto(),
         agent_ids=agent_ids or [0],
-        observations_format=policy_pb2.AgentObservations.Format.TRIPLET_V1,
+        observations_format=observations_format,
     )
     with (
         patch("mettagrid.runner.policy_server.server.policy_spec_from_uri", return_value=None),
@@ -155,6 +183,35 @@ def test_prepare_policy_unknown_observation_format_uses_raw_observations():
     assert episode.policy_env.observation_kind == "pixels"
     assert episode.parse_observations is None
     assert episode.agent_policies == {}
+
+
+def test_batch_step_raw_slot_indexes_partial_agent_batch() -> None:
+    service = _make_service()
+    env = _raw_pixel_env(num_agents=3)
+    policy = RawSlotIndexedPolicy(env)
+    _prepare(
+        service,
+        policy,
+        env,
+        agent_ids=[2],
+        observations_format=policy_pb2.AgentObservations.Format.AGENT_OBSERVATIONS_FORMAT_UNKNOWN,
+    )
+
+    observation = np.asarray([[[7, 0], [0, 0]]], dtype=np.uint8)
+    req = policy_pb2.BatchStepRequest(
+        episode_id="ep-123",
+        step_id=1,
+        agent_observations=[policy_pb2.AgentObservations(agent_id=2, observations=observation.tobytes())],
+    )
+    resp = service.batch_step(req)
+
+    assert len(resp.agent_actions) == 1
+    assert resp.agent_actions[0].agent_id == 2
+    assert list(resp.agent_actions[0].action_id) == [2]
+    assert len(policy.observations) == 1
+    assert policy.observations[0].shape == (3, 1, 2, 2)
+    assert np.count_nonzero(policy.observations[0][:2]) == 0
+    assert np.array_equal(policy.observations[0][2], observation)
 
 
 def test_batch_step():

@@ -300,7 +300,7 @@ class WebSocketRawPolicyServerClient(MultiAgentPolicy):
         self._ws.recv(timeout=PREPARE_TIMEOUT)
         logger.info("Received raw prepare policy response from policy server for %s", self._url)
 
-    def step_batch_for_agents(
+    def _step_batch_for_agents(
         self,
         agent_ids: Sequence[int],
         raw_observations: np.ndarray,
@@ -348,18 +348,15 @@ class WebSocketRawPolicyServerClient(MultiAgentPolicy):
         self._last_talk_by_agent = talk_by_agent
 
     def step_batch(self, raw_observations: np.ndarray, raw_actions: np.ndarray) -> None:
-        if raw_observations.shape[0] == len(self._agent_ids):
-            self.step_batch_for_agents(self._agent_ids, raw_observations, raw_actions)
-            return
+        if raw_observations.shape[0] != self.policy_env_info.num_agents:
+            raise ValueError("Raw WebSocket policy batch size must match full env agent count")
+        if raw_actions.shape[0] != self.policy_env_info.num_agents:
+            raise ValueError("Raw WebSocket policy action batch size must match full env agent count")
 
-        if raw_observations.shape[0] == self.policy_env_info.num_agents:
-            agent_indices = np.asarray(self._agent_ids, dtype=np.intp)
-            agent_actions = np.zeros((len(self._agent_ids),), dtype=raw_actions.dtype)
-            self.step_batch_for_agents(self._agent_ids, raw_observations[agent_indices], agent_actions)
-            raw_actions[agent_indices] = agent_actions
-            return
-
-        raise ValueError("Raw WebSocket policy batch size must match assigned agents or full env agent count")
+        agent_indices = np.asarray(self._agent_ids, dtype=np.intp)
+        agent_actions = np.zeros((len(self._agent_ids),), dtype=raw_actions.dtype)
+        self._step_batch_for_agents(self._agent_ids, raw_observations[agent_indices], agent_actions)
+        raw_actions[agent_indices] = agent_actions
 
     def bitworld_chat_messages(self, agent_ids: Sequence[int]) -> list[str | None]:
         return [

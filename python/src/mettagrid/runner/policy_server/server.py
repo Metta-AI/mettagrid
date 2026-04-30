@@ -234,11 +234,15 @@ def _batch_step_raw(episode: Episode, req: policy_pb2.BatchStepRequest) -> polic
     observations = np.stack(
         [_decode_raw_observation(agent_obs.observations, episode.policy_env) for agent_obs in req.agent_observations]
     )
-    actions = np.zeros((len(req.agent_observations),), dtype=np.int64)
-    if (step_batch_for_agents := getattr(episode.policy, "step_batch_for_agents", None)) is not None:
-        step_batch_for_agents(agent_ids, observations, actions)
-    else:
-        episode.policy.step_batch(observations, actions)
+    full_observations = np.zeros(
+        (episode.policy_env.num_agents, *episode.policy_env.observation_shape),
+        dtype=observations.dtype,
+    )
+    full_actions = np.zeros((episode.policy_env.num_agents,), dtype=np.int64)
+    agent_indices = np.asarray(agent_ids, dtype=np.intp)
+    full_observations[agent_indices] = observations
+    episode.policy.step_batch(full_observations, full_actions)
+    actions = full_actions[agent_indices]
     chat_messages = _raw_policy_chat_messages(episode.policy, agent_ids)
 
     max_action_id = len(episode.policy_env.all_action_names) - 1
