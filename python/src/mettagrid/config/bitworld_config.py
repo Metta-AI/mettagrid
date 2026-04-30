@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+from pydantic import ConfigDict
+
 from mettagrid.config.env_config import EnvConfig
 
 
@@ -11,9 +13,13 @@ class BitWorldEnvConfig(EnvConfig):
     """First-class config for BitWorld game episodes.
 
     Unlike MettaGridConfig, BitWorld does not use map builders, grid objects,
-    or observation configs.  All BitWorld-specific fields live here rather
-    than polluting :class:`~mettagrid.config.mettagrid_config.GameConfig`.
+    or observation configs.  Only ``game_name``, ``num_players``, ``seed``,
+    ``max_ticks``, and ``connect_timeout_s`` are shared across all BitWorld
+    games.  Game-specific server config (e.g. ``imposterCount`` for AmongThem,
+    ``puzzleCount`` for Persephone's Escape) flows through ``server_config``.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     game_engine: Literal["bitworld"] = "bitworld"
     game_name: str = "among_them"
@@ -21,16 +27,16 @@ class BitWorldEnvConfig(EnvConfig):
     seed: int = 0
     max_ticks: int = 10000
     num_players: int = 5
-    imposter_count: int = 1
-    tasks_per_player: int = 8
-    task_complete_ticks: int | None = None
-    imposter_cooldown_ticks: int = 1200
-    vote_timer_ticks: int = 600
     connect_timeout_s: float = 10.0
+    server_config: dict[str, Any] = {}
 
     @property
     def num_agents(self) -> int:
         return self.num_players
+
+    @property
+    def manages_own_policies(self) -> bool:
+        return True
 
     @staticmethod
     def set_map_seed(config: dict[str, Any], seed: int) -> None:

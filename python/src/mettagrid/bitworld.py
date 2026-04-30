@@ -137,20 +137,6 @@ class BitWorldEndpoint(BaseModel):
         return self.websocket_url(REWARD_PATH)
 
 
-class BitWorldServerConfig(BaseModel):
-    model_config = ConfigDict(frozen=True, populate_by_name=True, serialize_by_alias=True)
-
-    imposter_count: int = Field(default=BITWORLD_AMONG_THEM_IMPOSTER_COUNT, alias="imposterCount", ge=0)
-    tasks_per_player: int = Field(default=BITWORLD_AMONG_THEM_TASKS_PER_PLAYER, alias="tasksPerPlayer", ge=0)
-    task_complete_ticks: int | None = Field(default=None, alias="taskCompleteTicks", ge=1)
-    imposter_cooldown_ticks: int = Field(
-        default=BITWORLD_AMONG_THEM_IMPOSTER_COOLDOWN_TICKS,
-        alias="imposterCooldownTicks",
-        ge=0,
-    )
-    vote_timer_ticks: int = Field(default=BITWORLD_AMONG_THEM_VOTE_TIMER_TICKS, alias="voteTimerTicks", ge=1)
-
-
 class RewardEntry(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -348,7 +334,6 @@ __all__ = [
     "BITWORLD_DEFAULT_FRAME_STACK",
     "BITWORLD_INPUT_MASK_COUNT",
     "BitWorldEndpoint",
-    "BitWorldServerConfig",
     "Button",
     "BUTTON_NAMES",
     "BUTTON_TO_MASK",

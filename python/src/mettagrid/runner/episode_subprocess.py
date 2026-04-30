@@ -10,6 +10,7 @@ from typing import Optional
 from pydantic import ValidationError
 
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
+from mettagrid.runner.engine_registry import get_engine_runner
 from mettagrid.runner.policy_server.websocket_transport import PolicyStepError, WebSocketPolicyServerClient
 from mettagrid.runner.rollout import resolve_env_for_seed, single_episode_rollout
 from mettagrid.runner.types import PureSingleEpisodeJob, RunnerErrorType
@@ -52,10 +53,9 @@ def _write_error(path: str, exc: Exception) -> None:
 
 
 def _run(job: PureSingleEpisodeJob) -> None:
-    if job.env.game_engine == "bitworld":
-        from mettagrid.runner.bitworld_runner import run_bitworld_episode  # noqa: PLC0415
-
-        results = run_bitworld_episode(job)
+    runner = get_engine_runner(job.env.game_engine)
+    if runner is not None:
+        results = runner(job)
         if job.results_uri is not None:
             write_data(job.results_uri, results.model_dump_json(), content_type="application/json")
         return

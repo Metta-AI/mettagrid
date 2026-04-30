@@ -21,6 +21,15 @@ class EnvConfig(Config):
     @abstractmethod
     def num_agents(self) -> int: ...
 
+    @property
+    def manages_own_policies(self) -> bool:
+        """Whether this engine loads and manages policies internally.
+
+        When True, the episode runner passes policy URIs directly to the
+        subprocess rather than spawning external policy servers.
+        """
+        return False
+
     @staticmethod
     @abstractmethod
     def set_map_seed(config: dict[str, Any], seed: int) -> None:

@@ -240,11 +240,12 @@ def run_episode_isolated(
         )
         compact_policy_names = _compact_policy_names(spec.policy_names, policy_index_remap)
 
-        if spec.env.game_engine == "bitworld":
+        if spec.env.manages_own_policies:
             episode_policy_uris = per_agent_policy_uris
             logger.info(
-                "Prepared %d compact local policies for BitWorld episode (%d agents)",
+                "Prepared %d compact local policies for %s episode (%d agents)",
                 len(episode_policy_uris),
+                spec.env.game_engine,
                 len(spec.assignments),
             )
         else:
@@ -366,11 +367,9 @@ def run_episode_isolated(
                 raise EpisodeSubprocessError(f"episode_subprocess failed ({detail})", runner_error=runner_error)
 
         # Copy local policy-server logs to output directory if requested.
-        # BitWorld jobs pass localized bundles directly to the subprocess.
-        # We keep one log artifact per agent index for compatibility with
-        # downstream upload consumers, even when multiple agents share a
-        # compacted policy server.
-        if policy_log_dir is not None and spec.env.game_engine != "bitworld":
+        # Engines that manage their own policies (manages_own_policies=True)
+        # skip external policy servers, so there are no logs to copy.
+        if policy_log_dir is not None and servers:
             policy_log_dir.mkdir(parents=True, exist_ok=True)
             for agent_idx, policy_idx in enumerate(per_agent_assignments):
                 shutil.copy(servers[policy_idx]._log_file, policy_log_dir / f"{agent_idx}.log")

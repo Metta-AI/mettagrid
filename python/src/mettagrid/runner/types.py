@@ -13,23 +13,11 @@ def _migrate_game_engine_into_env(data: Any) -> Any:
     Old serialized job dicts have ``game_engine`` as a sibling of ``env``.
     The new schema stores it inside the env config so the discriminated union
     can pick the right type.
-
-    For BitWorld, old jobs used a MettaGridConfig carrier with game params
-    stuffed into ``env.game``.  We translate those carrier fields into
-    ``BitWorldEnvConfig`` fields and strip the MettaGrid scaffolding.
     """
     if isinstance(data, dict) and "env" in data and isinstance(data["env"], dict):
         env = data["env"]
         if "game_engine" not in env and "game_engine" in data:
             env["game_engine"] = data.pop("game_engine")
-
-        if env.get("game_engine") == "bitworld" and "game" in env:
-            game = env.pop("game")
-            env.setdefault("max_ticks", game.get("max_steps", 10000))
-            env.setdefault("num_players", game.get("num_agents", 5))
-            # Strip remaining MettaGrid carrier fields
-            for key in ("desync_episodes", "map_builder"):
-                env.pop(key, None)
 
     return data
 

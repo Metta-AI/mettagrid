@@ -84,9 +84,9 @@ def test_bitworld_env_config_defaults():
     env = BitWorldEnvConfig()
     assert env.game_engine == "bitworld"
     assert env.game_name == "among_them"
-    assert env.tasks_per_player == 8
-    assert env.imposter_cooldown_ticks == 1200
-    assert env.vote_timer_ticks == 600
+    assert env.server_config == {}
+    assert env.num_players == 5
+    assert env.max_ticks == 10000
 
 
 def test_resolve_env_config_type_dispatches_static_methods():
@@ -122,11 +122,13 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
         seed=17,
         max_ticks=99,
         num_players=8,
-        imposter_count=2,
-        tasks_per_player=3,
-        task_complete_ticks=36,
-        imposter_cooldown_ticks=240,
-        vote_timer_ticks=120,
+        server_config={
+            "imposterCount": 2,
+            "tasksPerPlayer": 3,
+            "taskCompleteTicks": 36,
+            "imposterCooldownTicks": 240,
+            "voteTimerTicks": 120,
+        },
     )
     replay_path = Path("/tmp/replay.json.z")
     server_proc = bitworld_runner._start_server(

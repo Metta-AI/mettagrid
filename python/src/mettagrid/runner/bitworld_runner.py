@@ -59,8 +59,6 @@ MAX_FRAME_DRAIN = 128
 DEBUG_STATS_ENV = "BITWORLD_DEBUG_STATS"
 POLICY_RUNNER_QUERY_KEYS = {"frame_stack"}
 
-BITWORLD_GAME_NAME = "among_them"
-
 
 @dataclass
 class BitWorldRuntime:
@@ -131,16 +129,11 @@ def _start_server(
     replay_path: Path | None = None,
 ) -> subprocess.Popen:
     server_config_fields: dict[str, Any] = {
+        **env.server_config,
         "seed": env.seed,
         "maxTicks": env.max_ticks,
         "minPlayers": env.num_players,
-        "imposterCount": env.imposter_count,
-        "tasksPerPlayer": env.tasks_per_player,
-        "imposterCooldownTicks": env.imposter_cooldown_ticks,
-        "voteTimerTicks": env.vote_timer_ticks,
     }
-    if env.task_complete_ticks is not None:
-        server_config_fields["taskCompleteTicks"] = env.task_complete_ticks
     server_config = json.dumps(server_config_fields, separators=(",", ":"))
     cmd = [
         str(binary_path),

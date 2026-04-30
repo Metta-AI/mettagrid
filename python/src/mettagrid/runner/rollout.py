@@ -11,6 +11,7 @@ from mettagrid.map_builder.map_builder import HasSeed
 from mettagrid.policy.loader import AgentPolicy, PolicyEnvInterface, initialize_or_load_policy
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
 from mettagrid.renderer.renderer import RenderMode
+from mettagrid.runner.engine_registry import get_engine_runner
 from mettagrid.runner.types import PureSingleEpisodeJob, PureSingleEpisodeResult
 from mettagrid.simulator.multi_episode.rollout import EpisodeRolloutResult, MultiEpisodeRolloutResult
 from mettagrid.simulator.replay_log_writer import EpisodeReplay, InMemoryReplayWriter
@@ -172,9 +173,8 @@ def run_episode_local(
     """
     resolved_engine = game_engine or env.game_engine
 
-    if resolved_engine == "bitworld":
-        from mettagrid.runner.bitworld_runner import run_bitworld_episode  # noqa: PLC0415
-
+    runner = get_engine_runner(resolved_engine)
+    if runner is not None:
         job = PureSingleEpisodeJob(
             policy_uris=[spec.data_path or spec.class_path for spec in policy_specs],
             assignments=list(assignments),
@@ -184,7 +184,7 @@ def run_episode_local(
             seed=seed,
             max_action_time_ms=max_action_time_ms,
         )
-        results = run_bitworld_episode(job)
+        results = runner(job)
         return results, None
     elif resolved_engine != "mettagrid":
         raise ValueError(f"Unknown game engine: {resolved_engine}")
