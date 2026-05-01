@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ctypes
 import json
+import math
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, Sequence, Tuple, TypeVar, cast
 
@@ -175,14 +176,14 @@ class NimMultiAgentPolicy(MultiAgentPolicy):
         self._num_agents = policy_env_info.num_agents
         obs_shape = policy_env_info.observation_space.shape
         self._num_tokens = obs_shape[0]
-        self._token_dim = obs_shape[1]
+        self._token_dim = math.prod(obs_shape[1:])
         subset = np.array(list(agent_ids) if agent_ids is not None else range(self._num_agents), dtype=np.int32)
         self._default_subset = subset
         self._default_subset_len = subset.size
         self._default_subset_ptr = subset.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)) if subset.size > 0 else None
         self._single_agent_id = np.zeros(1, dtype=np.int32)
         self._full_obs_buffer = np.full(
-            (self._num_agents, self._num_tokens, self._token_dim),
+            (self._num_agents, *obs_shape),
             fill_value=255,
             dtype=dtype_observations,
         )
