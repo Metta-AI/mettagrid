@@ -55,6 +55,7 @@ logger = logging.getLogger(__name__)
 
 SERVER_START_ATTEMPTS = 5
 SERVER_START_GRACE_S = 0.1
+SERVER_REPLAY_FLUSH_TIMEOUT_S = 5.0
 MAX_FRAME_DRAIN = 128
 DEBUG_STATS_ENV = "BITWORLD_DEBUG_STATS"
 
@@ -216,6 +217,27 @@ def _start_server_on_free_port(
         )
 
     raise RuntimeError(f"BitWorld server failed to start after {SERVER_START_ATTEMPTS} port attempts")
+
+
+def _stop_server_after_clients_disconnect(server_proc: subprocess.Popen) -> None:
+    deadline = time.monotonic() + SERVER_REPLAY_FLUSH_TIMEOUT_S
+    while time.monotonic() < deadline:
+        if server_proc.poll() is not None:
+            return
+        time.sleep(0.05)
+
+    if server_proc.poll() is not None:
+        return
+
+    server_proc.terminate()
+    terminate_deadline = time.monotonic() + 5.0
+    while time.monotonic() < terminate_deadline:
+        if server_proc.poll() is not None:
+            return
+        time.sleep(0.05)
+
+    if server_proc.poll() is None:
+        server_proc.kill()
 
 
 def _build_bitworld_env_interface(
@@ -544,9 +566,4 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
             except Exception:
                 logger.debug("Failed to close WebSocket for player %d", conn.player_index, exc_info=True)
 
-        if server_proc.poll() is None:
-            server_proc.terminate()
-            try:
-                server_proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                server_proc.kill()
+        _stop_server_after_clients_disconnect(server_proc)

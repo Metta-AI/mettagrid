@@ -80,6 +80,36 @@ def test_bitworld_env_config_num_agents():
     assert env.game_engine == "bitworld"
 
 
+def test_stop_server_waits_for_replay_flush_before_terminate(monkeypatch):
+    monkeypatch.setattr(bitworld_runner.time, "sleep", lambda _duration: None)
+
+    class _FlushesOnDisconnectProc:
+        terminated = False
+        killed = False
+        returncode: int | None = None
+        polls = 0
+
+        def poll(self) -> int | None:
+            self.polls += 1
+            if self.polls == 2:
+                self.returncode = 0
+            return self.returncode
+
+        def terminate(self) -> None:
+            self.terminated = True
+
+        def kill(self) -> None:
+            self.killed = True
+
+    proc = _FlushesOnDisconnectProc()
+
+    bitworld_runner._stop_server_after_clients_disconnect(cast(Any, proc))
+
+    assert proc.returncode == 0
+    assert not proc.terminated
+    assert not proc.killed
+
+
 def test_bitworld_env_config_defaults():
     env = BitWorldEnvConfig()
     assert env.game_engine == "bitworld"
