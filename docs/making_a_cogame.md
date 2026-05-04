@@ -187,7 +187,7 @@ HardOreMineMission = OreMineMission(
 ```bash
 cogames tutorial train \
     --mission my_module.OreMineMission \
-    --timesteps 2000000
+    --steps 2000000
 ```
 
 CoGames uses [PufferLib](https://github.com/PufferAI/PufferLib) for training — PPO with parallel vectorized environments. The trained checkpoint loads back for play or eval:
