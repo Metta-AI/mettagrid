@@ -1,6 +1,6 @@
 # Making a CoGame
 
-This guide is for people who want to build a new game on top of CoGames and MettaGrid. It covers the simulation primitives, how to define game objects and rules, how to wrap everything into a playable mission, and how to write evals. For a complete worked example of a cooperative-competitive game built this way, see `cogsguard/`.
+This guide is for people who want to build a new game on top of CoGames and MettaGrid. It covers the simulation primitives, how to define game objects and rules, how to wrap everything into a playable mission, and how to write evals. For a complete worked example of a cooperative-competitive game built this way, see `territories/` in `metta/games/`.
 
 ---
 
@@ -17,7 +17,7 @@ You describe your game entirely in Python config objects. MettaGrid handles the 
 - The **rewards** — what agents get credit for
 - The **events** — things that happen at specific timesteps
 
-**What agents see** is a token-based local window. By default, each agent observes an 11×11 grid around itself as a list of up to 300 tokens (each token has 3 values). Every visible object — agents, walls, resources, buildings — becomes a token describing its type, inventory, and tags. Agents also get a small set of global tokens: episode completion percentage, last action taken, last reward received. The window size and token budget are configurable in `ObsConfig`.
+**What agents see** is a token-based local window. By default, each agent observes a 13×13 grid around itself as a list of up to 500 tokens (each token has 3 values). Every visible object — agents, walls, resources, buildings — becomes a token describing its type, inventory, and tags. Agents also get a small set of global tokens: episode completion percentage, last action taken, last reward received. The window size and token budget are configurable in `ObsConfig`.
 
 ---
 
@@ -25,15 +25,14 @@ You describe your game entirely in Python config objects. MettaGrid handles the 
 
 CoGames adds a thin layer on top of MettaGrid for defining missions, maps, and composable modifiers.
 
-**`CoGameMission`** is the base class for a playable mission. Subclass it and implement `make_env()` to produce a `MettaGridConfig`. It holds the site, agent count, max steps, and a list of variants.
+**`CoGameMission`** is the base class for a playable mission. Subclass it and implement `make_base_env()` to produce a `MettaGridConfig`. It holds a `map_builder`, agent count bounds, max steps, and variants. The base class `make_env()` method calls your `make_base_env()`, then automatically resolves and applies all variants.
 
-**`CoGameSite`** defines the map layout — a procedural generator or a fixed ASCII file — along with agent count bounds.
-
-**`CoGameMissionVariant`** is a composable modifier. It has two hooks:
-- `modify_mission(mission)` — called at construction time, modifies mission-level config in place
+**`CoGameMissionVariant`** is a composable modifier. It has three hooks:
+- `dependencies()` — declare required and optional variant dependencies (auto-created if missing)
+- `configure(deps: ResolvedDeps)` — called after dependency resolution, for cross-variant setup
 - `modify_env(mission, env)` — called in `make_env()`, modifies the produced `MettaGridConfig` in place
 
-Variants are applied in order. Stack them to combine pressures: a difficulty variant, a reward-shaping variant, and a map variant are all independent and compose cleanly.
+Variants are resolved in dependency order via topological sort. Stack them to combine pressures: a difficulty variant, a reward-shaping variant, and a map variant are all independent and compose cleanly.
 
 ---
 
@@ -67,17 +66,19 @@ refinery = GridObjectConfig(
 
 `withdraw` takes resources from the object and gives them to the agent. `deposit` does the reverse. `updateActor`/`updateTarget` apply signed deltas directly — useful for crafting and conversion.
 
-For single interactions, use a bare `Handler`. When an object needs multiple conditional interactions, wrap them in `firstMatch([...])` — the first handler whose filters all pass fires, and the rest are skipped. This lets you define conditional interactions — a handler that requires a key, with a weaker fallback for agents without one.
+For single interactions, use a bare `Handler`. When an object needs multiple conditional interactions, wrap them in `firstMatch([...])` — the first handler whose filters all pass fires, and the rest are skipped. This lets you define conditional interactions — a handler that requires a key, with a weaker fallback for agents without one. Use `allOf([...])` when multiple handlers should all fire.
 
 **Area-of-effect handlers** fire every timestep on all agents within a radius, without any agent action required — useful for territory effects, passive damage, healing zones.
 
 ### Agents and rewards
 
 ```python
+from mettagrid.config.reward_config import inventoryReward
+
 agent_cfg = AgentConfig(
     inventory=InventoryConfig(
-        default_limit=20,
-        initial={"ore": 0, "ingot": 0, "hp": 10}
+        limits={"ore": ResourceLimitsConfig(base=20), "ingot": ResourceLimitsConfig(base=20)},
+        initial={"ore": 0, "ingot": 0, "hp": 10},
     ),
     rewards={"ingot": inventoryReward("ingot", weight=1.0)},
 )
@@ -103,41 +104,48 @@ Use `once(timestep)` for a one-shot event, `periodic(start, period)` for repeati
 
 ### Maps
 
-**Procedural** maps are generated fresh each episode — good for training generalization. `BaseHub.Config` gives you a hub-and-spoke layout with configurable spawn counts, junction objects, and corner bundles.
+**Procedural** maps are generated fresh each episode — good for training generalization. `RandomMapBuilder.Config` gives you a configurable random layout. Other builders include `MazePrimMapBuilder` and `MazeKruskalMapBuilder` for maze-style maps, and `PerimeterInContextMapBuilder` for in-context maps with perimeter walls.
 
-**Fixed ASCII** maps give the same layout every run — essential for reproducible evals. Define a `.map` file and load it with `MapBuilderConfig.from_uri(...)`.
+**Fixed ASCII** maps give the same layout every run — essential for reproducible evals. Define a `.map` file and load it with `AsciiMapBuilderConfig(uri="path/to/map.map")`. For random selection from a directory of maps, use `ChoiceAsciiMapBuilder.Config`.
+
+Map builder configs can also be loaded from YAML/JSON files with `MapBuilderConfig.from_uri(...)`.
 
 ---
 
 ## Wrapping it as a mission
 
-Assemble the pieces into a `MettaGridConfig` inside `make_env()`. Use `self.max_steps`, `self.num_cogs`, and `self.site.map_builder` — not hardcoded literals — so that variants and mission-level overrides actually take effect. Your `make_env()` is also responsible for calling `modify_env` on all variants.
+Subclass `CoGameMission` and implement `make_base_env()` to assemble a `MettaGridConfig`. Use `self.max_steps`, `self.num_cogs`, and `self.map_builder` — not hardcoded literals — so that overrides take effect. You do **not** need to apply variants yourself; the base class `make_env()` handles that automatically.
 
 ```python
 class OreMineMission(CoGameMission):
-    name: str = "ore_mine"
-    description: str = "Extract ore, smelt ingots."
-    site: CoGameSite = SmallMine
-    num_cogs: int = 4
+    max_steps: int = Field(default=5000)
 
-    def make_env(self) -> MettaGridConfig:
-        env = MettaGridConfig(
+    @classmethod
+    def create(cls, num_agents: int, max_steps: int = 5000) -> OreMineMission:
+        return cls(
+            name="ore_mine",
+            description="Extract ore, smelt ingots.",
+            map_builder=RandomMapBuilder.Config(width=20, height=20),
+            num_cogs=num_agents,
+            min_cogs=1,
+            max_cogs=num_agents,
+            max_steps=max_steps,
+        )
+
+    def make_base_env(self) -> MettaGridConfig:
+        num_cogs = cast(int, self.num_cogs)
+        return MettaGridConfig(
             game=GameConfig(
-                num_agents=self.num_cogs,
+                num_agents=num_cogs,
                 max_steps=self.max_steps,
                 resource_names=["ore", "ingot", "hp"],
                 objects={"wall": WallConfig(), "ore_vein": ore_vein, "refinery": refinery},
                 actions=ActionsConfig(move=MoveActionConfig(), noop=NoopActionConfig()),
-                agent=agent_cfg,
+                agents=[agent_cfg for _ in range(num_cogs)],
                 events=events,
-                map_builder=self.site.map_builder,
+                map_builder=self.map_builder,
             )
         )
-        env = env.model_copy(deep=True)
-        env.label = self.full_name()
-        for variant in self.variants:
-            variant.modify_env(self, env)
-        return env
 ```
 
 ```bash
@@ -159,26 +167,34 @@ class ScarcityVariant(CoGameMissionVariant):
         for obj in env.game.objects.values():
             if obj.name == "ore_vein":
                 obj.inventory.initial["ore"] = 10  # default is 100
-
-class ShortRunVariant(CoGameMissionVariant):
-    name: str = "short_run"
-    description: str = "Half the episode length."
-
-    def modify_mission(self, mission: CoGameMission) -> None:
-        mission.max_steps = mission.max_steps // 2
 ```
 
-Apply them at definition time:
+Variants can declare dependencies on other variants. Required dependencies are auto-created if not already present:
 
 ```python
-HardOreMineMission = OreMineMission(
-    name="ore_mine_hard",
-    description="Scarce ore, short clock.",
-    site=SmallMine,
-    num_cogs=4,
-    variants=[ScarcityVariant(), ShortRunVariant()],
-)
+class RefineryVariant(CoGameMissionVariant):
+    name: str = "refinery"
+    description: str = "Adds smelting. Requires ore to be present."
+
+    def dependencies(self) -> Deps:
+        return Deps(required=[ScarcityVariant])
+
+    def configure(self, deps: ResolvedDeps) -> None:
+        # Access resolved dependencies for cross-variant setup
+        self._scarcity = deps.required(ScarcityVariant)
+
+    def modify_env(self, mission: CoGameMission, env: MettaGridConfig) -> None:
+        env.game.objects["refinery"] = refinery
 ```
+
+Apply variants with `with_variants()`:
+
+```python
+mission = OreMineMission.create(num_agents=4).with_variants(["scarcity", "refinery"])
+env = mission.make_env()
+```
+
+You can pass variant names as strings (resolved via the type registry) or variant instances directly. Compose multiple to combine pressures — variants are applied in dependency order.
 
 ---
 
@@ -196,7 +212,7 @@ CoGames uses [PufferLib](https://github.com/PufferAI/PufferLib) for training —
 cogames play --mission my_module.OreMineMission --policy file://./checkpoints/latest.pt
 ```
 
-Before committing training time, run `cogames play --mission my_module.OreMineMission` to verify the game interactively — check that maps generate correctly, handlers fire, and rewards accumulate as expected.
+Before committing training time, run `cogames play --mission my_module.OreMineMission --cogs 4` to verify the game interactively — check that maps generate correctly, handlers fire, and rewards accumulate as expected.
 
 ---
 
