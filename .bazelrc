@@ -86,6 +86,13 @@ common --show_progress_rate_limit=0.5
 build --disk_cache=~/.cache/bazel-disk
 build --repository_cache=~/.cache/bazel-repo
 
+# Don't create bazel-{bin,out,testlogs,mettagrid} convenience symlinks in the
+# workspace root. The outer metta workspace consumes packages/mettagrid as a
+# bzlmod local_path_override, and these symlinks cause infinite-loop globs
+# when expanding @mettagrid//... from the outer workspace. Use
+# `bazel info bazel-bin` etc. instead of the symlinks.
+build --experimental_convenience_symlinks=ignore
+
 # Build execution optimization
 build --jobs=auto
 build --local_test_jobs=auto

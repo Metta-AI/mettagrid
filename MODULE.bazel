@@ -3,13 +3,17 @@ module(name = "mettagrid", version = "0.1.6")
 
 # Basic Bazel dependencies
 bazel_dep(name = "platforms", version = "1.0.0")
-bazel_dep(name = "bazel_skylib", version = "1.8.1")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
 
 # C++ rules and toolchain
-bazel_dep(name = "rules_cc", version = "0.2.0")
+bazel_dep(name = "rules_cc", version = "0.2.17")
+
+# Shell rules (sh_binary for the clang-tidy wrapper). Bazel 9 dropped the
+# native sh_binary; rules_shell is the supported replacement.
+bazel_dep(name = "rules_shell", version = "0.6.1")
 
 # Python toolchain - use latest compatible version
-bazel_dep(name = "rules_python", version = "1.5.3")
+bazel_dep(name = "rules_python", version = "1.7.0")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.defaults(
@@ -36,7 +40,7 @@ bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 bazel_dep(name = "google_benchmark", version = "1.9.4")
 
 # Abseil (dependency of some Google libraries)
-bazel_dep(name = "abseil-cpp", version = "20250814.0")
+bazel_dep(name = "abseil-cpp", version = "20250814.1")
 
 # make compile_commands.json with: bazel run @hedron_compile_commands//:refresh_all
 bazel_dep(name = "hedron_compile_commands", version = "")

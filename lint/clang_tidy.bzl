@@ -3,6 +3,7 @@
 
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain", "use_cpp_toolchain")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 
 def _clang_tidy_aspect_impl(target, ctx):
     """Aspect to run clang-tidy on C++ targets."""

@@ -125,8 +125,19 @@ def _run_bazel_build() -> None:
     print(f"Running Bazel build: {' '.join(bazel_cmd)}")
     cmd(bazel_cmd, cwd=PROJECT_ROOT, max_attempts=3, env=env)
 
-    # Copy the built extension to the package directory
-    bazel_bin = PROJECT_ROOT / "bazel-bin"
+    # The .bazelrc disables convenience symlinks (so the outer monorepo's
+    # bazel can glob @mettagrid//... without infinite-loop self-references),
+    # so resolve bazel-bin via `bazel info` instead of the symlink path.
+    info_cmd = [
+        "bazel",
+        "--batch",
+        f"--output_user_root={output_user_root}",
+        "info",
+        f"--config={config}",
+        "bazel-bin",
+    ]
+    info_result = subprocess.run(info_cmd, cwd=PROJECT_ROOT, env=env, capture_output=True, text=True, check=True)
+    bazel_bin = Path(info_result.stdout.strip())
     # Try both old and new locations for backward compatibility
     src_dirs = [
         PROJECT_ROOT / "python/src/mettagrid",  # New location

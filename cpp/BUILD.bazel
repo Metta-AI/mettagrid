@@ -2,14 +2,6 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension", "pybind_library")
 
-# Export binding files and source files so they can be used by benchmarks and tests
-exports_files([
-    "bindings/mettagrid_c.cpp",
-    "bindings/mettagrid_c.hpp",
-    "bindings/mettagrid_py.cpp",
-    "bindings/profiling_py.cpp",
-])
-
 # Compiler flags
 COPTS = [
     "-std=c++20",
@@ -36,6 +28,27 @@ pybind_library(
     ],
     includes = ["include/mettagrid"],
     visibility = ["//visibility:public"],
+)
+
+# Pybind11 binding sources, exposed as a cc_library so tests and benchmarks
+# that need to link the bindings directly (instead of loading the .so as a
+# Python module) can dep on this rather than re-listing sources + manual
+# `-Icpp/...` copts. The cc_library `includes` attribute is bazel-aware and
+# resolves to the package's repo prefix, so it works both standalone and
+# when packages/mettagrid is consumed via local_path_override from the
+# outer monorepo.
+pybind_library(
+    name = "mettagrid_bindings",
+    srcs = [
+        "bindings/mettagrid_c.cpp",
+        "bindings/mettagrid_py.cpp",
+        "bindings/profiling_py.cpp",
+    ],
+    hdrs = ["bindings/mettagrid_c.hpp"],
+    copts = COPTS,
+    includes = [".", "bindings"],
+    visibility = ["//visibility:public"],
+    deps = [":mettagrid_core"],
 )
 
 # Python bindings

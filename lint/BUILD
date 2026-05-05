@@ -1,5 +1,6 @@
 # BUILD file for custom lint rules
 
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load(":clang_tidy.bzl", "clang_tidy_test", "clang_tidy_all")
 
 # Wrapper for system clang-tidy

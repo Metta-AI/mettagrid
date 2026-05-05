@@ -37,24 +37,13 @@ cc_binary(
     ],
 )
 
-filegroup(
-    name="mettagrid_sources",
-    srcs=[
-        "//cpp:bindings/mettagrid_c.cpp",
-        "//cpp:bindings/mettagrid_c.hpp",
-        "//cpp:bindings/mettagrid_py.cpp",
-        "//cpp:bindings/profiling_py.cpp",
-    ],
-)
-
 cc_binary(
     name="test_mettagrid_bin",
-    srcs=["test_mettagrid.cpp"] + [":mettagrid_sources"],
-    copts=COPTS + ["-Icpp/include/mettagrid", "-Icpp", "-Icpp/bindings", "-Itests"],
-    # linkopts=["-fsanitize=address"],  # Disabled - causes issues on macOS
-    linkstatic=True,  # Changed to True to ensure all symbols are linked
+    srcs=["test_mettagrid.cpp"],
+    copts=COPTS + ["-Itests"],
+    linkstatic=True,  # Ensure all symbols are linked
     deps=[
-        "//:mettagrid_lib",  # For pybind11 headers
+        "//cpp:mettagrid_bindings",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
