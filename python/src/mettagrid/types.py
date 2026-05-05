@@ -5,7 +5,8 @@ to avoid circular import issues.
 """
 
 from dataclasses import dataclass
-from typing import TypedDict
+
+from typing_extensions import TypedDict
 
 
 @dataclass
