@@ -185,6 +185,50 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
     assert captured["cwd"] == "/tmp/bitworld"
 
 
+def test_run_bitworld_episode_passes_job_seed_to_server(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class _FakePolicy:
+        def close(self) -> None:
+            pass
+
+    class _FakeWebSocket:
+        def close(self) -> None:
+            pass
+
+    def fake_start_server_on_free_port(
+        _binary_path: Path,
+        _runtime: bitworld_runner.BitWorldRuntime,
+        env: BitWorldEnvConfig,
+        *,
+        replay_path: Path | None = None,
+    ) -> _FakeProc:
+        captured["seed"] = env.seed
+        captured["replay_path"] = replay_path
+        return _FakeProc(alive=True)
+
+    monkeypatch.setattr(bitworld_runner, "_find_bitworld_binary", lambda _game_name: Path("/tmp/among_them"))
+    monkeypatch.setattr(bitworld_runner, "_load_bitworld_policy", lambda *_args: _FakePolicy())
+    monkeypatch.setattr(bitworld_runner, "_start_server_on_free_port", fake_start_server_on_free_port)
+    monkeypatch.setattr(bitworld_runner, "_connect_websocket", lambda *_args, **_kwargs: _FakeWebSocket())
+    monkeypatch.setattr(bitworld_runner, "_reward_listener", lambda _state: None)
+    monkeypatch.setattr(bitworld_runner, "_stop_server_after_clients_disconnect", lambda _proc: None)
+
+    result = bitworld_runner.run_bitworld_episode(
+        PureSingleEpisodeJob(
+            policy_uris=["metta://policy/test"],
+            assignments=[0],
+            env=BitWorldEnvConfig(seed=0, num_players=1, max_ticks=0),
+            results_uri=None,
+            replay_uri=None,
+            seed=912,
+        )
+    )
+
+    assert captured == {"seed": 912, "replay_path": None}
+    assert result.steps == 0
+
+
 def test_replay_path_from_file_uri(tmp_path):
     replay_path = tmp_path / "replay.json.z"
 

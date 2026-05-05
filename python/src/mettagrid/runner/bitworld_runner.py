@@ -435,7 +435,7 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
     if not isinstance(job.env, BitWorldEnvConfig):
         raise TypeError(f"Expected BitWorldEnvConfig for bitworld episode, got {type(job.env).__name__}")
 
-    env = job.env
+    env = job.env.model_copy(update={"seed": job.seed})
     game_name = env.game_name
     num_players = env.num_players
     max_ticks = env.max_ticks
