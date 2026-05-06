@@ -16,6 +16,55 @@ from mettagrid.runner.types import PureSingleEpisodeJob
 from mettagrid.util.uri_resolvers import schemes as uri_schemes
 
 
+class _FakeSpritePlayerAdapter:
+    def __init__(self, _client_data_dir=None) -> None:
+        self.packets: list[bytes] = []
+
+    def apply_packet(self, packet: bytes) -> bool:
+        self.packets.append(packet)
+        return True
+
+    def observation(self) -> np.ndarray:
+        observation = np.zeros((_FakeSpritePlayerProtocol.SPRITE_PLAYER_FEATURES,), dtype=np.uint8)
+        observation[0] = len(self.packets)
+        return observation
+
+
+class _FakeSpritePlayerProtocol:
+    SPRITE_PLAYER_FEATURES = 3
+    SPRITE_PLAYER_PATH = "/sprite_player"
+    SpritePlayerObservationAdapter = _FakeSpritePlayerAdapter
+
+    @staticmethod
+    def pack_sprite_player_input_packet(mask: int) -> bytes:
+        return bytes([0x84, mask & 0x7F])
+
+
+@pytest.fixture
+def fake_sprite_player_protocol(monkeypatch: pytest.MonkeyPatch) -> type[_FakeSpritePlayerProtocol]:
+    monkeypatch.setattr(
+        bitworld_runner.bitworld_sprite_player,
+        "SpritePlayerObservationAdapter",
+        _FakeSpritePlayerAdapter,
+    )
+    monkeypatch.setattr(
+        bitworld_runner.bitworld_sprite_player,
+        "SPRITE_PLAYER_FEATURES",
+        _FakeSpritePlayerProtocol.SPRITE_PLAYER_FEATURES,
+    )
+    monkeypatch.setattr(
+        bitworld_runner.bitworld_sprite_player,
+        "SPRITE_PLAYER_PATH",
+        _FakeSpritePlayerProtocol.SPRITE_PLAYER_PATH,
+    )
+    monkeypatch.setattr(
+        bitworld_runner.bitworld_sprite_player,
+        "pack_sprite_player_input_packet",
+        _FakeSpritePlayerProtocol.pack_sprite_player_input_packet,
+    )
+    return _FakeSpritePlayerProtocol
+
+
 def test_find_bitworld_binary_uses_container_layout(monkeypatch):
     expected = Path("/opt/bitworld/among_them/among_them")
     monkeypatch.setattr(Path, "exists", lambda path: path == expected)
@@ -189,6 +238,9 @@ def test_run_bitworld_episode_passes_job_seed_to_server(monkeypatch):
     captured: dict[str, object] = {}
 
     class _FakePolicy:
+        def __init__(self) -> None:
+            self.policy_env_info = bitworld_runner._build_bitworld_env_interface(num_agents=1)
+
         def close(self) -> None:
             pass
 
@@ -252,7 +304,7 @@ def test_connect_websocket_uses_named_among_them_player_url(monkeypatch):
     bitworld_runner._connect_websocket(
         bitworld_runner.BitWorldRuntime(port=8123),
         bitworld_runner.PLAYER_PATH,
-        "player 2",
+        "sprite player",
         player_name="player_2",
     )
 
@@ -279,6 +331,19 @@ def test_bitworld_env_interface_accepts_checkpoint_frame_stack():
     env_interface = bitworld_runner._build_bitworld_env_interface(frame_stack=2)
 
     assert env_interface.observation_space.shape == (2, bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH)
+
+
+def test_bitworld_env_interface_supports_sprite_player_observation_route(fake_sprite_player_protocol):
+    env_interface = bitworld_runner._build_bitworld_env_interface(
+        frame_stack=4,
+        num_agents=8,
+        observation_mode="sprite_player",
+    )
+
+    assert env_interface.observation_space.shape == (fake_sprite_player_protocol.SPRITE_PLAYER_FEATURES * 4,)
+    assert env_interface.observation_space.dtype == np.uint8
+    assert env_interface.observation_kind == "sprite_player"
+    assert env_interface.num_agents == 8
 
 
 def test_action_stat_key_marks_noop_and_non_noop_actions():
@@ -375,6 +440,40 @@ def test_load_bitworld_policy_passes_game_contract_to_data_policy(monkeypatch):
     assert captured["env_interface"].num_agents == 5
 
 
+def test_load_bitworld_policy_uses_sprite_player_contract_from_submission(monkeypatch, fake_sprite_player_protocol):
+    captured: dict[str, object] = {}
+    policy_spec = PolicySpec(
+        class_path="metta.agent.policy.CheckpointPolicy",
+        data_path="weights.pt",
+        policy_env_interface=bitworld_runner._build_bitworld_env_interface(
+            frame_stack=4,
+            observation_mode="sprite_player",
+        ),
+    )
+
+    monkeypatch.setattr(uri_schemes, "policy_spec_from_uri", lambda _uri: policy_spec)
+
+    def fake_initialize_or_load_policy(env_interface, incoming_policy_spec):
+        captured["env_interface"] = env_interface
+        captured["policy_spec"] = incoming_policy_spec
+        return object()
+
+    monkeypatch.setattr("mettagrid.policy.loader.initialize_or_load_policy", fake_initialize_or_load_policy)
+
+    loaded_policy = bitworld_runner._load_bitworld_policy(
+        "file:///tmp/sprite_player-policy.zip",
+        agent_ids=[0],
+        num_agents=8,
+        frame_stack=bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
+    )
+
+    assert loaded_policy is not None
+    assert captured["policy_spec"] == policy_spec
+    assert captured["env_interface"].observation_kind == "sprite_player"
+    assert captured["env_interface"].observation_shape == (fake_sprite_player_protocol.SPRITE_PLAYER_FEATURES * 4,)
+    assert captured["env_interface"].num_agents == 8
+
+
 def test_policy_action_masks_rejects_invalid_policy_actions():
     class _InvalidActionPolicy:
         def step_batch(self, _observations: np.ndarray, actions: np.ndarray) -> None:
@@ -386,7 +485,7 @@ def test_policy_action_masks_rejects_invalid_policy_actions():
     )
 
     with pytest.raises(PolicyStepError, match="BitWorld policy action index"):
-        bitworld_runner._policy_action_masks(cast(Any, _InvalidActionPolicy()), observations, [0])
+        bitworld_runner._policy_action_masks_and_chats(cast(Any, _InvalidActionPolicy()), observations, [0])
 
 
 def test_policy_step_actions_uses_slot_indexed_step_batch():
@@ -524,6 +623,8 @@ def test_run_bitworld_episode_does_not_duplicate_reward_in_agent_stats(monkeypat
     frame = _pack_frame(np.zeros((bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH), dtype=np.uint8))
 
     class _FixedActionPolicy:
+        policy_env_info = bitworld_runner._build_bitworld_env_interface(num_agents=5)
+
         def step_batch(self, _observations: np.ndarray, actions: np.ndarray) -> None:
             actions[:] = 1
 
@@ -608,6 +709,8 @@ def test_run_bitworld_episode_sends_policy_chat(monkeypatch):
     frame = _pack_frame(np.zeros((bitworld_runner.SCREEN_HEIGHT, bitworld_runner.SCREEN_WIDTH), dtype=np.uint8))
 
     class _TalkingPolicy:
+        policy_env_info = bitworld_runner._build_bitworld_env_interface(num_agents=5)
+
         def step_batch(self, _observations: np.ndarray, actions: np.ndarray) -> None:
             actions[:] = 1
 
@@ -688,6 +791,101 @@ def test_run_bitworld_episode_sends_policy_chat(monkeypatch):
     assert pack_chat_packet("body in medbay") in player_sockets[0].sent
     assert all(pack_chat_packet("body in medbay") not in socket.sent for socket in player_sockets[1:])
     assert result.stats["agent"][0]["chat.sent"] == 1.0
+
+
+def test_run_bitworld_episode_uses_sprite_player_route_for_sprite_player_policy(
+    monkeypatch, fake_sprite_player_protocol
+):
+    sprite_player_packet = b"sprite_player-frame"
+    sprite_player_env = bitworld_runner._build_bitworld_env_interface(observation_mode="sprite_player", num_agents=5)
+
+    class _SpritePlayerPolicy:
+        policy_env_info = sprite_player_env
+
+        def step_batch(self, observations: np.ndarray, actions: np.ndarray) -> None:
+            assert observations.shape == (
+                5,
+                fake_sprite_player_protocol.SPRITE_PLAYER_FEATURES * bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
+            )
+            actions[:] = 1
+
+        def close(self) -> None:
+            pass
+
+    class _InlineThread:
+        def __init__(self, target, args, daemon):
+            del daemon
+            self._target = target
+            self._args = args
+
+        def start(self) -> None:
+            self._target(*self._args)
+
+        def join(self, timeout: float | None = None) -> None:
+            del timeout
+
+    class _FakeSpritePlayerWebSocket:
+        def __init__(self):
+            self.sent: list[bytes] = []
+            self.timeout = 2.0
+
+        def gettimeout(self) -> float:
+            return self.timeout
+
+        def settimeout(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        def recv(self) -> bytes:
+            if self.timeout == 0.0:
+                raise bitworld_runner.websocket.WebSocketTimeoutException()
+            return sprite_player_packet
+
+        def send(self, data: bytes, _opcode: int) -> None:
+            self.sent.append(data)
+
+        def close(self) -> None:
+            pass
+
+    class _FakeRewardWebSocket:
+        def close(self) -> None:
+            pass
+
+    player_sockets = [_FakeSpritePlayerWebSocket() for _i in range(5)]
+    sockets = iter([cast(Any, _FakeRewardWebSocket()), *player_sockets])
+    connected_paths: list[str] = []
+
+    def fake_connect(_runtime, path, *_args, **_kwargs):
+        connected_paths.append(path)
+        return next(sockets)
+
+    monkeypatch.setattr(bitworld_runner, "_find_bitworld_binary", lambda _game_name: Path("/tmp/bitworld/among_them"))
+    monkeypatch.setattr(
+        bitworld_runner,
+        "_start_server_on_free_port",
+        lambda _path, _runtime, _env, **_kwargs: _FakeProc(alive=True),
+    )
+    monkeypatch.setattr(bitworld_runner, "_connect_websocket", fake_connect)
+    monkeypatch.setattr(bitworld_runner, "_reward_listener", lambda _state: None)
+    monkeypatch.setattr(bitworld_runner.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(
+        bitworld_runner,
+        "_load_bitworld_policy",
+        lambda _uri, _agent_ids, _num_agents, _frame_stack: _SpritePlayerPolicy(),
+    )
+
+    result = bitworld_runner.run_bitworld_episode(
+        PureSingleEpisodeJob(
+            policy_uris=["fake_sprite_player_policy"],
+            assignments=[0, 0, 0, 0, 0],
+            env=BitWorldEnvConfig(num_players=5, max_ticks=1),
+            results_uri=None,
+            replay_uri=None,
+        )
+    )
+
+    assert connected_paths == [bitworld_runner.REWARD_PATH, *[fake_sprite_player_protocol.SPRITE_PLAYER_PATH] * 5]
+    assert all(bytes([0x84, 0x20]) in socket.sent for socket in player_sockets)
+    assert [agent_stats["action.a.success"] for agent_stats in result.stats["agent"]] == [1, 1, 1, 1, 1]
 
 
 def _pack_frame(frame: np.ndarray) -> bytes:

@@ -20,12 +20,13 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlparse
 
 import numpy as np
 import websocket
 
+from mettagrid import bitworld_sprite_player
 from mettagrid.bitworld import (
     BITWORLD_ACTION_COUNT,
     BITWORLD_ACTION_MASKS,
@@ -58,6 +59,7 @@ SERVER_START_GRACE_S = 0.1
 SERVER_REPLAY_FLUSH_TIMEOUT_S = 5.0
 MAX_FRAME_DRAIN = 128
 DEBUG_STATS_ENV = "BITWORLD_DEBUG_STATS"
+BitWorldObservationMode = Literal["pixels", "sprite_player"]
 
 
 @dataclass
@@ -74,9 +76,12 @@ class PlayerConnection:
     ws: websocket.WebSocket
     player_index: int
     address: str
+    observation_mode: BitWorldObservationMode = "pixels"
+    frame_stack: int = BITWORLD_DEFAULT_FRAME_STACK
     alive: bool = True
     observation_stack: np.ndarray | None = None
     queued_frames: list[bytes] = field(default_factory=list)
+    sprite_player_adapter: bitworld_sprite_player.SpritePlayerObservationAdapter | None = None
 
 
 @dataclass
@@ -243,17 +248,28 @@ def _stop_server_after_clients_disconnect(server_proc: subprocess.Popen) -> None
 def _build_bitworld_env_interface(
     frame_stack: int = BITWORLD_DEFAULT_FRAME_STACK,
     num_agents: int = 1,
+    observation_mode: BitWorldObservationMode = "pixels",
 ) -> PolicyEnvInterface:
     import gymnasium as gym  # noqa: PLC0415
 
-    obs_space = gym.spaces.Box(low=0, high=15, shape=(frame_stack, SCREEN_HEIGHT, SCREEN_WIDTH), dtype=np.uint8)
+    if observation_mode == "pixels":
+        obs_space = gym.spaces.Box(low=0, high=15, shape=(frame_stack, SCREEN_HEIGHT, SCREEN_WIDTH), dtype=np.uint8)
+    elif observation_mode == "sprite_player":
+        obs_space = gym.spaces.Box(
+            low=0,
+            high=255,
+            shape=(frame_stack * bitworld_sprite_player.SPRITE_PLAYER_FEATURES,),
+            dtype=np.uint8,
+        )
+    else:
+        raise ValueError(f"Unsupported BitWorld observation mode: {observation_mode!r}")
     act_space = gym.spaces.Discrete(BITWORLD_ACTION_COUNT)
     return PolicyEnvInterface.from_spaces(
         observation_space=obs_space,
         action_space=act_space,
         num_agents=num_agents,
         action_names=list(BITWORLD_ACTION_NAMES),
-        observation_kind="pixels",
+        observation_kind=observation_mode,
     )
 
 
@@ -319,6 +335,59 @@ def _receive_player_frame(conn: PlayerConnection) -> tuple[bytes | None, int]:
     return frame_data, frame_advance
 
 
+def _receive_sprite_player_observation(conn: PlayerConnection) -> tuple[np.ndarray | None, int]:
+    assert conn.sprite_player_adapter is not None
+    adapter = conn.sprite_player_adapter
+
+    if not conn.queued_frames:
+        try:
+            data = conn.ws.recv()
+            if isinstance(data, bytes) and data:
+                conn.queued_frames.append(data)
+        except (BlockingIOError, websocket.WebSocketTimeoutException):
+            return None, 0
+        except (websocket.WebSocketConnectionClosedException, ConnectionError):
+            conn.alive = False
+            return None, 0
+
+    previous_timeout = conn.ws.gettimeout()
+    conn.ws.settimeout(0.0)
+    try:
+        for _ in range(MAX_FRAME_DRAIN):
+            try:
+                data = conn.ws.recv()
+                if isinstance(data, bytes) and data:
+                    conn.queued_frames.append(data)
+            except (BlockingIOError, websocket.WebSocketTimeoutException):
+                break
+            except (websocket.WebSocketConnectionClosedException, ConnectionError):
+                conn.alive = False
+                break
+    finally:
+        conn.ws.settimeout(previous_timeout)
+
+    if not conn.queued_frames:
+        return None, 0
+
+    frame_advance = 0
+    for packet in conn.queued_frames:
+        if adapter.apply_packet(packet):
+            frame_advance += 1
+    conn.queued_frames.clear()
+    if frame_advance == 0:
+        return None, 0
+    features = bitworld_sprite_player.SPRITE_PLAYER_FEATURES
+    frame = adapter.observation()
+    if frame.shape != (features,):
+        raise ValueError(f"BitWorld /sprite_player observations must have shape {(features,)}, got {frame.shape}")
+    if conn.observation_stack is None:
+        conn.observation_stack = np.repeat(frame[np.newaxis, :], conn.frame_stack, axis=0)
+    else:
+        conn.observation_stack[:-1] = conn.observation_stack[1:]
+        conn.observation_stack[-1] = frame
+    return conn.observation_stack.reshape(conn.frame_stack * features), frame_advance
+
+
 def _is_policy_server_uri(uri: str) -> bool:
     return urlparse(uri).scheme in {"ws", "wss"}
 
@@ -336,14 +405,43 @@ def _load_bitworld_policy(
     num_agents: int,
     frame_stack: int = BITWORLD_DEFAULT_FRAME_STACK,
 ) -> MultiAgentPolicy:
-    env_interface = _build_bitworld_env_interface(frame_stack, num_agents=num_agents)
     if _is_policy_server_uri(uri):
+        env_interface = _build_bitworld_env_interface(frame_stack, num_agents=num_agents)
         return WebSocketRawPolicyServerClient(env_interface, url=uri, agent_ids=agent_ids)
 
     from mettagrid.policy.loader import initialize_or_load_policy  # noqa: PLC0415
     from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
 
     policy_spec = PolicySpec(class_path=uri) if "://" not in uri else policy_spec_from_uri(uri)
+    if policy_spec.policy_env_interface is None:
+        env_interface = _build_bitworld_env_interface(frame_stack, num_agents=num_agents)
+    else:
+        policy_env_interface = policy_spec.policy_env_interface
+        shape = policy_env_interface.observation_shape
+        if policy_env_interface.observation_kind == "pixels":
+            if len(shape) != 3 or shape[0] < 1 or shape[1:] != (SCREEN_HEIGHT, SCREEN_WIDTH):
+                raise ValueError(
+                    "BitWorld pixel policies must declare observation shape "
+                    f"[frame_stack,{SCREEN_HEIGHT},{SCREEN_WIDTH}], got {shape}"
+                )
+            env_interface = _build_bitworld_env_interface(shape[0], num_agents=num_agents, observation_mode="pixels")
+        elif policy_env_interface.observation_kind == "sprite_player":
+            features = bitworld_sprite_player.SPRITE_PLAYER_FEATURES
+            if len(shape) != 1 or shape[0] < features or shape[0] % features != 0:
+                raise ValueError(
+                    "BitWorld sprite_player policies must declare a flat observation shape with "
+                    f"{features} features per frame, got {shape}"
+                )
+            env_interface = _build_bitworld_env_interface(
+                shape[0] // features,
+                num_agents=num_agents,
+                observation_mode="sprite_player",
+            )
+        else:
+            raise ValueError(
+                "BitWorld policies must use 'pixels' or 'sprite_player' observations, "
+                f"got {policy_env_interface.observation_kind!r}"
+            )
     return initialize_or_load_policy(env_interface, policy_spec)
 
 
@@ -418,15 +516,6 @@ def _policy_action_masks_and_chats(
     )
 
 
-def _policy_action_masks(
-    policy: MultiAgentPolicy, observations: np.ndarray, agent_ids: list[int], num_agents: int | None = None
-) -> np.ndarray:
-    action_masks, _chat_messages, _debug_stats = _policy_action_masks_and_chats(
-        policy, observations, agent_ids, num_agents
-    )
-    return action_masks
-
-
 def _action_stat_key(action_mask: int) -> str:
     return f"action.{bitworld_input_mask_name(action_mask)}.success"
 
@@ -451,6 +540,7 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
 
     runtime = BitWorldRuntime()
     binary_path = _find_bitworld_binary(game_name)
+    client_data_dir = binary_path.parents[1] / "clients" / "data"
     replay_path = _replay_path_from_uri(job.replay_uri)
     server_proc = _start_server_on_free_port(binary_path, runtime, env, replay_path=replay_path)
 
@@ -466,10 +556,36 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
 
         for i in range(num_players):
             address = f"player_{i}"
-            ws = _connect_websocket(
-                runtime, PLAYER_PATH, f"player {i}", player_name=address, connect_timeout_s=timeout_s
+            policy = policies[job.assignments[i]]
+            policy_env_info = policy.policy_env_info
+            shape = policy_env_info.observation_shape
+            if policy_env_info.observation_kind == "pixels":
+                observation_mode: BitWorldObservationMode = "pixels"
+                connection_frame_stack = shape[0]
+            elif policy_env_info.observation_kind == "sprite_player":
+                observation_mode = "sprite_player"
+                connection_frame_stack = shape[0] // bitworld_sprite_player.SPRITE_PLAYER_FEATURES
+            else:
+                raise ValueError(
+                    "BitWorld policies must use 'pixels' or 'sprite_player' observations, "
+                    f"got {policy_env_info.observation_kind!r}"
+                )
+            path = bitworld_sprite_player.SPRITE_PLAYER_PATH if observation_mode == "sprite_player" else PLAYER_PATH
+            ws = _connect_websocket(runtime, path, f"player {i}", player_name=address, connect_timeout_s=timeout_s)
+            connections.append(
+                PlayerConnection(
+                    ws=ws,
+                    player_index=i,
+                    address=address,
+                    observation_mode=observation_mode,
+                    frame_stack=connection_frame_stack,
+                    sprite_player_adapter=(
+                        bitworld_sprite_player.SpritePlayerObservationAdapter(client_data_dir)
+                        if observation_mode == "sprite_player"
+                        else None
+                    ),
+                )
             )
-            connections.append(PlayerConnection(ws=ws, player_index=i, address=address))
 
         for _tick in range(max_ticks):
             all_dead = True
@@ -479,12 +595,15 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
                     continue
                 all_dead = False
 
-                frame_data, frame_advance = _receive_player_frame(conn)
-                if frame_data is None:
+                if conn.observation_mode == "sprite_player":
+                    observation, frame_advance = _receive_sprite_player_observation(conn)
+                else:
+                    frame_data, frame_advance = _receive_player_frame(conn)
+                    observation = None if frame_data is None else _stack_observation(conn, frame_data, conn.frame_stack)
+                if observation is None:
                     continue
 
                 policy = policies[job.assignments[conn.player_index]]
-                observation = _stack_observation(conn, frame_data, frame_stack)
                 pending_actions.append((conn, policy, observation, frame_advance))
 
             for policy in policies:
@@ -500,15 +619,20 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
                 action_masks, chat_messages, debug_stats = _policy_action_masks_and_chats(
                     policy, observations, agent_ids, num_players
                 )
-                for (conn, _observation), action_mask, chat_message, debug_stat in zip(
-                    [(conn, observation) for conn, observation, _frame_advance in batch],
+                for (conn, _observation, frame_advance), action_mask, chat_message, debug_stat in zip(
+                    batch,
                     action_masks,
                     chat_messages,
                     debug_stats,
                     strict=True,
                 ):
                     mask = int(action_mask)
-                    conn.ws.send(pack_input_packet(mask), websocket.ABNF.OPCODE_BINARY)
+                    input_packet = (
+                        bitworld_sprite_player.pack_sprite_player_input_packet(mask & 0x7F)
+                        if conn.observation_mode == "sprite_player"
+                        else pack_input_packet(mask)
+                    )
+                    conn.ws.send(input_packet, websocket.ABNF.OPCODE_BINARY)
                     action_stats[conn.player_index][_action_stat_key(mask)] += 1
                     action_stats[conn.player_index]["frame_advance.samples"] += 1
                     action_stats[conn.player_index]["frame_advance.total"] += float(frame_advance)
@@ -519,7 +643,12 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
                     for name, value in debug_stat.items():
                         action_stats[conn.player_index][f"debug.{name}.last"] = float(value)
                     if chat_message is not None and chat_message.strip():
-                        conn.ws.send(pack_chat_packet(chat_message), websocket.ABNF.OPCODE_BINARY)
+                        chat_packet = (
+                            bitworld_sprite_player.pack_sprite_player_chat_packet(chat_message)
+                            if conn.observation_mode == "sprite_player"
+                            else pack_chat_packet(chat_message)
+                        )
+                        conn.ws.send(chat_packet, websocket.ABNF.OPCODE_BINARY)
                         action_stats[conn.player_index]["chat.sent"] += 1
 
             if all_dead:
