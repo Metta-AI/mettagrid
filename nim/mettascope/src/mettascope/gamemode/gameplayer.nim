@@ -76,29 +76,29 @@ proc switchGameMode*(newMode: GameMode) =
   saveUIState()
   playSound("UIswitch.wav")
 
-proc computeScore(): float =
-  ## Computes the average score for the active team's agents.
+proc computeScore(teamIdx: int = lastSelectedTeam): float =
+  ## Computes the average score for a team's agents.
   if replay.isNil:
     return 0.0
   var
     totalScore = 0.0
     agentCount = 0
   for obj in replay.objects:
-    if obj.isAgent and getEntityTeamIndex(obj) == lastSelectedTeam:
+    if obj.isAgent and getEntityTeamIndex(obj) == teamIdx:
       totalScore += obj.totalReward.at
       agentCount += 1
   if agentCount > 0:
     return totalScore / agentCount.float
   return 0.0
 
-proc computeJunctionCount(): int =
-  ## Computes the junction count for the active team.
+proc computeJunctionCount(teamIdx: int = lastSelectedTeam): int =
+  ## Computes the junction count for a team.
   if replay.isNil:
     return 0
   var junctionCount = 0
   for obj in replay.objects:
     if normalizeTypeName(obj.typeName) == "junction" and
-        getEntityTeamIndex(obj) == lastSelectedTeam:
+        getEntityTeamIndex(obj) == teamIdx:
       junctionCount += 1
   return junctionCount
 
@@ -122,38 +122,44 @@ proc drawIconScaled(
 const
   ResourceCellWidth = 140.0f
 
-proc resourceCell(pos: Vec2, icon: string, amount: int, showIcon = true) =
-  ## Draw one fixed-size resource cell (icon + 4-digit amount).
+proc resourceCell(
+  pos: Vec2,
+  icon: string,
+  amount: SomeNumber,
+  showIcon = true,
+  bgWidth = 80.0f
+) =
+  ## Draw one fixed-size resource cell (icon + number).
   const
     IconSize = 48.0f
     IconTextGap = 8.0f
     NumberBgName = "ui/resource_bg"
-    NumberBgSize = vec2(80, 40)
+    BgHeight = 40.0f
     NumberTextPaddingX = 8.0f
   if showIcon:
     drawIconScaled(icon, pos, IconSize)
-  let numberBgPos =
-    if showIcon:
-      pos + vec2(IconSize + IconTextGap, (IconSize - NumberBgSize.y) * 0.5f + 4)
-    else:
-      pos
+  let
+    bgSize = vec2(bgWidth, BgHeight)
+    numberBgPos =
+      if showIcon:
+        pos + vec2(IconSize + IconTextGap, (IconSize - BgHeight) * 0.5f + 4)
+      else:
+        pos
   if NumberBgName in sk.atlas.entries:
-    let uv = sk.atlas.entries[NumberBgName]
-    sk.drawQuad(
-      numberBgPos, NumberBgSize,
-      vec2(uv.x.float32, uv.y.float32),
-      vec2(uv.width.float32, uv.height.float32),
-      rgbx(255, 255, 255, 255)
-    )
+    sk.draw9Patch(NumberBgName, 16, numberBgPos, bgSize)
 
-  let amountLabel = $amount
+  let amountLabel =
+    when amount is SomeFloat:
+      &"{amount:.2f}"
+    else:
+      $amount
   discard sk.drawText(
     "pixelated",
     amountLabel,
     numberBgPos + vec2(NumberTextPaddingX, -4),
     Yellow,
-    maxWidth = max(0.0f, NumberBgSize.x - NumberTextPaddingX * 2.0f),
-    maxHeight = NumberBgSize.y,
+    maxWidth = max(0.0f, bgSize.x - NumberTextPaddingX * 2.0f),
+    maxHeight = bgSize.y,
     clip = false,
     hAlign = RightAlign,
     vAlign = MiddleAlign
@@ -287,20 +293,92 @@ proc drawTransportButton(startPos: Vec2, idx: int, icon: string, isDown: bool): 
   return pressed
 
 proc topLeftPanel() =
-  ## Draw top-left panel with score and junction count.
-  sk.drawImage("ui/panel_topleft", vec2(0, 0))
+  ## Draw top-left panel with team colors, scores, and junctions.
+  const
+    ScoreBgWidth = 120.0f
+    JunctionBgWidth = 80.0f
+    ScoreColWidth = ScoreBgWidth + 8.0f
+    JunctionColWidth = JunctionBgWidth + 8.0f
+    SwatchSize = 16.0f
+    HeaderRowHeight = 56.0f
+    DataRowHeight = 44.0f
+    SwatchColWidth = SwatchSize + 4.0f
+    SwatchColSpacing = 16
+    ContentWidth = SwatchColWidth + SwatchColSpacing + ScoreColWidth + JunctionColWidth
+    BorderLeft = 30
+    BorderRight = 50
+    BorderTop = 55
+    BorderBottom = 100
+    PadLeft = 16.0f
+    PadRight = 16.0f
+    PadTop = -6.0f
+    PadBottom = 8.0f
 
   let
-    avgScore = computeScore()
-    junctionCount = computeJunctionCount()
-    scoreLabel = &"Score {avgScore:.2f}\nJunctions {junctionCount}"
-  discard sk.drawText(
-    "pixelated",
-    scoreLabel,
-    vec2(44, 32),
-    Yellow,
-    clip = false
+    numTeams = max(getNumTeams(), 1)
+    contentHeight =
+      HeaderRowHeight + numTeams.float32 * DataRowHeight
+    panelWidth =
+      BorderLeft.float32 + PadLeft +
+      ContentWidth + PadRight + BorderRight.float32
+    panelHeight =
+      BorderTop.float32 + PadTop +
+      contentHeight + PadBottom + BorderBottom.float32
+
+  sk.draw9Patch(
+    "ui/panel_topleft",
+    BorderTop, BorderRight, BorderBottom, BorderLeft,
+    vec2(0, 0),
+    vec2(panelWidth, panelHeight)
   )
+
+  if replay.isNil:
+    return
+
+  let
+    contentX = BorderLeft.float32 + PadLeft
+    scoreColX = contentX + SwatchColWidth + SwatchColSpacing
+    junctionColX = scoreColX + ScoreColWidth
+    headerY = BorderTop.float32 + PadTop
+
+  # Header row aligned to match data cell digits (right-aligned with 8px padding).
+  const NumberTextPaddingX = 8.0f
+  discard sk.drawText(
+    "pixelated", "Score",
+    vec2(scoreColX + NumberTextPaddingX, headerY),
+    Yellow, clip = false,
+    maxWidth = ScoreBgWidth - NumberTextPaddingX * 2.0f,
+    hAlign = CenterAlign
+  )
+  const JunctionIconSize = 32.0f
+  drawIconScaled(
+    "icons/objects/junction",
+    vec2(
+      junctionColX + (JunctionColWidth - JunctionIconSize) * 0.5f,
+      headerY + (HeaderRowHeight - JunctionIconSize) * 0.5f
+    ),
+    JunctionIconSize
+  )
+
+  # Data rows with bg centered within each column.
+  const BgHeight = 40.0f
+  for i in 0 ..< getNumTeams():
+    let y = headerY + HeaderRowHeight + i.float32 * DataRowHeight
+    sk.drawRect(
+      vec2(contentX, y + (BgHeight - SwatchSize) * 0.5f),
+      vec2(SwatchSize, SwatchSize),
+      getTeamColor(i)
+    )
+    resourceCell(
+      vec2(scoreColX, y),
+      "", computeScore(i),
+      showIcon = false, bgWidth = ScoreBgWidth
+    )
+    resourceCell(
+      vec2(junctionColX + (JunctionColWidth - JunctionBgWidth) * 0.5f, y),
+      "", computeJunctionCount(i),
+      showIcon = false, bgWidth = JunctionBgWidth
+    )
 
 proc topRightPanel(winW: float32) =
   ## Draw top-right panel with resource counts for all teams.
