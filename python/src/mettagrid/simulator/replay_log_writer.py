@@ -17,6 +17,7 @@ from mettagrid.util.file import http_url, write_data
 from mettagrid.util.grid_object_formatter import format_grid_object
 
 logger = logging.getLogger("ReplayLogWriter")
+METTASCOPE_POLICY_INFO_MAX_BYTES = 1024
 
 
 class InMemoryReplayWriter(SimulatorEventHandler):
@@ -193,6 +194,7 @@ class EpisodeReplay:
             policy_infos = all_policy_infos.get(agent_id) if agent_id is not None else None
             if policy_infos is not None:
                 policy_infos = self._canonicalize_json_value(policy_infos)
+                policy_infos = self._budget_policy_infos(policy_infos)
             talk_state = all_talk_states.get(agent_id) if agent_id is not None else None
             update_object = format_grid_object(
                 grid_object,
@@ -363,6 +365,18 @@ class EpisodeReplay:
         if key is None or isinstance(key, (bool, int, float)):
             return json.dumps(key)
         raise TypeError(f"keys must be str, int, float, bool or None, not {type(key).__name__}")
+
+    @classmethod
+    def _budget_policy_infos(cls, policy_infos: dict[str, Any]) -> dict[str, Any]:
+        formatted = dict(policy_infos)
+        while formatted and cls._json_size(formatted) > METTASCOPE_POLICY_INFO_MAX_BYTES:
+            largest_key = max(formatted, key=lambda key: cls._json_size(formatted[key]))
+            formatted.pop(largest_key)
+        return formatted
+
+    @staticmethod
+    def _json_size(value: Any) -> int:
+        return len(json.dumps(value, separators=(",", ":")))
 
     @classmethod
     def _canonicalize_json_value(cls, value: Any) -> Any:
