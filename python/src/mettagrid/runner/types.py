@@ -17,7 +17,10 @@ def _migrate_game_engine_into_env(data: Any) -> Any:
     if isinstance(data, dict) and "env" in data and isinstance(data["env"], dict):
         env = data["env"]
         if "game_engine" not in env and "game_engine" in data:
-            env["game_engine"] = data.pop("game_engine")
+            return {
+                **data,
+                "env": {**env, "game_engine": data["game_engine"]},
+            }
 
     return data
 
