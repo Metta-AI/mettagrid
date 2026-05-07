@@ -72,6 +72,7 @@ proc mpSendControl*(command: string, speed: float32 = 0.0) =
 var
   lastSentPlay = false
   lastSentSpeed = -1.0'f32
+  liveTerrainReady = false
 
 proc mpSyncControls*() =
   if not multiplayerActive:
@@ -107,26 +108,33 @@ proc selectAssignedAgent() =
     selected = getAgentById(multiplayerAgentId)
     settings.lockFocus = true
 
+proc hasWallObjects(parsed: JsonNode): bool =
+  for obj in parsed["objects"]:
+    if obj["type_name"].getStr() == "wall":
+      return true
+  false
+
 proc mpOnAssign(parsed: JsonNode) =
   multiplayerAgentId = parsed["agent_id"].getInt()
   lastSentPlay = play
   lastSentSpeed = playSpeed
   gameMode = Game
   replay = loadReplayString($parsed["initial_replay"], "live")
+  liveTerrainReady = false
   onReplayLoaded()
   echo "Assigned agent ", multiplayerAgentId
 
 proc mpOnStep(data: string, parsed: JsonNode) =
   let stepNum = parsed["step"].getInt()
+  let syncTerrain = not liveTerrainReady and parsed.hasWallObjects()
   replay.apply(data)
+  if syncTerrain:
+    resetTerrainCaches()
+    rebuildSplats()
+    liveTerrainReady = true
   step = stepNum
   stepFloat = stepNum.float32
   selectAssignedAgent()
-
-proc mpOnWalls(data: string) =
-  replay.apply(data)
-  resetTerrainCaches()
-  rebuildSplats()
 
 proc mpOnDone() =
   echo "Game over"
@@ -137,8 +145,6 @@ proc mpOnMessage(data: string) =
   case parsed["type"].getStr()
   of "assign":
     mpOnAssign(parsed)
-  of "walls":
-    mpOnWalls(data)
   of "step":
     mpOnStep(data, parsed)
   of "done":

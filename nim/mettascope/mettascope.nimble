@@ -29,7 +29,6 @@ task bindings, "Generate bindings":
     compile "libmettascope.so"
 
 task wasm, "Build browser bundle":
-  exec "nimby sync -g nimby.lock"
   exec "nim c -d:emscripten -d:release src/mettascope.nim"
   for path in [
     "dist/mettascope.html",
