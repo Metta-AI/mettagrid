@@ -159,10 +159,13 @@ proc queueWasdMove(agent: Entity, direction: IVec2) =
   ## When play=true, this lets processActions() drain it on the next auto-advance
   ## step boundary, avoiding race conditions with the smooth transition system.
   ## When play=false, falls back to direct sendAction() for immediate stepping.
+  let actionName = getMoveActionName(getOrientationFromDelta(direction.x.int, direction.y.int))
+  if multiplayerActive:
+    sendAction(agent.agentId, actionName)
+    return
   let
     currentPos = agent.location.at(replay.maxSteps - 1).xy
     targetPos = ivec2(currentPos.x + direction.x, currentPos.y + direction.y)
-  let actionName = getMoveActionName(getOrientationFromDelta(direction.x.int, direction.y.int))
   agentObjectives.del(agent.agentId)
   if play:
     # Always queue for smooth interpolation. Replaces any existing path so the

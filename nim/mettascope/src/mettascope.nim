@@ -10,6 +10,7 @@ import slappy except play
 
 when defined(emscripten):
   import webby
+  import mettascope/multiplayer
 else:
   import std/parseopt
 
@@ -28,7 +29,11 @@ when defined(emscripten):
   proc parseUrlParams() =
     ## Parse URL parameters.
     let url = parseUrl(window.url)
-    commandLineReplay = url.query["replay"]
+    let wsParam = url.query["ws"]
+    if wsParam != "":
+      mpConnect(wsParam)
+    else:
+      commandLineReplay = url.query["replay"]
 
 when not defined(emscripten):
   proc parseArgs() =
@@ -328,11 +333,12 @@ proc initMettascope*() {.measure.} =
   worldMapZoomInfo.scrollArea = Rect(x: 0, y: 0, w: 500, h: 500)
   worldMapZoomInfo.hasMouse = false
 
+  when defined(emscripten):
+    parseUrlParams()
+  else:
+    parseArgs()
+
   if playMode == Historical:
-    when defined(emscripten):
-      parseUrlParams()
-    else:
-      parseArgs()
     replaySwitch(commandLineReplay)
 
   slappyInit()
@@ -356,6 +362,11 @@ proc main() =
 
   while not window.closeRequested:
     tickMettascope()
+    when defined(emscripten):
+      if multiplayerActive:
+        mpSyncControls()
+        if requestPython:
+          mpSendActions()
 
   closeMettascope()
 

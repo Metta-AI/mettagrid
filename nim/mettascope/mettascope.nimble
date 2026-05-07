@@ -27,3 +27,16 @@ task bindings, "Generate bindings":
     compile "libmettascope.dylib"
   else:
     compile "libmettascope.so"
+
+task wasm, "Build browser bundle":
+  exec "nimby sync -g nimby.lock"
+  exec "nim c -d:emscripten -d:release src/mettascope.nim"
+  for path in [
+    "dist/mettascope.html",
+    "dist/mettascope.js",
+    "dist/mettascope.wasm",
+    "dist/mettascope.data",
+  ]:
+    if not fileExists(path):
+      quit("Missing " & path)
+  exec "ls -lh dist/"

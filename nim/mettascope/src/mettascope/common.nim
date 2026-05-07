@@ -125,6 +125,10 @@ var
   commandLineReplay*: string = ""
   forcedGameMode*: GameMode = Auto
 
+  # Multiplayer state.
+  multiplayerActive*: bool = false
+  multiplayerAgentId*: int = -1
+
   # Popup warning system.
   popupWarning*: string = ""
 
