@@ -19,6 +19,7 @@ from mettagrid.bitworld import (
     pack_input_packet,
     parse_reward_packet,
     parse_reward_value,
+    trim_bitworld_replay_to_first_round,
     unpack_chat_packet,
     unpack_frame_pixels,
     unpack_input_packet,
@@ -39,6 +40,57 @@ def test_controller_state_round_trips_current_bitworld_button_masks() -> None:
 def test_action_masks_match_direction_by_button_product() -> None:
     assert len(BITWORLD_ACTION_MASKS) == 27
     assert BITWORLD_ACTION_MASKS.tolist()[:6] == [0, 0x20, 0x40, 0x01, 0x21, 0x41]
+
+
+def _bitworld_replay_string(value: str) -> bytes:
+    encoded = value.encode()
+    return len(encoded).to_bytes(2, "little") + encoded
+
+
+def _bitworld_replay_header() -> bytes:
+    return (
+        b"BITWORLD"
+        + (2).to_bytes(2, "little")
+        + b"".join(
+            (
+                _bitworld_replay_string("among_them"),
+                _bitworld_replay_string("1"),
+                (0).to_bytes(8, "little"),
+                _bitworld_replay_string("{}"),
+            )
+        )
+    )
+
+
+def _bitworld_hash_record(tick: int) -> bytes:
+    return bytes([1]) + tick.to_bytes(4, "little") + (tick * 17).to_bytes(8, "little")
+
+
+def _bitworld_input_record(time_ms: int, player: int, keys: int) -> bytes:
+    return bytes([2]) + time_ms.to_bytes(4, "little") + bytes([player, keys])
+
+
+@pytest.mark.parametrize(
+    ("suffix", "expected_trimmed"),
+    [
+        (_bitworld_hash_record(1) + _bitworld_hash_record(2), True),
+        (b"", False),
+    ],
+)
+def test_trim_bitworld_replay_to_first_round(tmp_path, suffix: bytes, expected_trimmed: bool) -> None:
+    replay_path = tmp_path / "replay.json.z"
+    replay_bytes = (
+        _bitworld_replay_header()
+        + _bitworld_hash_record(1)
+        + _bitworld_input_record(42, 0, 32)
+        + _bitworld_hash_record(2)
+    )
+    replay_path.write_bytes(replay_bytes + suffix)
+
+    trimmed = trim_bitworld_replay_to_first_round(replay_path)
+
+    assert trimmed is expected_trimmed
+    assert replay_path.read_bytes() == replay_bytes
 
 
 def test_input_packets_match_current_bitworld_protocol() -> None:

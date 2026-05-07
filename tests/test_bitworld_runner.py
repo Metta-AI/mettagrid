@@ -234,8 +234,10 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
     assert captured["cwd"] == "/tmp/bitworld"
 
 
-def test_run_bitworld_episode_passes_job_seed_to_server(monkeypatch):
+def test_run_bitworld_episode_passes_seed_and_trims_replay_after_shutdown(monkeypatch, tmp_path):
     captured: dict[str, object] = {}
+    replay_path = tmp_path / "replay.json.z"
+    events: list[str] = []
 
     class _FakePolicy:
         def __init__(self) -> None:
@@ -259,12 +261,21 @@ def test_run_bitworld_episode_passes_job_seed_to_server(monkeypatch):
         captured["replay_path"] = replay_path
         return _FakeProc(alive=True)
 
+    def fake_stop_server(_server_proc) -> None:
+        events.append("server stopped")
+
+    def fake_trim(path: Path) -> bool:
+        assert path == replay_path
+        events.append("replay trimmed")
+        return True
+
     monkeypatch.setattr(bitworld_runner, "_find_bitworld_binary", lambda _game_name: Path("/tmp/among_them"))
     monkeypatch.setattr(bitworld_runner, "_load_bitworld_policy", lambda *_args: _FakePolicy())
     monkeypatch.setattr(bitworld_runner, "_start_server_on_free_port", fake_start_server_on_free_port)
     monkeypatch.setattr(bitworld_runner, "_connect_websocket", lambda *_args, **_kwargs: _FakeWebSocket())
     monkeypatch.setattr(bitworld_runner, "_reward_listener", lambda _state: None)
-    monkeypatch.setattr(bitworld_runner, "_stop_server_after_clients_disconnect", lambda _proc: None)
+    monkeypatch.setattr(bitworld_runner, "_stop_server_after_clients_disconnect", fake_stop_server)
+    monkeypatch.setattr(bitworld_runner, "trim_bitworld_replay_to_first_round", fake_trim)
 
     result = bitworld_runner.run_bitworld_episode(
         PureSingleEpisodeJob(
@@ -272,13 +283,14 @@ def test_run_bitworld_episode_passes_job_seed_to_server(monkeypatch):
             assignments=[0],
             env=BitWorldEnvConfig(seed=0, num_players=1, max_ticks=0),
             results_uri=None,
-            replay_uri=None,
+            replay_uri=replay_path.as_uri(),
             seed=912,
         )
     )
 
-    assert captured == {"seed": 912, "replay_path": None}
     assert result.steps == 0
+    assert captured == {"seed": 912, "replay_path": replay_path}
+    assert events == ["server stopped", "replay trimmed"]
 
 
 def test_replay_path_from_file_uri(tmp_path):

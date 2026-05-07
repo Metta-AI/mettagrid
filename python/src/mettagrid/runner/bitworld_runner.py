@@ -43,6 +43,7 @@ from mettagrid.bitworld import (
     pack_chat_packet,
     pack_input_packet,
     parse_reward_packet,
+    trim_bitworld_replay_to_first_round,
 )
 from mettagrid.config.bitworld_config import BitWorldEnvConfig
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
@@ -667,7 +668,7 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
             "agent": [dict(action_stats[i]) for i in range(num_players)],
         }
 
-        return PureSingleEpisodeResult(
+        result = PureSingleEpisodeResult(
             rewards=rewards,
             action_timeouts=[0] * num_players,
             stats=stats,
@@ -696,3 +697,8 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
                 logger.debug("Failed to close WebSocket for player %d", conn.player_index, exc_info=True)
 
         _stop_server_after_clients_disconnect(server_proc)
+
+    if replay_path is not None and trim_bitworld_replay_to_first_round(replay_path):
+        logger.warning("Trimmed BitWorld replay after tick hash reset: %s", replay_path)
+
+    return result

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import IntFlag
+from pathlib import Path
 from typing import Iterable
 from urllib.parse import quote
 
@@ -32,6 +33,13 @@ RESET_INPUT_PACKET = bytes([PACKET_INPUT, RESET_INPUT_MASK])
 PLAYER_PATH = "/player"
 GLOBAL_PATH = "/global"
 REWARD_PATH = "/reward"
+
+_BITWORLD_REPLAY_MAGIC = b"BITWORLD"
+_BITWORLD_REPLAY_FORMAT_VERSION = 2
+_BITWORLD_REPLAY_TICK_HASH_RECORD = 0x01
+_BITWORLD_REPLAY_INPUT_RECORD = 0x02
+_BITWORLD_REPLAY_JOIN_RECORD = 0x03
+_BITWORLD_REPLAY_LEAVE_RECORD = 0x04
 
 PICO8_PALETTE_HEX = (
     "#000000",
@@ -296,6 +304,63 @@ def parse_reward_value(payload: bytes | str, player_name: str | None = None) -> 
     return packet.first_reward()
 
 
+def _read_replay_uint(data: bytes, offset: int, size: int) -> tuple[int, int]:
+    end = offset + size
+    if end > len(data):
+        raise ValueError(f"BitWorld replay is truncated at byte {offset}")
+    return int.from_bytes(data[offset:end], "little"), end
+
+
+def _skip_replay_string(data: bytes, offset: int) -> int:
+    length, offset = _read_replay_uint(data, offset, 2)
+    end = offset + length
+    if end > len(data):
+        raise ValueError(f"BitWorld replay string is truncated at byte {offset}")
+    return end
+
+
+def trim_bitworld_replay_to_first_round(replay_path: Path) -> bool:
+    data = replay_path.read_bytes()
+    if not data.startswith(_BITWORLD_REPLAY_MAGIC):
+        raise ValueError("BitWorld replay magic is not BITWORLD")
+
+    offset = len(_BITWORLD_REPLAY_MAGIC)
+    format_version, offset = _read_replay_uint(data, offset, 2)
+    if format_version != _BITWORLD_REPLAY_FORMAT_VERSION:
+        raise ValueError(f"Unsupported BitWorld replay format version: {format_version}")
+    offset = _skip_replay_string(data, offset)
+    offset = _skip_replay_string(data, offset)
+    _game_seed, offset = _read_replay_uint(data, offset, 8)
+    offset = _skip_replay_string(data, offset)
+    last_hash_tick = -1
+
+    while offset < len(data):
+        record_offset = offset
+        record_type, offset = _read_replay_uint(data, offset, 1)
+        if record_type == _BITWORLD_REPLAY_TICK_HASH_RECORD:
+            tick, offset = _read_replay_uint(data, offset, 4)
+            _hash, offset = _read_replay_uint(data, offset, 8)
+            if tick <= last_hash_tick:
+                replay_path.write_bytes(data[:record_offset])
+                return True
+            last_hash_tick = tick
+        elif record_type == _BITWORLD_REPLAY_INPUT_RECORD:
+            _time, offset = _read_replay_uint(data, offset, 4)
+            _player, offset = _read_replay_uint(data, offset, 1)
+            _keys, offset = _read_replay_uint(data, offset, 1)
+        elif record_type == _BITWORLD_REPLAY_JOIN_RECORD:
+            _time, offset = _read_replay_uint(data, offset, 4)
+            _player, offset = _read_replay_uint(data, offset, 1)
+            offset = _skip_replay_string(data, offset)
+        elif record_type == _BITWORLD_REPLAY_LEAVE_RECORD:
+            _time, offset = _read_replay_uint(data, offset, 4)
+            _player, offset = _read_replay_uint(data, offset, 1)
+        else:
+            raise ValueError(f"Unknown BitWorld replay record type {record_type} at byte {record_offset}")
+
+    return False
+
+
 def unpack_frame_pixels(packet: bytes | bytearray | memoryview) -> bytes:
     raw = bytes(packet)
     if len(raw) != PROTOCOL_BYTES:
@@ -372,6 +437,7 @@ __all__ = [
     "pack_frame_pixels",
     "parse_reward_packet",
     "parse_reward_value",
+    "trim_bitworld_replay_to_first_round",
     "unpack_chat_packet",
     "unpack_input_packet",
     "unpack_frame_pixels",
