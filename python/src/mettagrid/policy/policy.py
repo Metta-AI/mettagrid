@@ -5,7 +5,9 @@ from __future__ import annotations
 import ctypes
 import json
 import math
+import sys
 from abc import abstractmethod
+from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, Sequence, Tuple, TypeVar, cast
 
 import numpy as np
@@ -317,9 +319,10 @@ class StatefulAgentPolicy(AgentPolicy, Generic[StateType]):
             self._initialize_state(self._simulation)
         if hasattr(self._base_policy, "set_active_agent"):
             self._base_policy.set_active_agent(self._agent_id)
-        import torch  # noqa: PLC0415
 
-        with torch.no_grad():
+        torch = sys.modules.get("torch")
+        grad_context = torch.no_grad() if torch is not None else nullcontext()
+        with grad_context:
             action, self._state = self._base_policy.step_with_state(
                 obs,
                 # `_initialize_state` guarantees that the state is set, but we can't assert that it's not None

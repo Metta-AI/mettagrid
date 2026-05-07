@@ -1621,8 +1621,10 @@ proc drawWorldMap*(zoomInfo: ZoomInfo) {.measure.} =
 
   if needsInitialFit:
     # initial fit needs to happen after the the panel is set up to the correct size and the replay is loaded
-    fitVisibleMap(zoomInfo)
-    # fitFullMap(zoomInfo)
+    if multiplayerActive and multiplayerAgentId < 0:
+      fitFullMap(zoomInfo)
+    else:
+      fitVisibleMap(zoomInfo)
     needsInitialFit = false
 
   ## Draw the world map.
