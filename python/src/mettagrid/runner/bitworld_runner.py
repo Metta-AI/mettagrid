@@ -46,7 +46,7 @@ from mettagrid.bitworld import (
     trim_bitworld_replay_to_first_round,
 )
 from mettagrid.config.bitworld_config import BitWorldEnvConfig
-from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
+from mettagrid.policy.policy import MultiAgentPolicy, NimMultiAgentPolicy, PolicySpec
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.runner.policy_server.websocket_transport import PolicyStepError, WebSocketRawPolicyServerClient
 from mettagrid.runner.types import PureSingleEpisodeJob, PureSingleEpisodeResult
@@ -443,7 +443,13 @@ def _load_bitworld_policy(
                 "BitWorld policies must use 'pixels' or 'sprite_player' observations, "
                 f"got {policy_env_interface.observation_kind!r}"
             )
-    return initialize_or_load_policy(env_interface, policy_spec)
+    policy = initialize_or_load_policy(env_interface, policy_spec)
+    if policy_spec.policy_env_interface is None and isinstance(policy, NimMultiAgentPolicy):
+        raise ValueError(
+            "BitWorld runner cannot use a synthesized pixel policy_env_interface for native Nim policy "
+            f"{policy_spec.class_path!r}; upload the policy with an explicit BitWorld policy_env_interface"
+        )
+    return policy
 
 
 def _slot_indexed_observations(observations: np.ndarray, agent_ids: list[int], num_agents: int) -> np.ndarray:

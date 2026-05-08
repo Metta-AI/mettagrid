@@ -9,7 +9,7 @@ import pytest
 from mettagrid.bitworld import pack_chat_packet
 from mettagrid.config.any_env_config import resolve_env_config_type
 from mettagrid.config.bitworld_config import BitWorldEnvConfig
-from mettagrid.policy.policy import PolicySpec
+from mettagrid.policy.policy import NimMultiAgentPolicy, PolicySpec
 from mettagrid.runner import bitworld_runner
 from mettagrid.runner.policy_server.websocket_transport import PolicyStepError
 from mettagrid.runner.types import PureSingleEpisodeJob
@@ -450,6 +450,53 @@ def test_load_bitworld_policy_passes_game_contract_to_data_policy(monkeypatch):
         bitworld_runner.SCREEN_WIDTH,
     )
     assert captured["env_interface"].num_agents == 5
+
+
+def test_load_bitworld_policy_uses_synthesized_contract_for_scripted_policy(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def fake_initialize_or_load_policy(env_interface, incoming_policy_spec):
+        captured["env_interface"] = env_interface
+        captured["policy_spec"] = incoming_policy_spec
+        return object()
+
+    monkeypatch.setattr("mettagrid.policy.loader.initialize_or_load_policy", fake_initialize_or_load_policy)
+
+    loaded_policy = bitworld_runner._load_bitworld_policy(
+        "agents.AmongThemPolicy",
+        agent_ids=[0],
+        num_agents=5,
+        frame_stack=bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
+    )
+
+    assert loaded_policy is not None
+    assert captured["policy_spec"] == PolicySpec(class_path="agents.AmongThemPolicy")
+    assert captured["env_interface"].observation_shape == (
+        bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
+        bitworld_runner.SCREEN_HEIGHT,
+        bitworld_runner.SCREEN_WIDTH,
+    )
+    assert captured["env_interface"].num_agents == 5
+
+
+def test_load_bitworld_policy_rejects_native_policy_without_env_interface(monkeypatch):
+    class _FakeNimPolicy(NimMultiAgentPolicy):
+        pass
+
+    fake_policy = object.__new__(_FakeNimPolicy)
+
+    def fake_initialize_or_load_policy(_env_interface, _incoming_policy_spec):
+        return fake_policy
+
+    monkeypatch.setattr("mettagrid.policy.loader.initialize_or_load_policy", fake_initialize_or_load_policy)
+
+    with pytest.raises(ValueError, match="native Nim policy"):
+        bitworld_runner._load_bitworld_policy(
+            "agents.MammetAgentsMultiPolicy",
+            agent_ids=[0],
+            num_agents=5,
+            frame_stack=bitworld_runner.BITWORLD_DEFAULT_FRAME_STACK,
+        )
 
 
 def test_load_bitworld_policy_uses_sprite_player_contract_from_submission(monkeypatch, fake_sprite_player_protocol):
