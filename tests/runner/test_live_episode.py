@@ -12,11 +12,19 @@ from mettagrid.runner.live_episode import LiveMettaGridEpisode, LivePlayerConnec
 class RecordingWebSocket:
     def __init__(self):
         self.sent: list[dict[str, Any]] = []
+        self.close_code: int | None = None
+        self.close_count = 0
+        self.close_reason: str | None = None
         self._message_event = asyncio.Event()
 
     async def send_json(self, data):
         self.sent.append(dict(data))
         self._message_event.set()
+
+    async def close(self, code: int = 1000, reason: str | None = None) -> None:
+        self.close_count += 1
+        self.close_code = code
+        self.close_reason = reason
 
     async def wait_for_type(self, message_type: str) -> dict[str, Any]:
         while True:
@@ -39,10 +47,16 @@ class BlockingConfigWebSocket:
             self.config_send_started.set()
             await self.allow_config_send.wait()
 
+    async def close(self, code: int = 1000, reason: str | None = None) -> None:
+        pass
+
 
 class DisconnectingWebSocket:
     async def send_json(self, data):
         raise RuntimeError("disconnected")
+
+    async def close(self, code: int = 1000, reason: str | None = None) -> None:
+        pass
 
 
 class FakeAgent:
@@ -124,7 +138,11 @@ def test_human_takeover_overrides_policy_then_release_resumes_policy() -> None:
         websocket = RecordingWebSocket()
         connection_id = await episode.connect_player(0, websocket)
         await episode.handle_player_message(connection_id, {"type": "action", "action_name": "move_south"})
+        assert episode.tick_mode == "fixed"
+
         episode.takeover(0, connection_id)
+        assert episode.tick_mode == "tick_when_act"
+
         await episode.handle_player_message(connection_id, {"type": "action", "action_name": "move_north"})
 
         episode.apply_actions()
@@ -171,6 +189,43 @@ def test_message_from_disconnected_connection_is_ignored() -> None:
         await episode.handle_player_message(connection_id, {"type": "action", "action_name": "move_north"})
 
         assert episode.latest_policy_actions[0].action_name == "noop"
+
+    asyncio.run(run_test())
+
+
+def test_boot_connection_disconnects_and_releases_takeover() -> None:
+    async def run_test() -> None:
+        episode = _episode()
+        websocket = RecordingWebSocket()
+        connection_id = await episode.connect_player(0, websocket)
+        episode.takeover(0, connection_id)
+        await episode.handle_player_message(connection_id, {"type": "action", "action_name": "move_north"})
+
+        await episode.boot_connection(connection_id)
+
+        assert websocket.close_code == 4000
+        assert websocket.close_reason == "booted by admin"
+        assert episode.connections == {}
+        assert episode.connections_by_slot[0] == {}
+        assert episode.human_controller_connection_ids[0] is None
+        assert 0 not in episode.pending_human_actions
+
+    asyncio.run(run_test())
+
+
+def test_boot_connection_ignores_stale_connection_id() -> None:
+    async def run_test() -> None:
+        episode = _episode()
+        websocket = RecordingWebSocket()
+        connection_id = await episode.connect_player(0, websocket)
+
+        await episode.boot_connection(connection_id)
+        await episode.boot_connection(connection_id)
+        await episode.boot_connection("missing")
+
+        assert websocket.close_count == 1
+        assert episode.connections == {}
+        assert episode.connections_by_slot[0] == {}
 
     asyncio.run(run_test())
 

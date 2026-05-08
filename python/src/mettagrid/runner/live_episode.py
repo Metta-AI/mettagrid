@@ -21,6 +21,8 @@ TickMode = Literal["fixed", "tick_when_act"]
 class PlayerWebSocket(Protocol):
     async def send_json(self, data: Mapping[str, Any]) -> None: ...
 
+    async def close(self, code: int = 1000, reason: str | None = None) -> None: ...
+
 
 class PlayerClientMessage(BaseModel):
     type: Literal["action", "takeover", "release_takeover"]
@@ -184,6 +186,13 @@ class LiveMettaGridEpisode:
         if self.human_controller_connection_ids[connection.slot] == connection_id:
             self.release_takeover(connection.slot)
 
+    async def boot_connection(self, connection_id: str) -> None:
+        connection = self.connections.get(connection_id)
+        if connection is None:
+            return
+        await connection.websocket.close(code=4000, reason="booted by admin")
+        self.disconnect_player(connection_id)
+
     def _start_when_ready(self) -> None:
         if self.play_task is not None:
             return
@@ -235,6 +244,7 @@ class LiveMettaGridEpisode:
         if connection_id not in self.connections_by_slot[slot]:
             raise ValueError(f"Connection {connection_id!r} is not attached to slot {slot}")
         self.human_controller_connection_ids[slot] = connection_id
+        self.tick_mode = "tick_when_act"
         self.pending_human_actions.pop(slot, None)
 
     def release_takeover(self, slot: int, connection_id: str | None = None) -> None:
