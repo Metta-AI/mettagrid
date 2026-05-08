@@ -111,6 +111,7 @@ proc playControls*() =
     playSound("UIbutton.wav")
   # Fire onStepChanged once and only once when step changes.
   if step != previousStep:
+    playAgentSounds(previousStep, step)
     previousStep = step
 
   lastFrameTime = now

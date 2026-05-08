@@ -215,6 +215,7 @@ type
     attackActionId*: int
     putItemsActionId*: int
     getItemsActionId*: int
+    swapActionId*: int
     moveNorthActionId*: int
     moveSouthActionId*: int
     moveWestActionId*: int
@@ -1407,6 +1408,7 @@ proc loadReplayString*(jsonData: string, fileName: string): Replay {.measure.} =
   replay.attackActionId = replay.actionNames.find("attack")
   replay.putItemsActionId = replay.actionNames.find("put_items")
   replay.getItemsActionId = replay.actionNames.find("get_items")
+  replay.swapActionId = replay.actionNames.find("swap")
   replay.moveNorthActionId = replay.actionNames.find("move_north")
   replay.moveSouthActionId = replay.actionNames.find("move_south")
   replay.moveWestActionId = replay.actionNames.find("move_west")
