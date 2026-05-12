@@ -23,6 +23,7 @@ from mettagrid.bitworld import (
     unpack_chat_packet,
     unpack_frame_pixels,
     unpack_input_packet,
+    validate_bitworld_replay_bytes,
 )
 
 
@@ -50,7 +51,7 @@ def _bitworld_replay_string(value: str) -> bytes:
 def _bitworld_replay_header() -> bytes:
     return (
         b"BITWORLD"
-        + (2).to_bytes(2, "little")
+        + (3).to_bytes(2, "little")
         + b"".join(
             (
                 _bitworld_replay_string("among_them"),
@@ -70,6 +71,17 @@ def _bitworld_input_record(time_ms: int, player: int, keys: int) -> bytes:
     return bytes([2]) + time_ms.to_bytes(4, "little") + bytes([player, keys])
 
 
+def _bitworld_join_record(time_ms: int, player: int, name: str, slot: int, token: str) -> bytes:
+    return (
+        bytes([3])
+        + time_ms.to_bytes(4, "little")
+        + bytes([player])
+        + _bitworld_replay_string(name)
+        + int(slot).to_bytes(2, "little", signed=True)
+        + _bitworld_replay_string(token)
+    )
+
+
 @pytest.mark.parametrize(
     ("suffix", "expected_trimmed"),
     [
@@ -81,6 +93,7 @@ def test_trim_bitworld_replay_to_first_round(tmp_path, suffix: bytes, expected_t
     replay_path = tmp_path / "replay.json.z"
     replay_bytes = (
         _bitworld_replay_header()
+        + _bitworld_join_record(0, 0, "player-0", 0, "token-0")
         + _bitworld_hash_record(1)
         + _bitworld_input_record(42, 0, 32)
         + _bitworld_hash_record(2)
@@ -91,6 +104,29 @@ def test_trim_bitworld_replay_to_first_round(tmp_path, suffix: bytes, expected_t
 
     assert trimmed is expected_trimmed
     assert replay_path.read_bytes() == replay_bytes
+
+
+def test_validate_bitworld_replay_bytes_accepts_current_among_them_format() -> None:
+    replay_bytes = (
+        _bitworld_replay_header()
+        + _bitworld_join_record(0, 0, "player-0", 0, "token-0")
+        + _bitworld_input_record(42, 0, 32)
+        + _bitworld_hash_record(1)
+    )
+
+    validate_bitworld_replay_bytes(replay_bytes)
+
+
+def test_validate_bitworld_replay_bytes_rejects_stale_format_version() -> None:
+    replay_bytes = b"BITWORLD" + (2).to_bytes(2, "little")
+
+    with pytest.raises(ValueError, match="Unsupported BitWorld replay format version"):
+        validate_bitworld_replay_bytes(replay_bytes)
+
+
+def test_validate_bitworld_replay_bytes_rejects_missing_events() -> None:
+    with pytest.raises(ValueError, match="does not contain player joins"):
+        validate_bitworld_replay_bytes(_bitworld_replay_header())
 
 
 def test_input_packets_match_current_bitworld_protocol() -> None:

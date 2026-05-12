@@ -35,7 +35,9 @@ GLOBAL_PATH = "/global"
 REWARD_PATH = "/reward"
 
 _BITWORLD_REPLAY_MAGIC = b"BITWORLD"
-_BITWORLD_REPLAY_FORMAT_VERSION = 2
+_BITWORLD_REPLAY_FORMAT_VERSION = 3
+_BITWORLD_REPLAY_GAME_NAME = "among_them"
+_BITWORLD_REPLAY_GAME_VERSION = "1"
 _BITWORLD_REPLAY_TICK_HASH_RECORD = 0x01
 _BITWORLD_REPLAY_INPUT_RECORD = 0x02
 _BITWORLD_REPLAY_JOIN_RECORD = 0x03
@@ -312,15 +314,19 @@ def _read_replay_uint(data: bytes, offset: int, size: int) -> tuple[int, int]:
 
 
 def _skip_replay_string(data: bytes, offset: int) -> int:
+    _value, offset = _read_replay_string(data, offset)
+    return offset
+
+
+def _read_replay_string(data: bytes, offset: int) -> tuple[str, int]:
     length, offset = _read_replay_uint(data, offset, 2)
     end = offset + length
     if end > len(data):
         raise ValueError(f"BitWorld replay string is truncated at byte {offset}")
-    return end
+    return data[offset:end].decode(), end
 
 
-def trim_bitworld_replay_to_first_round(replay_path: Path) -> bool:
-    data = replay_path.read_bytes()
+def _read_bitworld_replay_header(data: bytes) -> int:
     if not data.startswith(_BITWORLD_REPLAY_MAGIC):
         raise ValueError("BitWorld replay magic is not BITWORLD")
 
@@ -328,10 +334,56 @@ def trim_bitworld_replay_to_first_round(replay_path: Path) -> bool:
     format_version, offset = _read_replay_uint(data, offset, 2)
     if format_version != _BITWORLD_REPLAY_FORMAT_VERSION:
         raise ValueError(f"Unsupported BitWorld replay format version: {format_version}")
-    offset = _skip_replay_string(data, offset)
-    offset = _skip_replay_string(data, offset)
+    game_name, offset = _read_replay_string(data, offset)
+    game_version, offset = _read_replay_string(data, offset)
     _game_seed, offset = _read_replay_uint(data, offset, 8)
-    offset = _skip_replay_string(data, offset)
+    _config_json, offset = _read_replay_string(data, offset)
+    if game_name != _BITWORLD_REPLAY_GAME_NAME:
+        raise ValueError(f"BitWorld replay game name does not match: {game_name}")
+    if game_version != _BITWORLD_REPLAY_GAME_VERSION:
+        raise ValueError(f"BitWorld replay game version does not match: {game_version}")
+    return offset
+
+
+def validate_bitworld_replay_bytes(data: bytes | bytearray | memoryview) -> None:
+    raw = bytes(data)
+    offset = _read_bitworld_replay_header(raw)
+    has_hash = False
+    has_join = False
+
+    while offset < len(raw):
+        record_offset = offset
+        record_type, offset = _read_replay_uint(raw, offset, 1)
+        if record_type == _BITWORLD_REPLAY_TICK_HASH_RECORD:
+            _tick, offset = _read_replay_uint(raw, offset, 4)
+            _hash, offset = _read_replay_uint(raw, offset, 8)
+            has_hash = True
+        elif record_type == _BITWORLD_REPLAY_INPUT_RECORD:
+            _time_ms, offset = _read_replay_uint(raw, offset, 4)
+            _player, offset = _read_replay_uint(raw, offset, 1)
+            _keys, offset = _read_replay_uint(raw, offset, 1)
+        elif record_type == _BITWORLD_REPLAY_JOIN_RECORD:
+            _time_ms, offset = _read_replay_uint(raw, offset, 4)
+            _player, offset = _read_replay_uint(raw, offset, 1)
+            offset = _skip_replay_string(raw, offset)
+            _slot, offset = _read_replay_uint(raw, offset, 2)
+            offset = _skip_replay_string(raw, offset)
+            has_join = True
+        elif record_type == _BITWORLD_REPLAY_LEAVE_RECORD:
+            _time_ms, offset = _read_replay_uint(raw, offset, 4)
+            _player, offset = _read_replay_uint(raw, offset, 1)
+        else:
+            raise ValueError(f"Unknown BitWorld replay record type {record_type} at byte {record_offset}")
+
+    if not has_join:
+        raise ValueError("BitWorld replay does not contain player joins")
+    if not has_hash:
+        raise ValueError("BitWorld replay does not contain tick hashes")
+
+
+def trim_bitworld_replay_to_first_round(replay_path: Path) -> bool:
+    data = replay_path.read_bytes()
+    offset = _read_bitworld_replay_header(data)
     last_hash_tick = -1
 
     while offset < len(data):
@@ -351,6 +403,8 @@ def trim_bitworld_replay_to_first_round(replay_path: Path) -> bool:
         elif record_type == _BITWORLD_REPLAY_JOIN_RECORD:
             _time, offset = _read_replay_uint(data, offset, 4)
             _player, offset = _read_replay_uint(data, offset, 1)
+            offset = _skip_replay_string(data, offset)
+            _slot, offset = _read_replay_uint(data, offset, 2)
             offset = _skip_replay_string(data, offset)
         elif record_type == _BITWORLD_REPLAY_LEAVE_RECORD:
             _time, offset = _read_replay_uint(data, offset, 4)
@@ -437,6 +491,7 @@ __all__ = [
     "pack_frame_pixels",
     "parse_reward_packet",
     "parse_reward_value",
+    "validate_bitworld_replay_bytes",
     "trim_bitworld_replay_to_first_round",
     "unpack_chat_packet",
     "unpack_input_packet",
