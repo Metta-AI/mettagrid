@@ -14,6 +14,11 @@ from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.policy.policy_registry import get_policy_registry
 from mettagrid.util.module import load_symbol
 
+_EXTERNAL_COGAMES_AGENTS_POLICY_CLASS_PATHS = {
+    "nlanky": "cogames_agents.policy.nim_agents.agents.NlankyAgentsMultiPolicy",
+    "thinky": "cogames_agents.policy.nim_agents.agents.ThinkyAgentsMultiPolicy",
+}
+
 
 def initialize_or_load_policy(
     policy_env_info: PolicyEnvInterface,
@@ -63,7 +68,9 @@ def resolve_policy_class_path(policy: str) -> str:
     """
     discover_and_register_policies()
     registry = get_policy_registry()
-    return registry.get(policy, policy)
+    if policy in registry:
+        return registry[policy]
+    return _EXTERNAL_COGAMES_AGENTS_POLICY_CLASS_PATHS.get(policy, policy)
 
 
 def get_policy_class_shorthand(policy: str) -> Optional[str]:
