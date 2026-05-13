@@ -332,16 +332,11 @@ def _load_policy_spec_from_uri(
 
     # Handle metta://policy/<builtin> URIs for built-in policies
     if base_uri.startswith("metta://policy/"):
-        from mettagrid.policy.loader import discover_and_register_policies  # noqa: PLC0415
-        from mettagrid.policy.policy_registry import get_policy_registry  # noqa: PLC0415
-
         identifier = urlparse(base_uri).path.lstrip("/")
 
-        discover_and_register_policies()
-        registry = get_policy_registry()
-
-        if identifier in registry:
-            return PolicySpec(class_path=registry[identifier])
+        class_path = resolve_policy_class_path(identifier)
+        if class_path != identifier:
+            return PolicySpec(class_path=class_path)
         if "." in identifier and ":v" not in identifier and not identifier.endswith(":latest"):
             from mettagrid.util.module import load_symbol  # noqa: PLC0415
 

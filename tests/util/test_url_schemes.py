@@ -131,12 +131,6 @@ def test_parse_init_kwargs_from_query_parses_signed_ints():
 
 
 def test_policy_spec_from_metta_uri_nlanky_role_params():
-    pytest.importorskip(
-        "cogames_agents.policy",
-        reason="cogames_agents not importable in this test environment",
-        exc_type=ImportError,
-    )
-
     from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
 
     spec = policy_spec_from_uri("metta://policy/nlanky?miner=4&aligner=2&scrambler=0&trace_agent=-1")
