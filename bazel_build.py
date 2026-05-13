@@ -36,9 +36,9 @@ NIM_PACKAGES = {
 }
 
 
-# nimby is not designed for concurrent use. uv builds mettagrid and
-# cogames-agents in parallel, so we serialize all nimby invocations via an
-# OS-level file lock. Released automatically on process exit (even on crash).
+# nimby is not designed for concurrent use. uv can build mettagrid alongside
+# external policy packages that also use nimby, so we serialize all nimby
+# invocations via an OS-level file lock. Released automatically on process exit.
 _NIMBY_SYNC_LOCK = Path.home() / ".nimby" / ".python_sync.lock"
 
 

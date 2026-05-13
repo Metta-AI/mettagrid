@@ -1,5 +1,4 @@
 import importlib
-import importlib.util
 import os
 import sys
 import tempfile
@@ -62,8 +61,7 @@ class TestGetPackageSource:
         [("metta", "metta"), ("cogames_agents", "cogames-agents")],
     )
     def test_local_source_returns_path(self, module_name: str, package_name: str):
-        if importlib.util.find_spec(module_name) is None:
-            pytest.skip(f"{module_name} not importable in this test environment")
+        pytest.importorskip(module_name, exc_type=ImportError)
         source = _get_package_source(module_name, package_name)
         assert source is not None
         assert not source.startswith(f"{package_name}==")
@@ -75,8 +73,7 @@ class TestGetPackageSource:
         [("metta", "metta"), ("cogames_agents", "cogames-agents")],
     )
     def test_site_packages_returns_version_pin(self, module_name: str, package_name: str, tmp_path: Path):
-        if importlib.util.find_spec(module_name) is None:
-            pytest.skip(f"{module_name} not importable in this test environment")
+        pytest.importorskip(module_name, exc_type=ImportError)
         fake_pkg = tmp_path / "site-packages" / module_name
         fake_pkg.mkdir(parents=True)
         (fake_pkg / "__init__.py").write_text("__path__ = []\n")

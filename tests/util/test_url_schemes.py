@@ -1,5 +1,3 @@
-import importlib.util
-
 import pytest
 
 from mettagrid.util.uri_resolvers.schemes import (
@@ -133,8 +131,11 @@ def test_parse_init_kwargs_from_query_parses_signed_ints():
 
 
 def test_policy_spec_from_metta_uri_nlanky_role_params():
-    if importlib.util.find_spec("cogames_agents.policy") is None:
-        pytest.skip("cogames_agents not importable in this test environment")
+    pytest.importorskip(
+        "cogames_agents.policy",
+        reason="cogames_agents not importable in this test environment",
+        exc_type=ImportError,
+    )
 
     from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
 
