@@ -205,7 +205,7 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
             "imposterCount": 2,
             "tasksPerPlayer": 3,
             "taskCompleteTicks": 36,
-            "imposterCooldownTicks": 240,
+            "killCooldownTicks": 900,
             "voteTimerTicks": 120,
         },
     )
@@ -226,7 +226,7 @@ def test_start_server_uses_among_them_multi_player_config(monkeypatch):
         "minPlayers": 8,
         "imposterCount": 2,
         "tasksPerPlayer": 3,
-        "imposterCooldownTicks": 240,
+        "killCooldownTicks": 900,
         "voteTimerTicks": 120,
         "taskCompleteTicks": 36,
     }
