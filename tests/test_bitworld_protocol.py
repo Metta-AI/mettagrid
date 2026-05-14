@@ -153,6 +153,27 @@ def test_rewrite_bitworld_replay_names_uses_join_slots() -> None:
     )
 
 
+def test_rewrite_bitworld_replay_names_disambiguates_duplicate_policy_names_by_slot() -> None:
+    replay_bytes = (
+        _bitworld_replay_header()
+        + _bitworld_join_record(10, 0, "Player2", 0, "token-alpha")
+        + _bitworld_join_record(20, 1, "Player3", 2, "token-gamma")
+        + _bitworld_join_record(30, 2, "Player4", 1, "token-beta")
+        + _bitworld_hash_record(1)
+    )
+
+    rewritten = rewrite_bitworld_replay_names(replay_bytes, ["same:v1", "same:v1", "same:v1"])
+
+    validate_bitworld_replay_bytes(rewritten)
+    assert rewritten == (
+        _bitworld_replay_header()
+        + _bitworld_join_record(10, 0, "same:v1-slot0", 0, "token-alpha")
+        + _bitworld_join_record(20, 1, "same:v1-slot2", 2, "token-gamma")
+        + _bitworld_join_record(30, 2, "same:v1-slot1", 1, "token-beta")
+        + _bitworld_hash_record(1)
+    )
+
+
 def test_input_packets_match_current_bitworld_protocol() -> None:
     assert INPUT_PACKET_BYTES == 2
     assert pack_input_packet(0x21) == b"\x00\x21"

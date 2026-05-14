@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from enum import IntFlag
 from pathlib import Path
 from typing import Iterable
@@ -392,6 +393,17 @@ def rewrite_bitworld_replay_names(data: bytes | bytearray | memoryview, policy_n
     raw = bytes(data)
     offset = _read_bitworld_replay_header(raw)
     rewritten = bytearray(raw[:offset])
+    policy_name_counts = Counter(policy_names)
+    slot_names: list[str] = []
+    for slot, policy_name in enumerate(policy_names):
+        name = policy_name
+        if policy_name_counts[policy_name] > 1 or name in slot_names:
+            name = f"{policy_name}-slot{slot}"
+        suffix = 2
+        while name in slot_names:
+            name = f"{policy_name}-slot{slot}-{suffix}"
+            suffix += 1
+        slot_names.append(name)
 
     while offset < len(raw):
         record_offset = offset
@@ -411,9 +423,9 @@ def rewrite_bitworld_replay_names(data: bytes | bytearray | memoryview, policy_n
             offset = _skip_replay_string(raw, offset)
             slot, offset = _read_replay_uint(raw, offset, 2)
             token, offset = _read_replay_string(raw, offset)
-            if slot >= len(policy_names):
+            if slot >= len(slot_names):
                 raise ValueError(f"BitWorld replay join slot {slot} has no policy name")
-            name = policy_names[slot]
+            name = slot_names[slot]
 
             rewritten.append(_BITWORLD_REPLAY_JOIN_RECORD)
             rewritten.extend(time_ms.to_bytes(4, "little"))
