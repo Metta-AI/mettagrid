@@ -326,6 +326,13 @@ def _read_replay_string(data: bytes, offset: int) -> tuple[str, int]:
     return data[offset:end].decode(), end
 
 
+def _write_replay_string(value: str) -> bytes:
+    encoded = value.encode()
+    if len(encoded) > 0xFFFF:
+        raise ValueError("BitWorld replay strings must fit in 16 bits")
+    return len(encoded).to_bytes(2, "little") + encoded
+
+
 def _read_bitworld_replay_header(data: bytes) -> int:
     if not data.startswith(_BITWORLD_REPLAY_MAGIC):
         raise ValueError("BitWorld replay magic is not BITWORLD")
@@ -379,6 +386,50 @@ def validate_bitworld_replay_bytes(data: bytes | bytearray | memoryview) -> None
         raise ValueError("BitWorld replay does not contain player joins")
     if not has_hash:
         raise ValueError("BitWorld replay does not contain tick hashes")
+
+
+def rewrite_bitworld_replay_names(data: bytes | bytearray | memoryview, policy_names: list[str]) -> bytes:
+    raw = bytes(data)
+    offset = _read_bitworld_replay_header(raw)
+    rewritten = bytearray(raw[:offset])
+
+    while offset < len(raw):
+        record_offset = offset
+        record_type, offset = _read_replay_uint(raw, offset, 1)
+        if record_type == _BITWORLD_REPLAY_TICK_HASH_RECORD:
+            _tick, offset = _read_replay_uint(raw, offset, 4)
+            _hash, offset = _read_replay_uint(raw, offset, 8)
+            rewritten.extend(raw[record_offset:offset])
+        elif record_type == _BITWORLD_REPLAY_INPUT_RECORD:
+            _time_ms, offset = _read_replay_uint(raw, offset, 4)
+            _player, offset = _read_replay_uint(raw, offset, 1)
+            _keys, offset = _read_replay_uint(raw, offset, 1)
+            rewritten.extend(raw[record_offset:offset])
+        elif record_type == _BITWORLD_REPLAY_JOIN_RECORD:
+            time_ms, offset = _read_replay_uint(raw, offset, 4)
+            player, offset = _read_replay_uint(raw, offset, 1)
+            offset = _skip_replay_string(raw, offset)
+            slot, offset = _read_replay_uint(raw, offset, 2)
+            token, offset = _read_replay_string(raw, offset)
+            if slot >= len(policy_names):
+                raise ValueError(f"BitWorld replay join slot {slot} has no policy name")
+            name = policy_names[slot]
+
+            rewritten.append(_BITWORLD_REPLAY_JOIN_RECORD)
+            rewritten.extend(time_ms.to_bytes(4, "little"))
+            rewritten.append(player)
+            rewritten.extend(_write_replay_string(name))
+            rewritten.extend(slot.to_bytes(2, "little"))
+            rewritten.extend(_write_replay_string(token))
+        elif record_type == _BITWORLD_REPLAY_LEAVE_RECORD:
+            _time_ms, offset = _read_replay_uint(raw, offset, 4)
+            _player, offset = _read_replay_uint(raw, offset, 1)
+            rewritten.extend(raw[record_offset:offset])
+        else:
+            raise ValueError(f"Unknown BitWorld replay record type {record_type} at byte {record_offset}")
+
+    validate_bitworld_replay_bytes(rewritten)
+    return bytes(rewritten)
 
 
 def trim_bitworld_replay_to_first_round(replay_path: Path) -> bool:
@@ -491,6 +542,7 @@ __all__ = [
     "pack_frame_pixels",
     "parse_reward_packet",
     "parse_reward_value",
+    "rewrite_bitworld_replay_names",
     "validate_bitworld_replay_bytes",
     "trim_bitworld_replay_to_first_round",
     "unpack_chat_packet",

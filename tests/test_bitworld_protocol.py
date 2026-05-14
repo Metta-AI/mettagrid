@@ -19,6 +19,7 @@ from mettagrid.bitworld import (
     pack_input_packet,
     parse_reward_packet,
     parse_reward_value,
+    rewrite_bitworld_replay_names,
     trim_bitworld_replay_to_first_round,
     unpack_chat_packet,
     unpack_frame_pixels,
@@ -127,6 +128,29 @@ def test_validate_bitworld_replay_bytes_rejects_stale_format_version() -> None:
 def test_validate_bitworld_replay_bytes_rejects_missing_events() -> None:
     with pytest.raises(ValueError, match="does not contain player joins"):
         validate_bitworld_replay_bytes(_bitworld_replay_header())
+
+
+def test_rewrite_bitworld_replay_names_uses_join_slots() -> None:
+    replay_bytes = (
+        _bitworld_replay_header()
+        + _bitworld_join_record(10, 0, "Player2", 0, "token-alpha")
+        + _bitworld_input_record(42, 0, 32)
+        + _bitworld_join_record(20, 1, "Player3", 2, "token-gamma")
+        + _bitworld_join_record(30, 2, "Player4", 1, "token-beta")
+        + _bitworld_hash_record(1)
+    )
+
+    rewritten = rewrite_bitworld_replay_names(replay_bytes, ["alpha:v1", "beta:v2", "gamma:v3"])
+
+    validate_bitworld_replay_bytes(rewritten)
+    assert rewritten == (
+        _bitworld_replay_header()
+        + _bitworld_join_record(10, 0, "alpha:v1", 0, "token-alpha")
+        + _bitworld_input_record(42, 0, 32)
+        + _bitworld_join_record(20, 1, "gamma:v3", 2, "token-gamma")
+        + _bitworld_join_record(30, 2, "beta:v2", 1, "token-beta")
+        + _bitworld_hash_record(1)
+    )
 
 
 def test_input_packets_match_current_bitworld_protocol() -> None:
