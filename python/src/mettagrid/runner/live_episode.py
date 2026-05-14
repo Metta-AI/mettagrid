@@ -70,6 +70,8 @@ class LiveMettaGridEpisode:
         start_grace_seconds: float = 0.5,
         tick_mode: TickMode = "fixed",
         human_action_timeout_seconds: float = 5.0,
+        wait_for_all_players: bool = False,
+        policy_action_timeout_seconds: float | None = None,
         disconnect_exception_types: tuple[type[Exception], ...] = (RuntimeError,),
         request_shutdown: Callable[[], None] = lambda: None,
         autostart: bool = True,
@@ -83,6 +85,8 @@ class LiveMettaGridEpisode:
         self.start_grace_seconds = start_grace_seconds
         self.tick_mode: TickMode = tick_mode
         self.human_action_timeout_seconds = human_action_timeout_seconds
+        self.wait_for_all_players = wait_for_all_players
+        self.policy_action_timeout_seconds = policy_action_timeout_seconds
         self.disconnect_exception_types = disconnect_exception_types
         self.request_shutdown = request_shutdown
         self.autostart = autostart
@@ -104,6 +108,7 @@ class LiveMettaGridEpisode:
         self.human_controller_connection_ids: dict[int, str | None] = {slot: None for slot in range(len(tokens))}
         self._connection_ids = (f"player-{idx}" for idx in itertools.count())
         self._human_action_event = asyncio.Event()
+        self._policy_action_event = asyncio.Event()
 
         self.play_task: asyncio.Task[None] | None = None
         self.done = False
@@ -128,6 +133,8 @@ class LiveMettaGridEpisode:
         start_grace_seconds: float = 0.5,
         tick_mode: TickMode = "fixed",
         human_action_timeout_seconds: float = 5.0,
+        wait_for_all_players: bool = False,
+        policy_action_timeout_seconds: float | None = None,
         disconnect_exception_types: tuple[type[Exception], ...] = (RuntimeError,),
         request_shutdown: Callable[[], None] = lambda: None,
         autostart: bool = True,
@@ -143,6 +150,8 @@ class LiveMettaGridEpisode:
             start_grace_seconds=start_grace_seconds,
             tick_mode=tick_mode,
             human_action_timeout_seconds=human_action_timeout_seconds,
+            wait_for_all_players=wait_for_all_players,
+            policy_action_timeout_seconds=policy_action_timeout_seconds,
             disconnect_exception_types=disconnect_exception_types,
             request_shutdown=request_shutdown,
             autostart=autostart,
@@ -185,6 +194,8 @@ class LiveMettaGridEpisode:
         del self.connections_by_slot[connection.slot][connection_id]
         if self.human_controller_connection_ids[connection.slot] == connection_id:
             self.release_takeover(connection.slot)
+        self._human_action_event.set()
+        self._policy_action_event.set()
 
     async def boot_connection(self, connection_id: str) -> None:
         connection = self.connections.get(connection_id)
@@ -198,6 +209,8 @@ class LiveMettaGridEpisode:
             return
         if len(self.connected_slots()) == len(self.tokens):
             self.play_task = asyncio.create_task(self.run())
+            return
+        if self.wait_for_all_players:
             return
         self.start_deadline = asyncio.get_running_loop().time() + self.start_grace_seconds
         self.play_task = asyncio.create_task(self._run_after_grace())
@@ -235,10 +248,12 @@ class LiveMettaGridEpisode:
             self._human_action_event.set()
         else:
             self.latest_policy_actions[connection.slot] = action
+            self._policy_action_event.set()
 
     def set_policy_action(self, slot: int, raw_message: Mapping[str, Any], *, connection_id: str = "policy") -> None:
         message = PlayerClientMessage.model_validate({**raw_message, "type": "action"})
         self.latest_policy_actions[slot] = self._submitted_action(connection_id, message)
+        self._policy_action_event.set()
 
     def takeover(self, slot: int, connection_id: str) -> None:
         if connection_id not in self.connections_by_slot[slot]:
@@ -260,9 +275,11 @@ class LiveMettaGridEpisode:
                 await asyncio.sleep(0.05)
                 continue
             self._human_action_event.clear()
+            self._policy_action_event.clear()
+            step = self.sim.current_step
             await self.send_observations()
-            await self._wait_for_next_tick()
-            self.apply_actions()
+            await self._wait_for_next_tick(step)
+            self.apply_actions(step)
             self.sim.step()
             if self._replay_step_builder is not None:
                 self.replay_events.append(self._replay_step_builder())
@@ -277,17 +294,46 @@ class LiveMettaGridEpisode:
         await asyncio.sleep(0.2)
         self.request_shutdown()
 
-    async def _wait_for_next_tick(self) -> None:
+    async def _wait_for_next_tick(self, step: int) -> None:
+        policy_action_timeout_seconds = self.policy_action_timeout_seconds
+        if policy_action_timeout_seconds is not None:
+            await self._wait_for_policy_actions(step, policy_action_timeout_seconds)
+            if not (self.tick_mode == "tick_when_act" and any(self.human_controller_connection_ids.values())):
+                await asyncio.sleep(self.step_seconds)
+                return
         if self.tick_mode == "tick_when_act" and any(self.human_controller_connection_ids.values()):
-            waiter = asyncio.create_task(self._human_action_event.wait())
-            done, pending = await asyncio.wait({waiter}, timeout=self.human_action_timeout_seconds)
-            for task in pending:
-                task.cancel()
-            await asyncio.gather(*pending, return_exceptions=True)
-            for task in done:
-                task.result()
+            await self._wait_for_event(self._human_action_event, self.human_action_timeout_seconds)
             return
         await asyncio.sleep(self.step_seconds)
+
+    async def _wait_for_policy_actions(self, step: int, timeout_seconds: float) -> None:
+        deadline = asyncio.get_running_loop().time() + timeout_seconds
+        while not self._policy_actions_ready(step):
+            self._policy_action_event.clear()
+            if self._policy_actions_ready(step):
+                break
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                break
+            await self._wait_for_event(self._policy_action_event, remaining)
+
+    async def _wait_for_event(self, event: asyncio.Event, timeout_seconds: float) -> None:
+        waiter = asyncio.create_task(event.wait())
+        done, pending = await asyncio.wait({waiter}, timeout=timeout_seconds)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+        for task in done:
+            task.result()
+
+    def _policy_actions_ready(self, step: int) -> bool:
+        expected_request_id = f"step-{step}"
+        return all(
+            not self.connections_by_slot[slot]
+            or self.human_controller_connection_ids[slot] is not None
+            or self.latest_policy_actions[slot].request_id == expected_request_id
+            for slot in range(len(self.tokens))
+        )
 
     async def send_observations(self) -> None:
         await self._send_to_players(
@@ -317,15 +363,19 @@ class LiveMettaGridEpisode:
             elif isinstance(result, Exception):
                 raise result
 
-    def apply_actions(self) -> None:
+    def apply_actions(self, step: int | None = None) -> None:
         for slot in range(len(self.tokens)):
-            action = self._applied_action(slot)
+            action = self._applied_action(slot, step)
             self.latest_action_indices[slot] = action.action_index
             self.sim.agent(slot).set_action(action.action_name)
         self.pending_human_actions.clear()
 
-    def _applied_action(self, slot: int) -> SubmittedAction:
+    def _applied_action(self, slot: int, step: int | None) -> SubmittedAction:
         if self.human_controller_connection_ids[slot] is None:
+            if self.policy_action_timeout_seconds is not None and step is not None:
+                action = self.latest_policy_actions[slot]
+                if action.request_id != f"step-{step}":
+                    return self._noop_action
             return self.latest_policy_actions[slot]
         return self.pending_human_actions.get(slot, self._noop_action)
 

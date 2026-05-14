@@ -34,6 +34,14 @@ class RecordingWebSocket:
             self._message_event.clear()
             await self._message_event.wait()
 
+    async def wait_for_observation_step(self, step: int) -> dict[str, Any]:
+        while True:
+            for message in self.sent:
+                if message["type"] == "observation" and message["step"] == step:
+                    return message
+            self._message_event.clear()
+            await self._message_event.wait()
+
 
 class BlockingConfigWebSocket:
     def __init__(self):
@@ -250,6 +258,98 @@ def test_connect_player_sends_config_before_receiving_observations() -> None:
     asyncio.run(run_test())
 
 
+def test_wait_for_all_players_delays_autostart_until_every_slot_connects() -> None:
+    async def run_test() -> None:
+        episode = _episode(autostart=True, max_steps=1, wait_for_all_players=True)
+
+        await episode.connect_player(0, RecordingWebSocket())
+        await asyncio.sleep(0.02)
+
+        assert episode.play_task is None
+        assert episode.sim.current_step == 0
+
+        await episode.connect_player(1, RecordingWebSocket())
+        assert episode.play_task is not None
+        await episode.play_task
+
+        assert episode.sim.step_actions == [("noop", "noop")]
+
+    asyncio.run(run_test())
+
+
+def test_policy_action_timeout_waits_for_current_step_responses_and_noops_missing() -> None:
+    async def run_test() -> None:
+        episode = _episode(max_steps=2, policy_action_timeout_seconds=0.1)
+        websocket_0 = RecordingWebSocket()
+        websocket_1 = RecordingWebSocket()
+        connection_0 = await episode.connect_player(0, websocket_0)
+        connection_1 = await episode.connect_player(1, websocket_1)
+
+        run_task = asyncio.create_task(episode.run())
+        await websocket_0.wait_for_observation_step(0)
+        await websocket_1.wait_for_observation_step(0)
+        await asyncio.sleep(0.02)
+        assert episode.sim.current_step == 0
+
+        await episode.handle_player_message(
+            connection_0,
+            {"type": "action", "action_name": "move_north", "request_id": "step-0"},
+        )
+        await asyncio.sleep(0.02)
+        assert episode.sim.current_step == 0
+
+        await episode.handle_player_message(
+            connection_1,
+            {"type": "action", "action_name": "move_south", "request_id": "step-0"},
+        )
+        await websocket_0.wait_for_observation_step(1)
+        await websocket_1.wait_for_observation_step(1)
+        assert episode.sim.step_actions == [("move_north", "move_south")]
+
+        await asyncio.sleep(0.02)
+        assert episode.sim.current_step == 1
+
+        await episode.handle_player_message(
+            connection_0,
+            {"type": "action", "action_name": "move_south", "request_id": "step-1"},
+        )
+        await run_task
+
+        assert episode.sim.step_actions == [
+            ("move_north", "move_south"),
+            ("move_south", "noop"),
+        ]
+
+    asyncio.run(run_test())
+
+
+def test_policy_action_timeout_noops_disconnected_slot_without_waiting() -> None:
+    async def run_test() -> None:
+        episode = _episode(max_steps=1, policy_action_timeout_seconds=5.0)
+        websocket_0 = RecordingWebSocket()
+        websocket_1 = RecordingWebSocket()
+        connection_0 = await episode.connect_player(0, websocket_0)
+        connection_1 = await episode.connect_player(1, websocket_1)
+
+        run_task = asyncio.create_task(episode.run())
+        await websocket_0.wait_for_observation_step(0)
+        await websocket_1.wait_for_observation_step(0)
+
+        await episode.handle_player_message(
+            connection_0,
+            {"type": "action", "action_name": "move_north", "request_id": "step-0"},
+        )
+        await asyncio.sleep(0.02)
+        assert episode.sim.current_step == 0
+
+        episode.disconnect_player(connection_1)
+        await asyncio.wait_for(run_task, timeout=0.5)
+
+        assert episode.sim.step_actions == [("move_north", "noop")]
+
+    asyncio.run(run_test())
+
+
 def test_human_controlled_idle_slot_applies_noop() -> None:
     async def run_test() -> None:
         episode = _episode()
@@ -319,6 +419,9 @@ def _episode(
     tick_mode: str = "fixed",
     human_action_timeout_seconds: float = 5.0,
     max_steps: int = 3,
+    autostart: bool = False,
+    wait_for_all_players: bool = False,
+    policy_action_timeout_seconds: float | None = None,
 ) -> LiveMettaGridEpisode:
     return LiveMettaGridEpisode(
         FakeSimulation(),
@@ -335,5 +438,7 @@ def _episode(
         step_seconds=0.01,
         tick_mode=tick_mode,
         human_action_timeout_seconds=human_action_timeout_seconds,
-        autostart=False,
+        autostart=autostart,
+        wait_for_all_players=wait_for_all_players,
+        policy_action_timeout_seconds=policy_action_timeout_seconds,
     )
