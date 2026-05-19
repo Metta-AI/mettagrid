@@ -79,6 +79,7 @@ cache-keys = [
   { file = "cpp/**/*.{cpp,hpp}" },
   { file = "nim/mettascope/src/**/*.{nim,nims}" },
   { file = "nim/mettascope/bindings/bindings.nim" },
+  { file = "nim/mettascope/data/**/*" },
   { file = "nim/mettascope/nimby.lock" },
   { file = "bazel_build.py" },
   { file = "nim/mettascope/mettascope.nimble" },
@@ -92,7 +93,7 @@ include = ["mettagrid", "mettagrid.*"]
 "mettagrid" = ["py.typed", "*.so", "*.pyi", "*.pyd", "*.dylib", "nim/mettascope/**/*"]
 
 [tool.setuptools.exclude-package-data]
-"mettagrid" = ["nim/mettascope/tools/**/*", "nim/mettascope/data/**/*"]
+"mettagrid" = ["nim/mettascope/tools/**/*"]
 
 [tool.coverage.run]
 source = ["mettagrid"]
