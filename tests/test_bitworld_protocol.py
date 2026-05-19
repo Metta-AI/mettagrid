@@ -19,6 +19,7 @@ from mettagrid.bitworld import (
     pack_input_packet,
     parse_reward_packet,
     parse_reward_value,
+    read_bitworld_replay_metadata,
     rewrite_bitworld_replay_names,
     trim_bitworld_replay_to_first_round,
     unpack_chat_packet,
@@ -49,14 +50,14 @@ def _bitworld_replay_string(value: str) -> bytes:
     return len(encoded).to_bytes(2, "little") + encoded
 
 
-def _bitworld_replay_header() -> bytes:
+def _bitworld_replay_header(game_version: str = "1", replay_format_version: int = 3) -> bytes:
     return (
         b"BITWORLD"
-        + (3).to_bytes(2, "little")
+        + replay_format_version.to_bytes(2, "little")
         + b"".join(
             (
                 _bitworld_replay_string("among_them"),
-                _bitworld_replay_string("1"),
+                _bitworld_replay_string(game_version),
                 (0).to_bytes(8, "little"),
                 _bitworld_replay_string("{}"),
             )
@@ -81,6 +82,10 @@ def _bitworld_join_record(time_ms: int, player: int, name: str, slot: int, token
         + int(slot).to_bytes(2, "little", signed=True)
         + _bitworld_replay_string(token)
     )
+
+
+def _bitworld_chat_record(time_ms: int, player: int, message: str) -> bytes:
+    return bytes([5]) + time_ms.to_bytes(4, "little") + bytes([player]) + _bitworld_replay_string(message)
 
 
 @pytest.mark.parametrize(
@@ -118,10 +123,25 @@ def test_validate_bitworld_replay_bytes_accepts_current_among_them_format() -> N
     validate_bitworld_replay_bytes(replay_bytes)
 
 
-def test_validate_bitworld_replay_bytes_rejects_stale_format_version() -> None:
-    replay_bytes = b"BITWORLD" + (2).to_bytes(2, "little")
+def test_validate_bitworld_replay_bytes_accepts_chat_replay_format() -> None:
+    replay_bytes = (
+        _bitworld_replay_header(game_version="2", replay_format_version=4)
+        + _bitworld_join_record(0, 0, "player-0", 0, "token-0")
+        + _bitworld_chat_record(42, 0, "body in Nav")
+        + _bitworld_hash_record(1)
+    )
 
-    with pytest.raises(ValueError, match="Unsupported BitWorld replay format version"):
+    validate_bitworld_replay_bytes(replay_bytes)
+    metadata = read_bitworld_replay_metadata(replay_bytes)
+    assert metadata.replay_format_version == 4
+    assert metadata.game_name == "among_them"
+    assert metadata.game_version == "2"
+
+
+def test_validate_bitworld_replay_bytes_rejects_stale_format_version() -> None:
+    replay_bytes = _bitworld_replay_header(replay_format_version=2)
+
+    with pytest.raises(ValueError, match="Unsupported BitWorld replay version"):
         validate_bitworld_replay_bytes(replay_bytes)
 
 
@@ -170,6 +190,25 @@ def test_rewrite_bitworld_replay_names_disambiguates_duplicate_policy_names_by_s
         + _bitworld_join_record(10, 0, "same:v1-slot0", 0, "token-alpha")
         + _bitworld_join_record(20, 1, "same:v1-slot2", 2, "token-gamma")
         + _bitworld_join_record(30, 2, "same:v1-slot1", 1, "token-beta")
+        + _bitworld_hash_record(1)
+    )
+
+
+def test_rewrite_bitworld_replay_names_preserves_chat_records() -> None:
+    replay_bytes = (
+        _bitworld_replay_header(game_version="2", replay_format_version=4)
+        + _bitworld_join_record(10, 0, "Player2", 0, "token-alpha")
+        + _bitworld_chat_record(42, 0, "body in Nav")
+        + _bitworld_hash_record(1)
+    )
+
+    rewritten = rewrite_bitworld_replay_names(replay_bytes, ["alpha:v1"])
+
+    validate_bitworld_replay_bytes(rewritten)
+    assert rewritten == (
+        _bitworld_replay_header(game_version="2", replay_format_version=4)
+        + _bitworld_join_record(10, 0, "alpha:v1", 0, "token-alpha")
+        + _bitworld_chat_record(42, 0, "body in Nav")
         + _bitworld_hash_record(1)
     )
 

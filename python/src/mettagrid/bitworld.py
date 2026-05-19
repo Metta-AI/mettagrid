@@ -36,13 +36,13 @@ GLOBAL_PATH = "/global"
 REWARD_PATH = "/reward"
 
 _BITWORLD_REPLAY_MAGIC = b"BITWORLD"
-_BITWORLD_REPLAY_FORMAT_VERSION = 3
 _BITWORLD_REPLAY_GAME_NAME = "among_them"
-_BITWORLD_REPLAY_GAME_VERSION = "1"
+_BITWORLD_REPLAY_SUPPORTED_VERSIONS = ((3, "1"), (4, "2"))
 _BITWORLD_REPLAY_TICK_HASH_RECORD = 0x01
 _BITWORLD_REPLAY_INPUT_RECORD = 0x02
 _BITWORLD_REPLAY_JOIN_RECORD = 0x03
 _BITWORLD_REPLAY_LEAVE_RECORD = 0x04
+_BITWORLD_REPLAY_CHAT_RECORD = 0x05
 
 PICO8_PALETTE_HEX = (
     "#000000",
@@ -121,6 +121,14 @@ class ControllerState(BaseModel):
 
     def packet(self) -> bytes:
         return pack_input_packet(self.mask())
+
+
+class BitWorldReplayMetadata(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    replay_format_version: int = Field(ge=0)
+    game_name: str = Field(min_length=1)
+    game_version: str = Field(min_length=1)
 
 
 class BitWorldEndpoint(BaseModel):
@@ -334,28 +342,50 @@ def _write_replay_string(value: str) -> bytes:
     return len(encoded).to_bytes(2, "little") + encoded
 
 
-def _read_bitworld_replay_header(data: bytes) -> int:
+def read_bitworld_replay_metadata(data: bytes | bytearray | memoryview) -> BitWorldReplayMetadata:
+    raw = bytes(data)
+    if not raw.startswith(_BITWORLD_REPLAY_MAGIC):
+        raise ValueError("BitWorld replay magic is not BITWORLD")
+
+    offset = len(_BITWORLD_REPLAY_MAGIC)
+    replay_format_version, offset = _read_replay_uint(raw, offset, 2)
+    game_name, offset = _read_replay_string(raw, offset)
+    game_version, _offset = _read_replay_string(raw, offset)
+    return BitWorldReplayMetadata(
+        replay_format_version=replay_format_version,
+        game_name=game_name,
+        game_version=game_version,
+    )
+
+
+def _read_bitworld_replay_header(data: bytes) -> tuple[BitWorldReplayMetadata, int]:
     if not data.startswith(_BITWORLD_REPLAY_MAGIC):
         raise ValueError("BitWorld replay magic is not BITWORLD")
 
     offset = len(_BITWORLD_REPLAY_MAGIC)
-    format_version, offset = _read_replay_uint(data, offset, 2)
-    if format_version != _BITWORLD_REPLAY_FORMAT_VERSION:
-        raise ValueError(f"Unsupported BitWorld replay format version: {format_version}")
+    replay_format_version, offset = _read_replay_uint(data, offset, 2)
     game_name, offset = _read_replay_string(data, offset)
     game_version, offset = _read_replay_string(data, offset)
     _game_seed, offset = _read_replay_uint(data, offset, 8)
     _config_json, offset = _read_replay_string(data, offset)
     if game_name != _BITWORLD_REPLAY_GAME_NAME:
         raise ValueError(f"BitWorld replay game name does not match: {game_name}")
-    if game_version != _BITWORLD_REPLAY_GAME_VERSION:
-        raise ValueError(f"BitWorld replay game version does not match: {game_version}")
-    return offset
+    metadata = BitWorldReplayMetadata(
+        replay_format_version=replay_format_version,
+        game_name=game_name,
+        game_version=game_version,
+    )
+    if (metadata.replay_format_version, metadata.game_version) not in _BITWORLD_REPLAY_SUPPORTED_VERSIONS:
+        raise ValueError(
+            "Unsupported BitWorld replay version: "
+            f"format {metadata.replay_format_version}, game {metadata.game_version}"
+        )
+    return metadata, offset
 
 
 def validate_bitworld_replay_bytes(data: bytes | bytearray | memoryview) -> None:
     raw = bytes(data)
-    offset = _read_bitworld_replay_header(raw)
+    metadata, offset = _read_bitworld_replay_header(raw)
     has_hash = False
     has_join = False
 
@@ -380,6 +410,10 @@ def validate_bitworld_replay_bytes(data: bytes | bytearray | memoryview) -> None
         elif record_type == _BITWORLD_REPLAY_LEAVE_RECORD:
             _time_ms, offset = _read_replay_uint(raw, offset, 4)
             _player, offset = _read_replay_uint(raw, offset, 1)
+        elif record_type == _BITWORLD_REPLAY_CHAT_RECORD and metadata.replay_format_version >= 4:
+            _time_ms, offset = _read_replay_uint(raw, offset, 4)
+            _player, offset = _read_replay_uint(raw, offset, 1)
+            offset = _skip_replay_string(raw, offset)
         else:
             raise ValueError(f"Unknown BitWorld replay record type {record_type} at byte {record_offset}")
 
@@ -391,7 +425,7 @@ def validate_bitworld_replay_bytes(data: bytes | bytearray | memoryview) -> None
 
 def rewrite_bitworld_replay_names(data: bytes | bytearray | memoryview, policy_names: list[str]) -> bytes:
     raw = bytes(data)
-    offset = _read_bitworld_replay_header(raw)
+    metadata, offset = _read_bitworld_replay_header(raw)
     rewritten = bytearray(raw[:offset])
     policy_name_counts = Counter(policy_names)
     slot_names: list[str] = []
@@ -437,6 +471,11 @@ def rewrite_bitworld_replay_names(data: bytes | bytearray | memoryview, policy_n
             _time_ms, offset = _read_replay_uint(raw, offset, 4)
             _player, offset = _read_replay_uint(raw, offset, 1)
             rewritten.extend(raw[record_offset:offset])
+        elif record_type == _BITWORLD_REPLAY_CHAT_RECORD and metadata.replay_format_version >= 4:
+            _time_ms, offset = _read_replay_uint(raw, offset, 4)
+            _player, offset = _read_replay_uint(raw, offset, 1)
+            offset = _skip_replay_string(raw, offset)
+            rewritten.extend(raw[record_offset:offset])
         else:
             raise ValueError(f"Unknown BitWorld replay record type {record_type} at byte {record_offset}")
 
@@ -446,7 +485,7 @@ def rewrite_bitworld_replay_names(data: bytes | bytearray | memoryview, policy_n
 
 def trim_bitworld_replay_to_first_round(replay_path: Path) -> bool:
     data = replay_path.read_bytes()
-    offset = _read_bitworld_replay_header(data)
+    metadata, offset = _read_bitworld_replay_header(data)
     last_hash_tick = -1
 
     while offset < len(data):
@@ -472,6 +511,10 @@ def trim_bitworld_replay_to_first_round(replay_path: Path) -> bool:
         elif record_type == _BITWORLD_REPLAY_LEAVE_RECORD:
             _time, offset = _read_replay_uint(data, offset, 4)
             _player, offset = _read_replay_uint(data, offset, 1)
+        elif record_type == _BITWORLD_REPLAY_CHAT_RECORD and metadata.replay_format_version >= 4:
+            _time, offset = _read_replay_uint(data, offset, 4)
+            _player, offset = _read_replay_uint(data, offset, 1)
+            offset = _skip_replay_string(data, offset)
         else:
             raise ValueError(f"Unknown BitWorld replay record type {record_type} at byte {record_offset}")
 
@@ -516,6 +559,7 @@ __all__ = [
     "BITWORLD_DEFAULT_FRAME_STACK",
     "BITWORLD_INPUT_MASK_COUNT",
     "BitWorldEndpoint",
+    "BitWorldReplayMetadata",
     "Button",
     "BUTTON_NAMES",
     "BUTTON_TO_MASK",
@@ -554,6 +598,7 @@ __all__ = [
     "pack_frame_pixels",
     "parse_reward_packet",
     "parse_reward_value",
+    "read_bitworld_replay_metadata",
     "rewrite_bitworld_replay_names",
     "validate_bitworld_replay_bytes",
     "trim_bitworld_replay_to_first_round",
