@@ -547,7 +547,7 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
 
     runtime = BitWorldRuntime()
     binary_path = _find_bitworld_binary(game_name)
-    client_data_dir = binary_path.parents[1] / "clients" / "data"
+    client_data_dir = binary_path.parents[1] / "client" / "data"
     replay_path = _replay_path_from_uri(job.replay_uri)
     server_proc = _start_server_on_free_port(binary_path, runtime, env, replay_path=replay_path)
 

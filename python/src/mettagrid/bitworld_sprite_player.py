@@ -273,7 +273,7 @@ def palette_candidates(client_data_dir: Path | None = None) -> list[Path]:
         candidates.append(client_data_dir / "pallete.png")
     if data_dir := os.environ.get("BITWORLD_CLIENT_DATA_DIR"):
         candidates.append(Path(data_dir) / "pallete.png")
-    candidates.append(Path("/opt/bitworld/clients/data/pallete.png"))
+    candidates.append(Path("/opt/bitworld/client/data/pallete.png"))
     return candidates
 
 
