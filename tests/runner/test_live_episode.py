@@ -323,6 +323,45 @@ def test_policy_action_timeout_waits_for_current_step_responses_and_noops_missin
     asyncio.run(run_test())
 
 
+def test_initial_policy_action_timeout_gates_slow_policy_startup() -> None:
+    async def run_test() -> None:
+        episode = _episode(
+            max_steps=2,
+            policy_action_timeout_seconds=0.01,
+            initial_policy_action_timeout_seconds=0.2,
+        )
+        websocket_0 = RecordingWebSocket()
+        websocket_1 = RecordingWebSocket()
+        connection_0 = await episode.connect_player(0, websocket_0)
+        connection_1 = await episode.connect_player(1, websocket_1)
+
+        run_task = asyncio.create_task(episode.run())
+        await websocket_0.wait_for_observation_step(0)
+        await websocket_1.wait_for_observation_step(0)
+        await asyncio.sleep(0.03)
+
+        assert episode.sim.current_step == 0
+
+        await episode.handle_player_message(
+            connection_0,
+            {"type": "action", "action_name": "move_north", "request_id": "step-0"},
+        )
+        await episode.handle_player_message(
+            connection_1,
+            {"type": "action", "action_name": "move_south", "request_id": "step-0"},
+        )
+        await websocket_0.wait_for_observation_step(1)
+        await websocket_1.wait_for_observation_step(1)
+        await run_task
+
+        assert episode.sim.step_actions == [
+            ("move_north", "move_south"),
+            ("noop", "noop"),
+        ]
+
+    asyncio.run(run_test())
+
+
 def test_policy_action_timeout_noops_disconnected_slot_without_waiting() -> None:
     async def run_test() -> None:
         episode = _episode(max_steps=1, policy_action_timeout_seconds=5.0)
@@ -422,6 +461,7 @@ def _episode(
     autostart: bool = False,
     wait_for_all_players: bool = False,
     policy_action_timeout_seconds: float | None = None,
+    initial_policy_action_timeout_seconds: float | None = None,
 ) -> LiveMettaGridEpisode:
     return LiveMettaGridEpisode(
         FakeSimulation(),
@@ -441,4 +481,5 @@ def _episode(
         autostart=autostart,
         wait_for_all_players=wait_for_all_players,
         policy_action_timeout_seconds=policy_action_timeout_seconds,
+        initial_policy_action_timeout_seconds=initial_policy_action_timeout_seconds,
     )

@@ -72,6 +72,7 @@ class LiveMettaGridEpisode:
         human_action_timeout_seconds: float = 5.0,
         wait_for_all_players: bool = False,
         policy_action_timeout_seconds: float | None = None,
+        initial_policy_action_timeout_seconds: float | None = None,
         disconnect_exception_types: tuple[type[Exception], ...] = (RuntimeError,),
         request_shutdown: Callable[[], None] = lambda: None,
         autostart: bool = True,
@@ -87,6 +88,7 @@ class LiveMettaGridEpisode:
         self.human_action_timeout_seconds = human_action_timeout_seconds
         self.wait_for_all_players = wait_for_all_players
         self.policy_action_timeout_seconds = policy_action_timeout_seconds
+        self.initial_policy_action_timeout_seconds = initial_policy_action_timeout_seconds
         self.disconnect_exception_types = disconnect_exception_types
         self.request_shutdown = request_shutdown
         self.autostart = autostart
@@ -135,6 +137,7 @@ class LiveMettaGridEpisode:
         human_action_timeout_seconds: float = 5.0,
         wait_for_all_players: bool = False,
         policy_action_timeout_seconds: float | None = None,
+        initial_policy_action_timeout_seconds: float | None = None,
         disconnect_exception_types: tuple[type[Exception], ...] = (RuntimeError,),
         request_shutdown: Callable[[], None] = lambda: None,
         autostart: bool = True,
@@ -152,6 +155,7 @@ class LiveMettaGridEpisode:
             human_action_timeout_seconds=human_action_timeout_seconds,
             wait_for_all_players=wait_for_all_players,
             policy_action_timeout_seconds=policy_action_timeout_seconds,
+            initial_policy_action_timeout_seconds=initial_policy_action_timeout_seconds,
             disconnect_exception_types=disconnect_exception_types,
             request_shutdown=request_shutdown,
             autostart=autostart,
@@ -295,7 +299,11 @@ class LiveMettaGridEpisode:
         self.request_shutdown()
 
     async def _wait_for_next_tick(self, step: int) -> None:
-        policy_action_timeout_seconds = self.policy_action_timeout_seconds
+        policy_action_timeout_seconds = (
+            self.initial_policy_action_timeout_seconds
+            if step == 0 and self.initial_policy_action_timeout_seconds is not None
+            else self.policy_action_timeout_seconds
+        )
         if policy_action_timeout_seconds is not None:
             await self._wait_for_policy_actions(step, policy_action_timeout_seconds)
             if not (self.tick_mode == "tick_when_act" and any(self.human_controller_connection_ids.values())):
