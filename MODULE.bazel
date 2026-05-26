@@ -45,6 +45,10 @@ pip.parse(
     hub_name = "pypi_mettagrid",
     python_version = "3.12",
     requirements_lock = "//:requirements_lock.txt",
+    # See the outer metta MODULE.bazel — skipping per-subdir __init__.py
+    # shim creation eliminates ~200 non-cacheable copy_file actions
+    # per CI run that otherwise add ~12s to the bazel-tests step.
+    enable_implicit_namespace_pkgs = True,
 )
 use_repo(pip, pypi = "pypi_mettagrid")
 
