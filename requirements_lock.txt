@@ -1838,6 +1838,18 @@ pycparser==2.23 ; implementation_name != 'PyPy' \
     --hash=sha256:78816d4f24add8f10a06d6f05b4d424ad9e96cfebf68a4ddc99c65c0720d00c2 \
     --hash=sha256:e5c6e8d3fbad53479cab09ac03729e0a9faf2bee3db8208a550daf5af81a5934
     # via cffi
+# Workspace member pulled from PyPI for the bazel side because the
+# workspace install does not ship the compiled `_C` extension that
+# downstream bazel targets need. Hand-injected by
+# tools/regen_requirements_lock.sh after `uv export` (which omits
+# workspace members). See packages/pufferlib-core/BUILD.bazel for the
+# bazel-side py_library wiring.
+pufferlib-core==3.0.23 \
+    --hash=sha256:71a00c6cbb7224acbc3b57e21b0eae4b5d91bd59e671f2de1b7e7bd810329b54 \
+    --hash=sha256:b03b58f4fdee263fe7319955ed8c115cc253e28563628d8ffb69e725308e1232 \
+    --hash=sha256:40a700702473a253614cd780c13f4ea327ddebfafee840690aed94d10c4f1b93 \
+    --hash=sha256:d5f8f4080209749adc67583786a565a156b1e976fe423d5cd615339cf193605c \
+    --hash=sha256:6ec90097756e5b557262f02bdcf56de91ef15d0c69672b5be7661d465e79e42d
 pydantic==2.12.3 \
     --hash=sha256:1da1c82b0fc140bb0103bc1441ffe062154c8d38491189751ee00fd8ca65ce74 \
     --hash=sha256:6986454a854bc3bc6e5443e1369e06a3a456af9d339eda45510f517d9ea5c6bf
