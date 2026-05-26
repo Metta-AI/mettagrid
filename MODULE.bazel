@@ -30,6 +30,24 @@ python.toolchain(
     python_version = "3.13",
 )
 
+# External Python wheels for the mettagrid py_library at
+# //python/src/mettagrid:mettagrid. requirements_lock.txt is a symlink to
+# the outer monorepo's lockfile (../requirements_lock.txt) so wheels stay
+# byte-identical between the standalone and monorepo builds.
+#
+# Each bzlmod module that calls pip.parse needs a unique hub_name; the
+# outer monorepo's hub is "pypi" so this one is "pypi_mettagrid". The
+# wheel set is the same in both (same lockfile), so the duplication is
+# cache-key-level only — bazel's repo cache deduplicates the actual NAR
+# downloads via lockfile-pinned URLs.
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "pypi_mettagrid",
+    python_version = "3.12",
+    requirements_lock = "//:requirements_lock.txt",
+)
+use_repo(pip, pypi = "pypi_mettagrid")
+
 # pybind11 for Python bindings
 bazel_dep(name = "pybind11_bazel", version = "3.0.0")
 
