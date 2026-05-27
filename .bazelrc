@@ -97,17 +97,21 @@ build --experimental_convenience_symlinks=ignore
 build --jobs=auto
 build --local_test_jobs=auto
 
-# CI configuration - use system Python to avoid root user issues
-# Remove BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN to allow toolchain detection
+# CI configuration - used by bazel_build.py (the PEP 517 build backend)
+# when running under GitHub Actions. Forces the rules_python toolchain to
+# use the runner's system Python so the hermetic bootstrap path (which
+# trips on root-user perms and missing /lib64/ld interpreter) is avoided.
+# Slated for deletion when the mettagrid module split collapses; see
+# docs/specs/0044-nix-bazel.md TODO #3.
 build:ci --repo_env=PYTHON_BIN_PATH=/usr/bin/python3
 build:ci --python_path=/usr/bin/python3
-# Skip hermetic Python toolchain in CI
 build:ci --@rules_python//python/config_settings:bootstrap_impl=system
 
-# Add retries for external dependency downloads to handle rate limiting
+# Network resilience for CI fetches. Same flags now live on :remote in
+# the outer monorepo's .bazelrc; the standalone-mettagrid build (driven
+# by bazel_build.py) doesn't use :remote, hence the duplication here.
 build:ci --experimental_repository_downloader_retries=5
 build:ci --http_timeout_scaling=2.0
-# Add delays between retries (exponential backoff)
 build:ci --experimental_scale_timeouts=2.0
 
 # Proxy and TLS support for sandboxed/corporate environments.
