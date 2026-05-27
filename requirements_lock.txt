@@ -133,9 +133,7 @@ arrow==1.4.0 \
 asana==5.2.2 \
     --hash=sha256:1c8d15949a6cb9aa12363a5b7cfc6c0544cb3ae77290dd2e3255c0ec70668458 \
     --hash=sha256:d280ce2e8edf0355ccf21e548d887617ca8c926e1cb41309b8a173ca3181632c
-    # via
-    #   metta
-    #   metta-trainingboard
+    # via metta
 asgiref==3.11.1 \
     --hash=sha256:5f184dc43b7e763efe848065441eac62229c9f7b0475f41f80e207a114eda4ce \
     --hash=sha256:e8667a091e69529631969fd45dc268fa79b99c92c5fcdda727757e52146ec133
@@ -220,7 +218,6 @@ boto3==1.40.49 \
     #   metta
     #   metta-app-backend
     #   metta-pr-similarity-mcp
-    #   metta-trainingboard
     #   mettagrid
     #   softmax-common
 botocore==1.40.49 \
@@ -307,7 +304,6 @@ click==8.1.8 \
     #   kopf
     #   marimo
     #   metta-chatprop
-    #   metta-trainingboard
     #   skypilot
     #   typer
     #   uvicorn
@@ -1872,7 +1868,6 @@ pydantic==2.12.3 \
     #   metta-chatprop
     #   metta-cli-lint
     #   metta-replay-analysis
-    #   metta-trainingboard
     #   mettagrid
     #   openai
     #   pydantic-settings
@@ -2114,7 +2109,6 @@ pyyaml==6.0.3 \
     #   kubernetes
     #   marimo
     #   metta
-    #   metta-trainingboard
     #   mettagrid
     #   omegaconf
     #   pymdown-extensions
