@@ -79,7 +79,6 @@ anthropic==0.71.0 \
     #   gitta
     #   metta
     #   metta-app-backend
-    #   metta-replay-analysis
 antlr4-python3-runtime==4.9.3 \
     --hash=sha256:f224469b4168294902bb1efa80a8bf7855f24c99aef99cbefc1bcd3cce77881b
     # via omegaconf
@@ -770,7 +769,6 @@ httpx==0.28.1 \
     #   mcp
     #   metta
     #   metta-app-backend
-    #   metta-replay-analysis
     #   mettagrid
     #   openai
     #   skypilot
@@ -1867,7 +1865,6 @@ pydantic==2.12.3 \
     #   metta-app-backend
     #   metta-chatprop
     #   metta-cli-lint
-    #   metta-replay-analysis
     #   mettagrid
     #   openai
     #   pydantic-settings
