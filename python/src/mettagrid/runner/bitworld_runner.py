@@ -21,7 +21,6 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urlparse
 
 import numpy as np
 import websocket
@@ -48,7 +47,6 @@ from mettagrid.bitworld import (
 from mettagrid.config.bitworld_config import BitWorldEnvConfig
 from mettagrid.policy.policy import MultiAgentPolicy, NimMultiAgentPolicy, PolicySpec
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
-from mettagrid.runner.policy_server.websocket_transport import PolicyStepError, WebSocketRawPolicyServerClient
 from mettagrid.runner.types import PureSingleEpisodeJob, PureSingleEpisodeResult
 from mettagrid.types import EpisodeStats
 from mettagrid.util.uri_resolvers.schemes import parse_uri
@@ -61,6 +59,10 @@ SERVER_REPLAY_FLUSH_TIMEOUT_S = 5.0
 MAX_FRAME_DRAIN = 128
 DEBUG_STATS_ENV = "BITWORLD_DEBUG_STATS"
 BitWorldObservationMode = Literal["pixels", "sprite_player"]
+
+
+class PolicyStepError(Exception):
+    pass
 
 
 @dataclass
@@ -389,10 +391,6 @@ def _receive_sprite_player_observation(conn: PlayerConnection) -> tuple[np.ndarr
     return conn.observation_stack.reshape(conn.frame_stack * features), frame_advance
 
 
-def _is_policy_server_uri(uri: str) -> bool:
-    return urlparse(uri).scheme in {"ws", "wss"}
-
-
 def _policy_agent_ids(assignments: list[int], policy_count: int) -> list[list[int]]:
     policy_agent_ids: list[list[int]] = [[] for _ in range(policy_count)]
     for agent_id, policy_index in enumerate(assignments):
@@ -406,10 +404,6 @@ def _load_bitworld_policy(
     num_agents: int,
     frame_stack: int = BITWORLD_DEFAULT_FRAME_STACK,
 ) -> MultiAgentPolicy:
-    if _is_policy_server_uri(uri):
-        env_interface = _build_bitworld_env_interface(frame_stack, num_agents=num_agents)
-        return WebSocketRawPolicyServerClient(env_interface, url=uri, agent_ids=agent_ids)
-
     from mettagrid.policy.loader import initialize_or_load_policy  # noqa: PLC0415
     from mettagrid.util.uri_resolvers.schemes import policy_spec_from_uri  # noqa: PLC0415
 
@@ -679,6 +673,7 @@ def run_bitworld_episode(job: PureSingleEpisodeJob) -> PureSingleEpisodeResult:
             action_timeouts=[0] * num_players,
             stats=stats,
             steps=max_ticks,
+            overage_exceeded_at=[None] * num_players,
         )
 
     finally:

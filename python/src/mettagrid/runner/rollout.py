@@ -166,10 +166,9 @@ def run_episode_local(
 ) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
     """Run a single episode in the current process, loading policies from PolicySpecs.
 
-    Policies are loaded directly (via initialize_or_load_policy), so this only works
+    Policies are loaded directly via initialize_or_load_policy, so this only works
     when the policy code and weights are available locally. Supports rendering and
-    interactive play. For running untrusted or remote policies in a subprocess, use
-    run_episode_isolated instead.
+    interactive play.
     """
     resolved_engine = game_engine or env.game_engine
 

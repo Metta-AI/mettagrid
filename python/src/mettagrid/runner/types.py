@@ -1,61 +1,10 @@
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 from mettagrid.config.any_env_config import AnyEnvConfig
 from mettagrid.types import EpisodeStats
 from mettagrid.util.uri_resolvers.schemes import parse_uri
-
-
-def _migrate_game_engine_into_env(data: Any) -> Any:
-    """Move top-level ``game_engine`` into ``env`` for backward compat.
-
-    Old serialized job dicts have ``game_engine`` as a sibling of ``env``.
-    The new schema stores it inside the env config so the discriminated union
-    can pick the right type.
-    """
-    if isinstance(data, dict) and "env" in data and isinstance(data["env"], dict):
-        env = data["env"]
-        if "game_engine" not in env and "game_engine" in data:
-            return {
-                **data,
-                "env": {**env, "game_engine": data["game_engine"]},
-            }
-
-    return data
-
-
-class EpisodeJobSummary(BaseModel):
-    """Minimal job fields needed to record an episode in observatory.
-
-    extra="ignore" ensures runner schema changes never break recording.
-    SingleEpisodeJob extends this (via EpisodeSpec) so the fields can't diverge.
-    """
-
-    model_config = {"extra": "ignore"}
-
-    policy_uris: list[str]
-    assignments: list[int]
-    policy_names: list[str] | None = None
-    episode_tags: dict[str, str] = Field(default_factory=dict)
-
-    @model_validator(mode="after")
-    def validate_policy_names(self) -> "EpisodeJobSummary":
-        if self.policy_names is not None and len(self.policy_names) != len(self.policy_uris):
-            raise ValueError("policy_names must have the same length as policy_uris")
-        return self
-
-
-class EpisodeSpec(EpisodeJobSummary):
-    env: AnyEnvConfig
-    seed: int = 0
-    max_action_time_ms: int = 10000
-    overage_budget_ms: int | None = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def _migrate_game_engine(cls, data: Any) -> Any:
-        return _migrate_game_engine_into_env(data)
 
 
 class PureSingleEpisodeJob(BaseModel):
@@ -78,11 +27,6 @@ class PureSingleEpisodeJob(BaseModel):
     max_action_time_ms: int = 10000
     overage_budget_ms: int | None = None
     episode_tags: dict[str, str] = Field(default_factory=dict)
-
-    @model_validator(mode="before")
-    @classmethod
-    def _migrate_game_engine(cls, data: Any) -> Any:
-        return _migrate_game_engine_into_env(data)
 
     @model_validator(mode="after")
     def validate_output_uris(self) -> "PureSingleEpisodeJob":
@@ -113,15 +57,8 @@ class PureSingleEpisodeResult(BaseModel):
     stats: EpisodeStats
     steps: int
     time_averaged_game_stats: dict[str, float] = Field(default_factory=dict)
-    # None for results produced before overage tracking existed (e.g. old S3 artifacts).
-    # When present, one entry per agent: the step at which overage budget was exhausted, or None if never exceeded.
-    overage_exceeded_at: list[int | None] | None = None
-
-
-class RuntimeInfo(BaseModel):
-    git_commit: str | None = None
-    cogames_version: str | None = None
-    instance_type: str | None = None
+    # One entry per agent: the step at which overage budget was exhausted, or None if never exceeded.
+    overage_exceeded_at: list[int | None]
 
 
 RunnerErrorType = Literal["config_error", "policy_error", "crash", "unknown"]
@@ -138,18 +75,3 @@ class RunnerError(BaseModel):
     failed_policy_index: int | None = None
     failed_policy_uri: str | None = None
     failed_policy_name: str | None = None
-
-
-class SingleEpisodeJob(EpisodeSpec):
-    model_config = {"extra": "ignore"}
-
-    def episode_spec(self) -> EpisodeSpec:
-        return EpisodeSpec(
-            policy_uris=self.policy_uris,
-            policy_names=self.policy_names,
-            assignments=self.assignments,
-            env=self.env,
-            seed=self.seed,
-            max_action_time_ms=self.max_action_time_ms,
-            overage_budget_ms=self.overage_budget_ms,
-        )

@@ -1,11 +1,10 @@
-"""Tests for RunnerError model and EpisodeSubprocessError exception."""
+"""Tests for RunnerError model."""
 
 import json
 
 import pytest
 from pydantic import ValidationError
 
-from mettagrid.runner.episode_runner import EpisodeSubprocessError
 from mettagrid.runner.types import RunnerError
 
 
@@ -65,30 +64,3 @@ class TestRunnerError:
         assert parsed.failed_policy_index is None
         assert parsed.failed_policy_uri is None
         assert parsed.failed_policy_name is None
-
-
-class TestEpisodeSubprocessError:
-    def test_without_runner_error(self):
-        err = EpisodeSubprocessError("subprocess failed (exit 1)")
-        assert isinstance(err, RuntimeError)
-        assert str(err) == "subprocess failed (exit 1)"
-        assert err.runner_error is None
-
-    def test_with_runner_error(self):
-        runner_error = RunnerError(error_type="policy_error", message="step failed")
-        err = EpisodeSubprocessError("subprocess failed (exit 1)", runner_error=runner_error)
-        assert str(err) == "subprocess failed (exit 1)"
-        assert err.runner_error is runner_error
-        assert err.runner_error.error_type == "policy_error"
-
-    def test_with_config_error(self):
-        runner_error = RunnerError(error_type="config_error", message="validation failed")
-        err = EpisodeSubprocessError("subprocess failed (exit 1)", runner_error=runner_error)
-        assert err.runner_error.error_type == "config_error"
-        assert err.runner_error.message == "validation failed"
-
-    def test_with_crash_error(self):
-        runner_error = RunnerError(error_type="crash", message="segmentation fault")
-        err = EpisodeSubprocessError("subprocess failed (signal 11)", runner_error=runner_error)
-        assert err.runner_error.error_type == "crash"
-        assert err.runner_error.message == "segmentation fault"
