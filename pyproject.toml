@@ -75,7 +75,6 @@ cache-keys = [
   { file = "pyproject.toml" },
   { file = "BUILD.bazel" },
   { file = "cpp/BUILD.bazel" },
-  { file = "MODULE.bazel" },
   { file = "cpp/**/*.{cpp,hpp}" },
   { file = "nim/mettascope/src/**/*.{nim,nims}" },
   { file = "nim/mettascope/bindings/bindings.nim" },

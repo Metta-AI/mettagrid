@@ -14,7 +14,7 @@ cc_binary(
     ],
     linkstatic = True,
     deps = [
-        "//cpp:mettagrid_bindings",
+        "//packages/mettagrid/cpp:mettagrid_bindings",
         "@google_benchmark//:benchmark_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],

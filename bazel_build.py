@@ -28,6 +28,10 @@ from setuptools.build_meta import (
 from setuptools.dist import Distribution
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+# Monorepo root (one level above packages/). All bazel commands run from here
+# since packages/mettagrid is a regular bazel package in the monorepo's
+# MODULE.bazel, not its own bzlmod module.
+MONOREPO_ROOT = PROJECT_ROOT.parents[1]
 PYTHON_PACKAGE_DIR = PROJECT_ROOT / "python" / "src" / "mettagrid"
 METTASCOPE_DIR = PROJECT_ROOT / "nim" / "mettascope"
 METTASCOPE_PACKAGE_DIR = PYTHON_PACKAGE_DIR / "nim" / "mettascope"
@@ -85,15 +89,7 @@ def _run_bazel_build() -> None:
 
     # Determine build configuration from environment
     debug = os.environ.get("DEBUG", "").lower() in ("1", "true", "yes")
-
-    # Check if running in CI environment (GitHub Actions sets CI=true)
-    is_ci = os.environ.get("CI", "").lower() == "true" or os.environ.get("GITHUB_ACTIONS", "") == "true"
-
-    if is_ci:
-        # Use CI configuration to avoid root user issues with hermetic Python
-        config = "ci"
-    else:
-        config = "dbg" if debug else "opt"
+    config = "dbg" if debug else "opt"
 
     # Align Bazel's registered Python toolchain with the active interpreter.
     py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
@@ -101,69 +97,37 @@ def _run_bazel_build() -> None:
     env = os.environ.copy()
     env.setdefault("METTAGRID_BAZEL_PYTHON_VERSION", py_version)
 
-    # Provide a writable output root for environments with restricted /var/tmp access.
-    output_user_root = env.get(
-        "METTAGRID_BAZEL_OUTPUT_ROOT",
-        str(PROJECT_ROOT / ".bazel_output"),
-    )
-
-    # Ensure the output root exists before invoking Bazel.
-    Path(output_user_root).mkdir(parents=True, exist_ok=True)
-
-    # Build the Python extension with auto-detected parallelism
+    target = "//packages/mettagrid/cpp:mettagrid_c"
     bazel_cmd = [
         "bazel",
-        "--batch",
-        f"--output_user_root={output_user_root}",
         "build",
         f"--config={config}",
         "--jobs=auto",
         "--verbose_failures",
-        "//cpp:mettagrid_c",  # Build from new cpp location
+        # Root .bazelrc sets --remote_download_minimal so that test-only
+        # invocations don't pull intermediate artifacts back from the BB
+        # remote cache. For the wheel build we explicitly need the .so on
+        # local disk so we can copy it next to the python package source.
+        "--remote_download_outputs=toplevel",
+        target,
     ]
 
     print(f"Running Bazel build: {' '.join(bazel_cmd)}")
-    cmd(bazel_cmd, cwd=PROJECT_ROOT, max_attempts=3, env=env)
+    cmd(bazel_cmd, cwd=MONOREPO_ROOT, max_attempts=3, env=env)
 
-    # The .bazelrc disables convenience symlinks (so the outer monorepo's
-    # bazel can glob @mettagrid//... without infinite-loop self-references),
-    # so resolve bazel-bin via `bazel info` instead of the symlink path.
     info_cmd = [
         "bazel",
-        "--batch",
-        f"--output_user_root={output_user_root}",
         "info",
         f"--config={config}",
         "bazel-bin",
     ]
-    info_result = subprocess.run(info_cmd, cwd=PROJECT_ROOT, env=env, capture_output=True, text=True, check=True)
+    info_result = subprocess.run(info_cmd, cwd=MONOREPO_ROOT, env=env, capture_output=True, text=True, check=True)
     bazel_bin = Path(info_result.stdout.strip())
-    # Try both old and new locations for backward compatibility
-    src_dirs = [
-        PROJECT_ROOT / "python/src/mettagrid",  # New location
-        PROJECT_ROOT / "src/mettagrid",  # Old location (compatibility)
-    ]
+    extension_file = bazel_bin / "packages/mettagrid/cpp/mettagrid_c.so"
+    if not extension_file.exists():
+        raise RuntimeError(f"{extension_file} not found after bazel build of {target}")
 
-    # Find the built extension file
-    # Bazel outputs the extension at bazel-bin/cpp/mettagrid_c.so or bazel-bin/mettagrid_c.so
-    extension_patterns = [
-        "cpp/mettagrid_c.so",
-        "cpp/mettagrid_c.pyd",
-        "cpp/mettagrid_c.dylib",  # New location
-        "mettagrid_c.so",
-        "mettagrid_c.pyd",
-        "mettagrid_c.dylib",  # Old location
-    ]
-    extension_file = None
-    for pattern in extension_patterns:
-        file_path = bazel_bin / pattern
-        if file_path.exists():
-            extension_file = file_path
-            break
-    if not extension_file:
-        raise RuntimeError("mettagrid_c.{so,pyd,dylib} not found in bazel-bin/cpp/ or bazel-bin/")
-
-    # Copy to all source directories that exist
+    src_dirs = [PROJECT_ROOT / "python/src/mettagrid"]
     for src_dir in src_dirs:
         if src_dir.parent.exists():
             # Ensure destination directory exists

@@ -18,7 +18,7 @@ cc_binary(
     # linkopts=["-fsanitize=address"],  # Disabled - causes issues on macOS
     linkstatic=True,  # Changed to True to ensure all symbols are linked
     deps=[
-        "//:mettagrid_lib",
+        "//packages/mettagrid:mettagrid_lib",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
@@ -31,7 +31,7 @@ cc_binary(
     # linkopts=["-fsanitize=address"],  # Disabled - causes issues on macOS
     linkstatic=True,  # Changed to True to ensure all symbols are linked
     deps=[
-        "//:mettagrid_lib",
+        "//packages/mettagrid:mettagrid_lib",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
@@ -43,7 +43,7 @@ cc_binary(
     copts=COPTS + ["-Itests"],
     linkstatic=True,  # Ensure all symbols are linked
     deps=[
-        "//cpp:mettagrid_bindings",
+        "//packages/mettagrid/cpp:mettagrid_bindings",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
@@ -56,7 +56,7 @@ cc_binary(
     # linkopts=["-fsanitize=address"],  # Disabled - causes issues on macOS
     linkstatic=True,  # Changed to True to ensure all symbols are linked
     deps=[
-        "//:mettagrid_lib",
+        "//packages/mettagrid:mettagrid_lib",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
@@ -69,7 +69,7 @@ cc_binary(
     # linkopts=["-fsanitize=address"],  # Disabled - causes issues on macOS
     linkstatic=True,  # Changed to True to ensure all symbols are linked
     deps=[
-        "//:mettagrid_lib",
+        "//packages/mettagrid:mettagrid_lib",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
@@ -81,7 +81,7 @@ cc_binary(
     copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
     linkstatic=True,
     deps=[
-        "//:mettagrid_lib",
+        "//packages/mettagrid:mettagrid_lib",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
 )
@@ -92,7 +92,7 @@ cc_binary(
     copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
     linkstatic=True,
     deps=[
-        "//:mettagrid_lib",
+        "//packages/mettagrid:mettagrid_lib",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
@@ -104,7 +104,7 @@ cc_binary(
     copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
     linkstatic=True,
     deps=[
-        "//:mettagrid_lib",
+        "//packages/mettagrid:mettagrid_lib",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
 )

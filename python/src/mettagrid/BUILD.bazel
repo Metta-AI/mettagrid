@@ -5,13 +5,13 @@ load("@rules_python//python:defs.bzl", "py_library")
 # the pybind11-built mettagrid_c.so so `from mettagrid.mettagrid_c import
 # ...` resolves out of the box for downstream consumers.
 #
-# The .so is built at //cpp:mettagrid_c, which puts it at cpp/mettagrid_c.so
-# in runfiles. Python's import resolver needs it next to mettagrid/__init__.py
-# (i.e. at mettagrid/mettagrid_c.so) — copy_file relocates it.
+# The .so is built at //packages/mettagrid/cpp:mettagrid_c, which puts it at
+# packages/mettagrid/cpp/mettagrid_c.so in runfiles. Python's import resolver
+# needs it next to mettagrid/__init__.py — copy_file relocates it.
 
 copy_file(
     name = "mettagrid_c_so",
-    src = "//cpp:mettagrid_c",
+    src = "//packages/mettagrid/cpp:mettagrid_c",
     out = "mettagrid_c.so",
 )
 
@@ -39,9 +39,6 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         # Mirrors packages/mettagrid/pyproject.toml [project.dependencies].
-        # Resolved against the outer monorepo's @pypi via the rules_python
-        # repo-mapping (an alias is registered in MODULE.bazel for cross-
-        # module access).
         "@pypi//boto3",
         "@pypi//botocore",
         "@pypi//numpy",

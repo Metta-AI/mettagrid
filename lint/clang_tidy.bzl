@@ -104,12 +104,12 @@ clang_tidy_aspect = aspect(
     implementation = _clang_tidy_aspect_impl,
     attrs = {
         "_clang_tidy": attr.label(
-            default = Label("//lint:clang_tidy_wrapper"),
+            default = Label("//packages/mettagrid/lint:clang_tidy_wrapper"),
             executable = True,
             cfg = "exec",
         ),
         "_clang_tidy_config": attr.label(
-            default = Label("//:.clang-tidy"),
+            default = Label("//packages/mettagrid:.clang-tidy"),
             allow_single_file = True,
         ),
     },

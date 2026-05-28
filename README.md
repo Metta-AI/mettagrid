@@ -165,22 +165,22 @@ For local development, refer to the top-level [README.md](../README.md) in this 
 ### Bazel
 
 By default, `uv sync` will run the Bazel build automatically via the custom build backend. If you need to run C++ tests
-and benchmarks directly, you'll need to invoke `bazel` directly.
+and benchmarks directly, you'll need to invoke `bazel` directly from the monorepo root.
 
 Build C++ tests and benchmarks in debug mode:
 
 ```sh
 # Build with debug flags
-bazel build --config=dbg //:mettagrid_c
-# Run all tests
-bazel test //...
+bazel build --config=dbg //packages/mettagrid/cpp:mettagrid_c
+# Run all mettagrid tests
+bazel test //packages/mettagrid/...
 ```
 
 For benchmarks you might prefer to use the optimized build:
 
 ```sh
 # Build with optimizations
-bazel build --config=opt //:mettagrid_c
+bazel build --config=opt //packages/mettagrid/cpp:mettagrid_c
 ```
 
 For a single-core benchmark of MettaGrid performance (triggers a rebuild on first run):
@@ -217,20 +217,18 @@ The repository includes pre-configured launch configurations in `.vscode/launch.
    - Clean everything up
 
      ```sh
-     cd packages/mettagrid # (from root of the repository)
      bazel clean --expunge
      ```
 
    - Rebuild with debug flags
 
      ```sh
-     bazel build --config=dbg //:mettagrid_c
+     bazel build --config=dbg //packages/mettagrid/cpp:mettagrid_c
      ```
 
    - Or Reinstall with DEBUG=1 to trigger dSYM generation
 
      ```sh
-     cd ../..
      export DEBUG=1
      uv sync --reinstall-package mettagrid
      ```

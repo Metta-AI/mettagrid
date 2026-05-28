@@ -14,8 +14,8 @@ sh_binary(
 clang_tidy_test(
     name = "clang_tidy",
     deps = [
-        "//:mettagrid_lib",
-        "//:mettagrid_c",
+        "//packages/mettagrid:mettagrid_lib",
+        "//packages/mettagrid:mettagrid_c",
     ],
 )
 
@@ -23,8 +23,8 @@ clang_tidy_test(
 clang_tidy_all(
     name = "clang_tidy_report",
     deps = [
-        "//:mettagrid_lib",
-        "//:mettagrid_c",
+        "//packages/mettagrid:mettagrid_lib",
+        "//packages/mettagrid:mettagrid_c",
     ],
 )
 

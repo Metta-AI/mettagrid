@@ -1,8 +1,5 @@
 include bazel_build.py
 include BUILD.bazel
-include MODULE.bazel
-include MODULE.bazel.lock
-include .bazelrc
 
 # Include the entire cpp directory with all BUILD files, source and header files
 recursive-include cpp *.cpp *.hpp *.bazel BUILD

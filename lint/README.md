@@ -16,20 +16,20 @@ external scripts or manual compile_commands.json generation.
 ### Generate a Report (doesn't fail)
 
 ```bash
-bazel build //lint:clang_tidy_report
-cat bazel-bin/lint/clang_tidy_report_summary.txt
+bazel build //packages/mettagrid/lint:clang_tidy_report
+cat bazel-bin/packages/mettagrid/lint/clang_tidy_report_summary.txt
 ```
 
 ### Run as a Test (fails on issues)
 
 ```bash
-bazel test //lint:clang_tidy_test
+bazel test //packages/mettagrid/lint:clang_tidy_test
 ```
 
 ### Run via Alias
 
 ```bash
-bazel test //lint:lint  # Alias for clang_tidy_test
+bazel test //packages/mettagrid/lint:lint  # Alias for clang_tidy_test
 ```
 
 ## Configuration

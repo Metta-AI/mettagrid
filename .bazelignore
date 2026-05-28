@@ -1,9 +1,0 @@
-# Directories excluded from Bazel's //... expansion.
-# Applies both to standalone mettagrid builds and to @mettagrid//... when this
-# module is consumed via local_path_override from the outer monorepo.
-
-# bazel_build.py (the PEP 517 wheel-build backend) defaults to creating its
-# output_user_root inside the source tree at $PROJECT_ROOT/.bazel_output.
-# Without this exclusion, subsequent `bazel query //...` walks into it and
-# fails with infinite-symlink and parse errors.
-.bazel_output

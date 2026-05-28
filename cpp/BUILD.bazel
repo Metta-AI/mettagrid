@@ -34,9 +34,7 @@ pybind_library(
 # that need to link the bindings directly (instead of loading the .so as a
 # Python module) can dep on this rather than re-listing sources + manual
 # `-Icpp/...` copts. The cc_library `includes` attribute is bazel-aware and
-# resolves to the package's repo prefix, so it works both standalone and
-# when packages/mettagrid is consumed via local_path_override from the
-# outer monorepo.
+# resolves to the package's repo prefix.
 pybind_library(
     name = "mettagrid_bindings",
     srcs = [
