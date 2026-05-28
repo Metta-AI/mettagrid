@@ -43,8 +43,6 @@ _LAZY_ATTRS: Dict[str, Tuple[str, str]] = {
     # Config
     "MettaGridConfig": ("mettagrid.config.mettagrid_config", "MettaGridConfig"),
     "EnvConfig": ("mettagrid.config.env_config", "EnvConfig"),
-    "BitWorldEnvConfig": ("mettagrid.config.bitworld_config", "BitWorldEnvConfig"),
-    "AnyEnvConfig": ("mettagrid.config.any_env_config", "AnyEnvConfig"),
     # Core classes
     "Simulator": ("mettagrid.simulator.simulator", "Simulator"),
     "Simulation": ("mettagrid.simulator.simulator", "Simulation"),
@@ -59,8 +57,6 @@ _LAZY_ATTRS: Dict[str, Tuple[str, str]] = {
 }
 
 if TYPE_CHECKING:
-    from mettagrid.config.any_env_config import AnyEnvConfig
-    from mettagrid.config.bitworld_config import BitWorldEnvConfig
     from mettagrid.config.env_config import EnvConfig
     from mettagrid.config.mettagrid_config import MettaGridConfig
     from mettagrid.envs.mettagrid_puffer_env import MettaGridPufferEnv as PufferMettaGridEnv
@@ -71,8 +67,6 @@ __all__ = [
     # Config
     "MettaGridConfig",
     "EnvConfig",
-    "BitWorldEnvConfig",
-    "AnyEnvConfig",
     # Core classes
     "Simulator",
     "Simulation",

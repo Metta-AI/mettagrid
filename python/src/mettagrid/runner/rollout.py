@@ -5,14 +5,11 @@ from pathlib import Path
 from typing import Callable, Optional, Sequence
 
 from mettagrid import MettaGridConfig
-from mettagrid.config.any_env_config import resolve_env_config_type
-from mettagrid.config.env_config import EnvConfig
 from mettagrid.map_builder.map_builder import HasSeed
 from mettagrid.policy.loader import AgentPolicy, PolicyEnvInterface, initialize_or_load_policy
 from mettagrid.policy.policy import MultiAgentPolicy, PolicySpec
 from mettagrid.renderer.renderer import RenderMode
-from mettagrid.runner.engine_registry import get_engine_runner
-from mettagrid.runner.types import PureSingleEpisodeJob, PureSingleEpisodeResult
+from mettagrid.runner.types import PureSingleEpisodeResult
 from mettagrid.simulator.multi_episode.rollout import EpisodeRolloutResult, MultiEpisodeRolloutResult
 from mettagrid.simulator.replay_log_writer import EpisodeReplay, InMemoryReplayWriter
 from mettagrid.simulator.rollout import Rollout
@@ -152,7 +149,7 @@ def run_episode_local(
     *,
     policy_specs: Sequence[PolicySpec],
     assignments: Sequence[int],
-    env: EnvConfig,
+    env: MettaGridConfig,
     results_path: Path | None = None,
     replay_path: Path | None = None,
     debug_dir: Path | None = None,
@@ -162,7 +159,6 @@ def run_episode_local(
     device: Optional[str] = None,
     render_mode: Optional[RenderMode] = None,
     autostart: bool = False,
-    game_engine: str | None = None,
 ) -> tuple[PureSingleEpisodeResult, Optional[EpisodeReplay]]:
     """Run a single episode in the current process, loading policies from PolicySpecs.
 
@@ -170,25 +166,6 @@ def run_episode_local(
     when the policy code and weights are available locally. Supports rendering and
     interactive play.
     """
-    resolved_engine = game_engine or env.game_engine
-
-    runner = get_engine_runner(resolved_engine)
-    if runner is not None:
-        job = PureSingleEpisodeJob(
-            policy_uris=[spec.data_path or spec.class_path for spec in policy_specs],
-            assignments=list(assignments),
-            env=env,  # type: ignore[arg-type]  # EnvConfig subclass satisfies AnyEnvConfig at runtime
-            results_uri=str(results_path.resolve().as_uri()) if results_path else None,
-            replay_uri=None,
-            seed=seed,
-            max_action_time_ms=max_action_time_ms,
-        )
-        results = runner(job)
-        return results, None
-    elif resolved_engine != "mettagrid":
-        raise ValueError(f"Unknown game engine: {resolved_engine}")
-
-    assert isinstance(env, MettaGridConfig)
     if len(assignments) != env.game.num_agents or not all(0 <= a < len(policy_specs) for a in assignments):
         raise ValueError("Assignments must match agent count and be within policy range")
 
@@ -230,7 +207,7 @@ def run_multi_episode_rollout(
     *,
     policy_specs: Sequence[PolicySpec],
     assignments: Sequence[int],
-    env_cfg: EnvConfig,
+    env_cfg: MettaGridConfig,
     episodes: int,
     seed: int,
     max_action_time_ms: int,
@@ -241,7 +218,6 @@ def run_multi_episode_rollout(
     device: Optional[str] = None,
     on_progress: Optional[Callable[[int, EpisodeRolloutResult], None]] = None,
     shuffle_assignments: bool = True,
-    game_engine: str | None = None,
 ) -> tuple[MultiEpisodeRolloutResult, list[str]]:
     if replay_dir is not None:
         if create_replay_dir:
@@ -254,8 +230,7 @@ def run_multi_episode_rollout(
     episode_results: list[EpisodeRolloutResult] = []
     replay_paths: list[str] = []
     env_dict = env_cfg.model_dump(mode="json")
-    env_type = resolve_env_config_type(env_dict)
-    configured_max_steps = env_type.get_max_steps(env_dict)
+    configured_max_steps = MettaGridConfig.get_max_steps(env_dict)
 
     for episode_idx in range(episodes):
         if shuffle_assignments:
@@ -274,7 +249,6 @@ def run_multi_episode_rollout(
             max_action_time_ms=max_action_time_ms,
             overage_budget_ms=overage_budget_ms,
             device=device,
-            game_engine=game_engine,
         )
         result = EpisodeRolloutResult(
             assignments=list(assignments_list),

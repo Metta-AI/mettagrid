@@ -53,7 +53,5 @@ py_library(
         "@pypi//requests",
         "@pypi//httpx",
         "@pypi//typing_extensions",
-        "@pypi//websockets",
-        "@pypi//websocket_client",
     ],
 )
