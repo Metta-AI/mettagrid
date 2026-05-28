@@ -302,7 +302,6 @@ click==8.1.8 \
     #   import-linter
     #   kopf
     #   marimo
-    #   metta-chatprop
     #   skypilot
     #   typer
     #   uvicorn
@@ -1863,7 +1862,6 @@ pydantic==2.12.3 \
     #   mcp
     #   metta
     #   metta-app-backend
-    #   metta-chatprop
     #   metta-cli-lint
     #   mettagrid
     #   openai
