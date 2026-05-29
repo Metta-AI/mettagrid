@@ -56,9 +56,7 @@ pythonpath = ["python/src"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 python_classes = ["Test*"]
-# Exclude the generic Bazel C++ test runner script (not a pytest test)
 # Exclude Bazel symlink directories
-addopts = "--ignore=tests/run_test.py"
 norecursedirs = ["bazel-*", ".bazel_output", ".*"]
 
 [tool.uv]

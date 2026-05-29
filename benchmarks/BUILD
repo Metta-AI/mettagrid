@@ -1,8 +1,13 @@
 # Benchmarks for mettagrid
-
-# Bazel 9 requires explicit load() for cc_binary (removed from native rules)
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
+# Kept as a cc_binary (not cc_test) so it builds in bazel CI but doesn't
+# run. It embeds CPython via `pybind11::scoped_interpreter`, and the
+# embedded interpreter can't locate its stdlib under bazel's sandbox
+# without PYTHONHOME + stdlib runfiles wiring. The previous `metta cpptest
+# --benchmark` path silently info-logged the same segfault and moved on;
+# build-only coverage matches that net signal honestly. Run on demand
+# from a real shell once the embed-init story is sorted.
 cc_binary(
     name = "test_mettagrid_env_benchmark",
     srcs = ["test_mettagrid_env_benchmark.cpp"],

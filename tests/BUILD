@@ -1,6 +1,5 @@
 # BUILD file for mettagrid tests
-load("@rules_cc//cc:defs.bzl", "cc_binary")
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_cc//cc:defs.bzl", "cc_test")
 
 # Basic compiler flags
 COPTS = [
@@ -10,189 +9,105 @@ COPTS = [
     # "-fsanitize=address",  # Disabled - causes issues on macOS
 ]
 
-# C++ test binaries that link with Python
-cc_binary(
-    name="test_stats_tracker_bin",
-    srcs=["test_stats_tracker.cpp"],
-    copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
-    # linkopts=["-fsanitize=address"],  # Disabled - causes issues on macOS
-    linkstatic=True,  # Changed to True to ensure all symbols are linked
-    deps=[
+cc_test(
+    name = "test_stats_tracker",
+    srcs = ["test_stats_tracker.cpp"],
+    copts = COPTS + ["-Icpp/include/mettagrid", "-Itests"],
+    linkstatic = True,
+    size = "small",
+    deps = [
         "//packages/mettagrid:mettagrid_lib",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
 )
 
-cc_binary(
-    name="test_grid_object_bin",
-    srcs=["test_grid_object.cpp"],
-    copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
-    # linkopts=["-fsanitize=address"],  # Disabled - causes issues on macOS
-    linkstatic=True,  # Changed to True to ensure all symbols are linked
-    deps=[
+cc_test(
+    name = "test_grid_object",
+    srcs = ["test_grid_object.cpp"],
+    copts = COPTS + ["-Icpp/include/mettagrid", "-Itests"],
+    linkstatic = True,
+    size = "small",
+    deps = [
         "//packages/mettagrid:mettagrid_lib",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
 )
 
-cc_binary(
-    name="test_mettagrid_bin",
-    srcs=["test_mettagrid.cpp"],
-    copts=COPTS + ["-Itests"],
-    linkstatic=True,  # Ensure all symbols are linked
-    deps=[
+cc_test(
+    name = "test_mettagrid",
+    srcs = ["test_mettagrid.cpp"],
+    copts = COPTS + ["-Itests"],
+    linkstatic = True,
+    size = "small",
+    deps = [
         "//packages/mettagrid/cpp:mettagrid_bindings",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
 )
 
-cc_binary(
-    name="test_observations_bin",
-    srcs=["test_observations.cpp"],
-    copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
-    # linkopts=["-fsanitize=address"],  # Disabled - causes issues on macOS
-    linkstatic=True,  # Changed to True to ensure all symbols are linked
-    deps=[
+cc_test(
+    name = "test_observations",
+    srcs = ["test_observations.cpp"],
+    copts = COPTS + ["-Icpp/include/mettagrid", "-Itests"],
+    linkstatic = True,
+    size = "small",
+    deps = [
         "//packages/mettagrid:mettagrid_lib",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
 )
 
-cc_binary(
-    name="test_has_inventory_bin",
-    srcs=["test_has_inventory.cpp"],
-    copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
-    # linkopts=["-fsanitize=address"],  # Disabled - causes issues on macOS
-    linkstatic=True,  # Changed to True to ensure all symbols are linked
-    deps=[
+cc_test(
+    name = "test_has_inventory",
+    srcs = ["test_has_inventory.cpp"],
+    copts = COPTS + ["-Icpp/include/mettagrid", "-Itests"],
+    linkstatic = True,
+    size = "small",
+    deps = [
         "//packages/mettagrid:mettagrid_lib",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
 )
 
-cc_binary(
-    name="test_handler_bin",
-    srcs=["test_handler.cpp"],
-    copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
-    linkstatic=True,
-    deps=[
+# test_handler and test_tag_lifecycle define their own main() — no gtest dep.
+cc_test(
+    name = "test_handler",
+    srcs = ["test_handler.cpp"],
+    copts = COPTS + ["-Icpp/include/mettagrid", "-Itests"],
+    linkstatic = True,
+    size = "small",
+    deps = [
         "//packages/mettagrid:mettagrid_lib",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
 )
 
-cc_binary(
-    name="test_aoe_tracker_bin",
-    srcs=["test_aoe_tracker.cpp"],
-    copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
-    linkstatic=True,
-    deps=[
+cc_test(
+    name = "test_aoe_tracker",
+    srcs = ["test_aoe_tracker.cpp"],
+    copts = COPTS + ["-Icpp/include/mettagrid", "-Itests"],
+    linkstatic = True,
+    size = "small",
+    deps = [
         "//packages/mettagrid:mettagrid_lib",
         "@googletest//:gtest_main",
         "@rules_python//python/cc:current_py_cc_libs",
     ],
 )
 
-cc_binary(
-    name="test_tag_lifecycle_bin",
-    srcs=["test_tag_lifecycle.cpp"],
-    copts=COPTS + ["-Icpp/include/mettagrid", "-Itests"],
-    linkstatic=True,
-    deps=[
+cc_test(
+    name = "test_tag_lifecycle",
+    srcs = ["test_tag_lifecycle.cpp"],
+    copts = COPTS + ["-Icpp/include/mettagrid", "-Itests"],
+    linkstatic = True,
+    size = "small",
+    deps = [
         "//packages/mettagrid:mettagrid_lib",
         "@rules_python//python/cc:current_py_cc_libs",
-    ],
-)
-
-# Python test wrappers
-py_test(
-    name="test_stats_tracker",
-    srcs=["run_test.py"],
-    main="run_test.py",
-    args=["--bin=test_stats_tracker_bin"],
-    data=[":test_stats_tracker_bin"],
-    size="small",
-)
-
-py_test(
-    name="test_grid_object",
-    srcs=["run_test.py"],
-    main="run_test.py",
-    args=["--bin=test_grid_object_bin"],
-    data=[":test_grid_object_bin"],
-    size="small",
-)
-
-py_test(
-    name="test_mettagrid",
-    srcs=["run_test.py"],
-    main="run_test.py",
-    args=["--bin=test_mettagrid_bin"],
-    data=[":test_mettagrid_bin"],
-    size="small",
-)
-
-py_test(
-    name="test_observations",
-    srcs=["run_test.py"],
-    main="run_test.py",
-    args=["--bin=test_observations_bin"],
-    data=[":test_observations_bin"],
-    size="small",
-)
-
-py_test(
-    name="test_has_inventory",
-    srcs=["run_test.py"],
-    main="run_test.py",
-    args=["--bin=test_has_inventory_bin"],
-    data=[":test_has_inventory_bin"],
-    size="small",
-)
-
-py_test(
-    name="test_handler",
-    srcs=["run_test.py"],
-    main="run_test.py",
-    args=["--bin=test_handler_bin"],
-    data=[":test_handler_bin"],
-    size="small",
-)
-
-py_test(
-    name="test_aoe_tracker",
-    srcs=["run_test.py"],
-    main="run_test.py",
-    args=["--bin=test_aoe_tracker_bin"],
-    data=[":test_aoe_tracker_bin"],
-    size="small",
-)
-
-py_test(
-    name="test_tag_lifecycle",
-    srcs=["run_test.py"],
-    main="run_test.py",
-    args=["--bin=test_tag_lifecycle_bin"],
-    data=[":test_tag_lifecycle_bin"],
-    size="small",
-)
-
-# Test suite that runs all tests
-test_suite(
-    name="tests_all",
-    tests=[
-        ":test_stats_tracker",
-        ":test_grid_object",
-        ":test_mettagrid",
-        ":test_observations",
-        ":test_has_inventory",
-        ":test_handler",
-        ":test_aoe_tracker",
-        ":test_tag_lifecycle",
     ],
 )
