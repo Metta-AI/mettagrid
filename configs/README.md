@@ -1,4 +1,4 @@
-Configs in this directory are loaded with OmegaConf, without Hydra. So you can't use `defaults` lists in them or other
-Hydra-specific features.
+ASCII map files (`.map`) in this directory are loaded with PyYAML and validated with Pydantic via
+`MapBuilderConfig.from_uri()`. They do not support Hydra features like `defaults` lists.
 
-They are used in tests.
+They are used in tests and experiment recipes.

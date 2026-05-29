@@ -204,7 +204,7 @@ must already handle that shape.
 uv run python -c "import sys; print(sys.path)"
 
 # Test specific adapter import
-uv run python -c "from mettagrid import MettaGridPettingZooEnv; print('Import works')"
+uv run python -c "from mettagrid.envs.pettingzoo_env import MettaGridPettingZooEnv; print('Import works')"
 
 # Verbose demo run
 uv run python demos/demo_train_gym.py --verbose  # (if supported)
