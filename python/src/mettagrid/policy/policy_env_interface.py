@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Literal, Optional, cast
+from typing import Any, Literal, Optional
 
 import gymnasium as gym
 import numpy as np
@@ -14,9 +14,6 @@ from mettagrid.config.action_config import CHANGE_VIBE_PREFIX
 from mettagrid.config.id_map import ObservationFeatureSpec
 from mettagrid.config.mettagrid_config import MettaGridConfig, TalkConfig
 from mettagrid.mettagrid_c import dtype_observations
-
-if TYPE_CHECKING:
-    from mettagrid.protobuf.sim.policy_v1 import policy_pb2
 
 
 class PolicyEnvInterface(BaseModel):
@@ -239,67 +236,3 @@ class PolicyEnvInterface(BaseModel):
         payload["observation_low"] = self.observation_low
         payload["observation_high"] = self.observation_high
         return json.dumps(payload)
-
-    def to_proto(self) -> "policy_pb2.PolicyEnvInterface":
-        """Convert to protobuf PolicyEnvInterface message."""
-        from mettagrid.protobuf.sim.policy_v1 import policy_pb2  # noqa: PLC0415
-
-        proto = policy_pb2.PolicyEnvInterface(
-            obs_features=[
-                policy_pb2.GameRules.Feature(id=f.id, name=f.name, normalization=f.normalization)
-                for f in self.obs_features
-            ],
-            tags=list(self.tags),
-            action_names=self.all_action_names,
-            move_energy_cost=self.move_energy_cost if self.move_energy_cost is not None else -1,
-            num_agents=self.num_agents,
-            observation_shape=list(self.observation_shape),
-            obs_height=self.obs_height,
-            obs_width=self.obs_width,
-        )
-        if self.talk.enabled:
-            proto.talk.CopyFrom(
-                policy_pb2.TalkConfig(
-                    max_length=self.talk.max_length,
-                    cooldown_steps=self.talk.cooldown_steps,
-                )
-            )
-        return proto
-
-    @staticmethod
-    def from_proto(proto: "policy_pb2.PolicyEnvInterface") -> "PolicyEnvInterface":
-        """Create PolicyEnvInterface from protobuf message."""
-        proto_as_any = cast(Any, proto)
-        action_names = list(proto_as_any.action_names)
-        primary_action_names, vibe_action_names = PolicyEnvInterface._split_action_names(action_names)
-
-        return PolicyEnvInterface(
-            obs_features=[
-                ObservationFeatureSpec(
-                    id=f.id,
-                    name=f.name,
-                    normalization=f.normalization,
-                )
-                for f in proto_as_any.obs_features
-            ],
-            tags=list(proto_as_any.tags),
-            action_names=primary_action_names,
-            vibe_action_names=vibe_action_names,
-            move_energy_cost=proto_as_any.move_energy_cost if proto_as_any.move_energy_cost != -1 else None,
-            num_agents=proto_as_any.num_agents,
-            observation_shape=tuple(proto_as_any.observation_shape),
-            egocentric_shape=(proto_as_any.obs_height, proto_as_any.obs_width),
-            talk=(
-                TalkConfig(
-                    enabled=True,
-                    max_length=proto_as_any.talk.max_length,
-                    cooldown_steps=proto_as_any.talk.cooldown_steps,
-                )
-                if proto_as_any.HasField("talk")
-                else TalkConfig()
-            ),
-            observation_kind="token",
-            observation_dtype=dtype_observations.name,
-            observation_low=0.0,
-            observation_high=255.0,
-        )

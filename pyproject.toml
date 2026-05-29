@@ -27,7 +27,6 @@ dependencies = [
   "importnb>=2023.11.1",
   "pettingzoo>=1.25",
   "pydantic>=2.12.2",
-  "protobuf>=6.31.1",
   "pyyaml>=6.0.2",
   "scipy>=1.15.3",
   "scipy-stubs>=1.17.0.0",
@@ -41,13 +40,7 @@ dependencies = [
 train = ["pufferlib-core>=3.0.21"]
 
 [dependency-groups]
-testing = [
-  "pytest>=8.3.3",
-  "pytest-benchmark>=5.1.0",
-  "pytest-xdist>=3.8.0",
-  "freezegun>=1.5.0",
-  "grpcio-tools>=1.71.0",
-]
+testing = ["pytest>=8.3.3", "pytest-benchmark>=5.1.0", "pytest-xdist>=3.8.0", "freezegun>=1.5.0"]
 dev = [{ include-group = "testing" }]
 
 [tool.bazel]
