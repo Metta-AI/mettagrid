@@ -284,7 +284,7 @@ Add the test call early in any Python entrypoint that uses mettagrid:
 
 - Demo scripts (e.g., `packages/mettagrid/demos/demo_train_*.py`)
 - CLI entrypoints (e.g., `packages/cogames/src/cogames/main.py`)
-- Tool runners (e.g., `common/src/metta/common/tool/run_tool.py`)
+- Tool runners (e.g., `packages/metta-common/src/metta/common/tool/run_tool.py`)
 - Training scripts (e.g., `metta/tools/train.py`)
 
 **Note**: This test is only for verifying your debugging setup. Remove it before committing.
