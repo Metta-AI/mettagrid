@@ -50,13 +50,19 @@ def _bitworld_replay_string(value: str) -> bytes:
     return len(encoded).to_bytes(2, "little") + encoded
 
 
-def _bitworld_replay_header(game_version: str = "1", replay_format_version: int = 3) -> bytes:
+def _bitworld_replay_header(
+    game_version: str = "1",
+    replay_format_version: int = 3,
+    *,
+    magic: bytes = b"BITWORLD",
+    game_name: str = "among_them",
+) -> bytes:
     return (
-        b"BITWORLD"
+        magic
         + replay_format_version.to_bytes(2, "little")
         + b"".join(
             (
-                _bitworld_replay_string("among_them"),
+                _bitworld_replay_string(game_name),
                 _bitworld_replay_string(game_version),
                 (0).to_bytes(8, "little"),
                 _bitworld_replay_string("{}"),
@@ -121,6 +127,21 @@ def test_validate_bitworld_replay_bytes_accepts_current_among_them_format() -> N
     )
 
     validate_bitworld_replay_bytes(replay_bytes)
+
+
+def test_validate_bitworld_replay_bytes_accepts_current_crewrift_format() -> None:
+    replay_bytes = (
+        _bitworld_replay_header(magic=b"CREWRIFT", game_name="crewrift")
+        + _bitworld_join_record(0, 0, "player-0", 0, "token-0")
+        + _bitworld_input_record(42, 0, 32)
+        + _bitworld_hash_record(1)
+    )
+
+    validate_bitworld_replay_bytes(replay_bytes)
+    metadata = read_bitworld_replay_metadata(replay_bytes)
+    assert metadata.replay_format_version == 3
+    assert metadata.game_name == "crewrift"
+    assert metadata.game_version == "1"
 
 
 def test_validate_bitworld_replay_bytes_accepts_chat_replay_format() -> None:
@@ -209,6 +230,23 @@ def test_rewrite_bitworld_replay_names_preserves_chat_records() -> None:
         _bitworld_replay_header(game_version="2", replay_format_version=4)
         + _bitworld_join_record(10, 0, "alpha:v1", 0, "token-alpha")
         + _bitworld_chat_record(42, 0, "body in Nav")
+        + _bitworld_hash_record(1)
+    )
+
+
+def test_rewrite_bitworld_replay_names_preserves_crewrift_header() -> None:
+    replay_bytes = (
+        _bitworld_replay_header(magic=b"CREWRIFT", game_name="crewrift")
+        + _bitworld_join_record(10, 0, "Player2", 0, "token-alpha")
+        + _bitworld_hash_record(1)
+    )
+
+    rewritten = rewrite_bitworld_replay_names(replay_bytes, ["alpha:v1"])
+
+    validate_bitworld_replay_bytes(rewritten)
+    assert rewritten == (
+        _bitworld_replay_header(magic=b"CREWRIFT", game_name="crewrift")
+        + _bitworld_join_record(10, 0, "alpha:v1", 0, "token-alpha")
         + _bitworld_hash_record(1)
     )
 

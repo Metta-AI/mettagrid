@@ -36,8 +36,10 @@ GLOBAL_PATH = "/global"
 REWARD_PATH = "/reward"
 
 _BITWORLD_REPLAY_MAGIC = b"BITWORLD"
-_BITWORLD_REPLAY_GAME_NAME = "among_them"
-_BITWORLD_REPLAY_SUPPORTED_VERSIONS = ((3, "1"), (4, "2"))
+_CREWRIFT_REPLAY_MAGIC = b"CREWRIFT"
+_BITWORLD_REPLAY_MAGICS = (_BITWORLD_REPLAY_MAGIC, _CREWRIFT_REPLAY_MAGIC)
+_BITWORLD_REPLAY_GAME_NAMES = frozenset(("among_them", "crewrift"))
+_BITWORLD_REPLAY_SUPPORTED_VERSIONS = frozenset((("among_them", 3, "1"), ("among_them", 4, "2"), ("crewrift", 3, "1")))
 _BITWORLD_REPLAY_TICK_HASH_RECORD = 0x01
 _BITWORLD_REPLAY_INPUT_RECORD = 0x02
 _BITWORLD_REPLAY_JOIN_RECORD = 0x03
@@ -342,12 +344,17 @@ def _write_replay_string(value: str) -> bytes:
     return len(encoded).to_bytes(2, "little") + encoded
 
 
+def _read_replay_magic(data: bytes) -> bytes:
+    for magic in _BITWORLD_REPLAY_MAGICS:
+        if data.startswith(magic):
+            return magic
+    raise ValueError("BitWorld replay magic is not BITWORLD or CREWRIFT")
+
+
 def read_bitworld_replay_metadata(data: bytes | bytearray | memoryview) -> BitWorldReplayMetadata:
     raw = bytes(data)
-    if not raw.startswith(_BITWORLD_REPLAY_MAGIC):
-        raise ValueError("BitWorld replay magic is not BITWORLD")
-
-    offset = len(_BITWORLD_REPLAY_MAGIC)
+    magic = _read_replay_magic(raw)
+    offset = len(magic)
     replay_format_version, offset = _read_replay_uint(raw, offset, 2)
     game_name, offset = _read_replay_string(raw, offset)
     game_version, _offset = _read_replay_string(raw, offset)
@@ -359,23 +366,25 @@ def read_bitworld_replay_metadata(data: bytes | bytearray | memoryview) -> BitWo
 
 
 def _read_bitworld_replay_header(data: bytes) -> tuple[BitWorldReplayMetadata, int]:
-    if not data.startswith(_BITWORLD_REPLAY_MAGIC):
-        raise ValueError("BitWorld replay magic is not BITWORLD")
-
-    offset = len(_BITWORLD_REPLAY_MAGIC)
+    magic = _read_replay_magic(data)
+    offset = len(magic)
     replay_format_version, offset = _read_replay_uint(data, offset, 2)
     game_name, offset = _read_replay_string(data, offset)
     game_version, offset = _read_replay_string(data, offset)
     _game_seed, offset = _read_replay_uint(data, offset, 8)
     _config_json, offset = _read_replay_string(data, offset)
-    if game_name != _BITWORLD_REPLAY_GAME_NAME:
+    if game_name not in _BITWORLD_REPLAY_GAME_NAMES:
         raise ValueError(f"BitWorld replay game name does not match: {game_name}")
     metadata = BitWorldReplayMetadata(
         replay_format_version=replay_format_version,
         game_name=game_name,
         game_version=game_version,
     )
-    if (metadata.replay_format_version, metadata.game_version) not in _BITWORLD_REPLAY_SUPPORTED_VERSIONS:
+    if (
+        metadata.game_name,
+        metadata.replay_format_version,
+        metadata.game_version,
+    ) not in _BITWORLD_REPLAY_SUPPORTED_VERSIONS:
         raise ValueError(
             "Unsupported BitWorld replay version: "
             f"format {metadata.replay_format_version}, game {metadata.game_version}"
