@@ -1,7 +1,6 @@
 # AGENTS.md — mettagrid
 
-Public C++/Python/Nim grid environment. No internal Python deps (nothing in here may import `metta/` or
-`app_backend/`). `cogames` depends on this package, so treat its public API as load-bearing.
+Public C++/Python/Nim grid environment. No internal application dependencies. `cogames` depends on this package, so treat its public API as load-bearing.
 
 ## Build
 
@@ -9,7 +8,7 @@ Public C++/Python/Nim grid environment. No internal Python deps (nothing in here
 When you need the C++ artifacts directly:
 
 ```bash
-cd packages/mettagrid
+# Run from this repository root.
 bazel build --config=dbg //:mettagrid_c    # debug symbols (default for dev)
 bazel build --config=opt //:mettagrid_c    # optimized (use for benchmarks)
 ```
@@ -18,16 +17,16 @@ bazel build --config=opt //:mettagrid_c    # optimized (use for benchmarks)
 
 ```bash
 bazel test //...                                          # C++ unit tests + benchmarks
-uv run metta pytest packages/mettagrid/tests -v           # Python tests
-uv run metta pytest --changed                             # only tests affected by your changes
+uv run --group testing pytest tests -v                    # Python tests
 ```
 
 ## Lint
 
 ```bash
-uv run metta lint --fix                  # ruff for Python (also runs via the Edit/Write hook)
 bash tests/cpplint.sh                     # C++ style (config in CPPLINT.cfg)
 ```
+
+Use the lint configuration and checks supplied by this checkout; do not assume an external workspace wrapper.
 
 C++ static analysis runs through Bazel (`lint/clang_tidy.bzl`).
 
