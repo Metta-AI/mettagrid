@@ -1,49 +1,34 @@
 # AGENTS.md — mettagrid
 
-Public C++/Python/Nim grid environment. No internal Python deps (nothing in here may import `metta/` or
-`app_backend/`). `cogames` depends on this package, so treat its public API as load-bearing.
+Public C++/Python/Nim grid environment. No internal application dependencies. `cogames` depends on this package, so treat its public API as load-bearing.
 
-## Build
+## Development setup
 
-`uv sync` runs the Bazel build automatically via the custom build backend — you usually don't invoke Bazel by hand.
-When you need the C++ artifacts directly:
+This checkout contains the package sources and Bazel targets, but does not
+include a Bazel workspace definition (`MODULE.bazel` or `WORKSPACE`). Its
+build backend and version metadata still expect a containing workspace.
+A fresh standalone checkout therefore does not provide a complete source-build
+setup. Report that packaging gap before attempting native builds; do not assume
+access to a separate workspace or bypass the build backend.
 
-```bash
-cd packages/mettagrid
-bazel build --config=dbg //:mettagrid_c    # debug symbols (default for dev)
-bazel build --config=opt //:mettagrid_c    # optimized (use for benchmarks)
-```
-
-## Tests
+Once a compatible development environment and native extension are installed,
+run Python tests from this repository root:
 
 ```bash
-bazel test //...                                          # C++ unit tests + benchmarks
-uv run metta pytest packages/mettagrid/tests -v           # Python tests
-uv run metta pytest --changed                             # only tests affected by your changes
+python -m pytest tests -v
 ```
 
-## Lint
+The test dependencies are declared in the `testing` group in `pyproject.toml`.
+Use the package's Bazel targets from a configured build workspace for native
+tests and static analysis. Verify its target labels and configurations first.
+`tests/cpplint.sh` also assumes workspace-level configuration; inspect it before
+using it in a standalone checkout.
 
-```bash
-uv run metta lint --fix                  # ruff for Python (also runs via the Edit/Write hook)
-bash tests/cpplint.sh                     # C++ style (config in CPPLINT.cfg)
-```
-
-C++ static analysis runs through Bazel (`lint/clang_tidy.bzl`).
-
-## Code intelligence (clangd)
-
-The `clangd-lsp` plugin needs a `compile_commands.json`, which Bazel does not emit by default. Generate it with:
-
-```bash
-bazel run @hedron_compile_commands//:refresh_all
-```
-
-Re-run after changing `BUILD.bazel` targets or adding C++ files.
+For clangd, generate `compile_commands.json` using the configured build
+workspace's supported exporter. Regenerate it after build-target changes.
 
 ## Gotchas
 
-- `build/`, `dist/`, `bazel-*`, and `.bazel_output/` are generated. They are excluded from search via
-  `.claude/settings.json` deny rules — don't edit or read them.
+- `build/`, `dist/`, `bazel-*`, and `.bazel_output/` are generated. Keep them out of source edits and routine searches.
 - The Nim visualizer has its own conventions: see `nim/mettascope/AGENTS.md`.
 - Do not modify `proto/` schemas as part of a refactor; schema changes need explicit discussion.
